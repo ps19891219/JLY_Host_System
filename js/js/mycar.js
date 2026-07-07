@@ -7,6 +7,12 @@ function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function getNeed(car) {
+  const players = car.players || [];
+  const total = Number(car.totalPeople || 0);
+  return Math.max(total - players.length, 0);
+}
+
 function getAutoStatus(car) {
   if (car.status === "已完成") return "已完成";
   if (car.status === "已取消") return "已取消";
@@ -14,13 +20,8 @@ function getAutoStatus(car) {
   const players = car.players || [];
   const total = Number(car.totalPeople || 0);
 
-  return players.length >= total ? "已滿車" : "招募中";
-}
-
-function getNeed(car) {
-  const players = car.players || [];
-  const total = Number(car.totalPeople || 0);
-  return Math.max(total - players.length, 0);
+  if (total > 0 && players.length >= total) return "已滿車";
+  return "招募中";
 }
 
 async function renderMyCars() {
@@ -29,11 +30,7 @@ async function renderMyCars() {
 
   if (!list) return;
 
-  list.innerHTML = `
-    <div class="card">
-      <p>載入車輛中...</p>
-    </div>
-  `;
+  list.innerHTML = `<div class="card">載入中...</div>`;
 
   try {
     const snapshot = await db.collection("cars")
@@ -49,11 +46,7 @@ async function renderMyCars() {
     const keyword = (searchInput?.value || "").trim().toLowerCase();
 
     if (filter === "need") {
-      cars = cars.filter(car =>
-        getAutoStatus(car) !== "已完成" &&
-        getAutoStatus(car) !== "已取消" &&
-        getNeed(car) > 0
-      );
+      cars = cars.filter(car => getNeed(car) > 0);
     }
 
     if (filter === "full") {
@@ -82,7 +75,7 @@ async function renderMyCars() {
     if (cars.length === 0) {
       list.innerHTML = `
         <div class="card">
-          <h3>目前沒有符合的車</h3>
+          <h3>目前沒有車</h3>
         </div>
       `;
       return;
@@ -95,10 +88,11 @@ async function renderMyCars() {
 
       return `
         <div class="card" onclick="location.href='car-detail.html?id=${car.id}'">
-          <h3>🎭 ${car.scriptName}</h3>
+          <h3>🎭 ${car.scriptName || "未命名劇本"}</h3>
           <p>📅 ${car.gameDate || ""} ${car.gameTime || ""}</p>
           <p>🏠 ${car.studioName || "未填工作室"}</p>
           <p>🎲 DM：${car.dmName || "未填DM"}</p>
+          <p>💰 車資：${car.price || 0}</p>
           <p>👥 ${players.length} / ${car.totalPeople || 0}</p>
           <p>📌 狀態：${status}</p>
           <span class="badge">
@@ -113,7 +107,7 @@ async function renderMyCars() {
     list.innerHTML = `
       <div class="card">
         <h3>讀取失敗</h3>
-        <p>請檢查 Firebase 設定</p>
+        <p>Firebase 資料讀取錯誤</p>
       </div>
     `;
   }
