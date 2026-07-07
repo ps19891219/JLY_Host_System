@@ -1,3 +1,4 @@
+// Firebase 設定
 const firebaseConfig = {
   apiKey: "AIzaSyCUCSAkNXkxiLupfFRlo4XIjyB-KXfr0gE",
   authDomain: "jly-host-system.firebaseapp.com",
@@ -8,50 +9,71 @@ const firebaseConfig = {
   measurementId: "G-25N3VWQT8L"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-async function saveCarToFirebase(car) {
-  const carRef = await db.collection("cars").add(car);
-
-  await autoSaveMasterData("scripts", car.scriptName, {
-    defaultMaleSlots: car.maleSlots,
-    defaultFemaleSlots: car.femaleSlots,
-    defaultPrice: car.price
-  });
-
-  await autoSaveMasterData("studios", car.studioName, {});
-  await autoSaveMasterData("dms", car.dmName, {});
-
-  return carRef.id;
+// 初始化 Firebase（避免重複初始化）
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
 }
 
+// Firestore
+const db = firebase.firestore();
+
+// ★ 讓所有 JS 都可以使用 db
+window.db = db;
+
+// ==============================
+// 儲存開團
+// ==============================
+async function saveCarToFirebase(car) {
+    const carRef = await db.collection("cars").add(car);
+
+    await autoSaveMasterData("scripts", car.scriptName, {
+        defaultMaleSlots: car.maleSlots,
+        defaultFemaleSlots: car.femaleSlots,
+        defaultPrice: car.price
+    });
+
+    await autoSaveMasterData("studios", car.studioName, {});
+    await autoSaveMasterData("dms", car.dmName, {});
+
+    return carRef.id;
+}
+
+// ==============================
+// 自動建立主資料
+// ==============================
 async function autoSaveMasterData(collectionName, name, extraData = {}) {
-  if (!name) return;
 
-  const now = new Date().toISOString();
+    if (!name) return;
 
-  const snapshot = await db.collection(collectionName)
-    .where("name", "==", name)
-    .limit(1)
-    .get();
+    const now = new Date().toISOString();
 
-  if (snapshot.empty) {
-    await db.collection(collectionName).add({
-      name,
-      useCount: 1,
-      createdAt: now,
-      lastUsedAt: now,
-      ...extraData
-    });
-  } else {
-    const doc = snapshot.docs[0];
-    const data = doc.data();
+    const snapshot = await db.collection(collectionName)
+        .where("name", "==", name)
+        .limit(1)
+        .get();
 
-    await db.collection(collectionName).doc(doc.id).update({
-      useCount: (data.useCount || 0) + 1,
-      lastUsedAt: now,
-      ...extraData
-    });
-  }
+    if (snapshot.empty) {
+
+        await db.collection(collectionName).add({
+            name,
+            useCount: 1,
+            createdAt: now,
+            lastUsedAt: now,
+            ...extraData
+        });
+
+    } else {
+
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+
+        await db.collection(collectionName)
+            .doc(doc.id)
+            .update({
+                useCount: (data.useCount || 0) + 1,
+                lastUsedAt: now,
+                ...extraData
+            });
+
+    }
 }
