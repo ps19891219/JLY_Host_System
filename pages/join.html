@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>玩家報名</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>🙋 玩家報名</h1>
+
+    <input id="playerName" placeholder="玩家暱稱">
+
+    <select id="playerPosition">
+      <option value="男位">男位</option>
+      <option value="女位">女位</option>
+      <option value="不限">不限</option>
+    </select>
+
+    <button onclick="submitApplication()">
+      送出申請
+    </button>
+
+    <button class="gray" onclick="history.back()">
+      ⬅ 返回
+    </button>
+
+  </div>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/cars.js"></script>
+  <script src="../js/player.js"></script>
+
+</body>
+
+</html>

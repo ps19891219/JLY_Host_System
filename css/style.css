@@ -1,0 +1,18 @@
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Microsoft JhengHei",sans-serif}
+body{background:#f8f6f2;display:flex;justify-content:center;color:#2f2a24}
+.container{width:390px;min-height:100vh;background:#fff;padding:24px}
+.hero{text-align:center;margin:24px 0 36px}
+.jelly{font-size:68px}
+h1{font-size:28px;margin:12px 0}
+h2{font-size:22px;margin-bottom:8px}
+p{color:#777;margin:6px 0}
+button{width:100%;padding:16px;margin:8px 0;border:0;border-radius:15px;background:#5faf88;color:#fff;font-size:17px;font-weight:bold}
+button.secondary{background:#aaa}
+button.danger{background:#d36b5d}
+button.gray{background:#777}
+button:disabled{background:#ccc}
+input,select,textarea{width:100%;padding:14px;margin:8px 0;border:1px solid #ddd;border-radius:12px;font-size:16px}
+.card{background:#fffaf2;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 5px 15px rgba(0,0,0,.08)}
+.row{display:flex;gap:8px}
+.row button{flex:1}
+.badge{display:inline-block;padding:5px 10px;border-radius:999px;background:#e8f3ec;color:#3f7c5e;font-size:14px;margin-top:6px}

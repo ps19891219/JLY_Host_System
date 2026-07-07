@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JLY 主揪助手</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body onload="renderDashboard()">
+
+  <div class="container">
+
+    <div class="hero">
+      <div class="jelly">🐻</div>
+      <h1>JLY 主揪助手</h1>
+      <p>主揪工作台</p>
+    </div>
+
+    <div class="card" onclick="location.href='pages/mycar.html'">
+      <h3>🚗 開團中</h3>
+      <h1 id="activeCount">0</h1>
+    </div>
+
+    <div class="card" onclick="location.href='pages/mycar.html?filter=need'">
+      <h3>🔴 還缺人</h3>
+      <h1 id="needCount">0</h1>
+    </div>
+
+    <div class="card" onclick="location.href='pages/mycar.html?filter=full'">
+      <h3>🟢 已滿車</h3>
+      <h1 id="fullCount">0</h1>
+    </div>
+
+    <div class="card" onclick="location.href='pages/mycar.html?filter=today'">
+      <h3>📅 今天開團</h3>
+      <h1 id="todayCount">0</h1>
+    </div>
+
+    <button onclick="location.href='pages/createcar.html'">
+      ➕ 建立新車
+    </button>
+
+    <button class="gray" onclick="location.href='pages/mycar.html'">
+      🚗 我的車
+    </button>
+
+  </div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/cars.js"></script>
+  <script src="js/dashboard.js"></script>
+
+</body>
+
+</html>
