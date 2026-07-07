@@ -35,9 +35,7 @@ async function renderMyCars() {
   list.innerHTML = `<div class="card">載入中...</div>`;
 
   try {
-    const snapshot = await db.collection("cars")
-      .orderBy("createdAt", "desc")
-      .get();
+    const snapshot = await db.collection("cars").orderBy("createdAt", "desc").get();
 
     let cars = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -47,17 +45,9 @@ async function renderMyCars() {
     const filter = getFilter();
     const keyword = (searchInput?.value || "").trim().toLowerCase();
 
-    if (filter === "need") {
-      cars = cars.filter(car => getNeed(car) > 0);
-    }
-
-    if (filter === "full") {
-      cars = cars.filter(car => getAutoStatus(car) === "已滿車");
-    }
-
-    if (filter === "today") {
-      cars = cars.filter(car => car.gameDate === todayString());
-    }
+    if (filter === "need") cars = cars.filter(car => getNeed(car) > 0);
+    if (filter === "full") cars = cars.filter(car => getAutoStatus(car) === "已滿車");
+    if (filter === "today") cars = cars.filter(car => car.gameDate === todayString());
 
     if (keyword) {
       cars = cars.filter(car => {
@@ -75,11 +65,7 @@ async function renderMyCars() {
     }
 
     if (cars.length === 0) {
-      list.innerHTML = `
-        <div class="card">
-          <h3>目前沒有車</h3>
-        </div>
-      `;
+      list.innerHTML = `<div class="card"><h3>目前沒有車</h3></div>`;
       return;
     }
 
@@ -97,22 +83,16 @@ async function renderMyCars() {
           <p>💰 車資：${car.price || 0}</p>
           <p>👥 ${players.length} / ${car.totalPeople || 0}</p>
           <p>📌 狀態：${status}</p>
-          <span class="badge">
-            ${need > 0 ? "還缺 " + need + " 人" : "🎉 已滿車"}
-          </span>
+          <span class="badge">${need > 0 ? "還缺 " + need + " 人" : "🎉 已滿車"}</span>
         </div>
       `;
     }).join("");
 
   } catch (error) {
     console.error(error);
-    list.innerHTML = `
-      <div class="card">
-        <h3>讀取失敗</h3>
-        <p>Firebase 資料讀取錯誤</p>
-      </div>
-    `;
+    list.innerHTML = `<div class="card"><h3>讀取失敗</h3><p>Firebase 資料讀取錯誤</p></div>`;
   }
 }
 
 window.renderMyCars = renderMyCars;
+document.addEventListener("DOMContentLoaded", renderMyCars);
