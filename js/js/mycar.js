@@ -1,3 +1,5 @@
+console.log("mycar.js 已成功載入！");
+
 function getFilter() {
   const params = new URLSearchParams(location.search);
   return params.get("filter") || "all";
