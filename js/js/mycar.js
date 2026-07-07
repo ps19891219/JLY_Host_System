@@ -112,3 +112,5 @@ async function renderMyCars() {
     `;
   }
 }
+
+window.renderMyCars = renderMyCars;
