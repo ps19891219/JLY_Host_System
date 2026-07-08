@@ -1,55 +1,37 @@
-console.log("createcar.js 已成功載入！");
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的車</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
 
-document.addEventListener("DOMContentLoaded", function () {
-  const form = document.getElementById("createCarForm");
+<body>
+  <div class="container">
+    <h1>🚗 我的車</h1>
 
-  if (!form) return;
+    <input
+      id="searchInput"
+      placeholder="搜尋劇本、日期、工作室、DM"
+      autocomplete="off"
+    >
 
-  form.addEventListener("submit", async function (event) {
-    event.preventDefault();
+    <button type="button" onclick="location.href='createcar.html'">
+      ➕ 建立新車
+    </button>
 
-    const isHost = document.getElementById("isHost").checked;
+    <div id="carList"></div>
 
-    const car = {
-      scriptName: document.getElementById("scriptName").value.trim(),
-      gameDate: document.getElementById("gameDate").value,
-      gameTime: document.getElementById("gameTime").value,
-      studioName: document.getElementById("studioName").value.trim(),
-      dmName: document.getElementById("dmName").value.trim(),
-      totalPeople: Number(document.getElementById("totalPeople").value || 0),
-      maleSlots: Number(document.getElementById("maleSlots").value || 0),
-      femaleSlots: Number(document.getElementById("femaleSlots").value || 0),
-      price: Number(document.getElementById("price").value || 0),
+    <button class="gray" type="button" onclick="location.href='../index.html'">
+      🏠 回首頁
+    </button>
+  </div>
 
-      players: [],
-      status: "招募中",
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-      isHost: isHost,
-      role: isHost ? "host" : "record",
-      ownerType: isHost ? "self" : "other",
-      hostName: isHost ? "我" : "他人",
-
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    if (!car.scriptName) {
-      alert("請輸入劇本名稱");
-      return;
-    }
-
-    if (!car.gameDate) {
-      alert("請選擇日期");
-      return;
-    }
-
-    try {
-      await window.saveCarToFirebase(car);
-      alert("車團建立成功！");
-      location.href = "mycar.html";
-    } catch (error) {
-      console.error(error);
-      alert("建立失敗，請查看 Console 錯誤");
-    }
-  });
-});
+  <script src="/firebase/firebase.js?v=16"></script>
+  <script src="/js/mycar.js?v=16"></script>
+</body>
+</html>
