@@ -30,8 +30,20 @@ function getRoleText(car) {
   if (car.isHost === true || car.role === "host") {
     return "👑 我主揪";
   }
-
   return "🙋 我參加／紀錄";
+}
+
+async function deleteCar(carId) {
+  if (!confirm("確定要刪除這台車嗎？")) return;
+
+  try {
+    await window.db.collection("cars").doc(carId).delete();
+    alert("已刪除");
+    renderMyCars();
+  } catch (error) {
+    console.error("刪除失敗：", error);
+    alert("刪除失敗：" + error.message);
+  }
 }
 
 async function renderMyCars() {
@@ -59,10 +71,12 @@ async function renderMyCars() {
       .orderBy("createdAt", "desc")
       .get();
 
-    let cars = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    let cars = snapshot.docs.map(function (doc) {
+      return {
+        id: doc.id,
+        ...doc.data()
+      };
+    });
 
     const filter = getFilter();
     const keyword = (searchInput?.value || "").trim().toLowerCase();
@@ -80,7 +94,7 @@ async function renderMyCars() {
     }
 
     if (keyword) {
-      cars = cars.filter(car => {
+      cars = cars.filter(function (car) {
         const text = [
           car.scriptName || "",
           car.gameDate || "",
@@ -100,7 +114,7 @@ async function renderMyCars() {
       return;
     }
 
-    list.innerHTML = cars.map(car => {
+    list.innerHTML = cars.map(function (car) {
       const players = car.players || [];
       const status = getAutoStatus(car);
       const need = getNeed(car);
@@ -118,12 +132,18 @@ async function renderMyCars() {
           <p>👥 ${players.length} / ${car.totalPeople || 0}</p>
           <p>📌 狀態：${status}</p>
           <span class="badge">${badgeText}</span>
+
+          <div style="margin-top: 10px;">
+            <button type="button" class="gray" onclick="event.stopPropagation(); deleteCar('${car.id}')">
+              🗑️ 刪除
+            </button>
+          </div>
         </div>
       `;
     }).join("");
 
   } catch (error) {
-    console.error(error);
+    console.error("讀取失敗：", error);
     list.innerHTML = `
       <div class="card">
         <h3>讀取失敗</h3>
@@ -134,6 +154,7 @@ async function renderMyCars() {
 }
 
 window.renderMyCars = renderMyCars;
+window.deleteCar = deleteCar;
 
 document.addEventListener("DOMContentLoaded", function () {
   renderMyCars();
