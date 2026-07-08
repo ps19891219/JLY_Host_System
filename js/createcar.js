@@ -45,10 +45,10 @@ async function createCar() {
     await db.collection("cars").add(car);
     alert("車團建立成功！");
     location.href = "mycar.html";
-  } catch (error) {
-    console.error(error);
-    alert("建立失敗，請查看 Console 錯誤");
-  }
+catch (error) {
+    console.error("完整錯誤：", error);
+    alert(error.message);
+}
 }
 
 window.createCar = createCar;
