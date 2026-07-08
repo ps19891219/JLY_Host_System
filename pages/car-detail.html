@@ -1,37 +1,27 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>車輛資訊</title>
-
-    <link rel="stylesheet" href="../css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>車輛資訊</title>
+  <link rel="stylesheet" href="../css/style.css">
 </head>
 
-<body onload="renderCarDetail()">
-
-<div class="container">
-
+<body>
+  <div class="container">
     <div id="detailBox"></div>
 
     <br>
 
-    <button class="gray"
-        onclick="location.href='mycar.html'">
-
-        ⬅ 返回我的車
-
+    <button class="gray" onclick="location.href='mycar.html'">
+      ⬅ 返回我的車
     </button>
+  </div>
 
-</div>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-<script src="../js/storage.js"></script>
-<script src="../js/cars.js"></script>
-<script src="../js/playerDatabase.js"></script>
-<script src="../js/player.js"></script>
-<script src="../js/cardetail.js"></script>
-
+  <script src="/firebase/firebase.js?v=18"></script>
+  <script src="/js/cardetail.js?v=18"></script>
 </body>
-
 </html>
