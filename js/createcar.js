@@ -3,12 +3,24 @@ console.log("createcar.js 已成功載入！");
 document.addEventListener("DOMContentLoaded", function () {
   const form = document.getElementById("createCarForm");
 
-  if (!form) return;
+  if (!form) {
+    console.error("找不到 createCarForm");
+    return;
+  }
 
   form.addEventListener("submit", async function (event) {
     event.preventDefault();
 
+    const db = window.db;
+
+    if (!db) {
+      alert("Firebase 尚未載入，請重新整理");
+      console.error("window.db 不存在");
+      return;
+    }
+
     const isHost = document.getElementById("isHost").checked;
+    const now = new Date().toISOString();
 
     const car = {
       scriptName: document.getElementById("scriptName").value.trim(),
@@ -29,8 +41,8 @@ document.addEventListener("DOMContentLoaded", function () {
       ownerType: isHost ? "self" : "other",
       hostName: isHost ? "我" : "他人",
 
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: now,
+      updatedAt: now
     };
 
     if (!car.scriptName) {
@@ -44,11 +56,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     try {
-      await window.saveCarToFirebase(car);
+      await db.collection("cars").add(car);
+
       alert("車團建立成功！");
       location.href = "mycar.html";
+
     } catch (error) {
-      console.error(error);
+      console.error("建立車團失敗：", error);
       alert("建立失敗，請查看 Console 錯誤");
     }
   });
