@@ -1,57 +1,66 @@
-const firebaseConfig = {
-  apiKey: "AIzaSyCUCSAkNXkxiLupfFRlo4XIjyB-KXfr0gE",
-  authDomain: "jly-host-system.firebaseapp.com",
-  projectId: "jly-host-system",
-  storageBucket: "jly-host-system.firebasestorage.app",
-  messagingSenderId: "600556274479",
-  appId: "1:600556274479:web:2acfc0bcf3472fff13d7da",
-  measurementId: "G-25N3VWQT8L"
-};
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>建立新車</title>
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+    <link rel="stylesheet" href="../css/style.css">
+</head>
 
-async function saveCarToFirebase(car) {
-  const carRef = await db.collection("cars").add(car);
+<body>
 
-  await autoSaveMasterData("scripts", car.scriptName, {
-    defaultMaleSlots: car.maleSlots,
-    defaultFemaleSlots: car.femaleSlots,
-    defaultPrice: car.price
-  });
+<div class="container">
 
-  await autoSaveMasterData("studios", car.studioName, {});
-  await autoSaveMasterData("dms", car.dmName, {});
+    <h1>➕ 建立新車</h1>
 
-  return carRef.id;
-}
+    <form id="createCarForm">
 
-async function autoSaveMasterData(collectionName, name, extraData = {}) {
-  if (!name) return;
+        <label>劇本名稱</label>
+        <input id="scriptName" type="text">
 
-  const now = new Date().toISOString();
+        <label>日期</label>
+        <input id="gameDate" type="date">
 
-  const snapshot = await db.collection(collectionName)
-    .where("name", "==", name)
-    .limit(1)
-    .get();
+        <label>時間</label>
+        <input id="gameTime" type="time">
 
-  if (snapshot.empty) {
-    await db.collection(collectionName).add({
-      name,
-      useCount: 1,
-      createdAt: now,
-      lastUsedAt: now,
-      ...extraData
-    });
-  } else {
-    const doc = snapshot.docs[0];
-    const data = doc.data();
+        <label>工作室</label>
+        <input id="studioName" type="text">
 
-    await db.collection(collectionName).doc(doc.id).update({
-      useCount: (data.useCount || 0) + 1,
-      lastUsedAt: now,
-      ...extraData
-    });
-  }
-}
+        <label>DM</label>
+        <input id="dmName" type="text">
+
+        <label>總人數</label>
+        <input id="totalPeople" type="number" value="6">
+
+        <label>男生名額</label>
+        <input id="maleSlots" type="number" value="3">
+
+        <label>女生名額</label>
+        <input id="femaleSlots" type="number" value="3">
+
+        <label>車資</label>
+        <input id="price" type="number" value="0">
+
+        <button type="submit">
+            💾 建立車團
+        </button>
+
+    </form>
+
+    <button class="gray" onclick="location.href='mycar.html'">
+        🚗 返回我的車
+    </button>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script src="/firebase/firebase.js?v=11"></script>
+<script src="/js/storage.js?v=11"></script>
+<script src="/js/createcar.js?v=11"></script>
+
+</body>
+</html>
