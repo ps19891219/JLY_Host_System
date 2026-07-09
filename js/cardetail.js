@@ -117,8 +117,25 @@ async function approveApplication(index) {
 
   if (!app) return alert("找不到這筆申請");
 
+  const defaultName = app.name || app.playerName || "未命名玩家";
+
+  const hostAlias = prompt(
+    "主揪顯示名稱，可修改：",
+    defaultName
+  );
+
+  if (!hostAlias || !hostAlias.trim()) return;
+
+  const hostNote = prompt(
+    "主揪備註，可空白：",
+    ""
+  ) || "";
+
   players.push({
-    name: app.name,
+    playerName: defaultName,
+    name: hostAlias.trim(),
+    hostAlias: hostAlias.trim(),
+    hostNote: hostNote.trim(),
     position: app.role || app.position || "不限",
     roleChoice: app.role || app.position || "不限",
     isCrossPlay: app.isCrossPlay || false,
@@ -129,7 +146,11 @@ async function approveApplication(index) {
 
   applications.splice(index, 1);
 
-  const history = addHistory(car, "玩家加入", app.name + " 已核准加入車團");
+  const history = addHistory(
+    car,
+    "玩家加入",
+    hostAlias.trim() + " 已核准加入車團"
+  );
 
   await carRef.update({
     players,
@@ -158,7 +179,11 @@ async function rejectApplication(index) {
 
   applications.splice(index, 1);
 
-  const history = addHistory(car, "拒絕申請", (app?.name || "一位玩家") + " 的報名申請已被拒絕");
+  const history = addHistory(
+    car,
+    "拒絕申請",
+    (app?.name || "一位玩家") + " 的報名申請已被拒絕"
+  );
 
   await carRef.update({
     applications,
@@ -209,7 +234,7 @@ async function renderCarDetail() {
 
         ${
           car.status === "已取消"
-            ? <p>🚫 取消原因：${car.cancelReason || "未填寫"}</p>
+            ? `<p>🚫 取消原因：${car.cancelReason || "未填寫"}</p>`
             : ""
         }
 
@@ -237,9 +262,10 @@ async function renderCarDetail() {
             ? "<p>目前沒有申請</p>"
             : applications.map((app, index) => `
               <div class="card">
-                <p>👤 ${app.name}</p>
+                <p>👤 玩家填寫：${app.name || app.playerName || "未命名"}</p>
                 <p>🎭 ${app.role || app.position || "不限"}</p>
                 <p>${app.isCrossPlay ? "✅ 反串" : "未勾反串"}</p>
+
                 <button onclick="approveApplication(${index})">✅ 核准</button>
                 <button class="gray" onclick="rejectApplication(${index})">❌ 拒絕</button>
               </div>
@@ -253,7 +279,12 @@ async function renderCarDetail() {
           players.length === 0
             ? "<p>目前尚無玩家</p>"
             : players.map(player => `
-              <p>👤 ${player.name}｜${player.position || player.roleChoice || "不限"}${player.isCrossPlay ? "｜反串" : ""}</p>
+              <div class="card">
+                <p>👤 ${player.hostAlias || player.name || player.playerName || "未命名玩家"}</p>
+                <p>玩家填寫：${player.playerName || player.name || "未填"}</p>
+                <p>位置：${player.position || player.roleChoice || "不限"}${player.isCrossPlay ? "｜反串" : ""}</p>
+                ${player.hostNote ? <p>📝 主揪備註：${player.hostNote}</p> : ""}
+              </div>
             `).join("")
         }
       </div>

@@ -1,14 +1,54 @@
 console.log("createcar.js 已成功載入！");
 
+function nowTime() {
+  return new Date().toISOString();
+}
+
+function getRadioValue(name, defaultValue) {
+  const checked = document.querySelector(`input[name="${name}"]:checked`);
+  return checked ? checked.value : defaultValue;
+}
+
 function getPeopleMode() {
-  const checked = document.querySelector('input[name="peopleMode"]:checked');
-  return checked ? checked.value : "gender";
+  return getRadioValue("peopleMode", "gender");
 }
 
 function togglePeopleMode() {
   const mode = getPeopleMode();
-  document.getElementById("genderBox").style.display = mode === "gender" ? "block" : "none";
-  document.getElementById("totalBox").style.display = mode === "total" ? "block" : "none";
+
+  document.getElementById("genderBox").style.display =
+    mode === "gender" ? "block" : "none";
+
+  document.getElementById("totalBox").style.display =
+    mode === "total" ? "block" : "none";
+}
+
+async function findSameDayCars(gameDate) {
+  const db = window.db;
+
+  const snapshot = await db
+    .collection("cars")
+    .where("gameDate", "==", gameDate)
+    .get();
+
+  return snapshot.docs.map(function (doc) {
+    return {
+      id: doc.id,
+      ...doc.data()
+    };
+  });
+}
+
+function buildConflictMessage(cars) {
+  let text = "⚠️ 這一天你已經有車了：\n\n";
+
+  cars.forEach(function (car) {
+    text += `🎭 ${car.scriptName || "未命名劇本"}｜${car.gameTime || "時間未填"}\n`;
+  });
+
+  text += "\n是否仍要建立新的車？";
+
+  return text;
 }
 
 async function createCar() {
@@ -16,18 +56,33 @@ async function createCar() {
   if (!db) return alert("Firebase 尚未載入，請重新整理");
 
   const scriptName = document.getElementById("scriptName").value.trim();
-  const scriptImageUrl = document.getElementById("scriptImageUrl").value.trim();
   const gameDate = document.getElementById("gameDate").value;
   const gameTime = document.getElementById("gameTime").value;
   const locationName = document.getElementById("locationName").value.trim();
-  const studioName = document.getElementById("studioName").value.trim();
+  const organizerName = document.getElementById("organizerName").value.trim();
   const dmName = document.getElementById("dmName").value.trim();
   const priceInput = document.getElementById("price").value;
+  const note = document.getElementById("note").value.trim();
 
   if (!scriptName) return alert("請輸入劇本名稱");
   if (!gameDate) return alert("請選擇日期");
   if (!gameTime) return alert("請選擇時間");
   if (!locationName) return alert("請輸入地點");
+
+  const sameDayCars = await findSameDayCars(gameDate);
+
+  let conflictStatus = "none";
+  let conflictWithCarIds = [];
+
+  if (sameDayCars.length > 0) {
+    const keepGoing = confirm(buildConflictMessage(sameDayCars));
+    if (!keepGoing) return;
+
+    conflictStatus = "pending";
+    conflictWithCarIds = sameDayCars.map(function (car) {
+      return car.id;
+    });
+  }
 
   const peopleMode = getPeopleMode();
 
@@ -45,35 +100,54 @@ async function createCar() {
 
   if (totalPeople <= 0) return alert("請設定人數");
 
-  const isHost = document.getElementById("isHost").checked;
-  const isPlayer = document.getElementById("isPlayer").checked;
-  const now = new Date().toISOString();
+  const myRole = getRadioValue("myRole", "host");
+  const guestListVisibility = getRadioValue("guestListVisibility", "approved_only");
+  const visibility = getRadioValue("visibility", "private");
+
+  const now = nowTime();
 
   const car = {
     scriptName,
-    scriptImageUrl,
     gameDate,
     gameTime,
     locationName,
-    studioName,
+    organizerName,
+    studioName: organizerName,
     dmName,
     price: priceInput === "" ? null : Number(priceInput),
+    note,
 
     peopleMode,
     maleSlots,
     femaleSlots,
     totalPeople,
 
+    myRole,
+    isHost: myRole === "host",
+    isPlayer: myRole === "player",
+    isFavoriteCar: myRole === "favorite",
+
+    visibility,
+    guestListVisibility,
+
     players: [],
     applications: [],
-    history: [],
+    history: [
+      {
+        type: "建立車團",
+        text: "車團已建立",
+        time: now
+      }
+    ],
+
+    conflictStatus,
+    conflictWithCarIds,
+    conflictNote: "",
+
+    calendarStatus: "not_added",
+    calendarEventId: null,
 
     status: "招募中",
-    isHost,
-    isPlayer,
-    role: isHost ? "host" : "record",
-    ownerType: isHost ? "self" : "other",
-
     createdAt: now,
     updatedAt: now
   };

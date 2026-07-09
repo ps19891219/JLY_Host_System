@@ -174,7 +174,24 @@ async function loadJoinPage() {
     };
 
     const car = currentCar;
-    const applications = getApplications(car);
+const applications = getApplications(car);
+const players = getPlayers(car);
+
+// 取得目前玩家（先用 localStorage，之後改成 LINE）
+const myName = (localStorage.getItem("joinPlayerName") || "").trim();
+
+const myApplication = applications.find(function (app) {
+  return (app.name || "").trim().toLowerCase() === myName.toLowerCase();
+});
+
+const myPlayer = players.find(function (player) {
+  const checkName =
+    player.playerName ||
+    player.name ||
+    "";
+
+  return checkName.trim().toLowerCase() === myName.toLowerCase();
+});
 
     box.innerHTML = `
       <div class="card">
@@ -189,11 +206,39 @@ async function loadJoinPage() {
         ${car.note ? <p>📝 ${car.note}</p> : ""}
       </div>
 
+      ${
+  myPlayer
+    ? `
+      <div class="card">
+        <h3>🟢 你已加入這台車</h3>
+
+        <p>歡迎加入！等待開團即可。</p>
+
+        <button type="button">
+          👥 查看車友
+        </button>
+      </div>
+    `
+    : myApplication
+    ? `
+      <div class="card">
+        <h3>🟡 已送出報名</h3>
+
+        <p>目前等待主揪審核。</p>
+
+        <button disabled>
+          等待審核中
+        </button>
+      </div>
+    `
+    : `
       <button type="button" onclick="renderJoinForm()">
         🙋 我要報名
       </button>
 
       <div id="joinFormBox"></div>
+    `
+}
 
       <div class="card">
         <h3>📨 報名狀態</h3>
@@ -225,7 +270,7 @@ async function submitJoin() {
   const isCrossPlay = crossInput ? crossInput.checked : false;
 
   if (!name) {
-    alert("請輸入暱稱");
+    alert("請輸入玩家暱稱");
     return;
   }
 
@@ -239,28 +284,66 @@ async function submitJoin() {
     }
 
     const car = doc.data();
+
+    const players = car.players || [];
     const applications = car.applications || [];
 
-    applications.push({
-      name,
-      role,
-      position: role,
-      isCrossPlay,
-      status: "待審核",
-      source: "join_page",
-      createdAt: nowTime()
+    // ===== 防止重複報名 =====
+    const alreadyJoined = players.some(function (player) {
+      return (
+        (player.playerName || player.name || "")
+          .trim()
+          .toLowerCase() === name.toLowerCase()
+      );
     });
 
-    await carRef.update({
-      applications,
+    if (alreadyJoined) {
+      alert("你已經是這台車的玩家囉！");
+      return;
+    }
+
+    const alreadyApply = applications.some(function (app) {
+      return (
+        (app.name || "")
+          .trim()
+          .toLowerCase() === name.toLowerCase()
+      );
+    });
+
+    if (alreadyApply) {
+      alert("你已經送出過報名，請等待主揪審核。");
+      return;
+    }
+
+    // ===== 記住玩家 =====
+    localStorage.setItem("joinPlayerName", name);
+
+    applications.push({
+      name: name,
+      role: role,
+      position: role,
+      isCrossPlay: isCrossPlay,
+
+      status: "pending",
+
+      source: "join_page",
+
+      createdAt: nowTime(),
+
       updatedAt: nowTime()
     });
 
-    alert("已送出報名，等待主揪確認！");
-    loadJoinPage();
+    await carRef.update({
+      applications: applications,
+      updatedAt: nowTime()
+    });
+
+    alert("🎉 報名成功！等待主揪審核。");
+
+    await loadJoinPage();
 
   } catch (error) {
-    console.error("報名失敗：", error);
+    console.error(error);
     alert("報名失敗：" + error.message);
   }
 }
