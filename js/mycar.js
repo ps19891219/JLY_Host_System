@@ -13,7 +13,14 @@ function getPlayers(car) {
 }
 
 function getTotal(car) {
-  return Number(car.totalPeople || 0);
+  const total = Number(car.totalPeople || 0);
+  const male = Number(car.maleSlots || 0);
+  const female = Number(car.femaleSlots || 0);
+
+  if (total > 0) return total;
+  if (male + female > 0) return male + female;
+
+  return 0;
 }
 
 function getNeed(car) {
@@ -27,10 +34,7 @@ function getAutoStatus(car) {
   const total = getTotal(car);
   const players = getPlayers(car);
 
-  if (total > 0 && players.length >= total) {
-    return "已滿車";
-  }
-
+  if (total > 0 && players.length >= total) return "已滿車";
   return "招募中";
 }
 
@@ -87,6 +91,25 @@ async function deleteCar(carId, scriptName) {
   }
 }
 
+function buildImage(car) {
+  if (!car.scriptImageUrl) return "";
+
+  return `
+    <img
+      src="${car.scriptImageUrl}"
+      alt="${car.scriptName || "劇本圖片"}"
+      style="
+        width:100%;
+        max-height:180px;
+        object-fit:cover;
+        border-radius:12px;
+        margin-bottom:10px;
+      "
+      onerror="this.style.display='none'"
+    >
+  `;
+}
+
 function buildCarCard(car) {
   const players = getPlayers(car);
   const need = getNeed(car);
@@ -95,11 +118,13 @@ function buildCarCard(car) {
   const locationText = getLocationText(car);
 
   const badgeText = need > 0 ? "🟡 還缺 " + need + " 人" : "🎉 已滿車";
-  const dmLine = car.dmName ? `<p>🎲 DM：${car.dmName}</p>` : "";
-const locationLine = locationText ? `<p>📍 ${locationText}</p>` : "";
+  const dmLine = car.dmName ? <p>🎲 DM：${car.dmName}</p> : "";
+  const locationLine = locationText ? <p>📍 ${locationText}</p> : "";
 
   return `
     <div class="card" onclick="location.href='car-detail.html?id=${car.id}'">
+      ${buildImage(car)}
+
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <h3 style="margin:0;">🎭 ${car.scriptName || "未命名劇本"}</h3>
 
@@ -131,6 +156,7 @@ const locationLine = locationText ? `<p>📍 ${locationText}</p>` : "";
     </div>
   `;
 }
+
 async function renderMyCars() {
   const db = window.db;
   const list = document.getElementById("carList");
@@ -218,7 +244,6 @@ document.addEventListener("DOMContentLoaded", function () {
   renderMyCars();
 
   const searchInput = document.getElementById("searchInput");
-
   if (searchInput) {
     searchInput.addEventListener("input", renderMyCars);
   }

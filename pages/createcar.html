@@ -9,43 +9,78 @@
 
 <body>
   <div class="container">
-    <h1>➕ 建立新車</h1>
+    <h1>➕ 建立車團</h1>
 
-    <label>劇本名稱</label>
-    <input id="scriptName" type="text">
+    <div class="card">
+      <label>劇本名稱</label>
+      <input id="scriptName" type="text" placeholder="例：溫床">
 
-    <label>日期</label>
-    <input id="gameDate" type="date">
+      <label>劇本圖片網址</label>
+      <input id="scriptImageUrl" type="text" placeholder="選填，先貼圖片網址">
 
-    <label>時間</label>
-    <input id="gameTime" type="time">
+      <label>日期</label>
+      <input id="gameDate" type="date">
 
-    <label>工作室</label>
-    <input id="studioName" type="text">
+      <label>時間</label>
+      <input id="gameTime" type="time">
 
-    <label>DM</label>
-    <input id="dmName" type="text">
+      <label>地點</label>
+      <input id="locationName" type="text" placeholder="必填，例：莫忘工作室台北店">
 
-    <label>總人數</label>
-    <input id="totalPeople" type="number" value="6">
+      <label>工作室</label>
+      <input id="studioName" type="text" placeholder="選填">
 
-    <label>男生名額</label>
-    <input id="maleSlots" type="number" value="3">
+      <label>DM</label>
+      <input id="dmName" type="text" placeholder="選填">
 
-    <label>女生名額</label>
-    <input id="femaleSlots" type="number" value="3">
+      <label>車資</label>
+      <input id="price" type="number" min="0" placeholder="選填，未填會顯示未填寫">
 
-    <label>車資</label>
-    <input id="price" type="number" value="0">
+      <hr>
 
-    <label class="checkbox-row">
-      <input id="isHost" type="checkbox" checked>
-      這台車是我主揪
-    </label>
+      <label>人數配置</label>
 
-    <button type="button" onclick="createCar()">💾 建立車團</button>
+      <label class="checkbox-row">
+        <input type="radio" name="peopleMode" value="gender" checked onchange="togglePeopleMode()">
+        固定男女配置
+      </label>
 
-    <button class="gray" type="button" onclick="location.href='mycar.html'">
+      <label class="checkbox-row">
+        <input type="radio" name="peopleMode" value="total" onchange="togglePeopleMode()">
+        不限性別
+      </label>
+
+      <div id="genderBox">
+        <label>男位</label>
+        <input id="maleSlots" type="number" min="0" value="3">
+
+        <label>女位</label>
+        <input id="femaleSlots" type="number" min="0" value="3">
+      </div>
+
+      <div id="totalBox" style="display:none;">
+        <label>總人數</label>
+        <input id="totalPeople" type="number" min="1" value="6">
+      </div>
+
+      <hr>
+
+      <label class="checkbox-row">
+        <input id="isHost" type="checkbox" checked>
+        我是主揪
+      </label>
+
+      <label class="checkbox-row">
+        <input id="isPlayer" type="checkbox" checked>
+        我參加
+      </label>
+
+      <button type="button" onclick="createCar()">
+        💾 建立車團
+      </button>
+    </div>
+
+    <button class="gray" onclick="location.href='mycar.html'">
       🚗 返回我的車
     </button>
   </div>
@@ -53,7 +88,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-  <script src="/firebase/firebase.js?v=15"></script>
-  <script src="/js/createcar.js?v=15"></script>
+  <script src="/firebase/firebase.js?v=31"></script>
+  <script src="/js/createcar.js?v=31"></script>
 </body>
 </html>
