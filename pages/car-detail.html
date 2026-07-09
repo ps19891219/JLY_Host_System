@@ -13,6 +13,10 @@
 
     <br>
 
+    <button id="editCarBtn">
+      ✏️ 編輯車團
+    </button>
+
     <button class="gray" onclick="location.href='mycar.html'">
       ⬅ 返回我的車
     </button>
@@ -21,7 +25,19 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-  <script src="/firebase/firebase.js?v=18"></script>
-  <script src="/js/cardetail.js?v=18"></script>
+  <script src="/firebase/firebase.js?v=25"></script>
+  <script src="/js/cardetail.js?v=25"></script>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const carId = params.get("id");
+
+    const editBtn = document.getElementById("editCarBtn");
+    if (editBtn && carId) {
+      editBtn.onclick = function () {
+        location.href = "editcar.html?id=" + carId;
+      };
+    }
+  </script>
 </body>
 </html>
