@@ -366,6 +366,11 @@ window.toggleGuestList = toggleGuestList;
 
 window.showGuestList = showGuestList;
 
+function showGuestList() {
+    alert("👥 車友名單功能開發中");
+}
+
+window.showGuestList = showGuestList;
 window.renderJoinForm = renderJoinForm;
 window.submitJoin = submitJoin;
 
