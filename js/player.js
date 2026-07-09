@@ -1,106 +1,110 @@
-function saveApplication(carId, playerData) {
-    const cars = getCars();
-    const car = cars.find(car => String(car.id) === String(carId));
+console.log("player.js 已成功載入！");
 
-    if (!car) {
-        alert("找不到這台車");
-        return;
+// Player Module v1.0
+// 負責：玩家建立、搜尋、手動加入車團
+
+function createTempPlayerId() {
+  return "temp_" + Date.now();
+}
+
+function nowTime() {
+  return new Date().toISOString();
+}
+
+async function findPlayerByName(name) {
+  const db = window.db;
+  const snapshot = await db
+    .collection("players")
+    .where("nickname", "==", name)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) return null;
+
+  const doc = snapshot.docs[0];
+  return {
+    id: doc.id,
+    ...doc.data()
+  };
+}
+
+async function createManualPlayer(name) {
+  const db = window.db;
+  const now = nowTime();
+
+  const player = {
+    nickname: name,
+    lineDisplayName: "",
+    lineUserId: null,
+    isLineLinked: false,
+    createdByHost: true,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  const ref = await db.collection("players").add(player);
+
+  return {
+    id: ref.id,
+    ...player
+  };
+}
+
+async function getOrCreateManualPlayer(name) {
+  const existingPlayer = await findPlayerByName(name);
+
+  if (existingPlayer) {
+    return existingPlayer;
+  }
+
+  return await createManualPlayer(name);
+}
+
+async function addManualPlayerToCar(carId) {
+  const db = window.db;
+
+  const name = prompt("請輸入玩家名稱：");
+  if (!name || !name.trim()) return;
+
+  const roleChoice = prompt("請輸入位置：男位 / 女位 / 不限", "不限") || "不限";
+  const isCrossPlay = confirm("這位玩家是否反串？");
+
+  try {
+    const player = await getOrCreateManualPlayer(name.trim());
+
+    const carRef = db.collection("cars").doc(carId);
+    const carDoc = await carRef.get();
+
+    if (!carDoc.exists) {
+      alert("找不到這台車");
+      return;
     }
 
-    car.applications = car.applications || [];
-    car.history = car.history || [];
+    const car = carDoc.data();
+    const players = car.players || [];
 
-    car.applications.push({
-        id: createId(),
-        name: playerData.name,
-        position: playerData.position,
-        createdAt: new Date().toLocaleString("zh-TW")
+    players.push({
+      playerId: player.id,
+      name: player.nickname,
+      roleChoice,
+      isCrossPlay,
+      source: "manual",
+      status: "已加入",
+      joinedAt: nowTime()
     });
 
-    car.history.push({
-        time: new Date().toLocaleString("zh-TW"),
-        type: "申請",
-        text: `${playerData.name} 申請加入`
+    await carRef.update({
+      players,
+      updatedAt: nowTime()
     });
 
-    saveCars(cars);
+    alert("已加入玩家！");
+    location.reload();
+
+  } catch (error) {
+    console.error("手動加入玩家失敗：", error);
+    alert("加入失敗：" + error.message);
+  }
 }
 
-function submitApplication() {
-    const carId = new URLSearchParams(location.search).get("id");
-
-    const name = document.getElementById("playerName").value.trim();
-    const position = document.getElementById("playerPosition").value;
-
-    if (!name) {
-        alert("請填寫玩家暱稱");
-        return;
-    }
-
-    saveApplication(carId, { name, position });
-
-    alert("已送出申請，等待主揪確認！");
-    location.href = `car-detail.html?id=${carId}`;
-}
-
-function acceptPlayer(carId, appId) {
-    const cars = getCars();
-    const car = cars.find(car => String(car.id) === String(carId));
-
-    if (!car) return;
-
-    car.players = car.players || [];
-    car.applications = car.applications || [];
-    car.history = car.history || [];
-
-    const app = car.applications.find(item => String(item.id) === String(appId));
-    if (!app) return;
-
-    car.players.push({
-        id: createId(),
-        name: app.name,
-        position: app.position,
-        joinedAt: new Date().toLocaleString("zh-TW")
-    });
-
-    addPlayerToDatabase({
-        name: app.name,
-        position: app.position
-    });
-
-    car.applications = car.applications.filter(item => String(item.id) !== String(appId));
-
-    car.history.push({
-        time: new Date().toLocaleString("zh-TW"),
-        type: "玩家加入",
-        text: `${app.name} 加入車輛`
-    });
-
-    saveCars(cars);
-    renderCarDetail();
-}
-
-function rejectPlayer(carId, appId) {
-    const cars = getCars();
-    const car = cars.find(car => String(car.id) === String(carId));
-
-    if (!car) return;
-
-    car.applications = car.applications || [];
-    car.history = car.history || [];
-
-    const app = car.applications.find(item => String(item.id) === String(appId));
-
-    car.applications = car.applications.filter(item => String(item.id) !== String(appId));
-
-    if (app) {
-        car.history.push({
-            time: new Date().toLocaleString("zh-TW"),
-            type: "拒絕申請",
-            text: `${app.name} 被拒絕`
-        });
-    }
-
-    saveCars(cars);
-    renderCarDetail();
-}
+window.addManualPlayerToCar = addManualPlayerToCar;
