@@ -283,7 +283,7 @@ async function renderCarDetail() {
                 <p>👤 ${player.hostAlias || player.name || player.playerName || "未命名玩家"}</p>
                 <p>玩家填寫：${player.playerName || player.name || "未填"}</p>
                 <p>位置：${player.position || player.roleChoice || "不限"}${player.isCrossPlay ? "｜反串" : ""}</p>
-                ${player.hostNote ? <p>📝 主揪備註：${player.hostNote}</p> : ""}
+                ${player.hostNote ? `<p>📝 主揪備註：${player.hostNote}</p>` : ""}
               </div>
             `).join("")
         }
