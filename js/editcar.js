@@ -16,11 +16,6 @@ async function loadEditCar() {
     return;
   }
 
-  if (!carId) {
-    box.innerHTML = "<h3>找不到車團 ID</h3>";
-    return;
-  }
-
   try {
     const doc = await db.collection("cars").doc(carId).get();
 
@@ -42,7 +37,7 @@ async function loadEditCar() {
       <input id="gameTime" type="time" value="${car.gameTime || ""}">
 
       <label>地點</label>
-      <input id="locationName" value="${car.locationName || car.location || car.studioName || ""}">
+      <input id="locationName" value="${car.locationName || car.location || ""}">
 
       <label>工作室</label>
       <input id="studioName" value="${car.studioName || ""}">
@@ -53,8 +48,24 @@ async function loadEditCar() {
       <label>車資</label>
       <input id="price" type="number" value="${car.price || ""}">
 
+      <label>男位</label>
+      <input id="maleSlots" type="number" min="0" value="${car.maleSlots || 0}">
+
+      <label>女位</label>
+      <input id="femaleSlots" type="number" min="0" value="${car.femaleSlots || 0}">
+
       <label>總人數</label>
-      <input id="totalPeople" type="number" value="${car.totalPeople || 0}">
+      <input id="totalPeople" type="number" min="1" value="${car.totalPeople || 0}">
+
+      <label class="checkbox-row">
+        <input id="isHost" type="checkbox" ${car.isHost !== false ? "checked" : ""}>
+        我是主揪
+      </label>
+
+      <label class="checkbox-row">
+        <input id="isPlayer" type="checkbox" ${car.isPlayer === false ? "" : "checked"}>
+        我參加
+      </label>
 
       <button type="button" onclick="saveEditCar()">
         💾 儲存修改
@@ -70,37 +81,24 @@ async function saveEditCar() {
   const db = window.db;
   const carId = getCarId();
 
-  if (!db || !carId) {
-    alert("資料尚未載入");
-    return;
-  }
-
   const scriptName = document.getElementById("scriptName").value.trim();
   const gameDate = document.getElementById("gameDate").value;
   const gameTime = document.getElementById("gameTime").value;
   const locationName = document.getElementById("locationName").value.trim();
-
-  if (!scriptName) {
-    alert("請輸入劇本名稱");
-    return;
-  }
-
-  if (!gameDate) {
-    alert("請選擇日期");
-    return;
-  }
-
-  if (!gameTime) {
-    alert("請選擇時間");
-    return;
-  }
-
-  if (!locationName) {
-    alert("請輸入地點");
-    return;
-  }
-
   const priceInput = document.getElementById("price").value;
+
+  if (!scriptName) return alert("請輸入劇本名稱");
+  if (!gameDate) return alert("請選擇日期");
+  if (!gameTime) return alert("請選擇時間");
+  if (!locationName) return alert("請輸入地點");
+
+  const maleSlots = Number(document.getElementById("maleSlots").value || 0);
+  const femaleSlots = Number(document.getElementById("femaleSlots").value || 0);
+  let totalPeople = Number(document.getElementById("totalPeople").value || 0);
+
+  if (maleSlots + femaleSlots > 0) {
+    totalPeople = maleSlots + femaleSlots;
+  }
 
   const updatedCar = {
     scriptName,
@@ -110,7 +108,13 @@ async function saveEditCar() {
     studioName: document.getElementById("studioName").value.trim(),
     dmName: document.getElementById("dmName").value.trim(),
     price: priceInput === "" ? null : Number(priceInput),
-    totalPeople: Number(document.getElementById("totalPeople").value || 0),
+    maleSlots,
+    femaleSlots,
+    totalPeople,
+    isHost: document.getElementById("isHost").checked,
+    isPlayer: document.getElementById("isPlayer").checked,
+    role: document.getElementById("isHost").checked ? "host" : "record",
+    ownerType: document.getElementById("isHost").checked ? "self" : "other",
     updatedAt: new Date().toISOString()
   };
 
@@ -125,5 +129,4 @@ async function saveEditCar() {
 }
 
 window.saveEditCar = saveEditCar;
-
 document.addEventListener("DOMContentLoaded", loadEditCar);
