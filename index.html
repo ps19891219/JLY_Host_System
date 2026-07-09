@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,10 +7,8 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body onload="renderDashboard()">
-
+<body>
   <div class="container">
-
     <div class="hero">
       <div class="jelly">🐻</div>
       <h1>JLY 主揪助手</h1>
@@ -45,13 +42,12 @@
     <button class="gray" onclick="location.href='pages/mycar.html'">
       🚗 我的車
     </button>
-
   </div>
 
-  <script src="js/storage.js"></script>
-  <script src="js/cars.js"></script>
-  <script src="js/dashboard.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
+  <script src="/firebase/firebase.js?v=19"></script>
+  <script src="/js/app.js?v=19"></script>
 </body>
-
 </html>
