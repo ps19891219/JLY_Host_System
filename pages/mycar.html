@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>我的車</title>
+
   <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/mycar.css?v=3">
 </head>
 
 <body>
@@ -13,9 +15,15 @@
 
     <input
       id="searchInput"
-      placeholder="搜尋劇本、日期、工作室、DM"
+      placeholder="搜尋劇本、日期、地點、工作室、DM"
       autocomplete="off"
     >
+
+    <div class="mycar-tabs">
+      <button class="tab active" data-tab="all" onclick="setMyCarTab('all')">全部</button>
+      <button class="tab" data-tab="active" onclick="setMyCarTab('active')">開團中</button>
+      <button class="tab" data-tab="done" onclick="setMyCarTab('done')">已結束</button>
+    </div>
 
     <button type="button" onclick="location.href='createcar.html'">
       ➕ 建立新車
@@ -31,7 +39,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-  <script src="/firebase/firebase.js?v=31"></script>
-<script src="/js/mycar.js?v=31"></script>
+  <script src="/firebase/firebase.js?v=38"></script>
+  <script src="/js/carStatus.js?v=2"></script>
+  <script src="/js/carCard.js?v=3"></script>
+  <script src="/js/mycar.js?v=38"></script>
 </body>
 </html>
