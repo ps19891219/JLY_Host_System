@@ -1,27 +1,173 @@
 function getCarId() {
-  const params = new URLSearchParams(location.search);
-  return params.get("id");
+  return new URLSearchParams(location.search).get("id");
 }
 
-function getPositionCount(players, position) {
-  return players.filter(player => player.position === position).length;
+function nowTime() {
+  return new Date().toISOString();
+}
+
+function addHistory(car, type, text) {
+  const history = car.history || [];
+
+  history.push({
+    type,
+    text,
+    time: nowTime()
+  });
+
+  return history;
+}
+
+function getPlayers(car) {
+  return car.players || [];
+}
+
+function getTotal(car) {
+  const total = Number(car.totalPeople || 0);
+  const male = Number(car.maleSlots || 0);
+  const female = Number(car.femaleSlots || 0);
+
+  if (total > 0) return total;
+  if (male + female > 0) return male + female;
+  return 0;
 }
 
 function getNeed(car) {
-  const players = car.players || [];
-  const total = Number(car.totalPeople || 0);
-  return Math.max(total - players.length, 0);
+  return Math.max(getTotal(car) - getPlayers(car).length, 0);
 }
 
 function getAutoStatus(car) {
-  if (car.status === "已完成") return "已完成";
   if (car.status === "已取消") return "已取消";
+  if (car.status === "已結束") return "已結束";
+  return getNeed(car) <= 0 ? "已滿" : "招募中";
+}
 
+function getJoinUrl(carId) {
+  return location.origin + "/pages/join.html?id=" + carId;
+}
+
+function copyJoinUrl(carId) {
+  navigator.clipboard.writeText(getJoinUrl(carId));
+  alert("✅ 已複製玩家報名網址");
+}
+
+async function finishCar() {
+  if (!confirm("確定要將這台車標記為已結束嗎？")) return;
+
+  const db = window.db;
+  const carId = getCarId();
+  const carRef = db.collection("cars").doc(carId);
+  const doc = await carRef.get();
+
+  if (!doc.exists) return alert("找不到這台車");
+
+  const car = doc.data();
+  const history = addHistory(car, "已結束", "車團已標記為已結束");
+
+  await carRef.update({
+    status: "已結束",
+    endedAt: nowTime(),
+    history,
+    updatedAt: nowTime()
+  });
+
+  alert("已標記為已結束");
+  renderCarDetail();
+}
+
+async function cancelCar() {
+  const reason = prompt("請輸入取消原因，可空白：", "");
+
+  if (!confirm("確定要取消這台車嗎？取消後資料會保留。")) return;
+
+  const db = window.db;
+  const carId = getCarId();
+  const carRef = db.collection("cars").doc(carId);
+  const doc = await carRef.get();
+
+  if (!doc.exists) return alert("找不到這台車");
+
+  const car = doc.data();
+  const reasonText = reason && reason.trim() ? reason.trim() : "未填寫";
+  const history = addHistory(car, "已取消", "車團已取消，原因：" + reasonText);
+
+  await carRef.update({
+    status: "已取消",
+    cancelReason: reasonText,
+    cancelledAt: nowTime(),
+    history,
+    updatedAt: nowTime()
+  });
+
+  alert("已取消車團，紀錄已保留");
+  renderCarDetail();
+}
+async function approveApplication(index) {
+  const db = window.db;
+  const carId = getCarId();
+  const carRef = db.collection("cars").doc(carId);
+  const doc = await carRef.get();
+
+  if (!doc.exists) return alert("找不到這台車");
+
+  const car = doc.data();
+  const applications = car.applications || [];
   const players = car.players || [];
-  const total = Number(car.totalPeople || 0);
+  const app = applications[index];
 
-  if (total > 0 && players.length >= total) return "已滿車";
-  return "招募中";
+  if (!app) return alert("找不到這筆申請");
+
+  players.push({
+    name: app.name,
+    position: app.role || app.position || "不限",
+    roleChoice: app.role || app.position || "不限",
+    isCrossPlay: app.isCrossPlay || false,
+    source: app.source || "join_page",
+    status: "已加入",
+    joinedAt: nowTime()
+  });
+
+  applications.splice(index, 1);
+
+  const history = addHistory(car, "玩家加入", app.name + " 已核准加入車團");
+
+  await carRef.update({
+    players,
+    applications,
+    history,
+    updatedAt: nowTime()
+  });
+
+  alert("已核准加入！");
+  renderCarDetail();
+}
+
+async function rejectApplication(index) {
+  if (!confirm("確定要拒絕這筆申請嗎？")) return;
+
+  const db = window.db;
+  const carId = getCarId();
+  const carRef = db.collection("cars").doc(carId);
+  const doc = await carRef.get();
+
+  if (!doc.exists) return alert("找不到這台車");
+
+  const car = doc.data();
+  const applications = car.applications || [];
+  const app = applications[index];
+
+  applications.splice(index, 1);
+
+  const history = addHistory(car, "拒絕申請", (app?.name || "一位玩家") + " 的報名申請已被拒絕");
+
+  await carRef.update({
+    applications,
+    history,
+    updatedAt: nowTime()
+  });
+
+  alert("已拒絕申請");
+  renderCarDetail();
 }
 
 async function renderCarDetail() {
@@ -40,59 +186,47 @@ async function renderCarDetail() {
     const doc = await db.collection("cars").doc(carId).get();
 
     if (!doc.exists) {
-      box.innerHTML = `
-        <div class="card">
-          <h2>找不到這台車</h2>
-          <p>可能已被刪除。</p>
-        </div>
-      `;
+      box.innerHTML = `<div class="card"><h2>找不到這台車</h2></div>`;
       return;
     }
 
-    const car = {
-      id: doc.id,
-      ...doc.data()
-    };
-
+    const car = { id: doc.id, ...doc.data() };
     const players = car.players || [];
     const applications = car.applications || [];
     const history = car.history || [];
-
-    const maleCount = getPositionCount(players, "男位");
-    const femaleCount = getPositionCount(players, "女位");
-    const anyCount = getPositionCount(players, "不限");
-
-    const maleSlots = Number(car.maleSlots || 0);
-    const femaleSlots = Number(car.femaleSlots || 0);
-
-    const total = Number(car.totalPeople || 0);
-    const need = getNeed(car);
     const status = getAutoStatus(car);
 
     box.innerHTML = `
       <div class="card">
         <h2>🎭 ${car.scriptName || "未命名劇本"}</h2>
-        <p>${car.isHost ? "👑 我主揪" : "🙋 我參加／紀錄"}</p>
-        <p>📅 ${car.gameDate || ""} ${car.gameTime || ""}</p>
-        <p>🏠 ${car.studioName || "未填工作室"}</p>
-        <p>🎲 DM：${car.dmName || "未填DM"}</p>
-        <p>💰 車資：${car.price || 0}</p>
+        <p>📅 ${car.gameDate || "日期未定"} ${car.gameTime || ""}</p>
+        <p>📍 ${car.locationName || car.location || "地點未填"}</p>
+        <p>🏠 ${car.organizerName || car.studioName || "開團單位未填"}</p>
+        <p>🎲 DM：${car.dmName || "未填"}</p>
+        <p>💰 車資：${car.price || "未填"}</p>
         <p>📌 狀態：${status}</p>
         <p>📝 備註：${car.note || "無"}</p>
 
+        ${
+          car.status === "已取消"
+            ? <p>🚫 取消原因：${car.cancelReason || "未填寫"}</p>
+            : ""
+        }
+
         <hr>
 
-        <p>👦 男位：${maleCount} / ${maleSlots}</p>
-        <p>👧 女位：${femaleCount} / ${femaleSlots}</p>
-        <p>👤 不限：${anyCount}</p>
-        <p>👥 總計：${players.length} / ${total}</p>
-
-        <span class="badge">${need > 0 ? "還缺 " + need + " 人" : "🎉 已滿車"}</span>
+        <p>👦 男位：${car.maleSlots || 0}</p>
+        <p>👧 女位：${car.femaleSlots || 0}</p>
+        <p>👥 已加入：${players.length} 人</p>
+        <span class="badge">${getNeed(car) > 0 ? "還缺 " + getNeed(car) + " 人" : "🎉 已滿"}</span>
       </div>
 
       <button onclick="copyJoinUrl('${car.id}')">📋 複製報名網址</button>
-
       <button onclick="location.href='join.html?id=${car.id}'">🔗 開啟玩家報名頁</button>
+      <button onclick="location.href='editcar.html?id=${car.id}'">✏️ 編輯車團</button>
+
+      <button onclick="finishCar()">✅ 標記已結束</button>
+      <button class="gray" onclick="cancelCar()">❌ 取消車團</button>
 
       <button class="gray" onclick="location.href='mycar.html'">← 返回我的車</button>
 
@@ -101,10 +235,13 @@ async function renderCarDetail() {
         ${
           applications.length === 0
             ? "<p>目前沒有申請</p>"
-            : applications.map(app => `
+            : applications.map((app, index) => `
               <div class="card">
                 <p>👤 ${app.name}</p>
-                <p>🎭 ${app.position}</p>
+                <p>🎭 ${app.role || app.position || "不限"}</p>
+                <p>${app.isCrossPlay ? "✅ 反串" : "未勾反串"}</p>
+                <button onclick="approveApplication(${index})">✅ 核准</button>
+                <button class="gray" onclick="rejectApplication(${index})">❌ 拒絕</button>
               </div>
             `).join("")
         }
@@ -115,7 +252,9 @@ async function renderCarDetail() {
         ${
           players.length === 0
             ? "<p>目前尚無玩家</p>"
-            : players.map(player => `<p>👤 ${player.name}｜${player.position}</p>`).join("")
+            : players.map(player => `
+              <p>👤 ${player.name}｜${player.position || player.roleChoice || "不限"}${player.isCrossPlay ? "｜反串" : ""}</p>
+            `).join("")
         }
       </div>
 
@@ -124,28 +263,25 @@ async function renderCarDetail() {
         ${
           history.length === 0
             ? "<p>目前沒有紀錄</p>"
-            : history.map(item => `
-              <p>${item.time}</p>
-              <p>${item.type}｜${item.text}</p>
+            : history.slice().reverse().map(item => `
+              <p><strong>${item.type}</strong></p>
+              <p>${item.text}</p>
+              <small>${item.time || ""}</small>
               <hr>
             `).join("")
         }
       </div>
     `;
-
   } catch (error) {
     console.error(error);
     box.innerHTML = `<div class="card"><h2>讀取失敗</h2><p>${error.message}</p></div>`;
   }
 }
 
-function getJoinUrl(carId) {
-  return `${location.origin}${location.pathname.replace("car-detail.html", "join.html")}?id=${carId}`;
-}
-
-function copyJoinUrl(carId) {
-  navigator.clipboard.writeText(getJoinUrl(carId));
-  alert("✅ 已複製玩家報名網址");
-}
+window.copyJoinUrl = copyJoinUrl;
+window.approveApplication = approveApplication;
+window.rejectApplication = rejectApplication;
+window.finishCar = finishCar;
+window.cancelCar = cancelCar;
 
 document.addEventListener("DOMContentLoaded", renderCarDetail);

@@ -1,110 +1,157 @@
-console.log("player.js 已成功載入！");
-
-// Player Module v1.0
-// 負責：玩家建立、搜尋、手動加入車團
-
-function createTempPlayerId() {
-  return "temp_" + Date.now();
-}
+console.log("players.js 已成功載入！");
 
 function nowTime() {
   return new Date().toISOString();
 }
 
-async function findPlayerByName(name) {
-  const db = window.db;
-  const snapshot = await db
-    .collection("players")
-    .where("nickname", "==", name)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) return null;
-
-  const doc = snapshot.docs[0];
-  return {
-    id: doc.id,
-    ...doc.data()
-  };
+function getPlayerListBox() {
+  return document.getElementById("playerList");
 }
 
-async function createManualPlayer(name) {
+async function createGuestPlayer() {
   const db = window.db;
-  const now = nowTime();
+  const name = document.getElementById("newPlayerName").value.trim();
+  const note = document.getElementById("newPlayerNote").value.trim();
+
+  if (!db) return alert("Firebase 尚未載入");
+  if (!name) return alert("請輸入玩家暱稱");
 
   const player = {
+    displayName: name,
     nickname: name,
-    lineDisplayName: "",
-    lineUserId: null,
+    note,
+    source: "manual",
+    type: "guest",
     isLineLinked: false,
-    createdByHost: true,
-    createdAt: now,
-    updatedAt: now
+    lineUserId: null,
+    lineDisplayName: "",
+    linePictureUrl: "",
+    playCount: 0,
+    createdAt: nowTime(),
+    updatedAt: nowTime()
   };
 
-  const ref = await db.collection("players").add(player);
+  await db.collection("players").add(player);
 
-  return {
-    id: ref.id,
-    ...player
-  };
+  document.getElementById("newPlayerName").value = "";
+  document.getElementById("newPlayerNote").value = "";
+
+  alert("已新增訪客玩家");
+  renderPlayers();
 }
 
-async function getOrCreateManualPlayer(name) {
-  const existingPlayer = await findPlayerByName(name);
+async function deletePlayer(playerId, name) {
+  if (!confirm("確定要刪除「" + name + "」嗎？")) return;
 
-  if (existingPlayer) {
-    return existingPlayer;
+  await window.db.collection("players").doc(playerId).delete();
+  alert("已刪除玩家");
+  renderPlayers();
+}
+
+async function editPlayer(playerId) {
+  const db = window.db;
+  const doc = await db.collection("players").doc(playerId).get();
+
+  if (!doc.exists) return alert("找不到玩家");
+
+  const player = doc.data();
+
+  const newName = prompt("玩家暱稱", player.nickname || player.displayName || "");
+  if (!newName || !newName.trim()) return;
+
+  const newNote = prompt("備註", player.note || "") || "";
+
+  await db.collection("players").doc(playerId).update({
+    displayName: newName.trim(),
+    nickname: newName.trim(),
+    note: newNote.trim(),
+    updatedAt: nowTime()
+  });
+
+  alert("已更新玩家");
+  renderPlayers();
+}
+
+function buildPlayerCard(player) {
+  const linkedText = player.isLineLinked ? "🟢 已串 LINE" : "🟡 訪客玩家";
+
+  return `
+    <div class="card">
+      <h3>👤 ${player.nickname || player.displayName || "未命名玩家"}</h3>
+      <p>${linkedText}</p>
+      <p>📝 ${player.note || "無備註"}</p>
+      <p>📚 已玩：${player.playCount || 0} 本</p>
+
+      <button type="button" onclick="editPlayer('${player.id}')">✏️ 編輯</button>
+      <button class="gray" type="button" onclick="deletePlayer('${player.id}', '${player.nickname || player.displayName || "玩家"}')">
+        🗑️ 刪除
+      </button>
+    </div>
+  `;
+}
+
+async function renderPlayers() {
+  const db = window.db;
+  const box = getPlayerListBox();
+  const input = document.getElementById("playerSearchInput");
+
+  if (!box) return;
+  if (!db) {
+    box.innerHTML = `<div class="card"><h3>Firebase 尚未載入</h3></div>`;
+    return;
   }
 
-  return await createManualPlayer(name);
-}
+  box.innerHTML = `<div class="card">載入中...</div>`;
 
-async function addManualPlayerToCar(carId) {
-  const db = window.db;
-
-  const name = prompt("請輸入玩家名稱：");
-  if (!name || !name.trim()) return;
-
-  const roleChoice = prompt("請輸入位置：男位 / 女位 / 不限", "不限") || "不限";
-  const isCrossPlay = confirm("這位玩家是否反串？");
+  const keyword = (input && input.value ? input.value : "").trim().toLowerCase();
 
   try {
-    const player = await getOrCreateManualPlayer(name.trim());
+    const snapshot = await db.collection("players").orderBy("createdAt", "desc").get();
 
-    const carRef = db.collection("cars").doc(carId);
-    const carDoc = await carRef.get();
+    let players = snapshot.docs.map(function (doc) {
+      return {
+        id: doc.id,
+        ...doc.data()
+      };
+    });
 
-    if (!carDoc.exists) {
-      alert("找不到這台車");
+    if (keyword) {
+      players = players.filter(function (player) {
+        const text = [
+          player.nickname || "",
+          player.displayName || "",
+          player.lineDisplayName || "",
+          player.note || "",
+          player.type || "",
+          player.source || ""
+        ].join(" ").toLowerCase();
+
+        return text.includes(keyword);
+      });
+    }
+
+    if (players.length === 0) {
+      box.innerHTML = `<div class="card"><h3>目前沒有玩家資料</h3></div>`;
       return;
     }
 
-    const car = carDoc.data();
-    const players = car.players || [];
-
-    players.push({
-      playerId: player.id,
-      name: player.nickname,
-      roleChoice,
-      isCrossPlay,
-      source: "manual",
-      status: "已加入",
-      joinedAt: nowTime()
-    });
-
-    await carRef.update({
-      players,
-      updatedAt: nowTime()
-    });
-
-    alert("已加入玩家！");
-    location.reload();
+    box.innerHTML = players.map(buildPlayerCard).join("");
 
   } catch (error) {
-    console.error("手動加入玩家失敗：", error);
-    alert("加入失敗：" + error.message);
+    console.error("讀取玩家失敗：", error);
+    box.innerHTML = `<div class="card"><h3>讀取失敗</h3><p>${error.message}</p></div>`;
   }
 }
 
-window.addManualPlayerToCar = addManualPlayerToCar;
+window.createGuestPlayer = createGuestPlayer;
+window.editPlayer = editPlayer;
+window.deletePlayer = deletePlayer;
+
+document.addEventListener("DOMContentLoaded", function () {
+  renderPlayers();
+
+  const input = document.getElementById("playerSearchInput");
+  if (input) {
+    input.addEventListener("input", renderPlayers);
+  }
+});

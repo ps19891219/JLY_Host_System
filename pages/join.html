@@ -3,41 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>玩家報名</title>
+  <title>加入車團</title>
   <link rel="stylesheet" href="../css/style.css">
 </head>
 
 <body>
   <div class="container">
-    <h1>🔗 玩家報名</h1>
+    <h1>🎭 車團報名</h1>
 
-    <div id="joinInfo" class="card">載入中...</div>
-
-    <div class="card">
-      <label>測試用暱稱(未來會改 LINE)</label>
-      <input id="playerName" type="text" placeholder="請輸入暱稱">
-
-      <label>位置</label>
-      <select id="playerPosition">
-        <option value="不限">不限</option>
-        <option value="男位">男位</option>
-        <option value="女位">女位</option>
-      </select>
-
-      <button type="button" onclick="sendApplication()">
-        🙋 我要報名
-      </button>
+    <div id="joinBox" class="card">
+      載入中...
     </div>
-
-    <button class="gray" onclick="location.href='mycar.html'">
-      ⬅ 返回我的車
-    </button>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-  <script src="/firebase/firebase.js?v=20"></script>
-  <script src="/js/join.js?v=20"></script>
+  <script src="/firebase/firebase.js?v=39"></script>
+  <script src="/js/join.js?v=2"></script>
 </body>
 </html>

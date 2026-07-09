@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>玩家資料庫</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+  <div class="container">
+    <h1>👥 玩家資料庫</h1>
+
+    <input
+      id="playerSearchInput"
+      placeholder="搜尋玩家暱稱、LINE名稱、備註"
+      autocomplete="off"
+    >
+
+    <div class="card">
+      <h3>➕ 新增訪客玩家</h3>
+
+      <label>玩家暱稱</label>
+      <input id="newPlayerName" placeholder="例：小梅">
+
+      <label>備註</label>
+      <textarea id="newPlayerNote" placeholder="選填，例如：常玩男角、熟人、可反串"></textarea>
+
+      <button type="button" onclick="createGuestPlayer()">
+        新增玩家
+      </button>
+    </div>
+
+    <div id="playerList"></div>
+
+    <button class="gray" type="button" onclick="location.href='../index.html'">
+      🏠 回首頁
+    </button>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script src="/firebase/firebase.js?v=43"></script>
+  <script src="/js/players.js?v=1"></script>
+</body>
+</html>
