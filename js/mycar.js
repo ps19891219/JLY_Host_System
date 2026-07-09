@@ -95,8 +95,8 @@ function buildCarCard(car) {
   const locationText = getLocationText(car);
 
   const badgeText = need > 0 ? "🟡 還缺 " + need + " 人" : "🎉 已滿車";
-  const dmLine = car.dmName ? <p>🎲 DM：${car.dmName}</p> : "";
-const locationLine = locationText ? <p>📍 ${locationText}</p> : "";
+  const dmLine = car.dmName ? ˋ<p>🎲 DM：${car.dmName}</p> ˋ: "";
+const locationLine = locationText ? ˋ<p>📍 ${locationText}</p>ˋ : "";
 
   return `
     <div class="card" onclick="location.href='car-detail.html?id=${car.id}'">
