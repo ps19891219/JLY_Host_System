@@ -203,7 +203,7 @@ const myPlayer = players.find(function (player) {
         <p>💰 車資：${car.price || "未填"}</p>
         <p>👤 目前${getNeedText(car)}</p>
 
-        ${car.note ? <p>📝 ${car.note}</p> : ""}
+        ${car.note ? `<p>📝 ${car.note}</p>` : ""}
       </div>
 
       ${
