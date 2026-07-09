@@ -20,7 +20,10 @@ function getAutoStatus(car) {
   if (car.status === "已完成") return "已完成";
   if (car.status === "已取消") return "已取消";
 
-  if (getTotal(car) > 0 && getPlayers(car).length >= getTotal(car)) {
+  const total = getTotal(car);
+  const players = getPlayers(car);
+
+  if (total > 0 && players.length >= total) {
     return "已滿車";
   }
 
@@ -48,9 +51,9 @@ async function renderDashboard() {
       return status !== "已完成" && status !== "已取消";
     });
 
-    const need = active.filter(car => getNeed(car) > 0);
-    const full = active.filter(car => getAutoStatus(car) === "已滿車");
-    const today = active.filter(car => car.gameDate === todayString());
+    const needCars = active.filter(car => getNeed(car) > 0);
+    const fullCars = active.filter(car => getTotal(car) > 0 && getNeed(car) === 0);
+    const todayCars = active.filter(car => car.gameDate === todayString());
 
     const activeCount = document.getElementById("activeCount");
     const needCount = document.getElementById("needCount");
@@ -58,13 +61,23 @@ async function renderDashboard() {
     const todayCount = document.getElementById("todayCount");
 
     if (activeCount) activeCount.innerText = active.length;
-    if (needCount) needCount.innerText = need.length;
-    if (fullCount) fullCount.innerText = full.length;
-    if (todayCount) todayCount.innerText = today.length;
+    if (needCount) needCount.innerText = needCars.length;
+    if (fullCount) fullCount.innerText = fullCars.length;
+    if (todayCount) todayCount.innerText = todayCars.length;
+
+    console.log("首頁統計", {
+      全部: cars.length,
+      開團中: active.length,
+      還缺人: needCars.length,
+      已滿車: fullCars.length,
+      今天開團: todayCars.length
+    });
 
   } catch (error) {
     console.error("首頁統計讀取失敗：", error);
   }
 }
+
+window.renderDashboard = renderDashboard;
 
 document.addEventListener("DOMContentLoaded", renderDashboard);
