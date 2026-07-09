@@ -1,8 +1,7 @@
 console.log("mycar.js 已成功載入！");
 
 function getFilter() {
-  const params = new URLSearchParams(location.search);
-  return params.get("filter") || "all";
+  return new URLSearchParams(location.search).get("filter") || "all";
 }
 
 function todayString() {
@@ -19,22 +18,43 @@ function getAutoStatus(car) {
   if (car.status === "已完成") return "已完成";
   if (car.status === "已取消") return "已取消";
 
-  const players = car.players || [];
   const total = Number(car.totalPeople || 0);
+  const players = car.players || [];
 
   if (total > 0 && players.length >= total) return "已滿車";
   return "招募中";
 }
 
 function getRoleText(car) {
+  const tags = [];
+
   if (car.isHost === true || car.role === "host") {
-    return "👑 我主揪";
+    tags.push("👑 我主揪");
   }
-  return "🙋 我參加／紀錄";
+
+  if (car.isPlayer === false) {
+    tags.push("🚫 我不在車上");
+  } else {
+    tags.push("🙋 我參加");
+  }
+
+  return tags.join("　");
 }
 
-async function deleteCar(carId) {
-  if (!confirm("確定要刪除這台車嗎？")) return;
+function getPriceText(car) {
+  if (car.price === undefined || car.price === null || car.price === "" || Number(car.price) <= 0) {
+    return "💰 未填寫 ⚠️";
+  }
+
+  return "💰 " + car.price + " 元";
+}
+
+function getLocationText(car) {
+  return car.locationName || car.location || car.studioName || "";
+}
+
+async function deleteCar(carId, scriptName) {
+  if (!confirm(`確定要刪除「${scriptName || "這台車"}」嗎？`)) return;
 
   try {
     await window.db.collection("cars").doc(carId).delete();
@@ -71,36 +91,28 @@ async function renderMyCars() {
       .orderBy("createdAt", "desc")
       .get();
 
-    let cars = snapshot.docs.map(function (doc) {
-      return {
-        id: doc.id,
-        ...doc.data()
-      };
-    });
+    let cars = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
     const filter = getFilter();
     const keyword = (searchInput?.value || "").trim().toLowerCase();
 
-    if (filter === "need") {
-      cars = cars.filter(car => getNeed(car) > 0);
-    }
-
-    if (filter === "full") {
-      cars = cars.filter(car => getAutoStatus(car) === "已滿車");
-    }
-
-    if (filter === "today") {
-      cars = cars.filter(car => car.gameDate === todayString());
-    }
+    if (filter === "need") cars = cars.filter(car => getNeed(car) > 0);
+    if (filter === "full") cars = cars.filter(car => getAutoStatus(car) === "已滿車");
+    if (filter === "today") cars = cars.filter(car => car.gameDate === todayString());
 
     if (keyword) {
-      cars = cars.filter(function (car) {
+      cars = cars.filter(car => {
         const text = [
           car.scriptName || "",
           car.gameDate || "",
           car.gameTime || "",
-          car.studioName || "",
+          car.price || "",
           car.dmName || "",
+          car.studioName || "",
+          getLocationText(car),
           getAutoStatus(car),
           getRoleText(car)
         ].join(" ").toLowerCase();
@@ -114,30 +126,50 @@ async function renderMyCars() {
       return;
     }
 
-    list.innerHTML = cars.map(function (car) {
+    list.innerHTML = cars.map(car => {
       const players = car.players || [];
-      const status = getAutoStatus(car);
       const need = getNeed(car);
-      const badgeText = need > 0 ? "還缺 " + need + " 人" : "🎉 已滿車";
+      const status = getAutoStatus(car);
+      const badgeText = need > 0 ? "🟡 還缺 " + need + " 人" : "🎉 已滿車";
       const roleText = getRoleText(car);
+      const priceText = getPriceText(car);
+      const locationText = getLocationText(car);
+
+      const dmLine = car.dmName ? <p>🎲 DM：${car.dmName}</p> : "";
+      const locationLine = locationText ? <p>📍 ${locationText}</p> : "";
 
       return `
         <div class="card" onclick="location.href='car-detail.html?id=${car.id}'">
-          <h3>🎭 ${car.scriptName || "未命名劇本"}</h3>
-          <p>${roleText}</p>
-          <p>📅 ${car.gameDate || ""} ${car.gameTime || ""}</p>
-          <p>🏠 ${car.studioName || "未填工作室"}</p>
-          <p>🎲 DM：${car.dmName || "未填DM"}</p>
-          <p>💰 車資：${car.price || 0}</p>
-          <p>👥 ${players.length} / ${car.totalPeople || 0}</p>
-          <p>📌 狀態：${status}</p>
-          <span class="badge">${badgeText}</span>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <h3 style="margin:0;">🎭 ${car.scriptName || "未命名劇本"}</h3>
 
-          <div style="margin-top: 10px;">
-            <button type="button" class="gray" onclick="event.stopPropagation(); deleteCar('${car.id}')">
-              🗑️ 刪除
+            <button
+              type="button"
+              title="刪除"
+              onclick="event.stopPropagation(); deleteCar('${car.id}', '${(car.scriptName || "").replace(/'/g, "\\'")}')"
+              style="
+                border:none;
+                background:transparent;
+                font-size:16px;
+                padding:2px 4px;
+                cursor:pointer;
+                opacity:.65;
+              "
+            >
+              🗑️
             </button>
           </div>
+
+          <p>${roleText}</p>
+
+          <p>📅 ${car.gameDate || ""} ${car.gameTime || ""}</p>
+          <p>${priceText}</p>
+
+          <p>👥 ${players.length} / ${car.totalPeople || 0}</p>
+          <span class="badge">${badgeText}</span>
+
+          ${dmLine}
+          ${locationLine}
         </div>
       `;
     }).join("");
@@ -160,7 +192,6 @@ document.addEventListener("DOMContentLoaded", function () {
   renderMyCars();
 
   const searchInput = document.getElementById("searchInput");
-
   if (searchInput) {
     searchInput.addEventListener("input", renderMyCars);
   }
