@@ -214,10 +214,11 @@ const myPlayer = players.find(function (player) {
 
         <p>歡迎加入！等待開團即可。</p>
 
-        <button type="button" onclick="showGuestList()">
-    👥 查看車友
+        <button type="button" onclick="toggleGuestList()">
+  👥 查看車友
 </button>
-      </div>
+
+<div id="guestListBox"></div>
     `
     : myApplication
     ? `
@@ -348,13 +349,20 @@ async function submitJoin() {
   }
 }
 
-function showGuestList() {
-  const box = document.getElementById("joinFormBox");
+function toggleGuestList() {
+  const box = document.getElementById("guestListBox");
 
   if (!box || !currentCar) return;
 
+  if (box.innerHTML.trim()) {
+    box.innerHTML = "";
+    return;
+  }
+
   box.innerHTML = renderGuestList(currentCar);
 }
+
+window.toggleGuestList = toggleGuestList;
 
 window.showGuestList = showGuestList;
 
