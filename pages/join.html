@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,33 +8,36 @@
 </head>
 
 <body>
-
   <div class="container">
+    <h1>🔗 玩家報名</h1>
 
-    <h1>🙋 玩家報名</h1>
+    <div id="joinInfo" class="card">載入中...</div>
 
-    <input id="playerName" placeholder="玩家暱稱">
+    <div class="card">
+      <label>你的暱稱</label>
+      <input id="playerName" type="text" placeholder="請輸入暱稱">
 
-    <select id="playerPosition">
-      <option value="男位">男位</option>
-      <option value="女位">女位</option>
-      <option value="不限">不限</option>
-    </select>
+      <label>位置</label>
+      <select id="playerPosition">
+        <option value="不限">不限</option>
+        <option value="男位">男位</option>
+        <option value="女位">女位</option>
+      </select>
 
-    <button onclick="submitApplication()">
-      送出申請
+      <button type="button" onclick="sendApplication()">
+        🙋 我要報名
+      </button>
+    </div>
+
+    <button class="gray" onclick="location.href='mycar.html'">
+      ⬅ 返回我的車
     </button>
-
-    <button class="gray" onclick="history.back()">
-      ⬅ 返回
-    </button>
-
   </div>
 
-  <script src="../js/storage.js"></script>
-  <script src="../js/cars.js"></script>
-  <script src="../js/player.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
+  <script src="/firebase/firebase.js?v=20"></script>
+  <script src="/js/join.js?v=20"></script>
 </body>
-
 </html>
