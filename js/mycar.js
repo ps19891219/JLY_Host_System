@@ -8,27 +8,36 @@ function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function getPlayers(car) {
+  return car.players || [];
+}
+
+function getTotal(car) {
+  return Number(car.totalPeople || 0);
+}
+
 function getNeed(car) {
-  const players = car.players || [];
-  const total = Number(car.totalPeople || 0);
-  return Math.max(total - players.length, 0);
+  return Math.max(getTotal(car) - getPlayers(car).length, 0);
 }
 
 function getAutoStatus(car) {
   if (car.status === "已完成") return "已完成";
   if (car.status === "已取消") return "已取消";
 
-  const total = Number(car.totalPeople || 0);
-  const players = car.players || [];
+  const total = getTotal(car);
+  const players = getPlayers(car);
 
-  if (total > 0 && players.length >= total) return "已滿車";
+  if (total > 0 && players.length >= total) {
+    return "已滿車";
+  }
+
   return "招募中";
 }
 
 function getRoleText(car) {
   const tags = [];
 
-  if (car.isHost === true || car.role === "host") {
+  if (car.isHost === true || car.role === "host" || car.ownerType === "self") {
     tags.push("👑 我主揪");
   }
 
@@ -42,7 +51,12 @@ function getRoleText(car) {
 }
 
 function getPriceText(car) {
-  if (car.price === undefined || car.price === null || car.price === "" || Number(car.price) <= 0) {
+  if (
+    car.price === undefined ||
+    car.price === null ||
+    car.price === "" ||
+    Number(car.price) <= 0
+  ) {
     return "💰 未填寫 ⚠️";
   }
 
@@ -50,7 +64,14 @@ function getPriceText(car) {
 }
 
 function getLocationText(car) {
-  return car.locationName || car.location || car.studioName || "";
+  return car.locationName || car.location || car.placeName || car.studioName || "";
+}
+
+function escapeText(text) {
+  return String(text || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/"/g, "&quot;");
 }
 
 async function deleteCar(carId, scriptName) {
@@ -66,6 +87,50 @@ async function deleteCar(carId, scriptName) {
   }
 }
 
+function buildCarCard(car) {
+  const players = getPlayers(car);
+  const need = getNeed(car);
+  const roleText = getRoleText(car);
+  const priceText = getPriceText(car);
+  const locationText = getLocationText(car);
+
+  const badgeText = need > 0 ? "🟡 還缺 " + need + " 人" : "🎉 已滿車";
+  const dmLine = car.dmName ? <p>🎲 DM：${car.dmName}</p> : "";
+  const locationLine = locationText ? <p>📍 ${locationText}</p> : "";
+
+  return `
+    <div class="card" onclick="location.href='car-detail.html?id=${car.id}'">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <h3 style="margin:0;">🎭 ${car.scriptName || "未命名劇本"}</h3>
+
+        <button
+          type="button"
+          title="刪除"
+          onclick="event.stopPropagation(); deleteCar('${car.id}', '${escapeText(car.scriptName)}')"
+          style="
+            border:none;
+            background:transparent;
+            font-size:16px;
+            padding:2px 4px;
+            cursor:pointer;
+            opacity:.65;
+          "
+        >
+          🗑️
+        </button>
+      </div>
+
+      <p>${roleText}</p>
+      <p>📅 ${car.gameDate || ""} ${car.gameTime || ""}</p>
+      <p>${priceText}</p>
+      <p>👥 ${players.length} / ${getTotal(car)}</p>
+      <span class="badge">${badgeText}</span>
+
+      ${dmLine}
+      ${locationLine}
+    </div>
+  `;
+}
 async function renderMyCars() {
   const db = window.db;
   const list = document.getElementById("carList");
@@ -99,9 +164,17 @@ async function renderMyCars() {
     const filter = getFilter();
     const keyword = (searchInput?.value || "").trim().toLowerCase();
 
-    if (filter === "need") cars = cars.filter(car => getNeed(car) > 0);
-    if (filter === "full") cars = cars.filter(car => getAutoStatus(car) === "已滿車");
-    if (filter === "today") cars = cars.filter(car => car.gameDate === todayString());
+    if (filter === "need") {
+      cars = cars.filter(car => getNeed(car) > 0);
+    }
+
+    if (filter === "full") {
+      cars = cars.filter(car => getAutoStatus(car) === "已滿車");
+    }
+
+    if (filter === "today") {
+      cars = cars.filter(car => car.gameDate === todayString());
+    }
 
     if (keyword) {
       cars = cars.filter(car => {
@@ -111,7 +184,6 @@ async function renderMyCars() {
           car.gameTime || "",
           car.price || "",
           car.dmName || "",
-          car.studioName || "",
           getLocationText(car),
           getAutoStatus(car),
           getRoleText(car)
@@ -126,53 +198,7 @@ async function renderMyCars() {
       return;
     }
 
-    list.innerHTML = cars.map(car => {
-      const players = car.players || [];
-      const need = getNeed(car);
-      const status = getAutoStatus(car);
-      const badgeText = need > 0 ? "🟡 還缺 " + need + " 人" : "🎉 已滿車";
-      const roleText = getRoleText(car);
-      const priceText = getPriceText(car);
-      const locationText = getLocationText(car);
-
-      const dmLine = car.dmName ? <p>🎲 DM：${car.dmName}</p> : "";
-      const locationLine = locationText ? <p>📍 ${locationText}</p> : "";
-
-      return `
-        <div class="card" onclick="location.href='car-detail.html?id=${car.id}'">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-            <h3 style="margin:0;">🎭 ${car.scriptName || "未命名劇本"}</h3>
-
-            <button
-              type="button"
-              title="刪除"
-              onclick="event.stopPropagation(); deleteCar('${car.id}', '${(car.scriptName || "").replace(/'/g, "\\'")}')"
-              style="
-                border:none;
-                background:transparent;
-                font-size:16px;
-                padding:2px 4px;
-                cursor:pointer;
-                opacity:.65;
-              "
-            >
-              🗑️
-            </button>
-          </div>
-
-          <p>${roleText}</p>
-
-          <p>📅 ${car.gameDate || ""} ${car.gameTime || ""}</p>
-          <p>${priceText}</p>
-
-          <p>👥 ${players.length} / ${car.totalPeople || 0}</p>
-          <span class="badge">${badgeText}</span>
-
-          ${dmLine}
-          ${locationLine}
-        </div>
-      `;
-    }).join("");
+    list.innerHTML = cars.map(buildCarCard).join("");
 
   } catch (error) {
     console.error("讀取失敗：", error);
@@ -192,6 +218,7 @@ document.addEventListener("DOMContentLoaded", function () {
   renderMyCars();
 
   const searchInput = document.getElementById("searchInput");
+
   if (searchInput) {
     searchInput.addEventListener("input", renderMyCars);
   }
