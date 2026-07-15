@@ -110,6 +110,21 @@ function toggleSelectAllCars(checked) {
   renderMyCars();
 }
 
+function toggleCarSelection(carId) {
+  if (!batchMode) {
+    return;
+  }
+
+  if (selectedCars.has(carId)) {
+    selectedCars.delete(carId);
+  } else {
+    selectedCars.add(carId);
+  }
+
+  updateSelectedCarCount();
+  renderMyCars();
+}
+
 async function renderMyCars() {
   const db = window.db;
   const list = document.getElementById("carList");

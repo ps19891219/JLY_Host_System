@@ -131,3 +131,18 @@
 .identity-player {
   background: #3b82f6;
 }
+
+.mycar-card.batch-selectable {
+  cursor: pointer;
+  position: relative;
+}
+
+.mycar-card.batch-selectable.selected {
+  outline: 3px solid #6b8e72;
+  transform: translateY(-1px);
+}
+
+.batch-check {
+  margin-bottom: 10px;
+  font-weight: 700;
+}

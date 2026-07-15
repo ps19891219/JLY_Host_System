@@ -51,16 +51,41 @@ function getTagLine(car) {
   `;
 }
 
-function buildCarCard(car) {
+function buildCarCard(car, options) {
+  const settings = options || {};
+  const isBatchMode = settings.batchMode === true;
+  const isSelected = settings.selected === true;
+
   const status = getAutoStatus(car);
   const statusColor = getStatusColor(status);
   const needText = getNeedText(car);
 
+  const cardClass = [
+    "mycar-card",
+    isBatchMode ? "batch-selectable" : "",
+    isSelected ? "selected" : ""
+  ].filter(Boolean).join(" ");
+
+  const clickAction = isBatchMode
+    ? toggleCarSelection('${car.id}')
+    : `location.href='car-detail.html?id=${car.id}'`;
+
   return `
     <div
-      class="mycar-card"
-      onclick="location.href='car-detail.html?id=${car.id}'"
+      class="${cardClass}"
+      onclick="${clickAction}"
+      data-car-id="${car.id}"
     >
+      ${
+        isBatchMode
+          ? `
+            <div class="batch-check">
+              ${isSelected ? "☑️ 已選取" : "⬜ 點擊選取"}
+            </div>
+          `
+          : ""
+      }
+
       ${getIdentityDot(car)}
 
       <div
