@@ -195,84 +195,267 @@ async function rejectApplication(index) {
   renderCarDetail();
 }
 
+function normalizePlayerName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function getPlayerDatabaseName(player) {
+  return (
+    player.displayName ||
+    player.nickname ||
+    player.playerName ||
+    player.name ||
+    "未命名玩家"
+  );
+}
+
+async function searchPlayersByName(name) {
+  const db = window.db;
+  const targetName = normalizePlayerName(name);
+
+  const snapshot = await db.collection("players").get();
+
+  return snapshot.docs
+    .map(function (doc) {
+      return {
+        id: doc.id,
+        ...doc.data()
+      };
+    })
+    .filter(function (player) {
+      const names = [
+        player.displayName,
+        player.nickname,
+        player.playerName,
+        player.lineDisplayName,
+        ...(Array.isArray(player.aliases) ? player.aliases : [])
+      ];
+
+      return names.some(function (item) {
+        return normalizePlayerName(item) === targetName;
+      });
+    });
+}
+
 async function addPlayerManually() {
+  const db = window.db;
+  const carId = getCarId();
 
-    const name = prompt("玩家名稱");
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
 
-    if (!name || !name.trim()) return;
+  const inputName = prompt("請輸入玩家名稱：", "");
 
-    const hostAlias = prompt(
-        "主揪顯示名稱",
-        name
-    );
+  if (!inputName || !inputName.trim()) {
+    return;
+  }
 
-    if (!hostAlias || !hostAlias.trim()) return;
+  const playerName = inputName.trim();
 
-    const position = prompt(
-        "位置（男位 / 女位 / 不限）",
-        "不限"
-    );
+  try {
+    const matches = await searchPlayersByName(playerName);
 
-    const isCrossPlay = confirm("是否反串？");
+    let selectedPlayer = null;
 
-    const db = window.db;
+    if (matches.length > 0) {
+      let message = "⚠️ 找到同名玩家：\n\n";
 
-    const carId = getCarId();
+      matches.forEach(function (player, index) {
+        const linkedText = player.isLineLinked
+          ? "已串 LINE"
+          : "訪客玩家";
 
-    const carRef = db.collection("cars").doc(carId);
+        message +=
+  ${index + 1}. ${getPlayerDatabaseName(player)} +
+  ｜${linkedText} +
+  `｜已玩 ${Number(player.playCount || 0)} 本\n`;
 
-    const doc = await carRef.get();
+      message +=
+        "\n請輸入要使用的玩家編號。\n" +
+        "輸入 0 代表這是不同的人，要建立新的玩家。";
 
-    if (!doc.exists) return;
+      const answer = prompt(message, "1");
 
-    const car = doc.data();
+      if (answer === null) {
+        return;
+      }
 
-    const players = car.players || [];
+      const selectedNumber = Number(answer);
 
-    players.push({
+      if (
+        !Number.isInteger(selectedNumber) ||
+        selectedNumber < 0 ||
+        selectedNumber > matches.length
+      ) {
+        alert("輸入的編號不正確");
+        return;
+      }
 
-        playerName: name.trim(),
+      if (selectedNumber > 0) {
+        selectedPlayer = matches[selectedNumber - 1];
+      }
+    }
 
-        name: hostAlias.trim(),
+    if (!selectedPlayer) {
+      const createNew = confirm(
+  matches.length > 0
+    ? 確定要建立另一位新的「${playerName}」嗎？
+    : 目前沒有「${playerName}」的資料，是否建立為訪客玩家？
+);
 
-        hostAlias: hostAlias.trim(),
+      if (!createNew) {
+        return;
+      }
 
-        hostNote: "主揪手動新增",
+      const now = nowTime();
 
-        position: position || "不限",
+      const newPlayerRef = await db.collection("players").add({
+        displayName: playerName,
+        nickname: playerName,
+        aliases: [],
 
-        roleChoice: position || "不限",
+        memberType: "guest",
+        type: "guest",
+        status: "active",
 
-        isCrossPlay: isCrossPlay,
+        isLineLinked: false,
+        lineUserId: null,
+        lineDisplayName: "",
+        linePictureUrl: "",
 
         source: "host_manual",
+        playCount: 0,
 
-        status: "已加入",
+        createdAt: now,
+        updatedAt: now
+      });
 
-        joinedAt: nowTime()
+      selectedPlayer = {
+        id: newPlayerRef.id,
+        displayName: playerName,
+        nickname: playerName,
+        aliases: [],
+        memberType: "guest",
+        isLineLinked: false,
+        playCount: 0
+      };
+    }
 
+    const carRef = db.collection("cars").doc(carId);
+    const carDoc = await carRef.get();
+
+    if (!carDoc.exists) {
+      alert("找不到這台車");
+      return;
+    }
+
+    const car = carDoc.data();
+    const carPlayers = car.players || [];
+
+    const alreadyInCar = carPlayers.some(function (player) {
+      return player.playerId === selectedPlayer.id;
+    });
+
+    if (alreadyInCar) {
+      alert("這位玩家已經在這台車裡了");
+      return;
+    }
+
+    const defaultDisplayName = getPlayerDatabaseName(selectedPlayer);
+
+    const hostAliasInput = prompt(
+      "主揪顯示名稱：",
+      defaultDisplayName
+    );
+
+    if (hostAliasInput === null) {
+      return;
+    }
+
+    const hostAlias =
+      hostAliasInput.trim() || defaultDisplayName;
+
+    const positionInput = prompt(
+      "位置請輸入：男位、女位或不限",
+      "不限"
+    );
+
+    if (positionInput === null) {
+      return;
+    }
+
+    const position =
+      ["男位", "女位", "不限"].includes(positionInput.trim())
+        ? positionInput.trim()
+        : "不限";
+
+    const isCrossPlay = confirm("這位玩家是否反串？");
+
+    const hostNoteInput = prompt(
+      "主揪備註，可空白：",
+      ""
+    );
+
+    if (hostNoteInput === null) {
+      return;
+    }
+
+    const hostNote = hostNoteInput.trim();
+
+    carPlayers.push({
+      playerId: selectedPlayer.id,
+
+      playerName: defaultDisplayName,
+      name: hostAlias,
+      hostAlias,
+      hostNote,
+
+      position,
+      roleChoice: position,
+      isCrossPlay,
+
+      memberType:
+        selectedPlayer.memberType ||
+        selectedPlayer.type ||
+        "guest",
+
+      isLineLinked:
+        selectedPlayer.isLineLinked === true,
+
+      source: "host_manual",
+      status: "已加入",
+      joinedAt: nowTime()
     });
 
     const history = addHistory(
-        car,
-        "主揪新增玩家",
-        hostAlias.trim() + " 已加入"
+      car,
+      "主揪新增玩家",
+      ${hostAlias} 已由主揪手動加入車團
     );
 
     await carRef.update({
-
-        players,
-
-        history,
-
-        updatedAt: nowTime()
-
+      players: carPlayers,
+      history,
+      updatedAt: nowTime()
     });
 
-    alert("新增成功！");
+    alert(
+      selectedPlayer.isLineLinked
+        ? "已加入既有 LINE 會員"
+        : "已加入訪客玩家"
+    );
 
     renderCarDetail();
 
+  } catch (error) {
+    console.error("手動新增玩家失敗：", error);
+    alert("新增失敗：" + error.message);
+  }
 }
 
 async function renderCarDetail() {
