@@ -2,6 +2,10 @@ console.log("mycar.js 已成功載入！");
 
 let currentTab = "all";
 
+// ===== 批次管理 =====
+let batchMode = false;
+let selectedCars = new Set();
+
 function setMyCarTab(tab) {
   currentTab = tab;
 

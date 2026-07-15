@@ -20,18 +20,93 @@
     >
 
     <div class="mycar-tabs">
-      <button class="tab active" data-tab="all" onclick="setMyCarTab('all')">全部</button>
-      <button class="tab" data-tab="active" onclick="setMyCarTab('active')">開團中</button>
-      <button class="tab" data-tab="done" onclick="setMyCarTab('done')">已結束</button>
+      <button
+        class="tab active"
+        data-tab="all"
+        onclick="setMyCarTab('all')"
+      >
+        全部
+      </button>
+
+      <button
+        class="tab"
+        data-tab="active"
+        onclick="setMyCarTab('active')"
+      >
+        開團中
+      </button>
+
+      <button
+        class="tab"
+        data-tab="done"
+        onclick="setMyCarTab('done')"
+      >
+        已結束
+      </button>
     </div>
 
-    <button type="button" onclick="location.href='createcar.html'">
-      ➕ 建立新車
-    </button>
+    <!-- 一般模式工具列 -->
+    <div id="normalToolbar">
+      <button
+        type="button"
+        onclick="location.href='createcar.html'"
+      >
+        ➕ 建立新車
+      </button>
+
+      <button
+        type="button"
+        class="gray"
+        onclick="startBatchMode()"
+      >
+        ☑️ 批次管理
+      </button>
+    </div>
+
+    <!-- 批次管理工具列，平常隱藏 -->
+    <div id="batchToolbar" hidden>
+      <div class="batch-toolbar-title">
+        <strong>☑️ 批次管理中</strong>
+      </div>
+
+      <label class="batch-select-all">
+        <input
+          id="selectAllCars"
+          type="checkbox"
+          onchange="toggleSelectAllCars(this.checked)"
+        >
+        全選目前清單
+      </label>
+
+      <div id="selectedCarCount">
+        已選取 0 台車
+      </div>
+
+      <button
+        id="joinSelectedCarsButton"
+        type="button"
+        onclick="joinSelectedCars()"
+        disabled
+      >
+        👤 加入已選取車團（0）
+      </button>
+
+      <button
+        type="button"
+        class="gray"
+        onclick="cancelBatchMode()"
+      >
+        ✖️ 取消批次管理
+      </button>
+    </div>
 
     <div id="carList"></div>
 
-    <button class="gray" type="button" onclick="location.href='../index.html'">
+    <button
+      class="gray"
+      type="button"
+      onclick="location.href='../index.html'"
+    >
       🏠 回首頁
     </button>
   </div>
