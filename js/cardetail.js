@@ -195,6 +195,86 @@ async function rejectApplication(index) {
   renderCarDetail();
 }
 
+async function addPlayerManually() {
+
+    const name = prompt("玩家名稱");
+
+    if (!name || !name.trim()) return;
+
+    const hostAlias = prompt(
+        "主揪顯示名稱",
+        name
+    );
+
+    if (!hostAlias || !hostAlias.trim()) return;
+
+    const position = prompt(
+        "位置（男位 / 女位 / 不限）",
+        "不限"
+    );
+
+    const isCrossPlay = confirm("是否反串？");
+
+    const db = window.db;
+
+    const carId = getCarId();
+
+    const carRef = db.collection("cars").doc(carId);
+
+    const doc = await carRef.get();
+
+    if (!doc.exists) return;
+
+    const car = doc.data();
+
+    const players = car.players || [];
+
+    players.push({
+
+        playerName: name.trim(),
+
+        name: hostAlias.trim(),
+
+        hostAlias: hostAlias.trim(),
+
+        hostNote: "主揪手動新增",
+
+        position: position || "不限",
+
+        roleChoice: position || "不限",
+
+        isCrossPlay: isCrossPlay,
+
+        source: "host_manual",
+
+        status: "已加入",
+
+        joinedAt: nowTime()
+
+    });
+
+    const history = addHistory(
+        car,
+        "主揪新增玩家",
+        hostAlias.trim() + " 已加入"
+    );
+
+    await carRef.update({
+
+        players,
+
+        history,
+
+        updatedAt: nowTime()
+
+    });
+
+    alert("新增成功！");
+
+    renderCarDetail();
+
+}
+
 async function renderCarDetail() {
   const db = window.db;
   const carId = getCarId();
@@ -275,7 +355,12 @@ async function renderCarDetail() {
 
       <div class="card">
         <h3>👥 已加入玩家</h3>
-        ${
+
+<button onclick="addPlayerManually()">
+➕ 手動新增玩家
+</button>
+
+${
           players.length === 0
             ? "<p>目前尚無玩家</p>"
             : players.map(player => `
@@ -314,5 +399,6 @@ window.approveApplication = approveApplication;
 window.rejectApplication = rejectApplication;
 window.finishCar = finishCar;
 window.cancelCar = cancelCar;
+window.addPlayerManually = addPlayerManually;
 
 document.addEventListener("DOMContentLoaded", renderCarDetail);
