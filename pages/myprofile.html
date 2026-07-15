@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的玩家資料</title>
+
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>👤 我的玩家資料</h1>
+
+    <div id="profileBox">
+
+        <div class="card">
+
+            <label>玩家名稱</label>
+
+            <input
+                id="displayName"
+                type="text"
+                placeholder="請輸入玩家名稱"
+            >
+
+            <label>預設位置</label>
+
+            <select id="defaultPosition">
+                <option>不限</option>
+                <option>男位</option>
+                <option>女位</option>
+            </select>
+
+            <label>
+
+                <input
+                    id="defaultCrossPlay"
+                    type="checkbox"
+                >
+
+                常反串
+
+            </label>
+
+            <button onclick="saveMyProfile()">
+
+                💾 建立我的玩家資料
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script src="../firebase/firebase.js"></script>
+
+<script src="../js/myprofile.js"></script>
+
+</body>
+</html>

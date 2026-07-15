@@ -232,3 +232,4 @@ document.addEventListener("DOMContentLoaded", function () {
 window.startBatchMode = startBatchMode;
 window.cancelBatchMode = cancelBatchMode;
 window.toggleSelectAllCars = toggleSelectAllCars;
+window.toggleCarSelection = toggleCarSelection;

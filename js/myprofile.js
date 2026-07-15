@@ -1,0 +1,1 @@
+console.log("myprofile.js 已成功載入！");
