@@ -1,10 +1,9 @@
 console.log("mycar.js 已成功載入！");
 
 let currentTab = "all";
-
-// ===== 批次管理 =====
 let batchMode = false;
 let selectedCars = new Set();
+let visibleCarIds = [];
 
 function setMyCarTab(tab) {
   currentTab = tab;
@@ -37,6 +36,78 @@ function sortCars(cars, keyword) {
 
     return getTimeValue(a) - getTimeValue(b);
   });
+}
+
+function startBatchMode() {
+  batchMode = true;
+  selectedCars.clear();
+  updateBatchToolbar();
+  renderMyCars();
+}
+
+function cancelBatchMode() {
+  batchMode = false;
+  selectedCars.clear();
+  updateBatchToolbar();
+  renderMyCars();
+}
+
+function updateBatchToolbar() {
+  const normalToolbar = document.getElementById("normalToolbar");
+  const batchToolbar = document.getElementById("batchToolbar");
+
+  if (normalToolbar) {
+    normalToolbar.hidden = batchMode;
+  }
+
+  if (batchToolbar) {
+    batchToolbar.hidden = !batchMode;
+  }
+
+  updateSelectedCarCount();
+}
+
+function updateSelectedCarCount() {
+  const count = selectedCars.size;
+  const countBox = document.getElementById("selectedCarCount");
+  const joinButton = document.getElementById("joinSelectedCarsButton");
+  const selectAll = document.getElementById("selectAllCars");
+
+  if (countBox) {
+    countBox.textContent = `已選取 ${count} 台車`;
+  }
+
+  if (joinButton) {
+    joinButton.textContent = `👤 加入已選取車團（${count}）`;
+    joinButton.disabled = count === 0;
+  }
+
+  if (selectAll) {
+    const selectedVisibleCount = visibleCarIds.filter(function (carId) {
+      return selectedCars.has(carId);
+    }).length;
+
+    selectAll.checked =
+      visibleCarIds.length > 0 &&
+      selectedVisibleCount === visibleCarIds.length;
+
+    selectAll.indeterminate =
+      selectedVisibleCount > 0 &&
+      selectedVisibleCount < visibleCarIds.length;
+  }
+}
+
+function toggleSelectAllCars(checked) {
+  visibleCarIds.forEach(function (carId) {
+    if (checked) {
+      selectedCars.add(carId);
+    } else {
+      selectedCars.delete(carId);
+    }
+  });
+
+  updateSelectedCarCount();
+  renderMyCars();
 }
 
 async function renderMyCars() {
@@ -108,7 +179,18 @@ async function renderMyCars() {
       return;
     }
 
-    list.innerHTML = cars.map(buildCarCard).join("");
+    visibleCarIds = cars.map(function (car) {
+  return car.id;
+});
+
+list.innerHTML = cars.map(function (car) {
+  return buildCarCard(car, {
+    batchMode,
+    selected: selectedCars.has(car.id)
+  });
+}).join("");
+
+updateSelectedCarCount();
 
   } catch (error) {
     console.error("讀取失敗：", error);
@@ -131,3 +213,7 @@ document.addEventListener("DOMContentLoaded", function () {
     searchInput.addEventListener("input", renderMyCars);
   }
 });
+
+window.startBatchMode = startBatchMode;
+window.cancelBatchMode = cancelBatchMode;
+window.toggleSelectAllCars = toggleSelectAllCars;
