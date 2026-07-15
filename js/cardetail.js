@@ -263,54 +263,55 @@ async function addPlayerManually() {
     let selectedPlayer = null;
 
     if (matches.length > 0) {
-      let message = "⚠️ 找到同名玩家：\n\n";
+  let message = "⚠️ 找到同名玩家：\n\n";
 
-      matches.forEach(function (player, index) {
-        const linkedText = player.isLineLinked
-          ? "已串 LINE"
-          : "訪客玩家";
+  matches.forEach(function (player, index) {
+    const linkedText = player.isLineLinked
+      ? "已串 LINE"
+      : "訪客玩家";
 
-        message +=
-  `${index + 1}. ${getPlayerDatabaseName(player)}` +
-  `｜${linkedText}` +
-  `｜已玩 ${Number(player.playCount || 0)} 本\n`;
+    message +=
+      `${index + 1}. ${getPlayerDatabaseName(player)}` +
+      `｜${linkedText}` +
+      `｜已玩 ${Number(player.playCount || 0)} 本\n`;
+  });
 
-      message +=
-        "\n請輸入要使用的玩家編號。\n" +
-        "輸入 0 代表這是不同的人，要建立新的玩家。";
+  message +=
+    "\n請輸入要使用的玩家編號。\n" +
+    "輸入 0 代表這是不同的人，要建立新的玩家。";
 
-      const answer = prompt(message, "1");
+  const answer = prompt(message, "1");
 
-      if (answer === null) {
-        return;
-      }
+  if (answer === null) {
+    return;
+  }
 
-      const selectedNumber = Number(answer);
+  const selectedNumber = Number(answer);
 
-      if (
-        !Number.isInteger(selectedNumber) ||
-        selectedNumber < 0 ||
-        selectedNumber > matches.length
-      ) {
-        alert("輸入的編號不正確");
-        return;
-      }
+  if (
+    !Number.isInteger(selectedNumber) ||
+    selectedNumber < 0 ||
+    selectedNumber > matches.length
+  ) {
+    alert("輸入的編號不正確");
+    return;
+  }
 
-      if (selectedNumber > 0) {
-        selectedPlayer = matches[selectedNumber - 1];
-      }
-    }
+  if (selectedNumber > 0) {
+    selectedPlayer = matches[selectedNumber - 1];
+  }
+}
 
-    if (!selectedPlayer) {
-      const createNew = confirm(
-  matches.length > 0
-    ? `確定要建立另一位新的「${playerName}」嗎？`
-    : `目前沒有「${playerName}」的資料，是否建立為訪客玩家？`
-);
+if (!selectedPlayer) {
+  const createNew = confirm(
+    matches.length > 0
+      ? `確定要建立另一位新的「${playerName}」嗎？`
+      : `目前沒有「${playerName}」的資料，是否建立為訪客玩家？`
+  );
 
-      if (!createNew) {
-        return;
-      }
+  if (!createNew) {
+    return;
+  }
 
       const now = nowTime();
 
@@ -435,7 +436,7 @@ async function addPlayerManually() {
     const history = addHistory(
       car,
       "主揪新增玩家",
-      ${hostAlias} 已由主揪手動加入車團
+      `${hostAlias} 已由主揪手動加入車團`
     );
 
     await carRef.update({
