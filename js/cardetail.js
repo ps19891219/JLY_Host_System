@@ -271,8 +271,8 @@ async function addPlayerManually() {
           : "訪客玩家";
 
         message +=
-  ${index + 1}. ${getPlayerDatabaseName(player)} +
-  ｜${linkedText} +
+  `${index + 1}. ${getPlayerDatabaseName(player)}` +
+  `｜${linkedText}` +
   `｜已玩 ${Number(player.playCount || 0)} 本\n`;
 
       message +=
@@ -304,8 +304,8 @@ async function addPlayerManually() {
     if (!selectedPlayer) {
       const createNew = confirm(
   matches.length > 0
-    ? 確定要建立另一位新的「${playerName}」嗎？
-    : 目前沒有「${playerName}」的資料，是否建立為訪客玩家？
+    ? `確定要建立另一位新的「${playerName}」嗎？`
+    : `目前沒有「${playerName}」的資料，是否建立為訪客玩家？`
 );
 
       if (!createNew) {
