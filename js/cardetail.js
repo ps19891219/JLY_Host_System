@@ -976,30 +976,32 @@ function ensurePlayerModal() {
     }
 
     .compact-player-row {
-      display:
-        flex;
-      align-items:
-        center;
-      gap:
-        8px;
-      width:
-        100%;
-      padding:
-        10px 12px;
-      margin:
-        6px 0;
-      border-radius:
-        12px;
-      border:
-        1px solid
-        rgba(0, 0, 0, 0.12);
-      background:
-        #ffffff;
-      text-align:
-        left;
-      box-sizing:
-        border-box;
-    }
+  display:
+    flex;
+  align-items:
+    center;
+  gap:
+    8px;
+  width:
+    100%;
+  padding:
+    10px 12px;
+  margin:
+    6px 0;
+  border-radius:
+    12px;
+  border:
+    1px solid
+    rgba(0, 0, 0, 0.12);
+  background:
+    #ffffff;
+  color:
+    #333333;
+  text-align:
+    left;
+  box-sizing:
+    border-box;
+}
 
     .compact-player-seat {
       flex:
@@ -1023,11 +1025,13 @@ function ensurePlayerModal() {
     }
 
     .compact-player-meta {
-      font-size:
-        14px;
-      opacity:
-        0.78;
-    }
+  font-size:
+    14px;
+  color:
+    #666666;
+  opacity:
+    1;
+}
 
     .car-detail-navigation {
       display:
