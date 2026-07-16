@@ -1,3 +1,52 @@
+const MYCAR_NAVIGATION_IDS_KEY = "mycarNavigationIds";
+
+function getNavigationIds() {
+  try {
+    return JSON.parse(
+      sessionStorage.getItem(MYCAR_NAVIGATION_IDS_KEY) || "[]"
+    );
+  } catch (error) {
+    console.warn("讀取車團導覽順序失敗：", error);
+    return [];
+  }
+}
+
+function getNavigationState() {
+  const carId = getCarId();
+  const ids = getNavigationIds();
+  const currentIndex = ids.indexOf(carId);
+
+  return {
+    hasPrevious: currentIndex > 0,
+    hasNext:
+      currentIndex >= 0 &&
+      currentIndex < ids.length - 1
+  };
+}
+
+function navigateCar(offset) {
+  const carId = getCarId();
+  const ids = getNavigationIds();
+  const currentIndex = ids.indexOf(carId);
+  const targetIndex = currentIndex + offset;
+
+  if (
+    currentIndex < 0 ||
+    targetIndex < 0 ||
+    targetIndex >= ids.length
+  ) {
+    return;
+  }
+
+  location.href =
+    "car-detail.html?id=" +
+    encodeURIComponent(ids[targetIndex]);
+}
+
+function backToMyCars() {
+  location.href = "mycar.html";
+}
+
 function getCarId() {
   return new URLSearchParams(location.search).get("id");
 }
@@ -484,8 +533,36 @@ async function renderCarDetail() {
     const applications = car.applications || [];
     const history = car.history || [];
     const status = getAutoStatus(car);
+    const navigation = getNavigationState();
 
     box.innerHTML = `
+    <div class="car-detail-navigation">
+  <button
+    type="button"
+    class="gray"
+    onclick="navigateCar(-1)"
+    ${navigation.hasPrevious ? "" : "disabled"}
+  >
+    ⬅️ 上一台車
+  </button>
+
+  <button
+    type="button"
+    class="gray"
+    onclick="backToMyCars()"
+  >
+    🚗 回我的車
+  </button>
+
+  <button
+    type="button"
+    class="gray"
+    onclick="navigateCar(1)"
+    ${navigation.hasNext ? "" : "disabled"}
+  >
+    下一台車 ➡️
+  </button>
+</div>
       <div class="card">
         <h2>🎭 ${car.scriptName || "未命名劇本"}</h2>
         <p>📅 ${car.gameDate || "日期未定"} ${car.gameTime || ""}</p>
@@ -584,5 +661,7 @@ window.rejectApplication = rejectApplication;
 window.finishCar = finishCar;
 window.cancelCar = cancelCar;
 window.addPlayerManually = addPlayerManually;
+window.navigateCar = navigateCar;
+window.backToMyCars = backToMyCars;
 
 document.addEventListener("DOMContentLoaded", renderCarDetail);

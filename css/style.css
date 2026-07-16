@@ -16,3 +16,19 @@ input,select,textarea{width:100%;padding:14px;margin:8px 0;border:1px solid #ddd
 .row{display:flex;gap:8px}
 .row button{flex:1}
 .badge{display:inline-block;padding:5px 10px;border-radius:999px;background:#e8f3ec;color:#3f7c5e;font-size:14px;margin-top:6px}
+.car-detail-navigation {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.car-detail-navigation button {
+  margin: 0;
+}
+
+@media (max-width: 420px) {
+  .car-detail-navigation {
+    grid-template-columns: 1fr;
+  }
+}
