@@ -289,7 +289,574 @@ async function searchPlayersByName(name) {
     });
 }
 
-async function addPlayerManually() {
+let playerEditorState = null;
+
+function ensurePlayerModal() {
+  if (document.getElementById("playerEditorModal")) {
+    return;
+  }
+
+  const style = document.createElement("style");
+
+  style.textContent = `
+    .player-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.48);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .player-modal-backdrop[hidden] {
+      display: none;
+    }
+
+    .player-modal {
+      width: min(100%, 460px);
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 18px;
+      padding: 18px;
+      box-sizing: border-box;
+    }
+
+    .player-modal h3 {
+      margin-top: 0;
+    }
+
+    .player-modal .field {
+      margin: 14px 0;
+    }
+
+    .player-modal label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .player-modal input,
+    .player-modal select,
+    .player-modal textarea {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .player-modal .inline-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+    }
+
+    .player-modal .inline-check input {
+      width: auto;
+    }
+
+    .player-modal-actions {
+      display: grid;
+      gap: 8px;
+      margin-top: 18px;
+    }
+  `;
+
+  document.head.appendChild(style);
+
+  const modal = document.createElement("div");
+
+  modal.id = "playerEditorModal";
+  modal.className = "player-modal-backdrop";
+  modal.hidden = true;
+
+  modal.innerHTML = `
+    <div class="player-modal" role="dialog" aria-modal="true">
+      <h3 id="playerEditorTitle">玩家資料</h3>
+
+      <div class="field">
+        <label for="playerEditorName">玩家名稱</label>
+        <input id="playerEditorName" type="text">
+      </div>
+
+      <div class="field">
+        <label for="playerEditorPosition">位置</label>
+
+        <select id="playerEditorPosition">
+          <option value="不限">不限</option>
+          <option value="男位">男位</option>
+          <option value="女位">女位</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="inline-check">
+          <input
+            id="playerEditorCrossPlay"
+            type="checkbox"
+          >
+          反串
+        </label>
+      </div>
+
+      <div class="field">
+        <label for="playerEditorSeatLabel">
+          席位名稱
+        </label>
+
+        <input
+          id="playerEditorSeatLabel"
+          type="text"
+          placeholder="未填時顯示 1、2、3……"
+        >
+      </div>
+
+      <div class="field">
+        <label for="playerEditorStatus">
+          本場狀態
+        </label>
+
+        <select id="playerEditorStatus">
+          <option value="已加入">已加入</option>
+          <option value="候補">候補</option>
+          <option value="已取消">已取消</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="playerEditorNote">
+          主揪備註
+        </label>
+
+        <textarea
+          id="playerEditorNote"
+          rows="3"
+          placeholder="可空白"
+        ></textarea>
+      </div>
+
+      <div class="player-modal-actions">
+        <button
+          id="playerEditorSaveButton"
+          type="button"
+        >
+          💾 儲存本場資料
+        </button>
+
+        <button
+          id="playerEditorSaveDefaultButton"
+          type="button"
+          class="gray"
+        >
+          💾 儲存並更新玩家預設
+        </button>
+
+        <button
+          id="playerEditorRemoveButton"
+          type="button"
+          class="gray"
+          hidden
+        >
+          🚪 移出車團
+        </button>
+
+        <button
+          type="button"
+          class="gray"
+          onclick="closePlayerEditor()"
+        >
+          ✖️ 取消
+        </button>
+      </div>
+    </div>
+  `;
+
+  modal.addEventListener("click", function (event) {
+    if (event.target === modal) {
+      closePlayerEditor();
+    }
+  });
+
+  document.body.appendChild(modal);
+}
+
+function closePlayerEditor() {
+  const modal =
+    document.getElementById("playerEditorModal");
+
+  if (modal) {
+    modal.hidden = true;
+  }
+
+  playerEditorState = null;
+}
+
+function openPlayerEditor(config) {
+  ensurePlayerModal();
+
+  playerEditorState = {
+    mode: config.mode,
+    playerIndex:
+      typeof config.playerIndex === "number"
+        ? config.playerIndex
+        : null,
+    selectedPlayer: config.selectedPlayer || null
+  };
+
+  const modal =
+    document.getElementById("playerEditorModal");
+
+  const title =
+    document.getElementById("playerEditorTitle");
+
+  const nameInput =
+    document.getElementById("playerEditorName");
+
+  const positionInput =
+    document.getElementById("playerEditorPosition");
+
+  const crossPlayInput =
+    document.getElementById("playerEditorCrossPlay");
+
+  const seatLabelInput =
+    document.getElementById("playerEditorSeatLabel");
+
+  const statusInput =
+    document.getElementById("playerEditorStatus");
+
+  const noteInput =
+    document.getElementById("playerEditorNote");
+
+  const removeButton =
+    document.getElementById("playerEditorRemoveButton");
+
+  const data = config.data || {};
+  const selectedPlayer = config.selectedPlayer || {};
+
+  title.textContent =
+    config.mode === "edit"
+      ? "✏️ 編輯人員資料"
+      : "➕ 加入玩家";
+
+  nameInput.value =
+    data.hostAlias ||
+    data.name ||
+    data.playerName ||
+    getPlayerDatabaseName(selectedPlayer);
+
+  positionInput.value =
+    data.position ||
+    selectedPlayer.defaultPosition ||
+    "不限";
+
+  crossPlayInput.checked =
+    typeof data.isCrossPlay === "boolean"
+      ? data.isCrossPlay
+      : selectedPlayer.defaultCrossPlay === true;
+
+  seatLabelInput.value =
+    data.seatLabel ||
+    data.roleChoice ||
+    "";
+
+  statusInput.value =
+    data.status || "已加入";
+
+  noteInput.value =
+    data.hostNote || "";
+
+  removeButton.hidden =
+    config.mode !== "edit";
+
+  document.getElementById(
+    "playerEditorSaveButton"
+  ).onclick = function () {
+    savePlayerEditor(false);
+  };
+
+  document.getElementById(
+    "playerEditorSaveDefaultButton"
+  ).onclick = function () {
+    savePlayerEditor(true);
+  };
+
+  removeButton.onclick =
+    removePlayerFromCar;
+
+  modal.hidden = false;
+}
+
+function readPlayerEditorValues() {
+  const hostAlias = document
+    .getElementById("playerEditorName")
+    .value
+    .trim();
+
+  if (!hostAlias) {
+    alert("請輸入玩家名稱");
+    return null;
+  }
+
+  return {
+    hostAlias,
+
+    position:
+      document.getElementById(
+        "playerEditorPosition"
+      ).value,
+
+    isCrossPlay:
+      document.getElementById(
+        "playerEditorCrossPlay"
+      ).checked,
+
+    seatLabel:
+      document.getElementById(
+        "playerEditorSeatLabel"
+      ).value.trim(),
+
+    status:
+      document.getElementById(
+        "playerEditorStatus"
+      ).value,
+
+    hostNote:
+      document.getElementById(
+        "playerEditorNote"
+      ).value.trim()
+  };
+}
+
+async function savePlayerEditor(updateDefault) {
+  if (!playerEditorState) {
+    return;
+  }
+
+  const db = window.db;
+  const carId = getCarId();
+  const values = readPlayerEditorValues();
+
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  if (!values) {
+    return;
+  }
+
+  try {
+    const carRef =
+      db.collection("cars").doc(carId);
+
+    const carDoc =
+      await carRef.get();
+
+    if (!carDoc.exists) {
+      alert("找不到這台車");
+      return;
+    }
+
+    const car = carDoc.data();
+
+    const players =
+      Array.isArray(car.players)
+        ? [...car.players]
+        : [];
+
+    let playerId = null;
+    let historyType = "";
+    let historyText = "";
+
+    if (playerEditorState.mode === "add") {
+      const selectedPlayer =
+        playerEditorState.selectedPlayer;
+
+      if (
+        !selectedPlayer ||
+        !selectedPlayer.id
+      ) {
+        alert("找不到玩家資料");
+        return;
+      }
+
+      const alreadyInCar =
+        players.some(function (player) {
+          return (
+            player.playerId ===
+            selectedPlayer.id
+          );
+        });
+
+      if (alreadyInCar) {
+        alert("這位玩家已經在這台車裡了");
+        return;
+      }
+
+      playerId = selectedPlayer.id;
+
+      players.push({
+        playerId,
+
+        playerName:
+          getPlayerDatabaseName(
+            selectedPlayer
+          ),
+
+        name: values.hostAlias,
+        hostAlias: values.hostAlias,
+        hostNote: values.hostNote,
+
+        position: values.position,
+
+        roleChoice:
+          values.seatLabel,
+
+        seatLabel:
+          values.seatLabel,
+
+        isCrossPlay:
+          values.isCrossPlay,
+
+        memberType:
+          selectedPlayer.memberType ||
+          selectedPlayer.type ||
+          "guest",
+
+        isLineLinked:
+          selectedPlayer.isLineLinked === true,
+
+        source: "host_manual",
+        status: values.status,
+        joinedAt: nowTime()
+      });
+
+      historyType =
+        "主揪新增玩家";
+
+      historyText =
+        values.hostAlias +
+        " 已由主揪手動加入車團";
+    } else {
+      const index =
+        playerEditorState.playerIndex;
+
+      const currentPlayer =
+        players[index];
+
+      if (!currentPlayer) {
+        alert("找不到這位玩家");
+        return;
+      }
+
+      playerId =
+        currentPlayer.playerId || null;
+
+      players[index] = {
+        ...currentPlayer,
+
+        name: values.hostAlias,
+        hostAlias: values.hostAlias,
+        hostNote: values.hostNote,
+
+        position: values.position,
+
+        roleChoice:
+          values.seatLabel,
+
+        seatLabel:
+          values.seatLabel,
+
+        isCrossPlay:
+          values.isCrossPlay,
+
+        status: values.status,
+
+        updatedAt: nowTime()
+      };
+
+      historyType =
+        "編輯玩家";
+
+      historyText =
+        values.hostAlias +
+        " 的本場資料已更新";
+    }
+
+    const history = addHistory(
+      car,
+      historyType,
+      historyText
+    );
+
+    await carRef.update({
+      players,
+      history,
+      updatedAt: nowTime()
+    });
+
+    if (
+      updateDefault &&
+      playerId
+    ) {
+      await db
+        .collection("players")
+        .doc(playerId)
+        .set(
+          {
+            defaultPosition:
+              values.position,
+
+            defaultCrossPlay:
+              values.isCrossPlay,
+
+            updatedAt: nowTime()
+          },
+          {
+            merge: true
+          }
+        );
+    }
+
+    closePlayerEditor();
+
+    alert(
+      updateDefault
+        ? "已儲存，並更新玩家預設"
+        : "已儲存本場資料"
+    );
+
+    renderCarDetail();
+  } catch (error) {
+    console.error(
+      "儲存玩家資料失敗：",
+      error
+    );
+
+    alert(
+      "儲存失敗：" +
+      error.message
+    );
+  }
+}
+
+async function removePlayerFromCar() {
+  if (
+    !playerEditorState ||
+    playerEditorState.mode !== "edit"
+  ) {
+    return;
+  }
+
+  if (
+    !confirm(
+      "確定要將這位玩家移出這台車嗎？\n玩家資料庫不會被刪除。"
+    )
+  ) {
+    return;
+  }
+
   const db = window.db;
   const carId = getCarId();
 
@@ -298,7 +865,141 @@ async function addPlayerManually() {
     return;
   }
 
-  const inputName = prompt("請輸入玩家名稱：", "");
+  try {
+    const carRef =
+      db.collection("cars").doc(carId);
+
+    const carDoc =
+      await carRef.get();
+
+    if (!carDoc.exists) {
+      alert("找不到這台車");
+      return;
+    }
+
+    const car = carDoc.data();
+
+    const players =
+      Array.isArray(car.players)
+        ? [...car.players]
+        : [];
+
+    const index =
+      playerEditorState.playerIndex;
+
+    const removedPlayer =
+      players[index];
+
+    if (!removedPlayer) {
+      alert("找不到這位玩家");
+      return;
+    }
+
+    players.splice(index, 1);
+
+    const playerName =
+      removedPlayer.hostAlias ||
+      removedPlayer.name ||
+      removedPlayer.playerName ||
+      "一位玩家";
+
+    const history = addHistory(
+      car,
+      "移出玩家",
+      playerName +
+        " 已被移出車團"
+    );
+
+    await carRef.update({
+      players,
+      history,
+      updatedAt: nowTime()
+    });
+
+    closePlayerEditor();
+
+    alert("已移出車團");
+
+    renderCarDetail();
+  } catch (error) {
+    console.error(
+      "移出玩家失敗：",
+      error
+    );
+
+    alert(
+      "移出失敗：" +
+      error.message
+    );
+  }
+}
+
+async function editCarPlayer(index) {
+  const db = window.db;
+  const carId = getCarId();
+
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  try {
+    const doc =
+      await db
+        .collection("cars")
+        .doc(carId)
+        .get();
+
+    if (!doc.exists) {
+      alert("找不到這台車");
+      return;
+    }
+
+    const car = doc.data();
+
+    const players =
+      Array.isArray(car.players)
+        ? car.players
+        : [];
+
+    const player =
+      players[index];
+
+    if (!player) {
+      alert("找不到這位玩家");
+      return;
+    }
+
+    openPlayerEditor({
+      mode: "edit",
+      playerIndex: index,
+      data: player
+    });
+  } catch (error) {
+    console.error(
+      "開啟玩家編輯失敗：",
+      error
+    );
+
+    alert(
+      "讀取失敗：" +
+      error.message
+    );
+  }
+}
+
+async function addPlayerManually() {
+  const db = window.db;
+
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  const inputName = prompt(
+    "請輸入玩家名稱：",
+    ""
+  );
 
   if (!inputName || !inputName.trim()) {
     return;
@@ -307,47 +1008,242 @@ async function addPlayerManually() {
   const playerName = inputName.trim();
 
   try {
-    const matches = await searchPlayersByName(playerName);
+    const matches =
+      await searchPlayersByName(playerName);
 
     let selectedPlayer = null;
 
     if (matches.length > 0) {
-  let message = "⚠️ 找到同名玩家：\n\n";
+      let message =
+        "找到同名玩家：\n\n";
 
-  matches.forEach(function (player, index) {
-    const linkedText = player.isLineLinked
-      ? "已串 LINE"
-      : "訪客玩家";
+      matches.forEach(function (
+        player,
+        index
+      ) {
+        const linkedText =
+          player.isLineLinked
+            ? "已串 LINE"
+            : "訪客玩家";
 
-    message +=
-      `${index + 1}. ${getPlayerDatabaseName(player)}` +
-      `｜${linkedText}` +
-      `｜已玩 ${Number(player.playCount || 0)} 本\n`;
-  });
+        const defaultPosition =
+          player.defaultPosition ||
+          "不限";
 
-  message +=
-    "\n請輸入要使用的玩家編號。\n" +
-    "輸入 0 代表這是不同的人，要建立新的玩家。";
+        const crossPlayText =
+          player.defaultCrossPlay
+            ? "｜反串"
+            : "";
 
-  const answer = prompt(message, "1");
+        message +=
+          ${index + 1}.  +
+          ${getPlayerDatabaseName(player)} +
+          ｜${linkedText} +
+          ｜${defaultPosition} +
+          `${crossPlayText}\n`;
+      });
 
-  if (answer === null) {
-    return;
-  }
+      message +=
+        "\n請輸入要使用的玩家編號。\n" +
+        "輸入 0 代表建立另一位同名玩家。";
 
-  const selectedNumber = Number(answer);
+      const answer =
+        prompt(message, "1");
 
-  if (
-    !Number.isInteger(selectedNumber) ||
-    selectedNumber < 0 ||
-    selectedNumber > matches.length
-  ) {
-    alert("輸入的編號不正確");
-    return;
-  }
+      if (answer === null) {
+        return;
+      }
 
-  if (selectedNumber > 0) {
-    selectedPlayer = matches[selectedNumber - 1];
+      const selectedNumber =
+        Number(answer);
+
+      if (
+        !Number.isInteger(
+          selectedNumber
+        ) ||
+        selectedNumber < 0 ||
+        selectedNumber >
+          matches.length
+      ) {
+        alert("輸入的編號不正確");
+        return;
+      }
+
+      if (selectedNumber > 0) {
+        selectedPlayer =
+          matches[
+            selectedNumber - 1
+          ];
+      }
+    }
+
+    if (!selectedPlayer) {
+      const createNew = confirm(
+        matches.length > 0
+          ? 確定要建立另一位新的「${playerName}」嗎？
+          : 目前沒有「${playerName}」的資料，是否建立為訪客玩家？
+      );
+
+      if (!createNew) {
+        return;
+      }
+
+      const now = nowTime();
+
+      const newPlayerRef =
+        await db
+          .collection("players")
+          .add({
+            displayName:
+              playerName,
+
+            nickname:
+              playerName,
+
+            aliases: [],
+
+            memberType:
+              "guest",
+
+            type:
+              "guest",
+
+            status:
+              "active",
+
+            isLineLinked:
+              false,
+
+            lineUserId:
+              null,
+
+            lineDisplayName:
+              "",
+
+            linePictureUrl:
+              "",
+
+            source:
+              "host_manual",
+
+            defaultPosition:
+              "不限",
+
+            defaultCrossPlay:
+              false,
+
+            createdAt:
+              now,
+
+            updatedAt:
+              now
+          });
+
+      selectedPlayer = {
+        id:
+          newPlayerRef.id,
+
+        displayName:
+          playerName,
+
+        nickname:
+          playerName,
+
+        aliases: [],
+
+        memberType:
+          "guest",
+
+        isLineLinked:
+          false,
+
+        defaultPosition:
+          "不限",
+
+        defaultCrossPlay:
+          false
+      };
+    }
+
+    const carId = getCarId();
+
+    const carDoc =
+      await db
+        .collection("cars")
+        .doc(carId)
+        .get();
+
+    if (!carDoc.exists) {
+      alert("找不到這台車");
+      return;
+    }
+
+    const car = carDoc.data();
+
+    const carPlayers =
+      Array.isArray(car.players)
+        ? car.players
+        : [];
+
+    const alreadyInCar =
+      carPlayers.some(function (
+        player
+      ) {
+        return (
+          player.playerId ===
+          selectedPlayer.id
+        );
+      });
+
+    if (alreadyInCar) {
+      alert(
+        "這位玩家已經在這台車裡了"
+      );
+
+      return;
+    }
+
+    openPlayerEditor({
+      mode: "add",
+
+      selectedPlayer,
+
+      data: {
+        hostAlias:
+          getPlayerDatabaseName(
+            selectedPlayer
+          ),
+
+        position:
+          selectedPlayer
+            .defaultPosition ||
+          "不限",
+
+        isCrossPlay:
+          selectedPlayer
+            .defaultCrossPlay ===
+          true,
+
+        seatLabel:
+          "",
+
+        status:
+          "已加入",
+
+        hostNote:
+          ""
+      }
+    });
+  } catch (error) {
+    console.error(
+      "手動新增玩家失敗：",
+      error
+    );
+
+    alert(
+      "新增失敗：" +
+      error.message
+    );
   }
 }
 
@@ -663,5 +1559,14 @@ window.cancelCar = cancelCar;
 window.addPlayerManually = addPlayerManually;
 window.navigateCar = navigateCar;
 window.backToMyCars = backToMyCars;
+window.closePlayerEditor = closePlayerEditor;
+window.openPlayerEditor =
+  openPlayerEditor;
 
-document.addEventListener("DOMContentLoaded", renderCarDetail);
+window.editCarPlayer =
+  editCarPlayer;
+
+document.addEventListener("DOMContentLoaded", function () {
+  ensurePlayerModal();
+  renderCarDetail();
+});
