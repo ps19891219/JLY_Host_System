@@ -1,5 +1,7 @@
 console.log("myprofile.js 已成功載入！");
 
+console.log("saveMyProfile 函式準備載入");
+
 async function saveMyProfile() {
   const db = window.db;
 
@@ -7,7 +9,7 @@ async function saveMyProfile() {
     alert("Firebase 尚未載入");
     return;
   }
-  
+
 async function saveMyProfile() {
 
     const displayName = document.getElementById("displayName").value.trim();
