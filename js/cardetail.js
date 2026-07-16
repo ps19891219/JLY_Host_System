@@ -1036,10 +1036,10 @@ async function addPlayerManually() {
             : "";
 
         message +=
-          ${index + 1}.  +
-          ${getPlayerDatabaseName(player)} +
-          ｜${linkedText} +
-          ｜${defaultPosition} +
+          `${index + 1}.`  +
+          `${getPlayerDatabaseName(player)}` +
+          `｜${linkedText}` +
+          `｜${defaultPosition}` +
           `${crossPlayText}\n`;
       });
 
@@ -1080,8 +1080,8 @@ async function addPlayerManually() {
     if (!selectedPlayer) {
       const createNew = confirm(
         matches.length > 0
-          ? 確定要建立另一位新的「${playerName}」嗎？
-          : 目前沒有「${playerName}」的資料，是否建立為訪客玩家？
+          ? `確定要建立另一位新的「${playerName}」嗎？`
+          : `目前沒有「${playerName}」的資料，是否建立為訪客玩家？`
       );
 
       if (!createNew) {
@@ -1398,11 +1398,10 @@ if (!selectedPlayer) {
 
     renderCarDetail();
 
-  } catch (error) {
+    catch (error) {
     console.error("手動新增玩家失敗：", error);
     alert("新增失敗：" + error.message);
   }
-}
 
 async function renderCarDetail() {
   const db = window.db;
