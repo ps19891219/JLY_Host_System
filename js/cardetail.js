@@ -2186,68 +2186,121 @@ console.log(
       });
 
     if (existingPlayer) {
-
   const addingSeatId =
     window.currentAddingSeatId || "";
+
+  const existingPlayerId =
+    existingPlayer.playerId ||
+    existingPlayer.id ||
+    existingPlayer.profileId ||
+    existingPlayer.applicationId ||
+    selectedPlayer.id ||
+    null;
 
   const currentSeat =
     slots.find(function (seat) {
       return (
-        seat.playerId ===
-        selectedPlayer.id
+        existingPlayerId &&
+        seat.playerId === existingPlayerId
       );
     });
 
-  // 已經有座位
   if (currentSeat) {
+    alert(
+      `${getPlayerDatabaseName(
+        selectedPlayer
+      )} 已經在這台車上，而且已有座位`
+    );
+
+    window.currentAddingSeatId = "";
+    return;
+  }
+
+  if (addingSeatId) {
+    const emptySeat =
+      slots.find(function (seat) {
+        return (
+          seat.id === addingSeatId ||
+          seat.slotId === addingSeatId ||
+          String(seat.order) ===
+            String(addingSeatId)
+        );
+      });
+
+    if (!emptySeat) {
+      alert("找不到剛才點擊的空位");
+      return;
+    }
+
+    if (emptySeat.playerId) {
+      alert("這個位置已經有人了");
+      return;
+    }
+
+    emptySeat.playerId =
+      existingPlayerId;
+
+    emptySeat.player = {
+      id: existingPlayerId,
+      name:
+        existingPlayer.hostAlias ||
+        existingPlayer.name ||
+        existingPlayer.playerName ||
+        getPlayerDatabaseName(
+          selectedPlayer
+        )
+    };
+
+    const selectedPosition =
+      existingPlayer.position || "";
+
+    if (
+      emptySeat.originalType ===
+        "flexible" &&
+      (
+        selectedPosition === "男位" ||
+        selectedPosition === "male"
+      )
+    ) {
+      emptySeat.type = "male";
+    }
+
+    if (
+      emptySeat.originalType ===
+        "flexible" &&
+      (
+        selectedPosition === "女位" ||
+        selectedPosition === "female"
+      )
+    ) {
+      emptySeat.type = "female";
+    }
+
+    await carRef.update({
+      slots,
+      updatedAt: nowTime()
+    });
+
+    window.currentAddingSeatId = "";
 
     alert(
       `${getPlayerDatabaseName(
         selectedPlayer
-      )} 已經在這台車上`
+      )} 已補入空位`
     );
 
+    closePlayerEditor();
+    renderCarDetail();
     return;
   }
 
-  // 沒有座位，直接補到目前空位
-  if (addingSeatId) {
+  alert(
+    `${getPlayerDatabaseName(
+      selectedPlayer
+    )} 已經在這台車上`
+  );
 
-    const emptySeat =
-      slots.find(function (seat) {
-        return seat.id === addingSeatId;
-      });
-
-    if (emptySeat) {
-
-      emptySeat.playerId =
-        selectedPlayer.id;
-
-      emptySeat.player = {
-        id: selectedPlayer.id,
-        name:
-          getPlayerDatabaseName(
-            selectedPlayer
-          )
-      };
-
-      await carRef.update({
-        slots,
-        updatedAt: nowTime()
-      });
-
-      window.currentAddingSeatId = "";
-
-      alert("已補入空位！");
-
-      closePlayerEditor();
-
-      renderCarDetail();
-
-      return;
-    }
-  }
-
+  return;
 }
 
     // --------------------------------------------------------
