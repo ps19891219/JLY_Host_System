@@ -2142,8 +2142,8 @@ async function addPlayerManually(
         ? [...car.slots]
         : [];
 
-    const alreadyInCar =
-      players.some(function (
+    const existingPlayer =
+  players.find(function (
         player
       ) {
 
@@ -2177,18 +2177,10 @@ async function addPlayerManually(
 
       });
 
-    if (alreadyInCar) {
+    if (existingPlayer) {
 
   const addingSeatId =
     window.currentAddingSeatId || "";
-
-  const targetPlayer =
-    players.find(function (player) {
-      return (
-        player.playerId ===
-        selectedPlayer.id
-      );
-    });
 
   const currentSeat =
     slots.find(function (seat) {
