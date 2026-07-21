@@ -934,3 +934,50 @@ window.saveEditCar =
 
 window.toggleEditPeopleMode =
   toggleEditPeopleMode;
+
+  function initializeEditCarPage() {
+  if (window.db) {
+    loadEditCar();
+    return;
+  }
+
+  let attempts = 0;
+
+  const timer = setInterval(
+    function () {
+      attempts += 1;
+
+      if (window.db) {
+        clearInterval(timer);
+        loadEditCar();
+        return;
+      }
+
+      if (attempts >= 40) {
+        clearInterval(timer);
+
+        const editBox =
+          document.getElementById(
+            "editBox"
+          );
+
+        if (editBox) {
+          editBox.innerHTML =
+            "Firebase 載入失敗，請重新整理";
+        }
+      }
+    },
+    250
+  );
+}
+
+if (
+  document.readyState === "loading"
+) {
+  document.addEventListener(
+    "DOMContentLoaded",
+    initializeEditCarPage
+  );
+} else {
+  initializeEditCarPage();
+}
