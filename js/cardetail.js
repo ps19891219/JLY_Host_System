@@ -3349,47 +3349,6 @@ async function renderCarDetail() {
 
       <div class="card">
         <h3>
-          🚀 快速操作
-        </h3>
-
-        <div class="row">
-          <button
-            type="button"
-            onclick="copyCurrentPublicPost()"
-          >
-            📋 複製揪團資訊
-          </button>
-
-          <button
-            type="button"
-            onclick="copyJoinUrl('${escapeHtml(
-              car.id
-            )}')"
-          >
-            🔗 複製玩家連結
-          </button>
-        </div>
-
-        <div class="row">
-          <button
-            type="button"
-            onclick="openJoinPage()"
-          >
-            🙋 開啟玩家報名頁
-          </button>
-
-          <button
-            type="button"
-            class="light"
-            onclick="copyCurrentGroupPost()"
-          >
-            💬 複製群組公告
-          </button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>
           🔔 待確認申請
         </h3>
 

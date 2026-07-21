@@ -12,12 +12,6 @@
   <div class="container">
     <div id="detailBox"></div>
 
-    <br>
-
-    <button id="editCarBtn">
-      ✏️ 編輯車團
-    </button>
-
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -30,13 +24,7 @@
   <script>
     const params = new URLSearchParams(location.search);
     const carId = params.get("id");
-
-    const editBtn = document.getElementById("editCarBtn");
-    if (editBtn && carId) {
-      editBtn.onclick = function () {
-        location.href = "editcar.html?id=" + carId;
-      };
-    }
+    
   </script>
 </body>
 </html>
