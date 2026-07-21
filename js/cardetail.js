@@ -194,6 +194,89 @@ function backToMyCars() {
   location.href = "mycar.html";
 }
 
+function enableSwipeNavigation() {
+
+  // 桌機不用
+  if (window.innerWidth >= 768) {
+    return;
+  }
+
+  const page =
+    document.body;
+
+  let startX = 0;
+  let startY = 0;
+
+  page.addEventListener(
+    "touchstart",
+    function (event) {
+
+      // 三點選單開著不滑
+      if (
+        !document
+          .getElementById("carMoreMenu")
+          ?.hidden
+      ) {
+        return;
+      }
+
+      const touch =
+        event.touches[0];
+
+      startX = touch.clientX;
+      startY = touch.clientY;
+    },
+    {
+      passive: true
+    }
+  );
+
+  page.addEventListener(
+    "touchend",
+    function (event) {
+
+      const touch =
+        event.changedTouches[0];
+
+      const deltaX =
+        touch.clientX - startX;
+
+      const deltaY =
+        touch.clientY - startY;
+
+      // 垂直滑動
+      if (
+        Math.abs(deltaY) >
+        Math.abs(deltaX)
+      ) {
+        return;
+      }
+
+      // 太短
+      if (
+        Math.abs(deltaX) < 70
+      ) {
+        return;
+      }
+
+      if (deltaX > 0) {
+
+        navigateCar(-1);
+
+      } else {
+
+        navigateCar(1);
+
+      }
+
+    },
+    {
+      passive: true
+    }
+  );
+
+}
+
 function buildCarNavigation(scriptName) {
   const navigation =
     getNavigationState();
