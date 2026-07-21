@@ -11,3 +11,70 @@
   border-radius: 8px;
   cursor: pointer;
 }
+
+/* =========================
+   車團詳情頁頂部 Header
+========================= */
+
+.car-detail-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+
+  width: 100%;
+  min-height: 56px;
+  margin-bottom: 16px;
+  padding: 4px 0;
+
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.car-detail-header .header-back-btn,
+.car-detail-header .header-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  margin: 0;
+  padding: 0;
+
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+
+  color: #333333;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1;
+
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.car-detail-header .header-back-btn:hover,
+.car-detail-header .header-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.car-detail-header .header-title {
+  min-width: 0;
+  padding: 0 8px;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  color: #222222;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
