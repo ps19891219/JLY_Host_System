@@ -151,3 +151,10 @@
     display: none;
   }
 }
+.car-more-menu .car-menu-danger {
+  color: #c84f45;
+}
+
+.car-more-menu .car-menu-danger:hover {
+  background: rgba(200, 79, 69, 0.1);
+}

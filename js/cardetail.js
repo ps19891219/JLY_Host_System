@@ -195,15 +195,18 @@ function backToMyCars() {
 }
 
 function buildCarNavigation(scriptName) {
-  const navigation = getNavigationState();
+  const navigation =
+    getNavigationState();
 
   return `
     <div class="car-detail-header">
+
       <button
         class="header-back-btn"
         type="button"
         onclick="backToMyCars()"
-        title="返回"
+        title="返回上一頁"
+        aria-label="返回上一頁"
       >
         ←
       </button>
@@ -217,6 +220,7 @@ function buildCarNavigation(scriptName) {
       </div>
 
       <div class="header-menu-wrapper">
+
         <button
           class="header-menu-btn"
           type="button"
@@ -233,11 +237,16 @@ function buildCarNavigation(scriptName) {
           class="car-more-menu"
           hidden
         >
+
           <button
             type="button"
             class="desktop-car-navigation"
             onclick="navigateCar(-1)"
-            ${navigation.hasPrevious ? "" : "disabled"}
+            ${
+              navigation.hasPrevious
+                ? ""
+                : "disabled"
+            }
           >
             ← 上一台車
           </button>
@@ -246,14 +255,25 @@ function buildCarNavigation(scriptName) {
             type="button"
             class="desktop-car-navigation"
             onclick="navigateCar(1)"
-            ${navigation.hasNext ? "" : "disabled"}
+            ${
+              navigation.hasNext
+                ? ""
+                : "disabled"
+            }
           >
             下一台車 →
           </button>
 
-          <div class="car-menu-divider desktop-car-navigation"></div>
+          <div
+            class="car-menu-divider desktop-car-navigation"
+          ></div>
 
-          
+          <button
+            type="button"
+            onclick="openEditCarPage()"
+          >
+            ✏️ 編輯車團
+          </button>
 
           <button
             type="button"
@@ -276,6 +296,13 @@ function buildCarNavigation(scriptName) {
             🙋 開啟玩家報名頁
           </button>
 
+          <button
+            type="button"
+            onclick="return false"
+          >
+            💬 複製群組公告
+          </button>
+
           <div class="car-menu-divider"></div>
 
           <button
@@ -284,6 +311,29 @@ function buildCarNavigation(scriptName) {
           >
             🚗 回到我的車
           </button>
+
+          <button
+            type="button"
+            onclick="openRescheduleCar()"
+          >
+            📅 改期
+          </button>
+
+          <button
+            type="button"
+            onclick="finishCurrentCar()"
+          >
+            🏁 結束車團
+          </button>
+
+          <button
+            type="button"
+            class="car-menu-danger"
+            onclick="cancelCurrentCar()"
+          >
+            🚫 取消車團
+          </button>
+
         </div>
       </div>
     </div>
