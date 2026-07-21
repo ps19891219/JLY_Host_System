@@ -56,14 +56,16 @@ function buildSlots(car) {
     )
   );
 
-  // 舊的「只填總人數」資料，全部建立為不限位
-  if (
-    maleSlots === 0 &&
-    femaleSlots === 0 &&
-    flexibleSlots === 0 &&
-    totalPeople > 0
-  ) {
-    flexibleSlots = totalPeople;
+    // 總人數大於已設定席位時，
+  // 剩餘人數自動建立為不限位
+  const configuredTotal =
+    maleSlots +
+    femaleSlots +
+    flexibleSlots;
+
+  if (totalPeople > configuredTotal) {
+    flexibleSlots +=
+      totalPeople - configuredTotal;
   }
 
   const slots = [];
@@ -285,6 +287,352 @@ function getCurrentSeatConfig(car) {
   };
 }
 
+/**
+ * 將舊車 players 匯入新版 slots
+ *
+ * 流程：
+ * 1. 沒有 slots 時，自動建立
+ * 2. 跳過已取消玩家
+ * 3. 跳過已經入座的玩家
+ * 4. 優先安排符合位置的席位
+ * 5. 寫回 Firestore
+ */
+async function syncPlayersToSeats() {
+  const db = window.db;
+
+  const carId =
+    new URLSearchParams(
+      window.location.search
+    ).get("id");
+
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  if (!carId) {
+    alert("找不到車團 ID");
+    return;
+  }
+
+  try {
+    const carRef = db
+      .collection("cars")
+      .doc(carId);
+
+    const carDoc =
+      await carRef.get();
+
+    if (!carDoc.exists) {
+      alert("找不到這台車");
+      return;
+    }
+
+    const car =
+      carDoc.data() || {};
+
+    const players =
+      Array.isArray(car.players)
+        ? car.players
+        : [];
+
+    if (players.length === 0) {
+      alert("這台車沒有原有玩家可以匯入");
+      return;
+    }
+
+    const slots =
+      buildSlots(car).map(function (slot) {
+        return {
+          ...slot
+        };
+      });
+
+    if (slots.length === 0) {
+      alert(
+        "無法建立席位，請檢查車團的總人數或男女配置"
+      );
+      return;
+    }
+
+    function getImportPlayerId(
+      player,
+      index
+    ) {
+      return String(
+        player.playerId ||
+        player.id ||
+        player.profileId ||
+        player.applicationId ||
+        `legacy-player-${index + 1}`
+      );
+    }
+
+    function getImportPlayerName(player) {
+      return (
+        player.hostAlias ||
+        player.name ||
+        player.displayName ||
+        player.playerName ||
+        "未命名玩家"
+      );
+    }
+
+    function getPositionType(player) {
+      const position =
+        String(
+          player.position ||
+          player.role ||
+          "不限"
+        );
+
+      if (
+        position === "男位" ||
+        position === "male"
+      ) {
+        return "male";
+      }
+
+      if (
+        position === "女位" ||
+        position === "female"
+      ) {
+        return "female";
+      }
+
+      return "flexible";
+    }
+
+    const occupiedPlayerIds =
+      new Set();
+
+    slots.forEach(function (slot) {
+      if (slot.playerId) {
+        occupiedPlayerIds.add(
+          String(slot.playerId)
+        );
+      }
+    });
+
+    const waitingPlayers = [];
+
+    players.forEach(function (
+      player,
+      index
+    ) {
+      if (
+        player.status === "已取消"
+      ) {
+        return;
+      }
+
+      const playerId =
+        getImportPlayerId(
+          player,
+          index
+        );
+
+      if (
+        occupiedPlayerIds.has(playerId)
+      ) {
+        return;
+      }
+
+      waitingPlayers.push({
+        player,
+        playerId,
+        playerIndex: index,
+        positionType:
+          getPositionType(player)
+      });
+    });
+
+    if (
+      waitingPlayers.length === 0
+    ) {
+      alert(
+        "所有原有玩家都已經有席位"
+      );
+      return;
+    }
+
+    const importedPlayers = [];
+    const remainingPlayers = [];
+
+    waitingPlayers.forEach(function (
+      waitingPlayer
+    ) {
+      const player =
+        waitingPlayer.player;
+
+      const playerId =
+        waitingPlayer.playerId;
+
+      const positionType =
+        waitingPlayer.positionType;
+
+      let targetSlot = null;
+
+      // 男位或女位先尋找固定席位
+      if (
+        positionType === "male" ||
+        positionType === "female"
+      ) {
+        targetSlot =
+          slots.find(function (slot) {
+            return (
+              !slot.playerId &&
+              slot.originalType ===
+                positionType
+            );
+          }) || null;
+      }
+
+      // 固定位置不足時，尋找不限位
+      if (!targetSlot) {
+        targetSlot =
+          slots.find(function (slot) {
+            return (
+              !slot.playerId &&
+              slot.originalType ===
+                "flexible"
+            );
+          }) || null;
+      }
+
+      // 玩家位置為不限時，可使用任何剩餘位置
+      if (
+        !targetSlot &&
+        positionType === "flexible"
+      ) {
+        targetSlot =
+          slots.find(function (slot) {
+            return !slot.playerId;
+          }) || null;
+      }
+
+      if (!targetSlot) {
+        remainingPlayers.push(player);
+        return;
+      }
+
+      targetSlot.playerId =
+        playerId;
+
+      targetSlot.player = {
+        id: playerId,
+        name:
+          getImportPlayerName(player)
+      };
+
+      targetSlot.updatedAt =
+        seatNowTime();
+
+      if (
+        targetSlot.originalType ===
+          "flexible"
+      ) {
+        targetSlot.type =
+          positionType === "male" ||
+          positionType === "female"
+            ? positionType
+            : "flexible";
+      }
+
+      importedPlayers.push(player);
+    });
+
+    if (
+      importedPlayers.length === 0
+    ) {
+      const remainingNames =
+        remainingPlayers
+          .map(getImportPlayerName)
+          .join("、");
+
+      alert(
+        "沒有玩家成功匯入席位。" +
+        (
+          remainingNames
+            ? "\n\n尚未排入：" +
+              remainingNames
+            : ""
+        )
+      );
+
+      return;
+    }
+
+    const history =
+      Array.isArray(car.history)
+        ? [...car.history]
+        : [];
+
+    history.push({
+      type: "匯入原有玩家",
+      text:
+        `已將 ${importedPlayers.length} 位原有玩家匯入席位`,
+      time: seatNowTime()
+    });
+
+    await carRef.update({
+      slots,
+      history,
+      schemaVersion:
+        Math.max(
+          Number(car.schemaVersion || 0),
+          2
+        ),
+      updatedAt: seatNowTime()
+    });
+
+    const importedNames =
+      importedPlayers
+        .map(getImportPlayerName)
+        .join("、");
+
+    const remainingNames =
+      remainingPlayers
+        .map(getImportPlayerName)
+        .join("、");
+
+    let message =
+      `✅ 已成功匯入 ${importedPlayers.length} 位玩家\n\n` +
+      importedNames;
+
+    if (remainingNames) {
+      message +=
+        `\n\n⚠️ 尚未排入：\n${remainingNames}`;
+    }
+
+    alert(message);
+
+    if (
+      typeof window.renderCarDetail ===
+      "function"
+    ) {
+      await window.renderCarDetail();
+    } else {
+      window.location.reload();
+    }
+  } catch (error) {
+    console.error(
+      "匯入原有玩家失敗：",
+      error
+    );
+
+    alert(
+      "匯入原有玩家失敗：" +
+      (
+        error &&
+        error.message
+          ? error.message
+          : "未知錯誤"
+      )
+    );
+  }
+}
+
 // 明確掛到 window，讓其他 JS 檔案可以共用
 window.buildSlots = buildSlots;
 window.getSlots = getSlots;
@@ -295,3 +643,5 @@ window.assignPlayerToSeat = assignPlayerToSeat;
 window.removePlayerFromSeat = removePlayerFromSeat;
 window.getOriginalSeatConfig = getOriginalSeatConfig;
 window.getCurrentSeatConfig = getCurrentSeatConfig;
+window.syncPlayersToSeats =
+  syncPlayersToSeats;
