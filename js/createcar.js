@@ -87,16 +87,35 @@ async function createCar() {
   const peopleMode = getPeopleMode();
 
   let maleSlots = 0;
-  let femaleSlots = 0;
-  let totalPeople = 0;
+let femaleSlots = 0;
+let flexibleSlots = 0;
+let totalPeople = 0;
 
   if (peopleMode === "gender") {
-    maleSlots = Number(document.getElementById("maleSlots").value || 0);
-    femaleSlots = Number(document.getElementById("femaleSlots").value || 0);
-    totalPeople = maleSlots + femaleSlots;
-  } else {
-    totalPeople = Number(document.getElementById("totalPeople").value || 0);
-  }
+  maleSlots = Number(
+    document.getElementById("maleSlots").value || 0
+  );
+
+  femaleSlots = Number(
+    document.getElementById("femaleSlots").value || 0
+  );
+
+  flexibleSlots = Number(
+    document.getElementById("flexibleSlots").value || 0
+  );
+
+  totalPeople =
+    maleSlots +
+    femaleSlots +
+    flexibleSlots;
+} else {
+  totalPeople = Number(
+    document.getElementById("totalPeople").value || 0
+  );
+
+  // 只填總人數時，全部都是不限席
+  flexibleSlots = totalPeople;
+}
 
   if (totalPeople <= 0) return alert("請設定人數");
 
@@ -118,9 +137,23 @@ async function createCar() {
     note,
 
     peopleMode,
-    maleSlots,
-    femaleSlots,
-    totalPeople,
+maleSlots,
+femaleSlots,
+flexibleSlots,
+totalPeople,
+
+slots: buildSlots({
+  peopleMode: peopleMode,
+  maleSlots: maleSlots,
+  femaleSlots: femaleSlots,
+  flexibleSlots: flexibleSlots,
+  totalPeople: totalPeople
+}),
+
+showFlexibleSlotSource: false,
+
+dataVersion: 1,
+seatSystemVersion: 1,
 
     myRole,
     isHost: myRole === "host",
