@@ -2339,6 +2339,263 @@ openPlayerEditor({
 
 }
 
+// ============================================================
+// 第 5C：同步舊玩家到席位（第一段）
+// ============================================================
+
+async function syncPlayersToSeats() {
+  const db = window.db;
+  const carId = getCarId();
+
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  if (!carId) {
+    alert("找不到車團 ID");
+    return;
+  }
+
+  try {
+    const carRef = db
+      .collection("cars")
+      .doc(carId);
+
+    const carDoc = await carRef.get();
+
+    if (!carDoc.exists) {
+      alert("找不到這台車");
+      return;
+    }
+
+    const car = carDoc.data() || {};
+
+    const players = Array.isArray(car.players)
+      ? [...car.players]
+      : [];
+
+    const slots = Array.isArray(car.slots)
+      ? car.slots.map(function (slot) {
+          return {
+            ...slot
+          };
+        })
+      : [];
+
+    if (players.length === 0) {
+      alert("這台車沒有玩家");
+      return;
+    }
+
+    if (slots.length === 0) {
+      alert("這台車尚未建立席位");
+      return;
+    }
+
+        const occupiedPlayerIds = new Set();
+
+    slots.forEach(function (slot) {
+      if (slot.playerId) {
+        occupiedPlayerIds.add(
+          String(slot.playerId)
+        );
+      }
+    });
+
+    const waitingPlayers =
+      players.filter(function (
+        player,
+        index
+      ) {
+        if (
+          player.status === "已取消"
+        ) {
+          return false;
+        }
+
+        const playerId =
+          getSeatPlayerId(
+            player,
+            index
+          );
+
+        return !occupiedPlayerIds.has(
+          String(playerId)
+        );
+      });
+
+    if (waitingPlayers.length === 0) {
+      alert(
+        "所有玩家都已經有席位，不需要匯入"
+      );
+      return;
+    }
+
+    const emptySlots =
+      slots.filter(function (slot) {
+        return !slot.playerId;
+      });
+
+    if (emptySlots.length === 0) {
+      alert(
+        "目前沒有空位可以匯入玩家"
+      );
+      return;
+    }
+
+    const importedPlayers = [];
+    const remainingPlayers = [];
+
+    waitingPlayers.forEach(function (
+      player
+    ) {
+      const playerIndex =
+        players.indexOf(player);
+
+      const playerId =
+        getSeatPlayerId(
+          player,
+          playerIndex
+        );
+
+      const playerPosition =
+        player.position || "不限";
+
+      let targetSlot = null;
+
+      targetSlot =
+        emptySlots.find(function (slot) {
+          if (slot.playerId) {
+            return false;
+          }
+
+          if (
+            playerPosition === "男位"
+          ) {
+            return (
+              slot.type === "male" ||
+              slot.originalType ===
+                "flexible"
+            );
+          }
+
+          if (
+            playerPosition === "女位"
+          ) {
+            return (
+              slot.type === "female" ||
+              slot.originalType ===
+                "flexible"
+            );
+          }
+
+          return true;
+        });
+
+      if (!targetSlot) {
+        remainingPlayers.push(player);
+        return;
+      }
+
+      targetSlot.playerId = playerId;
+
+      targetSlot.player = {
+        id: playerId,
+        name:
+          getPlayerDisplayName(player)
+      };
+
+      if (
+        targetSlot.originalType ===
+          "flexible"
+      ) {
+        if (
+          playerPosition === "男位"
+        ) {
+          targetSlot.type = "male";
+        }
+
+        if (
+          playerPosition === "女位"
+        ) {
+          targetSlot.type = "female";
+        }
+      }
+
+      importedPlayers.push(player);
+    });
+
+        if (importedPlayers.length === 0) {
+      alert(
+        "沒有玩家成功匯入席位"
+      );
+      return;
+    }
+
+    const importedNames =
+      importedPlayers.map(function (
+        player
+      ) {
+        return getPlayerDisplayName(
+          player
+        );
+      });
+
+    const remainingNames =
+      remainingPlayers.map(function (
+        player
+      ) {
+        return getPlayerDisplayName(
+          player
+        );
+      });
+
+    const history = addHistory(
+      car,
+      "匯入原有玩家",
+      `已將 ${importedPlayers.length} 位原有玩家匯入席位`
+    );
+
+    await carRef.update({
+      slots,
+      history,
+      updatedAt: nowTime()
+    });
+
+    let message =
+      `✅ 已成功匯入 ${importedPlayers.length} 位玩家\n\n` +
+      importedNames.join("、");
+
+    if (
+      remainingNames.length > 0
+    ) {
+      message +=
+        `\n\n⚠️ 尚有 ${remainingNames.length} 位玩家未排入：\n` +
+        remainingNames.join("、");
+    }
+
+    alert(message);
+
+    renderCarDetail();
+  } catch (error) {
+    console.error(
+      "syncPlayersToSeats 發生錯誤：",
+      error
+    );
+
+    alert(
+      "匯入原有玩家失敗：" +
+        (
+          error &&
+          error.message
+            ? error.message
+            : "未知錯誤"
+        )
+    );
+  }
+}
+
 /* =========================
    第 5B：車團詳情與玩家列表
 ========================= */
@@ -3265,18 +3522,16 @@ async function renderCarDetail() {
         )}
       </div>
 
-      <div class="card">
-        <div class="row">
-          <h3
-            style="
-              margin: 0;
-              flex: 1;
-            "
-          >
-            👥 席位安排
-          </h3>
+      <div class="seat-header">
+  <h3>席位安排</h3>
 
-        </div>
+  <button
+    class="sync-seat-btn"
+    onclick="syncPlayersToSeats()"
+  >
+    🔄 匯入原有玩家
+  </button>
+</div>
 
         <p
           class="compact-player-meta"
