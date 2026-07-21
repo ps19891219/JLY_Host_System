@@ -2,16 +2,99 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
   <title>我的車</title>
 
-  <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/mycar.css?v=4">
+  <link
+    rel="stylesheet"
+    href="../css/style.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="../css/mycar.css?v=5"
+  >
 </head>
 
 <body>
-  <div class="container">
-    <h1>🚗 我的劇本</h1>
+
+<div class="container">
+
+  <!-- 固定導覽列 -->
+  <div class="mycar-header">
+
+    <div
+      class="header-back"
+      onclick="location.href='../index.html'"
+    >
+      ← 首頁
+    </div>
+
+    <div
+      class="header-title"
+      onclick="window.scrollTo({
+        top:0,
+        behavior:'smooth'
+      })"
+    >
+      我的車
+    </div>
+
+    <div
+      class="header-menu"
+      onclick="toggleMyCarMenu()"
+    >
+      ⋮
+    </div>
+
+  </div>
+
+  <!-- 三個點選單 -->
+  <div
+    id="mycarMenu"
+    class="mycar-menu"
+    hidden
+  >
+
+    <button
+      type="button"
+      onclick="startBatchMode()"
+    >
+      ☑️ 批次操作
+    </button>
+
+    <button
+      type="button"
+    >
+      📁 已取消車團
+    </button>
+
+    <button
+      type="button"
+    >
+      📦 已封存車團
+    </button>
+
+    <button
+      type="button"
+    >
+      ⚙️ 顯示設定
+    </button>
+
+    <button
+      type="button"
+    >
+      📖 使用說明
+    </button>
+
+  </div>
+
+  <!-- 搜尋 -->
+  <div class="sticky-search">
 
     <input
       id="searchInput"
@@ -19,7 +102,13 @@
       autocomplete="off"
     >
 
+  </div>
+
+  <!-- 分頁 -->
+  <div class="sticky-tabs">
+
     <div class="mycar-tabs">
+
       <button
         class="tab active"
         data-tab="all"
@@ -43,80 +132,125 @@
       >
         已結束
       </button>
+
     </div>
 
-    <!-- 一般模式工具列 -->
-    <div id="normalToolbar">
-      <button
-        type="button"
-        onclick="location.href='createcar.html'"
-      >
-        ➕ 建立新車
-      </button>
+  </div>
 
-      <button
-        type="button"
-        class="gray"
-        onclick="startBatchMode()"
-      >
-        ☑️ 批次管理
-      </button>
-    </div>
-
-    <!-- 批次管理工具列，平常隱藏 -->
-    <div id="batchToolbar" hidden>
+  <!-- 批次工具列 -->
+  <div
+    id="batchToolbar"
+    hidden
+  >
       <div class="batch-toolbar-title">
-        <strong>☑️ 批次管理中</strong>
-      </div>
-
-      <label class="batch-select-all">
-        <input
-          id="selectAllCars"
-          type="checkbox"
-          onchange="toggleSelectAllCars(this.checked)"
-        >
-        全選目前清單
-      </label>
-
-      <div id="selectedCarCount">
-        已選取 0 台車
-      </div>
-
-      <button
-        id="joinSelectedCarsButton"
-        type="button"
-        onclick="joinSelectedCars()"
-        disabled
-      >
-        👤 加入已選取車團（0）
-      </button>
-
-      <button
-        type="button"
-        class="gray"
-        onclick="cancelBatchMode()"
-      >
-        ✖️ 取消批次管理
-      </button>
+      <strong>☑️ 批次操作中</strong>
     </div>
 
-    <div id="carList"></div>
+    <label class="batch-select-all">
+      <input
+        id="selectAllCars"
+        type="checkbox"
+        onchange="toggleSelectAllCars(this.checked)"
+      >
+      全選目前清單
+    </label>
+
+    <div id="selectedCarCount">
+      已選取 0 台車
+    </div>
+
+    <!--
+      暫時保留舊版按鈕供程式相容，
+      不會顯示，也不會讓使用者誤觸加入車團。
+    -->
+    <button
+      id="joinSelectedCarsButton"
+      type="button"
+      onclick="joinSelectedCars()"
+      hidden
+      disabled
+    >
+      加入已選取車團（0）
+    </button>
 
     <button
-      class="gray"
       type="button"
-      onclick="location.href='../index.html'"
+      class="batch-convert-button"
+      disabled
     >
-      🏠 回首頁
+      📝 轉換文字檔（下一步製作）
+    </button>
+
+    <button
+      type="button"
+      class="gray"
+      onclick="cancelBatchMode()"
+    >
+      ✖️ 離開批次操作
     </button>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <!--
+    保留舊版程式需要的元素，
+    新版畫面不顯示原本的一般工具列。
+  -->
+  <div
+    id="normalToolbar"
+    hidden
+  ></div>
 
-  <script src="/firebase/firebase.js?v=38"></script>
-  <script src="/js/carStatus.js?v=2"></script>
-  <script src="/js/carCard.js?v=3"></script>
-  <script src="/js/mycar.js?v=38"></script>
+  <!-- 車團列表 -->
+  <div id="carList"></div>
+
+</div>
+
+<script
+  src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
+></script>
+
+<script
+  src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"
+></script>
+
+<script src="/firebase/firebase.js?v=38"></script>
+<script src="/js/carStatus.js?v=2"></script>
+<script src="/js/carCard.js?v=3"></script>
+<script src="/js/mycar.js?v=38"></script>
+
+<script>
+  function toggleMyCarMenu() {
+    const menu =
+      document.getElementById("mycarMenu");
+
+    if (!menu) {
+      return;
+    }
+
+    menu.hidden = !menu.hidden;
+  }
+
+  document.addEventListener(
+    "click",
+    function (event) {
+      const menu =
+        document.getElementById("mycarMenu");
+
+      const menuButton =
+        document.querySelector(".header-menu");
+
+      if (
+        !menu ||
+        menu.hidden ||
+        menu.contains(event.target) ||
+        menuButton?.contains(event.target)
+      ) {
+        return;
+      }
+
+      menu.hidden = true;
+    }
+  );
+</script>
+
 </body>
 </html>
