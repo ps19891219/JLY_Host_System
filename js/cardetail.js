@@ -2663,6 +2663,13 @@ async function renderCarDetail() {
         car.femaleSlots || 0
       );
 
+      const flexibleSlots =
+      Number(
+        car.flexibleSlots ||
+        car.flexSlots ||
+        0
+      );
+
     const total =
       getTotal(car);
 
@@ -2771,7 +2778,11 @@ async function renderCarDetail() {
         </p>
 
         <p>
-          👤 不限：${anyCount}
+          👤 不限：${anyCount}${
+            flexibleSlots > 0
+              ?  `/ ${flexibleSlots}`
+              : ""
+          }
         </p>
 
         <p>
