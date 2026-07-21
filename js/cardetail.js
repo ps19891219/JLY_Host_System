@@ -2179,15 +2179,76 @@ async function addPlayerManually(
 
     if (alreadyInCar) {
 
-      alert(
-        `「${getPlayerDatabaseName(
-          selectedPlayer
-        )}」已經在這台車上`
+  const addingSeatId =
+    window.currentAddingSeatId || "";
+
+  const targetPlayer =
+    players.find(function (player) {
+      return (
+        player.playerId ===
+        selectedPlayer.id
       );
+    });
+
+  const currentSeat =
+    slots.find(function (seat) {
+      return (
+        seat.playerId ===
+        selectedPlayer.id
+      );
+    });
+
+  // 已經有座位
+  if (currentSeat) {
+
+    alert(
+      `${getPlayerDatabaseName(
+        selectedPlayer
+      )} 已經在這台車上`
+    );
+
+    return;
+  }
+
+  // 沒有座位，直接補到目前空位
+  if (addingSeatId) {
+
+    const emptySeat =
+      slots.find(function (seat) {
+        return seat.id === addingSeatId;
+      });
+
+    if (emptySeat) {
+
+      emptySeat.playerId =
+        selectedPlayer.id;
+
+      emptySeat.player = {
+        id: selectedPlayer.id,
+        name:
+          getPlayerDatabaseName(
+            selectedPlayer
+          )
+      };
+
+      await carRef.update({
+        slots,
+        updatedAt: nowTime()
+      });
+
+      window.currentAddingSeatId = "";
+
+      alert("已補入空位！");
+
+      closePlayerEditor();
+
+      renderCarDetail();
 
       return;
-
     }
+  }
+
+}
 
     // --------------------------------------------------------
     // 開啟玩家資料 Modal
