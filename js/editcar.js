@@ -593,8 +593,10 @@ function rebuildSlotsWithPlayers(
 }
 
 async function loadEditCar() {
+  console.log("① loadEditCar 開始");
   const db = window.db;
   const carId = getEditCarId();
+  console.log("② carId =", carId);
 
   const editBox =
     document.getElementById(
@@ -623,6 +625,7 @@ async function loadEditCar() {
       .collection("cars")
       .doc(carId)
       .get();
+      console.log("③ carDoc.exists =", carDoc.exists);
 
   if (!carDoc.exists) {
     editBox.innerHTML =
@@ -630,6 +633,7 @@ async function loadEditCar() {
     return;
   }
 
+  console.log("④ 準備 render");
   currentEditingCar = {
     id: carDoc.id,
     ...carDoc.data()
