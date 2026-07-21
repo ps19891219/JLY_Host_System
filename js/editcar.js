@@ -649,3 +649,284 @@ async function loadEditCar() {
     error.message;
 }
 }
+
+async function saveEditCar() {
+  const db = window.db;
+  const carId = getEditCarId();
+
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  if (!carId) {
+    alert("找不到車團 ID");
+    return;
+  }
+
+  if (!currentEditingCar) {
+    alert("車團資料尚未載入");
+    return;
+  }
+
+  const scriptName =
+    document
+      .getElementById("scriptName")
+      .value
+      .trim();
+
+  const gameDate =
+    document.getElementById(
+      "gameDate"
+    ).value;
+
+  const gameTime =
+    document.getElementById(
+      "gameTime"
+    ).value;
+
+  const locationName =
+    document
+      .getElementById(
+        "locationName"
+      )
+      .value
+      .trim();
+
+  const studioName =
+    document
+      .getElementById(
+        "studioName"
+      )
+      .value
+      .trim();
+
+  const dmName =
+    document
+      .getElementById(
+        "dmName"
+      )
+      .value
+      .trim();
+
+  const priceValue =
+    document.getElementById(
+      "price"
+    ).value;
+
+  const note =
+    document
+      .getElementById(
+        "note"
+      )
+      .value
+      .trim();
+
+  if (!scriptName) {
+    alert("請輸入劇本名稱");
+    return;
+  }
+
+  if (!gameDate) {
+    alert("請選擇日期");
+    return;
+  }
+
+  if (!gameTime) {
+    alert("請選擇時間");
+    return;
+  }
+
+  if (!locationName) {
+    alert("請輸入地點");
+    return;
+  }
+
+  const peopleMode =
+    getEditRadioValue(
+      "peopleMode",
+      "gender"
+    );
+
+  let maleSlots = 0;
+  let femaleSlots = 0;
+  let flexibleSlots = 0;
+  let totalPeople = 0;
+
+  if (peopleMode === "gender") {
+    maleSlots = Math.max(
+      0,
+      Number(
+        document.getElementById(
+          "maleSlots"
+        ).value || 0
+      )
+    );
+
+    femaleSlots = Math.max(
+      0,
+      Number(
+        document.getElementById(
+          "femaleSlots"
+        ).value || 0
+      )
+    );
+
+    flexibleSlots = Math.max(
+      0,
+      Number(
+        document.getElementById(
+          "flexibleSlots"
+        ).value || 0
+      )
+    );
+
+    totalPeople =
+      maleSlots +
+      femaleSlots +
+      flexibleSlots;
+  } else {
+    totalPeople = Math.max(
+      0,
+      Number(
+        document.getElementById(
+          "totalPeople"
+        ).value || 0
+      )
+    );
+
+    maleSlots = 0;
+    femaleSlots = 0;
+    flexibleSlots = totalPeople;
+  }
+
+  if (totalPeople <= 0) {
+    alert("請設定人數");
+    return;
+  }
+
+  const activePlayerCount =
+    getActivePlayers(
+      currentEditingCar
+    ).length;
+
+  if (
+    totalPeople <
+    activePlayerCount
+  ) {
+    alert(
+      `目前已有 ${activePlayerCount} 位玩家，` +
+      `總席位不能調整為 ${totalPeople} 位。`
+    );
+
+    return;
+  }
+
+  const slots =
+    rebuildSlotsWithPlayers(
+      currentEditingCar,
+      maleSlots,
+      femaleSlots,
+      flexibleSlots,
+      totalPeople
+    );
+
+  const history =
+    Array.isArray(
+      currentEditingCar.history
+    )
+      ? [
+          ...currentEditingCar.history
+        ]
+      : [];
+
+  history.push({
+    type: "編輯車團",
+    text:
+      `更新車團資料與人數配置：` +
+      `${maleSlots}男／` +
+      `${femaleSlots}女／` +
+      `${flexibleSlots}不限`,
+    time: editNowTime()
+  });
+
+  const updatedData = {
+    scriptName,
+
+    gameDate,
+    gameTime,
+
+    locationName,
+    location: locationName,
+
+    organizerName: studioName,
+    studioName,
+
+    dmName,
+
+    price:
+      priceValue === ""
+        ? null
+        : Number(priceValue),
+
+    note,
+
+    peopleMode,
+
+    maleSlots,
+    femaleSlots,
+    flexibleSlots,
+    totalPeople,
+    capacity: totalPeople,
+
+    slots,
+
+    isHost:
+      document.getElementById(
+        "isHost"
+      ).checked,
+
+    isPlayer:
+      document.getElementById(
+        "isPlayer"
+      ).checked,
+
+    dataVersion: 1,
+    seatSystemVersion: 1,
+
+    history,
+    updatedAt: editNowTime()
+  };
+
+  try {
+    await db
+      .collection("cars")
+      .doc(carId)
+      .update(updatedData);
+
+    alert("車團修改完成！");
+
+    location.href =
+      "car-detail.html?id=" +
+      encodeURIComponent(carId);
+  } catch (error) {
+    console.error(
+      "儲存車團失敗：",
+      error
+    );
+
+    alert(
+      "儲存失敗：" +
+      error.message
+    );
+  }
+}
+
+window.loadEditCar =
+  loadEditCar;
+
+window.saveEditCar =
+  saveEditCar;
+
+window.toggleEditPeopleMode =
+  toggleEditPeopleMode;
