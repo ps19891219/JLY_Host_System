@@ -1861,7 +1861,9 @@ async function removePlayerFromCar(playerIndex) {
 // 第 5A：主揪手動新增玩家
 // ============================================================
 
-async function addPlayerManually() {
+async function addPlayerManually(
+  seatId = ""
+) {
 
   const db = window.db;
   const carId = getCarId();
@@ -2147,10 +2149,15 @@ async function addPlayerManually() {
     // 實際寫入 Firestore 交由 savePlayerEditor()
     // --------------------------------------------------------
 
-    openPlayerEditor({
+    window.currentAddingSeatId =
+  seatId || "";
+
+openPlayerEditor({
   mode: "add",
-  selectedPlayer
-  });
+  selectedPlayer,
+  seatId:
+    seatId || ""
+});
 
   } catch (error) {
 
@@ -3195,14 +3202,24 @@ async function renderCarDetail() {
 /* =========================
    全域函式
 ========================= */
-window.openEmptySeat = function (
-  seatId
-) {
-  console.log(
-    "點到空位：",
+window.openEmptySeat =
+  async function (
     seatId
-  );
-};
+  ) {
+    if (!seatId) {
+      alert("找不到席位資料");
+      return;
+    }
+
+    console.log(
+      "準備加入席位：",
+      seatId
+    );
+
+    await addPlayerManually(
+      seatId
+    );
+  };
 
 window.renderCarDetail =
   renderCarDetail;
