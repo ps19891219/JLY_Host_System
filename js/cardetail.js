@@ -2484,6 +2484,249 @@ function buildPlayersHtml(
     .join("");
 }
 
+// ============================================================
+// 席位畫面
+// ============================================================
+
+function getSeatPlayerId(
+  player,
+  index
+) {
+  return (
+    player.playerId ||
+    player.id ||
+    player.applicationId ||
+    `legacy-player-${index + 1}`
+  );
+}
+
+function findPlayerBySeat(
+  seat,
+  players
+) {
+  if (!seat.playerId) {
+    return null;
+  }
+
+  return (
+    players.find(function (
+      player,
+      index
+    ) {
+      return (
+        getSeatPlayerId(
+          player,
+          index
+        ) === seat.playerId
+      );
+    }) || null
+  );
+}
+
+function buildSingleSeatHtml(
+  seat,
+  players
+) {
+  const player =
+    findPlayerBySeat(
+      seat,
+      players
+    );
+
+  const seatNumber =
+    seat.order ||
+    seat.slotId ||
+    seat.id ||
+    "";
+
+  if (!player) {
+    return `
+      <div
+        class="compact-player-row"
+      >
+        <span
+          class="compact-player-seat"
+        >
+          ${escapeHtml(
+            seatNumber
+          )}
+        </span>
+
+        <span
+          class="compact-player-main"
+        >
+          <span
+            class="compact-player-name"
+          >
+            空位
+          </span>
+        </span>
+      </div>
+    `;
+  }
+
+  const playerIndex =
+    players.indexOf(player);
+
+  return `
+    <button
+      type="button"
+      class="compact-player-row"
+      onclick="openExistingPlayerEditor(${playerIndex})"
+    >
+      <span
+        class="compact-player-seat"
+      >
+        ${escapeHtml(
+          seatNumber
+        )}
+      </span>
+
+      <span
+        class="compact-player-main"
+      >
+        <span
+          class="compact-player-name"
+        >
+          ${escapeHtml(
+            getPlayerSummary(
+              player
+            )
+          )}
+        </span>
+
+        ${
+          player.hostNote
+            ? `
+              <span
+                class="compact-player-meta"
+              >
+                備註：${escapeHtml(
+                  player.hostNote
+                )}
+              </span>
+            `
+            : ""
+        }
+      </span>
+
+      <span
+        aria-hidden="true"
+      >
+        ✏️
+      </span>
+    </button>
+  `;
+}
+
+function buildSeatGroupHtml(
+  title,
+  seats,
+  players
+) {
+  if (seats.length === 0) {
+    return "";
+  }
+
+  return `
+    <div
+      class="seat-group"
+      style="margin-top: 18px;"
+    >
+      <h4
+        style="
+          margin: 0 0 10px;
+        "
+      >
+        ${title}
+      </h4>
+
+      ${seats
+        .map(function (seat) {
+          return buildSingleSeatHtml(
+            seat,
+            players
+          );
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function buildSeatBoardHtml(
+  car,
+  players
+) {
+  const slots =
+    typeof getSlots === "function"
+      ? getSlots(car)
+      : (
+          Array.isArray(car.slots)
+            ? car.slots
+            : []
+        );
+
+  if (slots.length === 0) {
+    return buildPlayersHtml(
+      players
+    );
+  }
+
+  const maleSeats =
+    slots.filter(function (seat) {
+      return (
+        seat.originalType === "male" ||
+        (
+          seat.originalType ===
+            "flexible" &&
+          seat.type === "male"
+        )
+      );
+    });
+
+  const femaleSeats =
+    slots.filter(function (seat) {
+      return (
+        seat.originalType === "female" ||
+        (
+          seat.originalType ===
+            "flexible" &&
+          seat.type === "female"
+        )
+      );
+    });
+
+  const flexibleSeats =
+    slots.filter(function (seat) {
+      return (
+        seat.originalType ===
+          "flexible" &&
+        seat.type !== "male" &&
+        seat.type !== "female"
+      );
+    });
+
+  return `
+    ${buildSeatGroupHtml(
+      "👦 男位",
+      maleSeats,
+      players
+    )}
+
+    ${buildSeatGroupHtml(
+      "👧 女位",
+      femaleSeats,
+      players
+    )}
+
+    ${buildSeatGroupHtml(
+      "👤 不限位",
+      flexibleSeats,
+      players
+    )}
+  `;
+}
+
 function buildHistoryHtml(
   history
 ) {
@@ -2884,7 +3127,8 @@ async function renderCarDetail() {
           點玩家即可編輯本場資料或移出車團。
         </p>
 
-        ${buildPlayersHtml(
+        ${buildSeatBoardHtml(
+          car,
           players
         )}
       </div>
