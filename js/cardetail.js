@@ -216,14 +216,6 @@ function buildCarNavigation() {
       <button
         type="button"
         class="gray"
-        onclick="backToMyCars()"
-      >
-        🚗 回我的車
-      </button>
-
-      <button
-        type="button"
-        class="gray"
         onclick="navigateCar(1)"
         ${
           navigation.hasNext
