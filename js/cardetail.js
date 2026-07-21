@@ -195,9 +195,10 @@ function backToMyCars() {
 }
 
 function buildCarNavigation(scriptName) {
+  const navigation = getNavigationState();
+
   return `
     <div class="car-detail-header">
-
       <button
         class="header-back-btn"
         type="button"
@@ -210,22 +211,170 @@ function buildCarNavigation(scriptName) {
       <div
         class="header-title"
         id="carHeaderTitle"
+        title="${escapeHtml(scriptName)}"
       >
         ${escapeHtml(scriptName)}
       </div>
 
-      <button
-        class="header-menu-btn"
-        type="button"
-        onclick="return false"
-        title="更多功能"
-      >
-        ⋯
-      </button>
+      <div class="header-menu-wrapper">
+        <button
+          class="header-menu-btn"
+          type="button"
+          onclick="toggleCarMenu(event)"
+          title="更多功能"
+          aria-label="更多功能"
+          aria-expanded="false"
+        >
+          ⋯
+        </button>
 
+        <div
+          id="carMoreMenu"
+          class="car-more-menu"
+          hidden
+        >
+          <button
+            type="button"
+            class="desktop-car-navigation"
+            onclick="navigateCar(-1)"
+            ${navigation.hasPrevious ? "" : "disabled"}
+          >
+            ← 上一台車
+          </button>
+
+          <button
+            type="button"
+            class="desktop-car-navigation"
+            onclick="navigateCar(1)"
+            ${navigation.hasNext ? "" : "disabled"}
+          >
+            下一台車 →
+          </button>
+
+          <div class="car-menu-divider desktop-car-navigation"></div>
+
+          <button
+            type="button"
+            onclick="openEditCarPage()"
+          >
+            ✏️ 編輯車團
+          </button>
+
+          <button
+            type="button"
+            onclick="copyRecruitmentText()"
+          >
+            📋 複製揪團資訊
+          </button>
+
+          <button
+            type="button"
+            onclick="copyPlayerJoinLink()"
+          >
+            🔗 複製玩家連結
+          </button>
+
+          <button
+            type="button"
+            onclick="openPlayerApplicationPage()"
+          >
+            🙋 開啟玩家報名頁
+          </button>
+
+          <div class="car-menu-divider"></div>
+
+          <button
+            type="button"
+            onclick="backToMyCars()"
+          >
+            🚗 回到我的車
+          </button>
+        </div>
+      </div>
     </div>
   `;
 }
+
+function toggleCarMenu(event) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  const menu =
+    document.getElementById("carMoreMenu");
+
+  const menuButton =
+    document.querySelector(".header-menu-btn");
+
+  if (!menu) {
+    return;
+  }
+
+  const willOpen = menu.hidden;
+
+  menu.hidden = !willOpen;
+
+  if (menuButton) {
+    menuButton.setAttribute(
+      "aria-expanded",
+      String(willOpen)
+    );
+  }
+}
+
+function closeCarMenu() {
+  const menu =
+    document.getElementById("carMoreMenu");
+
+  const menuButton =
+    document.querySelector(".header-menu-btn");
+
+  if (menu) {
+    menu.hidden = true;
+  }
+
+  if (menuButton) {
+    menuButton.setAttribute(
+      "aria-expanded",
+      "false"
+    );
+  }
+}
+
+function openEditCarPage() {
+  const carId = getCarId();
+
+  if (!carId) {
+    return;
+  }
+
+  location.href =
+    "editcar.html?id=" +
+    encodeURIComponent(carId);
+}
+
+document.addEventListener(
+  "click",
+  function (event) {
+    const menuWrapper =
+      event.target.closest(
+        ".header-menu-wrapper"
+      );
+
+    if (!menuWrapper) {
+      closeCarMenu();
+    }
+  }
+);
+
+document.addEventListener(
+  "keydown",
+  function (event) {
+    if (event.key === "Escape") {
+      closeCarMenu();
+    }
+  }
+);
 
 /* =========================
    車團狀態操作
