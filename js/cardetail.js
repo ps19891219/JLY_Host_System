@@ -1914,9 +1914,17 @@ async function addPlayerManually(
   }
 
   if (!carId) {
-    alert("找不到車團 ID");
-    return;
-  }
+  alert("找不到車團 ID");
+  return;
+}
+
+window.currentAddingSeatId =
+  seatId || "";
+
+console.log(
+  "目前準備加入的空位：",
+  window.currentAddingSeatId
+);
 
   const inputName = prompt(
     "請輸入玩家名稱：",
