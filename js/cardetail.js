@@ -2,6 +2,9 @@ console.log("cardetail.js 已成功載入！");
 
 const MYCAR_NAVIGATION_IDS_KEY = "mycarNavigationIds";
 
+// 左右滑是否已初始化
+let swipeNavigationInitialized = false;
+
 /* =========================
    基礎工具
 ========================= */
@@ -196,27 +199,32 @@ function backToMyCars() {
 
 function enableSwipeNavigation() {
 
+  // 已經初始化過
+  if (swipeNavigationInitialized) {
+    return;
+  }
+
   // 桌機不用
   if (window.innerWidth >= 768) {
     return;
   }
 
-  const page =
-    document.body;
+  swipeNavigationInitialized = true;
 
   let startX = 0;
   let startY = 0;
 
-  page.addEventListener(
+  document.addEventListener(
     "touchstart",
     function (event) {
 
-      // 三點選單開著不滑
+      // 點到按鈕不要滑
       if (
-        !document
-          .getElementById("carMoreMenu")
-          ?.hidden
+        event.target.closest(
+          "button,a,input,textarea,select"
+        )
       ) {
+        startX = 0;
         return;
       }
 
@@ -225,15 +233,18 @@ function enableSwipeNavigation() {
 
       startX = touch.clientX;
       startY = touch.clientY;
+
     },
     {
       passive: true
     }
   );
 
-  page.addEventListener(
+  document.addEventListener(
     "touchend",
     function (event) {
+
+      if (!startX) return;
 
       const touch =
         event.changedTouches[0];
@@ -244,7 +255,10 @@ function enableSwipeNavigation() {
       const deltaY =
         touch.clientY - startY;
 
-      // 垂直滑動
+      startX = 0;
+      startY = 0;
+
+      // 上下滑
       if (
         Math.abs(deltaY) >
         Math.abs(deltaX)
@@ -3749,6 +3763,8 @@ document.addEventListener(
           );
 
           renderCarDetail();
+
+          enableSwipeNavigation();
 
         },
         200
