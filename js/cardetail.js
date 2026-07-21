@@ -1497,6 +1497,15 @@ async function savePlayerEditor(updateDefault) {
         ? [...car.players]
         : [];
 
+        const slots =
+  Array.isArray(car.slots)
+    ? car.slots.map(function (seat) {
+        return {
+          ...seat
+        };
+      })
+    : [];
+
     let playerId = null;
     let historyType = "";
     let historyText = "";
@@ -1580,6 +1589,19 @@ async function savePlayerEditor(updateDefault) {
 
       });
 
+      const addingSeatId =
+  window.currentAddingSeatId || "";
+
+if (addingSeatId) {
+  const seat = slots.find(function (item) {
+    return item.id === addingSeatId;
+  });
+
+  if (seat) {
+    seat.playerId = playerId;
+  }
+}
+
       historyType =
         "主揪新增玩家";
 
@@ -1656,14 +1678,15 @@ async function savePlayerEditor(updateDefault) {
 
     await carRef.update({
 
-      players,
+  players,
 
-      history,
+  slots,
 
-      updatedAt:
-        nowTime()
+  history,
 
-    });
+  updatedAt: nowTime()
+
+});
 
     if (
       updateDefault &&
@@ -1697,6 +1720,8 @@ async function savePlayerEditor(updateDefault) {
         });
 
     }
+
+    window.currentAddingSeatId = "";
 
     closePlayerEditor();
 
@@ -2095,6 +2120,11 @@ async function addPlayerManually(
     const players =
       Array.isArray(car.players)
         ? car.players
+        : [];
+
+    const slots =
+      Array.isArray(car.slots)
+        ? [...car.slots]
         : [];
 
     const alreadyInCar =
