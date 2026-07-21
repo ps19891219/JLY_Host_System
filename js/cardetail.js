@@ -214,6 +214,14 @@ function buildCarNavigation() {
       </button>
 
       <button
+  type="button"
+  class="gray"
+  onclick="backToMyCars()"
+>
+  🚗 回我的車
+</button>
+
+      <button
         type="button"
         class="gray"
         onclick="navigateCar(1)"
@@ -222,14 +230,6 @@ function buildCarNavigation() {
             ? ""
             : "disabled"
         }
-
-        <button
-  type="button"
-  class="gray"
-  onclick="backToMyCars()"
->
-  🚗 回我的車
-</button>
 
       >
         下一台車 ➡️
