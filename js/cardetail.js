@@ -194,46 +194,35 @@ function backToMyCars() {
   location.href = "mycar.html";
 }
 
-function buildCarNavigation() {
-  const navigation =
-    getNavigationState();
-
+function buildCarNavigation(scriptName) {
   return `
-    <div class="car-detail-navigation">
+    <div class="car-detail-header">
+
       <button
+        class="header-back-btn"
         type="button"
-        class="gray"
-        onclick="navigateCar(-1)"
-        ${
-          navigation.hasPrevious
-            ? ""
-            : "disabled"
-        }
+        onclick="backToMyCars()"
+        title="返回"
       >
-        ⬅️ 上一台車
+        ←
       </button>
 
-      <button
-  type="button"
-  class="gray"
-  onclick="backToMyCars()"
->
-  🚗 回我的車
-</button>
-
-      <button
-        type="button"
-        class="gray"
-        onclick="navigateCar(1)"
-        ${
-          navigation.hasNext
-            ? ""
-            : "disabled"
-        }
-
+      <div
+        class="header-title"
+        id="carHeaderTitle"
       >
-        下一台車 ➡️
+        ${escapeHtml(scriptName)}
+      </div>
+
+      <button
+        class="header-menu-btn"
+        type="button"
+        onclick="return false"
+        title="更多功能"
+      >
+        ⋯
       </button>
+
     </div>
   `;
 }
@@ -3121,7 +3110,7 @@ async function renderCarDetail() {
         "已取消";
 
     detailBox.innerHTML = `
-      ${buildCarNavigation()}
+      ${buildCarNavigation(scriptName)}
 
       <div class="card">
         <h2>
