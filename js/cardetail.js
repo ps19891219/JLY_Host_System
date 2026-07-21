@@ -253,12 +253,7 @@ function buildCarNavigation(scriptName) {
 
           <div class="car-menu-divider desktop-car-navigation"></div>
 
-          <button
-            type="button"
-            onclick="openEditCarPage()"
-          >
-            ✏️ 編輯車團
-          </button>
+          
 
           <button
             type="button"
@@ -3437,28 +3432,6 @@ async function renderCarDetail() {
           )}
         </div>
       </div>
-
-      ${
-        canOperate
-          ? `
-            <div class="card">
-              <h3>
-                ⚙️ 車團狀態
-              </h3>
-
-              <div class="row">
-
-                <button
-                  type="button"
-                  class="danger"
-                  onclick="cancelCar()"
-                >
-                  ❌ 取消這台車
-                </button>
-              </div>
-            </div>
-          `
-          : ""
       }
 
     `;
