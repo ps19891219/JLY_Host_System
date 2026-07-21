@@ -3195,6 +3195,14 @@ async function renderCarDetail() {
 /* =========================
    全域函式
 ========================= */
+window.openEmptySeat = function (
+  seatId
+) {
+  console.log(
+    "點到空位：",
+    seatId
+  );
+};
 
 window.renderCarDetail =
   renderCarDetail;
