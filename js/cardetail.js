@@ -3104,21 +3104,9 @@ async function renderCarDetail() {
               flex: 1;
             "
           >
-            👥 已加入玩家
+            👥 席位安排
           </h3>
 
-          ${
-            canOperate
-              ? `
-                <button
-                  type="button"
-                  onclick="addPlayerManually()"
-                >
-                  ➕ 手動新增玩家
-                </button>
-              `
-              : ""
-          }
         </div>
 
         <p
@@ -3154,12 +3142,6 @@ async function renderCarDetail() {
               </h3>
 
               <div class="row">
-                <button
-                  type="button"
-                  onclick="finishCar()"
-                >
-                  ✅ 標記完成
-                </button>
 
                 <button
                   type="button"
@@ -3174,7 +3156,6 @@ async function renderCarDetail() {
           : ""
       }
 
-      ${buildCarNavigation()}
     `;
   } catch (error) {
     console.error(
