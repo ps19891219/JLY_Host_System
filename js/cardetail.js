@@ -2541,10 +2541,12 @@ function buildSingleSeatHtml(
     "";
 
   if (!player) {
-    return `
-      <div
-        class="compact-player-row"
-      >
+      return `
+  <button
+    type="button"
+    class="compact-player-row"
+    onclick="openEmptySeat('${seat.id}')"
+  >
         <span
           class="compact-player-seat"
         >
@@ -2562,7 +2564,7 @@ function buildSingleSeatHtml(
             空位
           </span>
         </span>
-      </div>
+      </button>
     `;
   }
 
