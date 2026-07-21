@@ -1592,10 +1592,25 @@ async function savePlayerEditor(updateDefault) {
       const addingSeatId =
   window.currentAddingSeatId || "";
 
+console.log(
+  "addingSeatId =",
+  addingSeatId
+);
+
+console.log(
+  "slots =",
+  slots
+);
+
 if (addingSeatId) {
   const seat = slots.find(function (item) {
     return item.id === addingSeatId;
   });
+
+  console.log(
+    "找到的 seat =",
+    seat
+  );
 
   if (seat) {
     seat.playerId = playerId;
