@@ -34,7 +34,7 @@ function getEditRadioValue(
 ) {
   const checked =
     document.querySelector(
-      input[name="${name}"]:checked
+      `input[name="${name}"]:checked`
     );
 
   return checked
@@ -465,7 +465,7 @@ function getPlayerIdForSeat(
     player.playerId ||
     player.id ||
     player.applicationId ||
-    legacy-player-${index + 1}
+    `legacy-player-${index + 1}`
   );
 }
 
@@ -618,8 +618,34 @@ async function loadEditCar() {
   }
 
   try {
-    const carDoc =
-      await db
-        .collection("cars")
-        .doc(carId)
-        .get();
+  const carDoc =
+    await db
+      .collection("cars")
+      .doc(carId)
+      .get();
+
+  if (!carDoc.exists) {
+    editBox.innerHTML =
+      "找不到這台車";
+    return;
+  }
+
+  currentEditingCar = {
+    id: carDoc.id,
+    ...carDoc.data()
+  };
+
+  renderEditForm(
+    currentEditingCar
+  );
+} catch (error) {
+  console.error(
+    "讀取車團失敗：",
+    error
+  );
+
+  editBox.innerHTML =
+    "讀取失敗：" +
+    error.message;
+}
+}
