@@ -1,43 +1,58 @@
-console.log("seat-board.js 已成功載入！");
+console.log("seat-board.js V2 已成功載入！");
 
 // ============================================================
 // JLY Host System
-// Seat Board Controller V1
+// Seat Board Controller V2
 //
 // 負責：
-// 1. 接收 car 與 players
-// 2. 整理 slots 與玩家資料
-// 3. 計算等待安排玩家
-// 4. 呼叫 JLYSeatRender 產生座位畫面
-// 5. 提供 cardetail.js 使用的單一入口
+// 1. 整理車團席位與玩家
+// 2. 計算等待安排玩家
+// 3. 呼叫 JLYSeatRender 畫面
+// 4. 綁定空位與玩家點擊事件
+// 5. 提供局部重新整理入口
 //
 // 不負責：
-// - 直接寫入 Firestore
+// - 直接安排或交換玩家
 // - 直接修改 slot.playerId
-// - 玩家搜尋或建立
-// - 拖曳規則
+// - 直接寫入 Firestore
 // ============================================================
 
 (function () {
   "use strict";
 
-  // ------------------------------------------------------------
-  // 取得必要模組
-  // ------------------------------------------------------------
+  const boardState = {
+    container: null,
+    car: null,
+    players: [],
+    options: {}
+  };
+
+  // ============================================================
+  // 模組檢查
+  // ============================================================
 
   function getSeatRender() {
     if (!window.JLYSeatRender) {
       throw new Error(
-        "JLYSeatRender 尚未載入，請先載入 seat-render.js"
+        "JLYSeatRender 尚未載入"
       );
     }
 
     return window.JLYSeatRender;
   }
 
-  // ------------------------------------------------------------
+  function isReady() {
+    return Boolean(
+      window.JLYSeatRender &&
+      typeof window
+        .JLYSeatRender
+        .render === "function"
+    );
+  }
+
+  // ============================================================
   // 基本工具
-  // ------------------------------------------------------------
+  // ============================================================
 
   function cloneValue(value) {
     if (value === undefined) {
@@ -46,6 +61,29 @@ console.log("seat-board.js 已成功載入！");
 
     return JSON.parse(
       JSON.stringify(value)
+    );
+  }
+
+  function resolveContainer(container) {
+    if (!container) {
+      return null;
+    }
+
+    if (
+      container instanceof
+      HTMLElement
+    ) {
+      return container;
+    }
+
+    const value =
+      String(container);
+
+    return (
+      document.querySelector(value) ||
+      document.getElementById(
+        value.replace(/^#/, "")
+      )
     );
   }
 
@@ -101,12 +139,11 @@ console.log("seat-board.js 已成功載入！");
   }
 
   function getActivePlayers(players) {
-    const sourcePlayers =
+    return (
       Array.isArray(players)
         ? players
-        : [];
-
-    return sourcePlayers.filter(
+        : []
+    ).filter(
       function (player) {
         return !isCancelledPlayer(
           player
@@ -115,11 +152,9 @@ console.log("seat-board.js 已成功載入！");
     );
   }
 
-  // ------------------------------------------------------------
-  // 取得車團席位
-  //
-  // 優先使用 seat.js 相容層的 getSlots()
-  // ------------------------------------------------------------
+  // ============================================================
+  // 席位資料
+  // ============================================================
 
   function getCarSlots(car) {
     if (!car) {
@@ -140,18 +175,15 @@ console.log("seat-board.js 已成功載入！");
       : [];
   }
 
-  // ------------------------------------------------------------
-  // 建立玩家 Map
-  // ------------------------------------------------------------
-
   function buildPlayerMap(players) {
-    const activePlayers =
-      getActivePlayers(players);
-
-    const playerMap =
+    const map =
       new Map();
 
-    activePlayers.forEach(
+    (
+      Array.isArray(players)
+        ? players
+        : []
+    ).forEach(
       function (player, index) {
         const playerId =
           getPlayerId(
@@ -159,7 +191,7 @@ console.log("seat-board.js 已成功載入！");
             index
           );
 
-        playerMap.set(
+        map.set(
           playerId,
           {
             player,
@@ -171,32 +203,21 @@ console.log("seat-board.js 已成功載入！");
       }
     );
 
-    return playerMap;
+    return map;
   }
-
-  // ------------------------------------------------------------
-  // 將車團玩家資料補進 slots
-  //
-  // Firestore 裡的 slot.player 有時可能為空，
-  // 但 playerId 仍然存在。
-  //
-  // Render 前在這裡補齊顯示名稱，
-  // 不直接修改 Firestore 原始資料。
-  // ------------------------------------------------------------
 
   function hydrateSlots(
     slots,
     players
   ) {
-    const sourceSlots =
-      Array.isArray(slots)
-        ? cloneValue(slots)
-        : [];
-
     const playerMap =
       buildPlayerMap(players);
 
-    return sourceSlots.map(
+    return (
+      Array.isArray(slots)
+        ? slots
+        : []
+    ).map(
       function (slot, index) {
         const slotId =
           String(
@@ -225,7 +246,7 @@ console.log("seat-board.js 已成功載入！");
             : null;
 
         return {
-          ...slot,
+          ...cloneValue(slot),
 
           id:
             String(
@@ -275,20 +296,14 @@ console.log("seat-board.js 已成功載入！");
     );
   }
 
-  // ------------------------------------------------------------
-  // 計算等待安排玩家
-  //
-  // 等待安排 =
-  // 車團有效玩家 - 已存在於 slot.playerId 的玩家
-  // ------------------------------------------------------------
+  // ============================================================
+  // 等待安排
+  // ============================================================
 
   function getWaitingPlayers(
     players,
     slots
   ) {
-    const activePlayers =
-      getActivePlayers(players);
-
     const occupiedIds =
       new Set();
 
@@ -308,19 +323,27 @@ console.log("seat-board.js 已成功載入！");
       }
     );
 
-    return activePlayers
+    return getActivePlayers(
+      players
+    )
       .map(
-        function (player, index) {
+        function (player) {
+          const originalIndex =
+            players.indexOf(
+              player
+            );
+
           const playerId =
             getPlayerId(
               player,
-              index
+              originalIndex
             );
 
           return {
             ...cloneValue(player),
 
-            player,
+            player:
+              cloneValue(player),
 
             playerId,
 
@@ -328,7 +351,7 @@ console.log("seat-board.js 已成功載入！");
               playerId,
 
             playerIndex:
-              index,
+              originalIndex,
 
             displayName:
               getPlayerName(
@@ -341,17 +364,13 @@ console.log("seat-board.js 已成功載入！");
         }
       )
       .filter(
-        function (waitingItem) {
+        function (item) {
           return !occupiedIds.has(
-            waitingItem.playerId
+            item.playerId
           );
         }
       );
   }
-
-  // ------------------------------------------------------------
-  // 建立 Seat Board 資料
-  // ------------------------------------------------------------
 
   function buildBoardData(
     car,
@@ -369,19 +388,10 @@ console.log("seat-board.js 已成功載入！");
               : []
           );
 
-    const rawSlots =
-      getCarSlots(car);
-
     const slots =
       hydrateSlots(
-        rawSlots,
+        getCarSlots(car),
         sourcePlayers
-      );
-
-    const waitingPlayers =
-      getWaitingPlayers(
-        sourcePlayers,
-        slots
       );
 
     return {
@@ -398,18 +408,419 @@ console.log("seat-board.js 已成功載入！");
 
       slots,
 
-      waitingPlayers
+      waitingPlayers:
+        getWaitingPlayers(
+          sourcePlayers,
+          slots
+        )
     };
   }
 
-  // ------------------------------------------------------------
-  // 建立完整座位 HTML
-  //
-  // cardetail.js 之後只需要：
-  //
-  // JLYSeatBoard.buildHtml(car, players)
-  // ------------------------------------------------------------
+  // ============================================================
+  // 查找資料
+  // ============================================================
 
+  function findSlotById(
+    boardData,
+    slotId
+  ) {
+    const targetId =
+      String(slotId || "");
+
+    return (
+      boardData.slots.find(
+        function (slot) {
+          return (
+            String(
+              slot.slotId || ""
+            ) === targetId ||
+            String(
+              slot.id || ""
+            ) === targetId ||
+            String(
+              slot.order || ""
+            ) === targetId
+          );
+        }
+      ) ||
+      null
+    );
+  }
+
+  function findPlayerIndexById(
+    boardData,
+    playerId
+  ) {
+    const targetId =
+      String(playerId || "");
+
+    return boardData.players
+      .findIndex(
+        function (
+          player,
+          index
+        ) {
+          return (
+            getPlayerId(
+              player,
+              index
+            ) === targetId
+          );
+        }
+      );
+  }
+
+  // ============================================================
+  // 點擊操作
+  // ============================================================
+
+  function openEmptySeat(slotId) {
+    if (
+      typeof window.openEmptySeat ===
+      "function"
+    ) {
+      window.openEmptySeat(
+        slotId
+      );
+
+      return;
+    }
+
+    if (
+      typeof window.addPlayerManually ===
+      "function"
+    ) {
+      window.addPlayerManually(
+        slotId
+      );
+
+      return;
+    }
+
+    alert(
+      "目前無法開啟新增玩家功能"
+    );
+  }
+
+  function openPlayerEditor(
+    playerIndex
+  ) {
+    if (
+      !Number.isInteger(
+        playerIndex
+      ) ||
+      playerIndex < 0
+    ) {
+      alert(
+        "找不到玩家資料"
+      );
+
+      return;
+    }
+
+    if (
+      typeof window
+        .openExistingPlayerEditor ===
+      "function"
+    ) {
+      window
+        .openExistingPlayerEditor(
+          playerIndex
+        );
+
+      return;
+    }
+
+    alert(
+      "目前無法開啟玩家編輯功能"
+    );
+  }
+
+  function handleBoardClick(
+    event,
+    boardData
+  ) {
+    const autoPlaceButton =
+      event.target.closest(
+        "[data-seat-auto-place]"
+      );
+
+    if (autoPlaceButton) {
+      event.preventDefault();
+
+      const playerId =
+        autoPlaceButton.getAttribute(
+          "data-player-id"
+        );
+
+      const playerIndex =
+        findPlayerIndexById(
+          boardData,
+          playerId
+        );
+
+      if (
+        playerIndex < 0
+      ) {
+        alert(
+          "找不到等待安排的玩家"
+        );
+
+        return;
+      }
+
+      alert(
+        "自動安排功能會在下一步接上。\n\n目前可以先點擊空位，選擇這位玩家。"
+      );
+
+      return;
+    }
+
+    const playerElement =
+      event.target.closest(
+        '[data-seat-player-drag="true"]'
+      );
+
+    if (playerElement) {
+      event.preventDefault();
+
+      const playerId =
+        playerElement.getAttribute(
+          "data-player-id"
+        );
+
+      const playerIndex =
+        findPlayerIndexById(
+          boardData,
+          playerId
+        );
+
+      openPlayerEditor(
+        playerIndex
+      );
+
+      return;
+    }
+
+    const menuButton =
+      event.target.closest(
+        "[data-seat-menu-button]"
+      );
+
+    if (menuButton) {
+      event.preventDefault();
+
+      const slotId =
+        menuButton.getAttribute(
+          "data-slot-id"
+        );
+
+      const slot =
+        findSlotById(
+          boardData,
+          slotId
+        );
+
+      if (!slot) {
+        alert(
+          "找不到席位資料"
+        );
+
+        return;
+      }
+
+      if (!slot.playerId) {
+        openEmptySeat(
+          slotId
+        );
+
+        return;
+      }
+
+      const playerIndex =
+        findPlayerIndexById(
+          boardData,
+          slot.playerId
+        );
+
+      openPlayerEditor(
+        playerIndex
+      );
+
+      return;
+    }
+
+    const seatRow =
+      event.target.closest(
+        "[data-seat-row]"
+      );
+
+    if (!seatRow) {
+      return;
+    }
+
+    const slotId =
+      seatRow.getAttribute(
+        "data-slot-id"
+      );
+
+    const slot =
+      findSlotById(
+        boardData,
+        slotId
+      );
+
+    if (
+      slot &&
+      !slot.playerId
+    ) {
+      openEmptySeat(
+        slotId
+      );
+    }
+  }
+
+  function bindBoardEvents(
+    container,
+    boardData
+  ) {
+    if (!container) {
+      return;
+    }
+
+    container.onclick =
+      function (event) {
+        handleBoardClick(
+          event,
+          boardData
+        );
+      };
+  }
+
+  // ============================================================
+  // Render
+  // ============================================================
+
+  function render(
+    container,
+    car,
+    players,
+    options
+  ) {
+    const target =
+      resolveContainer(
+        container
+      );
+
+    if (!target) {
+      console.error(
+        "Seat Board：找不到顯示容器",
+        container
+      );
+
+      return {
+        success:
+          false,
+
+        reason:
+          "找不到座位顯示容器"
+      };
+    }
+
+    if (!isReady()) {
+      target.innerHTML = `
+        <div class="seat-empty-state">
+          座位模組尚未載入
+        </div>
+      `;
+
+      return {
+        success:
+          false,
+
+        reason:
+          "Seat Render 尚未載入"
+      };
+    }
+
+    const boardData =
+      buildBoardData(
+        car,
+        players
+      );
+
+    const SeatRender =
+      getSeatRender();
+
+    const result =
+      SeatRender.render(
+        target,
+        boardData.slots,
+        boardData.waitingPlayers,
+        {
+          showSummary:
+            true,
+
+          showWaitingArea:
+            true,
+
+          includeEmptySections:
+            false,
+
+          ...(
+            options || {}
+          )
+        }
+      );
+
+    if (result.success) {
+      bindBoardEvents(
+        target,
+        boardData
+      );
+    }
+
+    boardState.container =
+      target;
+
+    boardState.car =
+      car;
+
+    boardState.players =
+      players;
+
+    boardState.options =
+      options || {};
+
+    return {
+      ...result,
+      boardData
+    };
+  }
+
+  function refresh() {
+    if (
+      !boardState.container ||
+      !boardState.car
+    ) {
+      return {
+        success:
+          false,
+
+        reason:
+          "尚未建立 Seat Board"
+      };
+    }
+
+    return render(
+      boardState.container,
+      boardState.car,
+      boardState.players,
+      boardState.options
+    );
+  }
+
+  // 保留給暫時仍需要字串 HTML 的地方
   function buildHtml(
     car,
     players,
@@ -424,66 +835,8 @@ console.log("seat-board.js 已成功載入！");
         players
       );
 
-    const settings = {
-      showSummary:
-        true,
-
-      showWaitingArea:
-        true,
-
-      includeEmptySections:
-        false,
-
-      ...(
-        options || {}
-      )
-    };
-
     const result =
       SeatRender.buildSeatHtml(
-        boardData.slots,
-        boardData.waitingPlayers,
-        settings
-      );
-
-    return {
-      html:
-        result.html,
-
-      viewModel:
-        result.viewModel,
-
-      boardData
-    };
-  }
-
-  // ------------------------------------------------------------
-  // 畫入指定容器
-  //
-  // 這個方法之後可用於：
-  // - 局部重新整理
-  // - 拖曳完成後重畫
-  // - 同步完成後重畫
-  // ------------------------------------------------------------
-
-  function render(
-    container,
-    car,
-    players,
-    options
-  ) {
-    const SeatRender =
-      getSeatRender();
-
-    const boardData =
-      buildBoardData(
-        car,
-        players
-      );
-
-    const result =
-      SeatRender.render(
-        container,
         boardData.slots,
         boardData.waitingPlayers,
         {
@@ -503,30 +856,23 @@ console.log("seat-board.js 已成功載入！");
       );
 
     return {
-      ...result,
+      html:
+        result.html,
+
+      viewModel:
+        result.viewModel,
+
       boardData
     };
   }
 
-  // ------------------------------------------------------------
-  // 檢查模組是否已準備完成
-  // ------------------------------------------------------------
-
-  function isReady() {
-    return Boolean(
-      window.JLYSeatRender &&
-      typeof window
-        .JLYSeatRender
-        .buildSeatHtml ===
-        "function"
-    );
-  }
-
-  // ------------------------------------------------------------
+  // ============================================================
   // 對外公開
-  // ------------------------------------------------------------
+  // ============================================================
 
   window.JLYSeatBoard = {
+    isReady,
+
     getPlayerId,
     getPlayerName,
     isCancelledPlayer,
@@ -536,10 +882,13 @@ console.log("seat-board.js 已成功載入！");
     buildPlayerMap,
     hydrateSlots,
     getWaitingPlayers,
-
     buildBoardData,
+
+    findSlotById,
+    findPlayerIndexById,
+
     buildHtml,
     render,
-    isReady
+    refresh
   };
 })();
