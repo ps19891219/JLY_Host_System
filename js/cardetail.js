@@ -2650,6 +2650,41 @@ function getDetailBox() {
   );
 }
 
+function renderSeatBoard(
+  car,
+  players
+) {
+  const mount =
+    document.getElementById(
+      "seatBoardMount"
+    );
+
+  if (!mount) {
+    console.warn(
+      "找不到 seatBoardMount"
+    );
+    return;
+  }
+
+  if (
+    !window.JLYSeatBoard ||
+    !window.JLYSeatBoard.isReady()
+  ) {
+    mount.innerHTML =
+      buildSeatBoardHtml(
+        car,
+        players
+      );
+    return;
+  }
+
+  window.JLYSeatBoard.render(
+    mount,
+    car,
+    players
+  );
+}
+
 function getPlayerDisplayName(
   player
 ) {
@@ -3521,18 +3556,11 @@ async function renderCarDetail() {
           點玩家即可編輯本場資料或移出車團。
         </p>
 
-        ${
-  window.JLYSeatBoard &&
-  window.JLYSeatBoard.isReady()
-    ? window.JLYSeatBoard.buildHtml(
-        car,
-        players
-      ).html
-    : buildSeatBoardHtml(
-        car,
-        players
-      )
-}
+                <div id="seatBoardMount">
+          <div class="seat-empty-state">
+            座位載入中……
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -3548,7 +3576,12 @@ async function renderCarDetail() {
       </div>
       }
 
-    `;
+        `;
+
+    renderSeatBoard(
+      car,
+      players
+    );
   } catch (error) {
     console.error(
       "載入車團詳情失敗：",
