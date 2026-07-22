@@ -3511,7 +3511,7 @@ async function renderCarDetail() {
     class="sync-seat-btn"
     onclick="syncPlayersToSeats()"
   >
-    🔄 匯入原有玩家
+    🔄 同步玩家與席位
   </button>
 </div>
 
@@ -3521,10 +3521,18 @@ async function renderCarDetail() {
           點玩家即可編輯本場資料或移出車團。
         </p>
 
-        ${buildSeatBoardHtml(
-          car,
-          players
-        )}
+        ${
+  window.JLYSeatBoard &&
+  window.JLYSeatBoard.isReady()
+    ? window.JLYSeatBoard.buildHtml(
+        car,
+        players
+      ).html
+    : buildSeatBoardHtml(
+        car,
+        players
+      )
+}
       </div>
 
       <div class="card">
