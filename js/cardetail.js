@@ -3574,8 +3574,6 @@ async function renderCarDetail() {
           )}
         </div>
       </div>
-      }
-
         `;
 
     renderSeatBoard(
