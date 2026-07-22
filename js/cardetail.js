@@ -1778,13 +1778,19 @@ async function savePlayerEditor(updateDefault) {
         : [];
 
         const slots =
-  Array.isArray(car.slots)
-    ? car.slots.map(function (seat) {
-        return {
-          ...seat
-        };
-      })
-    : [];
+  window.JLYSeatBoard &&
+  typeof window.JLYSeatBoard.getCarSlots ===
+    "function"
+    ? window.JLYSeatBoard.getCarSlots(car)
+    : (
+        Array.isArray(car.slots)
+          ? car.slots.map(function (seat) {
+              return {
+                ...seat
+              };
+            })
+          : []
+      );
 
     let playerId = null;
     let historyType = "";
@@ -2426,9 +2432,15 @@ console.log(
         : [];
 
     const slots =
-      Array.isArray(car.slots)
-        ? [...car.slots]
-        : [];
+  window.JLYSeatBoard &&
+  typeof window.JLYSeatBoard.getCarSlots ===
+    "function"
+    ? window.JLYSeatBoard.getCarSlots(car)
+    : (
+        Array.isArray(car.slots)
+          ? [...car.slots]
+          : []
+      );
 
     const existingPlayer =
   players.find(function (
