@@ -3521,10 +3521,18 @@ async function renderCarDetail() {
           點玩家即可編輯本場資料或移出車團。
         </p>
 
-        <div
-  id="seatBoardMount"
-  data-seat-board-mount="true"
-></div>
+        ${
+  window.JLYSeatBoard &&
+  window.JLYSeatBoard.isReady()
+    ? window.JLYSeatBoard.buildHtml(
+        car,
+        players
+      ).html
+    : buildSeatBoardHtml(
+        car,
+        players
+      )
+}
       </div>
 
       <div class="card">
