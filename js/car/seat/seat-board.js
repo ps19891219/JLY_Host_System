@@ -681,21 +681,115 @@ console.log("seat-board.js V2 已成功載入！");
   }
 
   function bindBoardEvents(
-    container,
-    boardData
-  ) {
-    if (!container) {
-      return;
-    }
-
-    container.onclick =
-      function (event) {
-        handleBoardClick(
-          event,
-          boardData
-        );
-      };
+  container,
+  boardData
+) {
+  if (!container) {
+    return;
   }
+
+  // ------------------------------------------------------------
+  // 點擊座位或玩家
+  // ------------------------------------------------------------
+
+  container.onclick =
+    function (event) {
+      handleBoardClick(
+        event,
+        boardData
+      );
+    };
+
+  // ------------------------------------------------------------
+  // 拖曳整列座位
+  // ------------------------------------------------------------
+
+  if (
+    !window.JLYSeatDrag ||
+    typeof window
+      .JLYSeatDrag
+      .bind !== "function"
+  ) {
+    console.warn(
+      "Seat Board：Seat Drag 尚未載入"
+    );
+
+    return;
+  }
+
+  const dragResult =
+    window.JLYSeatDrag.bind({
+      container,
+
+      slots:
+        boardData.slots,
+
+      onMove:
+        function (moveResult) {
+          const nextSlots =
+            Array.isArray(
+              moveResult.slots
+            )
+              ? moveResult.slots
+              : [];
+
+          if (
+            nextSlots.length === 0
+          ) {
+            console.error(
+              "Seat Board：拖曳後沒有取得新席位資料",
+              moveResult
+            );
+
+            return;
+          }
+
+          // 更新 Board 本次使用的資料
+          boardData.slots =
+            cloneValue(
+              nextSlots
+            );
+
+          // 更新目前車團記憶體中的 slots
+          if (boardState.car) {
+            boardState.car.slots =
+              cloneValue(
+                nextSlots
+              );
+          }
+
+          // 如果外層有提供儲存回呼，交給外層處理
+          if (
+            boardState.options &&
+            typeof boardState
+              .options
+              .onSlotsChange ===
+                "function"
+          ) {
+            boardState.options
+              .onSlotsChange(
+                cloneValue(
+                  nextSlots
+                ),
+                moveResult
+              );
+          }
+
+          // 重新畫出移動後的席位
+          refresh();
+        }
+    });
+
+  if (
+    !dragResult ||
+    !dragResult.success
+  ) {
+    console.warn(
+      "Seat Board：拖曳功能綁定失敗",
+      dragResult
+    );
+  }
+}
 
   // ============================================================
   // Render
