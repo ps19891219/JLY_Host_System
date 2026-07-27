@@ -2679,6 +2679,10 @@ function renderSeatBoard(
   }
 
   if (
+  !window.JLYSeatController ||
+  !window.JLYSeatController.isReady()
+) {
+  if (
     !window.JLYSeatBoard ||
     !window.JLYSeatBoard.isReady()
   ) {
@@ -2695,7 +2699,15 @@ function renderSeatBoard(
     car,
     players
   );
+
+  return;
 }
+
+window.JLYSeatController.render(
+  mount,
+  car,
+  players
+);
 
 function getPlayerDisplayName(
   player

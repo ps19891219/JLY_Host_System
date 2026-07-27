@@ -157,6 +157,9 @@ console.log(
   // ------------------------------------------------------------
 
   function handlePointerDown(event) {
+
+    console.log("🟢 Handle Pointer Down");
+
     const handle =
       event.target.closest(
         ".seat-row-handle"
@@ -453,6 +456,8 @@ console.log(
 
     dragState.container =
       container;
+
+      console.log("✅ Seat Drag 已綁定");
 
     prepareRows(
       container
