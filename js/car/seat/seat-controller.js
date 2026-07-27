@@ -128,6 +128,11 @@ console.log(
       );
   }
 
+  console.log(
+  "Controller car.slots",
+  controllerState.car.slots
+);
+
   refresh();
 }
 
