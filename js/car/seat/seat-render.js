@@ -343,9 +343,6 @@ console.log("seat-render.js 已成功載入！");
         )}"
       >
         <div class="seat-waiting-player-main">
-          <span class="seat-waiting-drag-icon">
-            ⋮⋮
-          </span>
 
           <span class="seat-waiting-player-name">
             ${escapeHtml(
