@@ -1,0 +1,314 @@
+/* ============================================================
+   JLY Host System
+   Car Detail Page - Seat Engine
+   第一階段：座位基礎外觀
+
+   注意：
+   1. 本檔案只放車團詳情頁樣式
+   2. 舊的 css/cardetail.css 暫時保留
+   3. 空位與有人座位一律維持白底
+============================================================ */
+
+
+/* ------------------------------------------------------------
+   Seat Board 基礎
+------------------------------------------------------------ */
+
+#seatBoardMount {
+  width: 100%;
+  min-width: 0;
+}
+
+#seatBoardMount,
+#seatBoardMount * {
+  box-sizing: border-box;
+}
+
+
+/* ------------------------------------------------------------
+   座位分區
+------------------------------------------------------------ */
+
+#seatBoardMount .seat-section,
+#seatBoardMount .seat-waiting-section {
+  width: 100%;
+  margin: 0 0 18px;
+}
+
+#seatBoardMount .seat-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin-bottom: 10px;
+}
+
+#seatBoardMount .seat-section-title-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#seatBoardMount .seat-section-title {
+  margin: 0;
+
+  color: #333333;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+#seatBoardMount .seat-section-icon {
+  flex: 0 0 auto;
+
+  color: #555555;
+  font-size: 17px;
+  line-height: 1;
+}
+
+#seatBoardMount .seat-section-count {
+  flex: 0 0 auto;
+
+  color: #777777;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#seatBoardMount .seat-section-list,
+#seatBoardMount .seat-waiting-list {
+  display: grid;
+  gap: 10px;
+}
+
+
+/* ------------------------------------------------------------
+   單一座位列
+
+   空位與已有玩家：
+   永遠都是白色背景
+------------------------------------------------------------ */
+
+#seatBoardMount .seat-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 8px;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 70px;
+  margin: 0;
+  padding: 10px;
+
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  box-shadow: none;
+
+  color: #333333;
+}
+
+/* 空位與有人時都不更換背景色 */
+#seatBoardMount .seat-row.is-empty,
+#seatBoardMount .seat-row.is-occupied {
+  background: #ffffff;
+}
+
+
+/* ------------------------------------------------------------
+   座位左側拖曳把手
+------------------------------------------------------------ */
+
+#seatBoardMount .seat-row-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 36px;
+  min-width: 36px;
+  height: 40px;
+
+  color: #999999;
+  font-size: 18px;
+  line-height: 1;
+
+  cursor: grab;
+  user-select: none;
+}
+
+#seatBoardMount .seat-row-handle:active {
+  cursor: grabbing;
+}
+
+
+/* ------------------------------------------------------------
+   座位主要內容
+------------------------------------------------------------ */
+
+#seatBoardMount .seat-row-main {
+  min-width: 0;
+}
+
+#seatBoardMount .seat-row-title-area {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  min-width: 0;
+  margin-bottom: 6px;
+}
+
+#seatBoardMount .seat-row-title {
+  min-width: 0;
+  overflow: hidden;
+
+  color: #333333;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#seatBoardMount .seat-row-status {
+  flex: 0 0 auto;
+
+  color: #888888;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+
+/* ------------------------------------------------------------
+   玩家內容
+------------------------------------------------------------ */
+
+#seatBoardMount .seat-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  min-width: 0;
+  min-height: 28px;
+}
+
+#seatBoardMount .seat-player-occupied {
+  cursor: grab;
+}
+
+#seatBoardMount .seat-player-occupied:active {
+  cursor: grabbing;
+}
+
+#seatBoardMount .seat-player-drag-icon {
+  flex: 0 0 auto;
+
+  color: #aaaaaa;
+  font-size: 14px;
+  line-height: 1;
+}
+
+#seatBoardMount .seat-player-name {
+  min-width: 0;
+  overflow: hidden;
+
+  color: #222222;
+  font-size: 15px;
+  font-weight: 700;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#seatBoardMount .seat-player-placeholder {
+  color: #999999;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+
+/* ------------------------------------------------------------
+   座位右側三點按鈕
+
+   這是唯一真正的 button。
+   強制覆蓋全站共用 button 樣式，
+   避免它變成綠色大按鈕或撐滿整列。
+------------------------------------------------------------ */
+
+#seatBoardMount button.seat-row-menu-button {
+  appearance: none;
+  -webkit-appearance: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 40px;
+
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  background: transparent !important;
+  border: none !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+
+  color: #666666 !important;
+  font-family: inherit;
+  font-size: 22px !important;
+  font-weight: 700;
+  line-height: 1 !important;
+  text-align: center;
+
+  cursor: pointer;
+  transform: none !important;
+}
+
+#seatBoardMount button.seat-row-menu-button:hover,
+#seatBoardMount button.seat-row-menu-button:focus,
+#seatBoardMount button.seat-row-menu-button:active {
+  width: 40px !important;
+  height: 40px !important;
+
+  background: rgba(0, 0, 0, 0.06) !important;
+  border: none !important;
+  box-shadow: none !important;
+
+  color: #333333 !important;
+  transform: none !important;
+}
+
+#seatBoardMount button.seat-row-menu-button:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline-offset: 2px;
+}
+
+
+/* ------------------------------------------------------------
+   手機版
+------------------------------------------------------------ */
+
+@media (max-width: 767px) {
+  #seatBoardMount .seat-row {
+    grid-template-columns: 32px minmax(0, 1fr) 40px;
+    gap: 6px;
+
+    min-height: 68px;
+    padding: 9px 8px;
+  }
+
+  #seatBoardMount .seat-row-handle {
+    width: 32px;
+    min-width: 32px;
+  }
+}
