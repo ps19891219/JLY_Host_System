@@ -658,9 +658,6 @@ if (roleElement) {
     return;
   }
 
-  const SeatActions =
-    window.JLYSeatActions;
-
   if (
     !SeatActions ||
     typeof SeatActions.updateRoleName !==
