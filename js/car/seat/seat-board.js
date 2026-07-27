@@ -658,6 +658,37 @@ if (roleElement) {
     return;
   }
 
+  const SeatActions =
+    window.JLYSeatActions;
+
+  if (
+    !SeatActions ||
+    typeof SeatActions.updateRoleName !==
+      "function"
+  ) {
+    alert(
+      "Seat Actions 尚未載入"
+    );
+
+    return;
+  }
+
+  const result =
+    SeatActions.updateRoleName(
+      boardData.slots,
+      slotId,
+      nextRoleName
+    );
+
+  if (!result.success) {
+    alert(
+      result.reason ||
+        "修改角色名稱失敗"
+    );
+
+    return;
+  }
+
   boardData.slots =
     result.slots;
 
@@ -665,7 +696,6 @@ if (roleElement) {
     "角色名稱已修改：",
     result
   );
-
   return;
 }
 
