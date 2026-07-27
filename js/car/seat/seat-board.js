@@ -576,6 +576,27 @@ console.log("seat-board.js V2 已成功載入！");
       return;
     }
 
+    const roleElement =
+  event.target.closest(
+    '[data-seat-label-edit="true"]'
+  );
+
+if (roleElement) {
+  event.preventDefault();
+
+  const slotId =
+    roleElement.getAttribute(
+      "data-slot-id"
+    );
+
+  console.log(
+    "Seat Label Click:",
+    slotId
+  );
+
+  return;
+}
+
     const playerElement =
       event.target.closest(
         '[data-seat-player-drag="true"]'
