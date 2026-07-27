@@ -658,41 +658,31 @@ if (roleElement) {
     return;
   }
 
+  const SeatController =
+    window.JLYSeatController;
+
   if (
-    !SeatActions ||
-    typeof SeatActions.updateRoleName !==
-      "function"
+    !SeatController ||
+    typeof SeatController
+      .applyActionResult !==
+        "function"
   ) {
     alert(
-      "Seat Actions 尚未載入"
+      "Seat Controller 尚未載入"
     );
 
     return;
   }
 
-  const result =
-    SeatActions.updateRoleName(
-      boardData.slots,
-      slotId,
-      nextRoleName
-    );
-
-  if (!result.success) {
-    alert(
-      result.reason ||
-        "修改角色名稱失敗"
-    );
-
-    return;
-  }
-
-  boardData.slots =
-    result.slots;
+  SeatController.applyActionResult(
+    result
+  );
 
   console.log(
     "角色名稱已修改：",
     result
   );
+
   return;
 }
 
