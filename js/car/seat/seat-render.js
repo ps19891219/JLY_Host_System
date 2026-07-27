@@ -175,10 +175,6 @@ console.log("seat-render.js 已成功載入！");
           slot.slotId
         )}"
       >
-        <span class="seat-player-drag-icon">
-          ⋮⋮
-        </span>
-
         <span class="seat-player-name">
           ${escapeHtml(playerName)}
         </span>
