@@ -86,55 +86,58 @@ console.log(
   // 拖曳完成
   // ------------------------------------------------------------
 
-  function handleSeatMove(
-    moveResult
-  ) {
-    const nextSlots =
-      moveResult &&
-      Array.isArray(
-        moveResult.slots
-      )
-        ? moveResult.slots
-        : [];
+  function applyActionResult(
+  actionResult
+) {
+  const nextSlots =
+    actionResult &&
+    Array.isArray(
+      actionResult.slots
+    )
+      ? actionResult.slots
+      : [];
 
-    if (
-      nextSlots.length === 0
-    ) {
-      console.error(
-        "Seat Controller：沒有取得拖曳後的席位資料",
-        moveResult
-      );
+  if (nextSlots.length === 0) {
+    console.error(
+      "Seat Controller：沒有取得新的席位資料",
+      actionResult
+    );
 
-      return;
-    }
-
-    if (
-      controllerState.car
-    ) {
-      controllerState.car.slots =
-        JSON.parse(
-          JSON.stringify(
-            nextSlots
-          )
-        );
-    }
-
-    if (
-      typeof controllerState
-        .options
-        .onSlotsChange ===
-          "function"
-    ) {
-      controllerState.options
-        .onSlotsChange(
-          nextSlots,
-          moveResult
-        );
-    }
-
-    refresh();
+    return;
   }
 
+  if (controllerState.car) {
+    controllerState.car.slots =
+      JSON.parse(
+        JSON.stringify(
+          nextSlots
+        )
+      );
+  }
+
+  if (
+    typeof controllerState
+      .options
+      .onSlotsChange ===
+        "function"
+  ) {
+    controllerState.options
+      .onSlotsChange(
+        nextSlots,
+        actionResult
+      );
+  }
+
+  refresh();
+}
+
+function handleSeatMove(
+  moveResult
+) {
+  applyActionResult(
+    moveResult
+  );
+}
   // ------------------------------------------------------------
   // 啟動拖曳
   // ------------------------------------------------------------
@@ -273,8 +276,9 @@ console.log(
   // ------------------------------------------------------------
 
   window.JLYSeatController = {
-    isReady,
-    render,
-    refresh
-  };
+  isReady,
+  render,
+  refresh,
+  applyActionResult
+};
 })();
