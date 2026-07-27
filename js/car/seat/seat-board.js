@@ -883,12 +883,15 @@ if (roleElement) {
         }
       );
 
-    if (result.success) {
-      bindBoardEvents(
+    if (
+    result.success &&
+    (options?.editable ?? true)
+) {
+    bindBoardEvents(
         target,
         boardData
-      );
-    }
+    );
+}
 
     boardState.container =
       target;
