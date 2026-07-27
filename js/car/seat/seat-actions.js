@@ -831,6 +831,8 @@ console.log("seat-actions.js 已成功載入！");
     moveWaitingPlayerToSlot,
     autoPlaceWaitingPlayer,
 
-    cleanSlots
+    updateRoleName,
+
+cleanSlots
   };
 })();
