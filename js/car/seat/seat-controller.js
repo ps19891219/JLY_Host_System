@@ -241,13 +241,14 @@ function handleSeatMove(
         );
 
     if (
-      boardResult &&
-      boardResult.success
-    ) {
-      bindDrag(
-        boardResult.boardData
-      );
-    }
+  boardResult &&
+  boardResult.success &&
+  (options?.draggable ?? true)
+) {
+  bindDrag(
+    boardResult.boardData
+  );
+}
 
     return boardResult;
   }
