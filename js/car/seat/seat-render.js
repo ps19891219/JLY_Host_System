@@ -228,11 +228,20 @@ console.log("seat-render.js 已成功載入！");
       </div>
 
       <div class="seat-row-main">
-        <div class="seat-row-label-cell">
-          ${escapeHtml(
-            viewSlot.displayName
-          )}
-        </div>
+        <div
+  class="seat-row-label-cell"
+  data-seat-label-edit="true"
+  data-slot-id="${escapeHtml(
+    viewSlot.slotId
+  )}"
+  role="button"
+  tabindex="0"
+  title="點擊修改角色名稱"
+>
+  ${escapeHtml(
+    viewSlot.displayName
+  )}
+</div>
 
         <div class="seat-row-player-cell">
           ${renderPlayerContent(
