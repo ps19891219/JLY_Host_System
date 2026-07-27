@@ -2708,6 +2708,7 @@ window.JLYSeatController.render(
   car,
   players
 );
+}
 
 function getPlayerDisplayName(
   player
