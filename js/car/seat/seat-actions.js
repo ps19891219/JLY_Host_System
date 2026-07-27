@@ -721,6 +721,68 @@ console.log("seat-actions.js 已成功載入！");
     );
   }
 
+  function updateRoleName(
+  slots,
+  slotId,
+  roleName
+) {
+  const SeatData =
+    getSeatData();
+
+  const SeatAssignment =
+    getSeatAssignment();
+
+  const nextSlots =
+    SeatData.cloneSlots(
+      slots
+    );
+
+  const index =
+    nextSlots.findIndex(
+      function (slot) {
+        return (
+          SeatAssignment.getSlotId(
+            slot
+          ) ===
+          String(slotId || "")
+        );
+      }
+    );
+
+  if (index === -1) {
+    return createActionResult(
+      false,
+      nextSlots,
+      {
+        action:
+          "update-role-name",
+        reason:
+          "找不到指定座位"
+      }
+    );
+  }
+
+  nextSlots[index] = {
+    ...nextSlots[index],
+
+    roleName:
+      String(
+        roleName || ""
+      ).trim()
+  };
+
+  return createActionResult(
+    true,
+    nextSlots,
+    {
+      action:
+        "update-role-name",
+      targetSlotId:
+        slotId
+    }
+  );
+}
+
   // ------------------------------------------------------------
   // 清除重複與失效座位
   // ------------------------------------------------------------
