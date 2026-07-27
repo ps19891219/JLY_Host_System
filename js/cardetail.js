@@ -2662,6 +2662,59 @@ function getDetailBox() {
   );
 }
 
+async function saveSeatSlotsToFirestore(
+  nextSlots,
+  actionResult
+) {
+  const db = window.db;
+  const carId = getCarId();
+
+  if (!db) {
+    throw new Error(
+      "Firebase 尚未載入"
+    );
+  }
+
+  if (!carId) {
+    throw new Error(
+      "找不到車團 ID"
+    );
+  }
+
+  const slots =
+    Array.isArray(nextSlots)
+      ? nextSlots.map(function (slot) {
+          return {
+            ...slot,
+            player:
+              slot && slot.player
+                ? {
+                    ...slot.player
+                  }
+                : null
+          };
+        })
+      : [];
+
+  await db
+    .collection("cars")
+    .doc(carId)
+    .update({
+      slots,
+      updatedAt: nowTime()
+    });
+
+  console.log(
+    "✅ Seat Engine 已同步 Firestore",
+    {
+      actionResult,
+      slots
+    }
+  );
+
+  return slots;
+}
+
 function renderSeatBoard(
   car,
   players
@@ -2675,39 +2728,99 @@ function renderSeatBoard(
     console.warn(
       "找不到 seatBoardMount"
     );
+
     return;
   }
 
   if (
-  !window.JLYSeatController ||
-  !window.JLYSeatController.isReady()
-) {
-  if (
-    !window.JLYSeatBoard ||
-    !window.JLYSeatBoard.isReady()
+    !window.JLYSeatController ||
+    !window.JLYSeatController.isReady()
   ) {
-    mount.innerHTML =
-      buildSeatBoardHtml(
-        car,
-        players
-      );
+    if (
+      !window.JLYSeatBoard ||
+      !window.JLYSeatBoard.isReady()
+    ) {
+      mount.innerHTML =
+        buildSeatBoardHtml(
+          car,
+          players
+        );
+
+      return;
+    }
+
+    window.JLYSeatBoard.render(
+      mount,
+      car,
+      players,
+      {
+        editable: true,
+        draggable: true,
+        showWaitingArea: true,
+        showSummary: true
+      }
+    );
+
     return;
   }
 
-  window.JLYSeatBoard.render(
+  window.JLYSeatController.render(
     mount,
     car,
-    players
+    players,
+    {
+      editable: true,
+      draggable: true,
+      showWaitingArea: true,
+      showSummary: true,
+
+      onSlotsChange:
+        async function (
+          nextSlots,
+          actionResult
+        ) {
+          try {
+            car.slots =
+              Array.isArray(nextSlots)
+                ? nextSlots.map(
+                    function (slot) {
+                      return {
+                        ...slot,
+                        player:
+                          slot &&
+                          slot.player
+                            ? {
+                                ...slot.player
+                              }
+                            : null
+                      };
+                    }
+                  )
+                : [];
+
+            await saveSeatSlotsToFirestore(
+              car.slots,
+              actionResult
+            );
+          } catch (error) {
+            console.error(
+              "座位資料儲存失敗：",
+              error
+            );
+
+            alert(
+              "座位變更尚未成功儲存，請重新整理後再試。\n\n" +
+                (
+                  error &&
+                  error.message
+                    ? error.message
+                    : "未知錯誤"
+                )
+            );
+          }
+        }
+    }
   );
-
-  return;
-}
-
-window.JLYSeatController.render(
-  mount,
-  car,
-  players
-);
 }
 
 function getPlayerDisplayName(
