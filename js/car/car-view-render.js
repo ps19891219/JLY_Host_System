@@ -699,7 +699,62 @@ console.log("car-view-render.js 已成功載入！");
       ) +
       "</div>" +
 
-      "</article>";
+            "</article>";
+
+    const seatMount =
+      document.getElementById(
+        "carViewSeatMount"
+      );
+
+    if (
+      seatMount &&
+      window.JLYSeatController &&
+      typeof window.JLYSeatController.render ===
+        "function"
+    ) {
+      window.JLYSeatController.render(
+        seatMount,
+        car,
+        car.players || [],
+        {
+          editable: false,
+          draggable: false,
+          showWaitingArea: false,
+          showSummary: true
+        }
+      );
+
+      return;
+    }
+
+    if (
+      seatMount &&
+      window.JLYSeatBoard &&
+      typeof window.JLYSeatBoard.render ===
+        "function"
+    ) {
+      window.JLYSeatBoard.render(
+        seatMount,
+        car,
+        car.players || [],
+        {
+          editable: false,
+          draggable: false,
+          showWaitingArea: false,
+          showSummary: true
+        }
+      );
+
+      return;
+    }
+
+    if (seatMount) {
+      seatMount.innerHTML =
+        '<div class="car-view-seat-loading">' +
+        "座位模組尚未準備完成" +
+        "</div>";
+    }
+  }
   }
 
   // ============================================================
