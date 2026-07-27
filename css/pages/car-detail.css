@@ -147,41 +147,25 @@
    座位主要內容
 ------------------------------------------------------------ */
 
-#seatBoardMount .seat-row-main {
-  min-width: 0;
+.seat-row-main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
 }
 
-#seatBoardMount .seat-row-title-area {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-
-  min-width: 0;
-  margin-bottom: 6px;
+.seat-row-label-cell {
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
 }
 
-#seatBoardMount .seat-row-title {
-  min-width: 0;
-  overflow: hidden;
-
-  color: #333333;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.35;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.seat-row-player-cell {
+    min-width: 0;
+    display: flex;
+    align-items: center;
 }
-
-#seatBoardMount .seat-row-status {
-  flex: 0 0 auto;
-
-  color: #888888;
-  font-size: 12px;
-  font-weight: 500;
-}
-
 
 /* ------------------------------------------------------------
    玩家內容

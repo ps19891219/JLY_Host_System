@@ -197,76 +197,56 @@ console.log("seat-render.js 已成功載入！");
   // ------------------------------------------------------------
 
   function renderSeatRow(slot) {
-    const SeatLayout =
-      getSeatLayout();
+  const SeatLayout =
+    getSeatLayout();
 
-    const viewSlot =
-      SeatLayout.buildSlotViewModel(
-        slot
-      );
+  const viewSlot =
+    SeatLayout.buildSlotViewModel(
+      slot
+    );
 
-    const statusClass =
-      viewSlot.isOccupied
-        ? "is-occupied"
-        : "is-empty";
+  const statusClass =
+    viewSlot.isOccupied
+      ? "is-occupied"
+      : "is-empty";
 
-    return `
+  return `
+    <div
+      class="seat-row ${statusClass}"
+      draggable="true"
+      data-seat-row="true"
+      data-seat-row-drag="true"
+      data-slot-id="${escapeHtml(
+        viewSlot.slotId
+      )}"
+      data-slot-type="${escapeHtml(
+        viewSlot.sectionType
+      )}"
+    >
       <div
-        class="seat-row ${statusClass}"
-        draggable="true"
-        data-seat-row="true"
-        data-seat-row-drag="true"
-        data-slot-id="${escapeHtml(
-          viewSlot.slotId
-        )}"
-        data-slot-type="${escapeHtml(
-          viewSlot.sectionType
-        )}"
+        class="seat-row-handle"
+        title="拖曳整列"
+        aria-label="拖曳整列"
       >
-        <div
-          class="seat-row-handle"
-          title="拖曳整列"
-          aria-label="拖曳整列"
-        >
-          ☰
+        ☰
+      </div>
+
+      <div class="seat-row-main">
+        <div class="seat-row-label-cell">
+          ${escapeHtml(
+            viewSlot.displayName
+          )}
         </div>
 
-        <div class="seat-row-main">
-          <div class="seat-row-title-area">
-            <span class="seat-row-title">
-              ${escapeHtml(
-                viewSlot.displayName
-              )}
-            </span>
-
-            <span class="seat-row-status">
-              ${escapeHtml(
-                getSeatStatusText(
-                  viewSlot
-                )
-              )}
-            </span>
-          </div>
-
+        <div class="seat-row-player-cell">
           ${renderPlayerContent(
             viewSlot
           )}
         </div>
-
-        <button
-          type="button"
-          class="seat-row-menu-button"
-          data-seat-menu-button="true"
-          data-slot-id="${escapeHtml(
-            viewSlot.slotId
-          )}"
-          aria-label="座位選項"
-        >
-          ⋯
-        </button>
       </div>
-    `;
-  }
+    </div>
+  `;
+}
 
   // ------------------------------------------------------------
   // 單一分區
