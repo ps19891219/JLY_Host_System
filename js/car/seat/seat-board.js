@@ -583,15 +583,60 @@ console.log("seat-board.js V2 已成功載入！");
 
 if (roleElement) {
   event.preventDefault();
+  event.stopPropagation();
 
   const slotId =
     roleElement.getAttribute(
       "data-slot-id"
     );
 
+  const slot =
+    findSlotById(
+      boardData,
+      slotId
+    );
+
+  if (!slot) {
+    alert(
+      "找不到席位資料"
+    );
+
+    return;
+  }
+
+  const currentRoleName =
+    String(
+      slot.roleName ||
+      slot.characterName ||
+      slot.seatLabel ||
+      ""
+    ).trim();
+
+  const inputValue =
+    prompt(
+      "請輸入角色名稱：\n\n清空後會恢復顯示席位編號。",
+      currentRoleName
+    );
+
+  if (inputValue === null) {
+    return;
+  }
+
+  const nextRoleName =
+    String(
+      inputValue
+    ).trim();
+
+  slot.roleName =
+    nextRoleName;
+
   console.log(
-    "Seat Label Click:",
-    slotId
+    "角色名稱已修改：",
+    {
+      slotId,
+      roleName:
+        nextRoleName
+    }
   );
 
   return;
