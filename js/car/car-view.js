@@ -66,21 +66,21 @@ console.log("car-view.js 已成功載入！");
       ) {
         const seatMount =
           document.getElementById(
-            "carViewSeatMount"
-          );
+          "seatBoardMount"
+        );
 
         if (seatMount) {
           window.JLYSeatController.render(
-            seatMount,
-            car,
-            car.players || [],
-            {
-              editable: false,
-              draggable: false,
-              showWaitingArea: false,
-              showSummary: true
-            }
-          );
+          seatMount,
+          car,
+          car.players || [],
+        {
+          editable: false,
+          draggable: false,
+          showWaitingArea: false,
+          showSummary: false
+        }
+         );
         }
       }
     } catch (error) {
