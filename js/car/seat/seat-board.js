@@ -627,8 +627,7 @@ if (roleElement) {
       inputValue
     ).trim();
 
-  slot.roleName =
-    nextRoleName;
+  slot.roleName
 
   console.log(
     "角色名稱已修改：",
