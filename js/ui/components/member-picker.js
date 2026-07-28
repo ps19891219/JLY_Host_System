@@ -280,7 +280,7 @@ console.log(
       document.createElement("div");
 
     sectionTitle.textContent =
-      "目前工作人員";
+      "工作室";
 
     sectionTitle.style.marginTop = "20px";
     sectionTitle.style.marginBottom =
