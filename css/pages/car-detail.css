@@ -458,3 +458,44 @@
 
   color: #777777;
 }
+
+/* Staff Seat 內部按鈕，覆蓋全站共用 button 樣式 */
+.staff-seat-row .staff-seat-label,
+.staff-seat-row .staff-seat-person {
+  appearance: none;
+  -webkit-appearance: none;
+
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 40px !important;
+
+  margin: 0 !important;
+  padding: 8px 6px !important;
+
+  background: transparent !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+
+  color: #222222 !important;
+  font-family: inherit;
+  font-size: 15px !important;
+  line-height: 1.4 !important;
+
+  cursor: pointer;
+  transform: none !important;
+}
+
+.staff-seat-row .staff-seat-label {
+  text-align: center;
+  font-weight: 700;
+}
+
+.staff-seat-row .staff-seat-person {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
