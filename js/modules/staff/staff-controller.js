@@ -1,0 +1,1 @@
+window.JLYStaffController = window.JLYStaffController || {};

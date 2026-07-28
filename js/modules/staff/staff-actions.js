@@ -1,0 +1,1 @@
+window.JLYStaffActions = window.JLYStaffActions || {};
