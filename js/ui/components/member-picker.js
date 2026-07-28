@@ -1,5 +1,5 @@
 console.log(
-  "member-picker.js 已成功載入！"
+  "★★★★★ Member Picker V2 已載入 ★★★★★"
 );
 
 (function () {
