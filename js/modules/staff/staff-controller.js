@@ -231,74 +231,105 @@ console.log(
   }
 
   async function editStaffPerson(
-    staffId
-  ) {
-    const car =
-      getCurrentCar();
+  staffId
+) {
+  const car =
+    getCurrentCar();
 
-    const staff =
-      getStaffById(
-        car,
-        staffId
-      );
+  const staff =
+    getStaffById(
+      car,
+      staffId
+    );
 
-    if (!staff) {
-      alert(
-        "找不到這個工作人員欄位"
-      );
+  if (!staff) {
+    alert(
+      "找不到這個工作人員欄位"
+    );
 
-      return;
-    }
-
-    const newName =
-      prompt(
-        "請輸入工作人員名稱：",
-        String(
-          staff.displayName ||
-          ""
-        )
-      );
-
-    if (
-      newName === null
-    ) {
-      return;
-    }
-
-    if (
-      !window.JLYStaffActions ||
-      typeof window.JLYStaffActions
-        .updateStaffName !==
-        "function"
-    ) {
-      alert(
-        "工作人員模組尚未載入完成"
-      );
-
-      return;
-    }
-
-    try {
-      await window
-        .JLYStaffActions
-        .updateStaffName(
-          car,
-          staffId,
-          newName
-        );
-
-      refresh(car);
-    } catch (error) {
-      console.error(
-        "修改工作人員名稱失敗：",
-        error
-      );
-
-      alert(
-        "工作人員儲存失敗，請稍後再試。"
-      );
-    }
+    return;
   }
+
+  if (
+    !window.JLYMemberPicker ||
+    typeof window.JLYMemberPicker
+      .open !== "function"
+  ) {
+    alert(
+      "人員選擇器尚未載入完成"
+    );
+
+    return;
+  }
+
+  window.JLYMemberPicker.open({
+    type: "staff",
+
+    currentMemberId:
+      staff.memberId || "",
+
+    currentDisplayName:
+      String(
+        staff.displayName ||
+        ""
+      ),
+
+    onSelect:
+      async function (
+        member
+      ) {
+        const newName =
+          String(
+            member?.displayName ||
+            member?.name ||
+            ""
+          ).trim();
+
+        if (!newName) {
+          alert(
+            "找不到工作人員名稱"
+          );
+
+          return;
+        }
+
+        if (
+          !window.JLYStaffActions ||
+          typeof window
+            .JLYStaffActions
+            .updateStaffName !==
+            "function"
+        ) {
+          alert(
+            "工作人員模組尚未載入完成"
+          );
+
+          return;
+        }
+
+        try {
+          await window
+            .JLYStaffActions
+            .updateStaffName(
+              car,
+              staffId,
+              newName
+            );
+
+          refresh(car);
+        } catch (error) {
+          console.error(
+            "修改工作人員名稱失敗：",
+            error
+          );
+
+          alert(
+            "工作人員儲存失敗，請稍後再試。"
+          );
+        }
+      }
+  });
+}
 
   window.JLYStaffController = {
     render,
