@@ -3,6 +3,29 @@ console.log(
 );
 
 (function () {
+  function getStaffSlots(car) {
+    if (
+      window.JLYStaffData &&
+      typeof window.JLYStaffData.getStaffSlots ===
+        "function"
+    ) {
+      const staffSlots =
+        window.JLYStaffData.getStaffSlots(car);
+
+      if (Array.isArray(staffSlots)) {
+        return staffSlots.map(function (
+          staff
+        ) {
+          return {
+            ...staff
+          };
+        });
+      }
+    }
+
+    return [];
+  }
+
   function createLocalStaffSlot(
     order
   ) {
@@ -18,8 +41,9 @@ console.log(
       order:
         Number(order || 0),
 
+      // 空白時顯示 1、2、3
       label:
-        "DM",
+        "",
 
       memberId:
         "",
@@ -32,6 +56,28 @@ console.log(
     };
   }
 
+  function updateCarStaffSlots(
+    car,
+    staffSlots
+  ) {
+    car.staffSlots =
+      staffSlots.map(function (
+        staff,
+        index
+      ) {
+        return {
+          ...staff,
+          order:
+            index + 1
+        };
+      });
+
+    window.currentCarData =
+      car;
+
+    return car.staffSlots;
+  }
+
   function addStaffSlot(car) {
     if (!car) {
       console.error(
@@ -41,51 +87,94 @@ console.log(
       return [];
     }
 
-    let staffSlots = [];
+    const staffSlots =
+      getStaffSlots(car);
 
-    if (
-      window.JLYStaffData &&
-      typeof window.JLYStaffData
-        .getStaffSlots ===
-        "function"
-    ) {
-      staffSlots =
-        window.JLYStaffData
-          .getStaffSlots(car);
-    }
-
-    if (
-      !Array.isArray(staffSlots)
-    ) {
-      staffSlots = [];
-    }
-
-    staffSlots =
-      staffSlots.map(function (
-        staff
-      ) {
-        return {
-          ...staff
-        };
-      });
-
-    const newStaff =
+    staffSlots.push(
       createLocalStaffSlot(
         staffSlots.length + 1
+      )
+    );
+
+    return updateCarStaffSlots(
+      car,
+      staffSlots
+    );
+  }
+
+  function updateStaffLabel(
+    car,
+    staffId,
+    label
+  ) {
+    const staffSlots =
+      getStaffSlots(car);
+
+    const target =
+      staffSlots.find(function (
+        staff
+      ) {
+        return (
+          staff.id === staffId
+        );
+      });
+
+    if (!target) {
+      console.error(
+        "找不到要修改的工作人員席位"
       );
 
-    staffSlots.push(newStaff);
+      return staffSlots;
+    }
 
-    car.staffSlots =
-      staffSlots;
+    target.label =
+      String(label || "").trim();
 
-    window.currentCarData =
-      car;
+    return updateCarStaffSlots(
+      car,
+      staffSlots
+    );
+  }
 
-    return staffSlots;
+  function updateStaffName(
+    car,
+    staffId,
+    displayName
+  ) {
+    const staffSlots =
+      getStaffSlots(car);
+
+    const target =
+      staffSlots.find(function (
+        staff
+      ) {
+        return (
+          staff.id === staffId
+        );
+      });
+
+    if (!target) {
+      console.error(
+        "找不到要指派的工作人員席位"
+      );
+
+      return staffSlots;
+    }
+
+    target.displayName =
+      String(
+        displayName || ""
+      ).trim();
+
+    return updateCarStaffSlots(
+      car,
+      staffSlots
+    );
   }
 
   window.JLYStaffActions = {
-    addStaffSlot
+    addStaffSlot,
+    updateStaffLabel,
+    updateStaffName
   };
 })();

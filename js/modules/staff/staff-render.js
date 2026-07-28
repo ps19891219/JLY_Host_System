@@ -1,82 +1,122 @@
-console.log("staff-render.js 已成功載入！");
+console.log(
+  "staff-render.js 已成功載入！"
+);
 
 (function () {
-
-function escapeHtml(text) {
+  function escapeHtml(text) {
     return String(text || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-}
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 
-function renderStaff(staffSlots) {
+  function renderStaffRow(
+    staff,
+    index
+  ) {
+    const staffId =
+      escapeHtml(staff.id);
 
-    if (!Array.isArray(staffSlots)) {
-        staffSlots = [];
-    }
+    const title =
+      String(
+        staff.label || ""
+      ).trim() ||
+      String(index + 1);
 
-    let html = `
-        <section
-  id="staffSection"
-  class="staff-section"
->
+    const displayName =
+      String(
+        staff.displayName || ""
+      ).trim() ||
+      "尚未安排";
 
-            <h3>🎭 工作人員</h3>
+    return `
+      <div
+        class="staff-seat-row"
+        data-staff-id="${staffId}"
+      >
+        <button
+          type="button"
+          class="staff-seat-label"
+          onclick="JLYStaffController.editStaffLabel('${staffId}')"
+        >
+          ${escapeHtml(title)}
+        </button>
 
-            <button
-  type="button"
-  class="staff-add-button"
-  onclick="JLYStaffController.addStaffSlot()"
->
-  ＋ 新增工作人員
-</button>
-
+        <button
+          type="button"
+          class="staff-seat-person"
+          onclick="JLYStaffController.editStaffPerson('${staffId}')"
+        >
+          ${escapeHtml(
+            displayName
+          )}
+        </button>
+      </div>
     `;
+  }
 
-    if (staffSlots.length === 0) {
+  function renderStaff(
+    staffSlots
+  ) {
+    const safeStaffSlots =
+      Array.isArray(staffSlots)
+        ? staffSlots
+        : [];
 
-        html += `
-            <div class="staff-empty">
-                尚未建立任何工作人員
-            </div>
-        `;
+    let staffContent = "";
 
+    if (
+      safeStaffSlots.length === 0
+    ) {
+      staffContent = `
+        <div class="staff-empty">
+          尚未建立任何工作人員
+        </div>
+      `;
     } else {
-
-        staffSlots.forEach(function (staff) {
-
-            html += `
-                <div class="staff-card">
-
-                    <div class="staff-label">
-                        ${escapeHtml(staff.label)}
-                    </div>
-
-                    <div class="staff-name">
-                        ${
-                            staff.displayName ||
-                            "尚未安排"
-                        }
-                    </div>
-
-                </div>
-            `;
-
-        });
-
+      staffContent =
+        safeStaffSlots
+          .map(function (
+            staff,
+            index
+          ) {
+            return renderStaffRow(
+              staff,
+              index
+            );
+          })
+          .join("");
     }
 
-    html += `
-        </section>
+    return `
+      <section
+        id="staffSection"
+        class="staff-section"
+      >
+        <div class="staff-section-header">
+          <h3>
+            🎭 工作人員
+          </h3>
+
+          <button
+            type="button"
+            class="staff-add-button"
+            onclick="JLYStaffController.addStaffSlot()"
+          >
+            ＋ 新增工作人員
+          </button>
+        </div>
+
+        <div class="staff-seat-list">
+          ${staffContent}
+        </div>
+      </section>
     `;
+  }
 
-    return html;
-}
-
-window.JLYStaffRender = {
-
+  window.JLYStaffRender = {
     renderStaff
-
-};
-
+  };
 })();
