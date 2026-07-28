@@ -499,3 +499,79 @@
   white-space: nowrap;
   font-weight: 700;
 }
+
+/* Staff 改用與玩家相同的兩層 Seat 結構 */
+.staff-seat-row {
+  display: grid !important;
+  grid-template-columns:
+    36px
+    minmax(0, 1fr) !important;
+
+  align-items: center;
+  gap: 8px;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 70px;
+
+  padding: 10px;
+
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.staff-seat-row .seat-row-main {
+  display: grid;
+  grid-template-columns:
+    88px
+    minmax(0, 1fr);
+
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  min-width: 0;
+}
+
+.staff-seat-row .seat-row-label-cell,
+.staff-seat-row .seat-row-player-cell {
+  min-width: 0;
+}
+
+.staff-seat-row .staff-seat-label,
+.staff-seat-row .staff-seat-person {
+  display: block !important;
+
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+
+  margin: 0 !important;
+  padding: 8px 6px !important;
+
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+
+  color: #222222 !important;
+  font-family: inherit;
+  font-size: 15px !important;
+  line-height: 1.4 !important;
+
+  transform: none !important;
+}
+
+.staff-seat-row .staff-seat-label {
+  text-align: center;
+  font-weight: 700;
+}
+
+.staff-seat-row .staff-seat-person {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
