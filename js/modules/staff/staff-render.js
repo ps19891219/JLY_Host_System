@@ -16,16 +16,20 @@ function renderStaff(staffSlots) {
     }
 
     let html = `
-        <section class="staff-section">
+        <section
+  id="staffSection"
+  class="staff-section"
+>
 
             <h3>🎭 工作人員</h3>
 
             <button
-                type="button"
-                class="staff-add-button"
-            >
-                ＋ 新增工作人員
-            </button>
+  type="button"
+  class="staff-add-button"
+  onclick="JLYStaffController.addStaffSlot()"
+>
+  ＋ 新增工作人員
+</button>
 
     `;
 
