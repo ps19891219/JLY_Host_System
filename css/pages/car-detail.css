@@ -296,3 +296,165 @@
     min-width: 32px;
   }
 }
+
+/* =========================
+   Staff Seat
+========================= */
+
+.staff-section {
+  margin-top: 18px;
+  margin-bottom: 20px;
+}
+
+.staff-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.staff-section-header h3 {
+  margin: 0;
+}
+
+.staff-seat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.staff-seat-row {
+  display: grid;
+  grid-template-columns:
+    34px
+    minmax(52px, 76px)
+    minmax(0, 1fr);
+
+  align-items: center;
+
+  min-height: 66px;
+
+  padding: 0 14px;
+
+  background: #ffffff;
+
+  border: 1px solid
+    rgba(0, 0, 0, 0.14);
+
+  border-radius: 12px;
+
+  box-sizing: border-box;
+}
+
+.staff-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+
+  color: #999999;
+
+  font-size: 20px;
+
+  cursor: grab;
+
+  user-select: none;
+}
+
+.staff-drag-handle:active {
+  cursor: grabbing;
+}
+
+.staff-seat-label,
+.staff-seat-person {
+  appearance: none;
+
+  padding: 12px 6px;
+
+  background: transparent;
+
+  border: 0;
+
+  color: #111111;
+
+  font: inherit;
+
+  cursor: pointer;
+}
+
+.staff-seat-label {
+  text-align: center;
+  font-weight: 500;
+}
+
+.staff-seat-person {
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-align: left;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.staff-seat-label:hover,
+.staff-seat-person:hover {
+  background: rgba(
+    0,
+    0,
+    0,
+    0.035
+  );
+
+  border-radius: 8px;
+}
+
+.staff-seat-label:focus-visible,
+.staff-seat-person:focus-visible {
+  outline: 2px solid
+    rgba(52, 150, 108, 0.45);
+
+  outline-offset: 2px;
+
+  border-radius: 8px;
+}
+
+.staff-add-button {
+  width: 100%;
+
+  min-height: 54px;
+
+  margin-top: 10px;
+
+  padding: 10px 16px;
+
+  background: #ffffff;
+
+  border: 1px solid
+    rgba(0, 0, 0, 0.14);
+
+  border-radius: 12px;
+
+  color: #111111;
+
+  font: inherit;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.staff-add-button:hover {
+  background: #fafafa;
+}
+
+.staff-add-button:active {
+  transform: translateY(1px);
+}
+
+.staff-empty {
+  padding: 14px 2px;
+
+  color: #777777;
+}

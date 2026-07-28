@@ -17,9 +17,11 @@ console.log(
     index
   ) {
     const staffId =
-      escapeHtml(staff.id);
+      escapeHtml(
+        staff.id
+      );
 
-    const title =
+    const label =
       String(
         staff.label || ""
       ).trim() ||
@@ -33,26 +35,39 @@ console.log(
 
     return `
       <div
-        class="staff-seat-row"
+        class="seat-row staff-seat-row"
         data-staff-id="${staffId}"
       >
-        <button
-          type="button"
-          class="staff-seat-label"
-          onclick="JLYStaffController.editStaffLabel('${staffId}')"
+        <div
+          class="seat-row-handle"
+          aria-hidden="true"
         >
-          ${escapeHtml(title)}
-        </button>
+          ☰
+        </div>
 
-        <button
-          type="button"
-          class="staff-seat-person"
-          onclick="JLYStaffController.editStaffPerson('${staffId}')"
-        >
-          ${escapeHtml(
-            displayName
-          )}
-        </button>
+        <div class="seat-row-main">
+          <div class="seat-row-label-cell">
+            <button
+              type="button"
+              class="staff-seat-label"
+              onclick="JLYStaffController.editStaffLabel('${staffId}')"
+            >
+              ${escapeHtml(label)}
+            </button>
+          </div>
+
+          <div class="seat-row-player-cell">
+            <button
+              type="button"
+              class="staff-seat-person"
+              onclick="JLYStaffController.editStaffPerson('${staffId}')"
+            >
+              ${escapeHtml(
+                displayName
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -99,19 +114,22 @@ console.log(
           <h3>
             🎭 工作人員
           </h3>
-
-          <button
-            type="button"
-            class="staff-add-button"
-            onclick="JLYStaffController.addStaffSlot()"
-          >
-            ＋ 新增工作人員
-          </button>
         </div>
 
-        <div class="staff-seat-list">
+        <div
+          id="staffSeatBoardMount"
+          class="staff-seat-list"
+        >
           ${staffContent}
         </div>
+
+        <button
+          type="button"
+          class="staff-add-button"
+          onclick="JLYStaffController.addStaffSlot()"
+        >
+          ＋ 新增工作人員
+        </button>
       </section>
     `;
   }
