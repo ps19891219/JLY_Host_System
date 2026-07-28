@@ -12,30 +12,156 @@ console.log(
       .replace(/'/g, "&#039;");
   }
 
+  function escapeJsString(text) {
+    return String(text || "")
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/\r/g, "\\r")
+      .replace(/\n/g, "\\n");
+  }
+
+  function hasAssignedMember(
+    staff
+  ) {
+    return Boolean(
+      String(
+        staff.memberId || ""
+      ).trim() ||
+      String(
+        staff.displayName || ""
+      ).trim()
+    );
+  }
+
+  function getStaffLabel(
+    staff,
+    index
+  ) {
+    return (
+      String(
+        staff.label || ""
+      ).trim() ||
+      String(index + 1)
+    );
+  }
+
+  function getStaffDisplayName(
+    staff
+  ) {
+    return (
+      String(
+        staff.displayName || ""
+      ).trim() ||
+      "尚未安排"
+    );
+  }
+
+  function renderMemberStatus(
+    staff
+  ) {
+    if (
+      String(
+        staff.memberId || ""
+      ).trim()
+    ) {
+      return `
+        <span
+          class="staff-member-status"
+          title="已連結會員資料"
+        >
+          已連結
+        </span>
+      `;
+    }
+
+    if (
+      String(
+        staff.displayName || ""
+      ).trim()
+    ) {
+      return `
+        <span
+          class="staff-member-status staff-member-status-manual"
+          title="舊資料或手動名稱"
+        >
+          手動名稱
+        </span>
+      `;
+    }
+
+    return "";
+  }
+
+  function renderClearButton(
+    staff,
+    staffId
+  ) {
+    if (
+      !hasAssignedMember(staff)
+    ) {
+      return "";
+    }
+
+    return `
+      <button
+        type="button"
+        class="staff-clear-person"
+        aria-label="清除工作人員"
+        title="清除已安排人員"
+        onclick="
+          event.stopPropagation();
+          JLYStaffController.clearStaffPerson(
+            '${escapeJsString(staffId)}'
+          );
+        "
+      >
+        ×
+      </button>
+    `;
+  }
+
   function renderStaffRow(
     staff,
     index
   ) {
+    const rawStaffId =
+      String(
+        staff.id || ""
+      );
+
     const staffId =
       escapeHtml(
-        staff.id
+        rawStaffId
+      );
+
+    const jsStaffId =
+      escapeJsString(
+        rawStaffId
       );
 
     const label =
-      String(
-        staff.label || ""
-      ).trim() ||
-      String(index + 1);
+      getStaffLabel(
+        staff,
+        index
+      );
 
     const displayName =
-      String(
-        staff.displayName || ""
-      ).trim() ||
-      "尚未安排";
+      getStaffDisplayName(
+        staff
+      );
+
+    const assignedClass =
+      hasAssignedMember(staff)
+        ? "is-assigned"
+        : "is-empty";
 
     return `
       <div
-        class="seat-row staff-seat-row"
+        class="
+          seat-row
+          staff-seat-row
+          ${assignedClass}
+        "
         data-staff-id="${staffId}"
       >
         <div
@@ -50,7 +176,12 @@ console.log(
             <button
               type="button"
               class="staff-seat-label"
-              onclick="JLYStaffController.editStaffLabel('${staffId}')"
+              title="修改工作人員稱謂"
+              onclick="
+                JLYStaffController.editStaffLabel(
+                  '${jsStaffId}'
+                )
+              "
             >
               ${escapeHtml(label)}
             </button>
@@ -60,12 +191,28 @@ console.log(
             <button
               type="button"
               class="staff-seat-person"
-              onclick="JLYStaffController.editStaffPerson('${staffId}')"
+              title="選擇或更換工作人員"
+              onclick="
+                JLYStaffController.editStaffPerson(
+                  '${jsStaffId}'
+                )
+              "
             >
-              ${escapeHtml(
-                displayName
+              <span class="staff-seat-person-name">
+                ${escapeHtml(
+                  displayName
+                )}
+              </span>
+
+              ${renderMemberStatus(
+                staff
               )}
             </button>
+
+            ${renderClearButton(
+              staff,
+              rawStaffId
+            )}
           </div>
         </div>
       </div>
@@ -87,7 +234,17 @@ console.log(
     ) {
       staffContent = `
         <div class="staff-empty">
-          尚未建立任何工作人員
+          <div class="staff-empty-icon">
+            🎭
+          </div>
+
+          <div class="staff-empty-title">
+            尚未建立工作人員
+          </div>
+
+          <div class="staff-empty-description">
+            可新增 DM、主持人或其他工作人員。
+          </div>
         </div>
       `;
     } else {
@@ -111,9 +268,19 @@ console.log(
         class="staff-section"
       >
         <div class="staff-section-header">
-          <h3>
-            🎭 工作人員
-          </h3>
+          <div>
+            <h3>
+              🎭 工作人員
+            </h3>
+
+            <div class="staff-section-description">
+              點擊稱謂可修改職稱，點擊姓名可搜尋會員。
+            </div>
+          </div>
+
+          <div class="staff-section-count">
+            ${safeStaffSlots.length} 位
+          </div>
         </div>
 
         <div
@@ -126,7 +293,9 @@ console.log(
         <button
           type="button"
           class="staff-add-button"
-          onclick="JLYStaffController.addStaffSlot()"
+          onclick="
+            JLYStaffController.addStaffSlot()
+          "
         >
           ＋ 新增工作人員
         </button>
@@ -135,6 +304,8 @@ console.log(
   }
 
   window.JLYStaffRender = {
+    escapeHtml,
+    renderStaffRow,
     renderStaff
   };
 })();

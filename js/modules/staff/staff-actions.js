@@ -113,6 +113,71 @@ console.log(
     );
   }
 
+  function findStaffSlot(
+    staffSlots,
+    staffId
+  ) {
+    const safeStaffSlots =
+      Array.isArray(staffSlots)
+        ? staffSlots
+        : [];
+
+    return (
+      safeStaffSlots.find(
+        function (staff) {
+          return (
+            String(staff.id) ===
+            String(staffId)
+          );
+        }
+      ) ||
+      null
+    );
+  }
+
+  function getMemberId(
+    member
+  ) {
+    const safeMember =
+      member || {};
+
+    return String(
+      safeMember.memberId ||
+      safeMember.id ||
+      (
+        safeMember.member &&
+        (
+          safeMember.member.memberId ||
+          safeMember.member.id
+        )
+      ) ||
+      ""
+    ).trim();
+  }
+
+  function getMemberDisplayName(
+    member
+  ) {
+    const safeMember =
+      member || {};
+
+    const rawMember =
+      safeMember.member ||
+      {};
+
+    return String(
+      safeMember.displayName ||
+      safeMember.hostAlias ||
+      safeMember.nickname ||
+      safeMember.name ||
+      rawMember.displayName ||
+      rawMember.hostAlias ||
+      rawMember.nickname ||
+      rawMember.name ||
+      ""
+    ).trim();
+  }
+
   async function saveStaffSlots(
     car,
     staffSlots
@@ -207,13 +272,9 @@ console.log(
       getStaffSlots(car);
 
     const target =
-      staffSlots.find(
-        function (staff) {
-          return (
-            String(staff.id) ===
-            String(staffId)
-          );
-        }
+      findStaffSlot(
+        staffSlots,
+        staffId
       );
 
     if (!target) {
@@ -242,13 +303,9 @@ console.log(
       getStaffSlots(car);
 
     const target =
-      staffSlots.find(
-        function (staff) {
-          return (
-            String(staff.id) ===
-            String(staffId)
-          );
-        }
+      findStaffSlot(
+        staffSlots,
+        staffId
       );
 
     if (!target) {
@@ -268,13 +325,107 @@ console.log(
     );
   }
 
+  async function updateStaffMember(
+    car,
+    staffId,
+    member
+  ) {
+    const staffSlots =
+      getStaffSlots(car);
+
+    const target =
+      findStaffSlot(
+        staffSlots,
+        staffId
+      );
+
+    if (!target) {
+      throw new Error(
+        "找不到要修改的工作人員欄位"
+      );
+    }
+
+    const memberId =
+      getMemberId(member);
+
+    const displayName =
+      getMemberDisplayName(
+        member
+      );
+
+    if (!memberId) {
+      throw new Error(
+        "找不到選取人員的 memberId"
+      );
+    }
+
+    if (!displayName) {
+      throw new Error(
+        "找不到選取人員的顯示名稱"
+      );
+    }
+
+    target.memberId =
+      memberId;
+
+    target.displayName =
+      displayName;
+
+    target.source =
+      "member_picker";
+
+    return await saveStaffSlots(
+      car,
+      staffSlots
+    );
+  }
+
+  async function clearStaffMember(
+    car,
+    staffId
+  ) {
+    const staffSlots =
+      getStaffSlots(car);
+
+    const target =
+      findStaffSlot(
+        staffSlots,
+        staffId
+      );
+
+    if (!target) {
+      throw new Error(
+        "找不到要清除的工作人員欄位"
+      );
+    }
+
+    target.memberId =
+      "";
+
+    target.displayName =
+      "";
+
+    target.source =
+      "host_manual";
+
+    return await saveStaffSlots(
+      car,
+      staffSlots
+    );
+  }
+
   window.JLYStaffActions = {
     getStaffSlots,
     createLocalStaffSlot,
     normalizeStaffSlots,
+    findStaffSlot,
+
     saveStaffSlots,
     addStaffSlot,
+
     updateStaffLabel,
-    updateStaffName
+    updateStaffName,
+    updateStaffMember,
+    clearStaffMember
   };
 })();
