@@ -1,0 +1,502 @@
+/* ============================================================
+   JLY Host System
+   Seat Engine V2
+   共用座位樣式
+============================================================ */
+
+/* ------------------------------------------------------------
+   座位引擎外框
+------------------------------------------------------------ */
+
+.seat-engine {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-sizing: border-box;
+}
+
+.seat-engine *,
+.seat-engine *::before,
+.seat-engine *::after {
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------
+   座位統計
+------------------------------------------------------------ */
+
+.seat-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.seat-summary-item {
+  min-width: 0;
+  padding: 12px 10px;
+  text-align: center;
+  background: #f8f8fa;
+  border: 1px solid #ececf1;
+  border-radius: 14px;
+}
+
+.seat-summary-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #777;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.seat-summary-value {
+  display: block;
+  color: #222;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+/* ------------------------------------------------------------
+   男位、女位、不限位區域
+------------------------------------------------------------ */
+
+.seat-engine-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.seat-section,
+.seat-waiting-section {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e9e9ee;
+  border-radius: 18px;
+}
+
+.seat-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f8f8fa;
+  border-bottom: 1px solid #ececf1;
+}
+
+.seat-section-title-area {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.seat-section-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #e5e5ea;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.seat-section-title {
+  margin: 0;
+  color: #222;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.seat-section-count {
+  flex-shrink: 0;
+  min-width: 46px;
+  padding: 5px 10px;
+  color: #555;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid #e5e5ea;
+  border-radius: 999px;
+}
+
+/* 分區識別色 */
+
+.seat-section[data-seat-section="male"] .seat-section-icon {
+  color: #3578d4;
+  background: #edf5ff;
+  border-color: #d6e7ff;
+}
+
+.seat-section[data-seat-section="female"] .seat-section-icon {
+  color: #d45b89;
+  background: #fff0f5;
+  border-color: #ffd7e5;
+}
+
+.seat-section[data-seat-section="flexible"] .seat-section-icon,
+.seat-section[data-seat-section="any"] .seat-section-icon {
+  color: #7a62c7;
+  background: #f4f0ff;
+  border-color: #e4dbff;
+}
+
+/* ------------------------------------------------------------
+   座位列表
+------------------------------------------------------------ */
+
+.seat-section-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.seat-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-height: 58px;
+  background: #fff;
+  border-bottom: 1px solid #efeff3;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.seat-row:last-child {
+  border-bottom: 0;
+}
+
+.seat-row:hover {
+  background: #fcfcfd;
+}
+
+.seat-row.is-occupied {
+  background: #fff;
+}
+
+.seat-row.is-empty {
+  background: #fbfbfc;
+}
+
+/* ------------------------------------------------------------
+   拖曳把手
+------------------------------------------------------------ */
+
+.seat-row-handle {
+  width: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+  font-size: 17px;
+  user-select: none;
+  cursor: grab;
+  border-right: 1px solid #efeff3;
+}
+
+.seat-row-handle:active {
+  cursor: grabbing;
+}
+
+.seat-row-main {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(70px, 0.75fr) minmax(120px, 1.6fr);
+  align-items: stretch;
+}
+
+/* ------------------------------------------------------------
+   座位名稱
+------------------------------------------------------------ */
+
+.seat-row-label-cell {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  color: #555;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  word-break: break-word;
+  border-right: 1px solid #efeff3;
+  cursor: pointer;
+}
+
+.seat-row-label-cell:hover {
+  background: #f7f7fa;
+}
+
+/* ------------------------------------------------------------
+   玩家區
+------------------------------------------------------------ */
+
+.seat-row-player-cell {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+}
+
+.seat-player {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  border-radius: 11px;
+}
+
+.seat-player-occupied {
+  color: #222;
+  background: #f3f0ff;
+  border: 1px solid #ded7ff;
+  cursor: grab;
+}
+
+.seat-player-occupied:active {
+  cursor: grabbing;
+}
+
+.seat-player-empty {
+  color: #999;
+  background: #f7f7f8;
+  border: 1px dashed #d8d8de;
+}
+
+.seat-player-name {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat-player-placeholder {
+  color: #999;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------
+   等待安排區
+------------------------------------------------------------ */
+
+.seat-waiting-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.seat-waiting-player {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  border-bottom: 1px solid #efeff3;
+}
+
+.seat-waiting-player:last-child {
+  border-bottom: 0;
+}
+
+.seat-waiting-player-main {
+  min-width: 0;
+}
+
+.seat-waiting-player-name {
+  display: block;
+  overflow: hidden;
+  color: #222;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat-waiting-reason {
+  grid-column: 1 / -1;
+  color: #777;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.seat-auto-place-button {
+  padding: 7px 12px;
+  color: #5f4fb2;
+  font-size: 13px;
+  font-weight: 700;
+  background: #f2efff;
+  border: 1px solid #ddd5ff;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.seat-auto-place-button:hover {
+  background: #e9e4ff;
+}
+
+.seat-waiting-empty {
+  padding: 24px 16px;
+  color: #999;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------------
+   尚未建立座位
+------------------------------------------------------------ */
+
+.seat-empty-state {
+  padding: 34px 20px;
+  text-align: center;
+}
+
+.seat-empty-state-icon {
+  margin-bottom: 10px;
+  font-size: 34px;
+}
+
+.seat-empty-state-title {
+  margin-bottom: 6px;
+  color: #333;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.seat-empty-state-text {
+  color: #888;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------
+   操作訊息
+------------------------------------------------------------ */
+
+.seat-action-message {
+  padding: 11px 14px;
+  color: #27643d;
+  font-size: 14px;
+  font-weight: 600;
+  background: #edf9f1;
+  border: 1px solid #ccebd6;
+  border-radius: 12px;
+}
+
+.seat-action-message.is-error {
+  color: #9a3434;
+  background: #fff0f0;
+  border-color: #f2caca;
+}
+
+.seat-action-message.is-success {
+  color: #27643d;
+  background: #edf9f1;
+  border-color: #ccebd6;
+}
+
+/* ------------------------------------------------------------
+   拖曳狀態
+------------------------------------------------------------ */
+
+.seat-row.is-dragging,
+.seat-player.is-dragging,
+.seat-waiting-player.is-dragging {
+  opacity: 0.5;
+}
+
+.seat-row.is-drag-over {
+  background: #f3f0ff;
+  box-shadow: inset 0 0 0 2px #8b78dc;
+}
+
+/* ------------------------------------------------------------
+   手機版
+------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  .seat-engine {
+    gap: 14px;
+  }
+
+  .seat-summary {
+    gap: 7px;
+  }
+
+  .seat-summary-item {
+    padding: 10px 5px;
+    border-radius: 12px;
+  }
+
+  .seat-summary-label {
+    font-size: 11px;
+  }
+
+  .seat-summary-value {
+    font-size: 18px;
+  }
+
+  .seat-section,
+  .seat-waiting-section {
+    border-radius: 15px;
+  }
+
+  .seat-section-header {
+    padding: 12px;
+  }
+
+  .seat-section-title {
+    font-size: 16px;
+  }
+
+  .seat-row {
+    min-height: 56px;
+  }
+
+  .seat-row-handle {
+    width: 34px;
+    font-size: 15px;
+  }
+
+  .seat-row-main {
+    grid-template-columns: minmax(54px, 0.65fr) minmax(110px, 1.5fr);
+  }
+
+  .seat-row-label-cell {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .seat-row-player-cell {
+    padding: 7px;
+  }
+
+  .seat-player {
+    min-height: 36px;
+    padding: 8px 9px;
+  }
+
+  .seat-player-name,
+  .seat-player-placeholder {
+    font-size: 13px;
+  }
+
+  .seat-waiting-player {
+    padding: 11px 12px;
+  }
+}
