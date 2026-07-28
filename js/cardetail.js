@@ -3689,13 +3689,7 @@ async function renderCarDetail() {
 
       <div class="seat-header">
   <h3>席位安排</h3>
-
-  <button
-    class="sync-seat-btn"
-    onclick="syncPlayersToSeats()"
-  >
-    🔄 同步玩家與席位
-  </button>
+  
 </div>
 
         <p
