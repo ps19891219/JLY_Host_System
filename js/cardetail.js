@@ -3667,7 +3667,7 @@ async function renderCarDetail() {
         </span>
       </div>
 
-      <div class="card">
+            <div class="card">
         <h3>
           🔔 待確認申請
         </h3>
@@ -3676,6 +3676,16 @@ async function renderCarDetail() {
           applications
         )}
       </div>
+
+      ${
+        window.JLYStaffController &&
+        typeof window.JLYStaffController.render ===
+          "function"
+          ? window.JLYStaffController.render(
+              car
+            )
+          : ""
+      }
 
       <div class="seat-header">
   <h3>席位安排</h3>
