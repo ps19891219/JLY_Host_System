@@ -6,24 +6,39 @@ console.log(
   function getStaffSlots(car) {
     if (
       window.JLYStaffData &&
-      typeof window.JLYStaffData.getStaffSlots ===
+      typeof window.JLYStaffData
+        .getStaffSlots ===
         "function"
     ) {
       const staffSlots =
-        window.JLYStaffData.getStaffSlots(car);
+        window.JLYStaffData
+          .getStaffSlots(car);
 
-      if (Array.isArray(staffSlots)) {
-        return staffSlots.map(function (
-          staff
-        ) {
-          return {
-            ...staff
-          };
-        });
+      if (
+        Array.isArray(staffSlots)
+      ) {
+        return staffSlots.map(
+          function (staff) {
+            return {
+              ...staff
+            };
+          }
+        );
       }
     }
 
     return [];
+  }
+
+  function createStaffId() {
+    return (
+      "staff_" +
+      Date.now() +
+      "_" +
+      Math.random()
+        .toString(36)
+        .slice(2, 8)
+    );
   }
 
   function createLocalStaffSlot(
@@ -31,17 +46,11 @@ console.log(
   ) {
     return {
       id:
-        "staff_" +
-        Date.now() +
-        "_" +
-        Math.random()
-          .toString(36)
-          .slice(2, 8),
+        createStaffId(),
 
       order:
         Number(order || 0),
 
-      // 空白時顯示 1、2、3
       label:
         "",
 
@@ -56,53 +65,140 @@ console.log(
     };
   }
 
-  function updateCarStaffSlots(
-    car,
+  function normalizeStaffSlots(
     staffSlots
   ) {
-    car.staffSlots =
-      staffSlots.map(function (
+    const safeStaffSlots =
+      Array.isArray(staffSlots)
+        ? staffSlots
+        : [];
+
+    return safeStaffSlots.map(
+      function (
         staff,
         index
       ) {
         return {
-          ...staff,
+          id:
+            String(
+              staff.id ||
+              createStaffId()
+            ),
+
           order:
-            index + 1
+            index + 1,
+
+          label:
+            String(
+              staff.label || ""
+            ).trim(),
+
+          memberId:
+            String(
+              staff.memberId || ""
+            ).trim(),
+
+          displayName:
+            String(
+              staff.displayName || ""
+            ).trim(),
+
+          source:
+            String(
+              staff.source ||
+              "host_manual"
+            )
         };
-      });
+      }
+    );
+  }
+
+  async function saveStaffSlots(
+    car,
+    staffSlots
+  ) {
+    const db =
+      window.db;
+
+    if (!db) {
+      throw new Error(
+        "Firebase 尚未載入"
+      );
+    }
+
+    if (
+      !car ||
+      !car.id
+    ) {
+      throw new Error(
+        "找不到車團 ID"
+      );
+    }
+
+    const normalizedSlots =
+      normalizeStaffSlots(
+        staffSlots
+      );
+
+    const updateData = {
+      staffSlots:
+        normalizedSlots
+    };
+
+    if (
+      window.firebase &&
+      window.firebase.firestore &&
+      window.firebase.firestore
+        .FieldValue
+    ) {
+      updateData.updatedAt =
+        window.firebase.firestore
+          .FieldValue
+          .serverTimestamp();
+    }
+
+    await db
+      .collection("cars")
+      .doc(car.id)
+      .update(updateData);
+
+    car.staffSlots =
+      normalizedSlots;
 
     window.currentCarData =
       car;
 
-    return car.staffSlots;
+    return normalizedSlots;
   }
 
-  function addStaffSlot(car) {
+  async function addStaffSlot(
+    car
+  ) {
     if (!car) {
-      console.error(
-        "新增工作人員失敗：找不到車團資料"
+      throw new Error(
+        "找不到目前車團資料"
       );
-
-      return [];
     }
 
     const staffSlots =
       getStaffSlots(car);
 
-    staffSlots.push(
+    const newStaffSlot =
       createLocalStaffSlot(
         staffSlots.length + 1
-      )
+      );
+
+    staffSlots.push(
+      newStaffSlot
     );
 
-    return updateCarStaffSlots(
+    return await saveStaffSlots(
       car,
       staffSlots
     );
   }
 
-  function updateStaffLabel(
+  async function updateStaffLabel(
     car,
     staffId,
     label
@@ -111,32 +207,33 @@ console.log(
       getStaffSlots(car);
 
     const target =
-      staffSlots.find(function (
-        staff
-      ) {
-        return (
-          staff.id === staffId
-        );
-      });
-
-    if (!target) {
-      console.error(
-        "找不到要修改的工作人員席位"
+      staffSlots.find(
+        function (staff) {
+          return (
+            String(staff.id) ===
+            String(staffId)
+          );
+        }
       );
 
-      return staffSlots;
+    if (!target) {
+      throw new Error(
+        "找不到要修改的工作人員欄位"
+      );
     }
 
     target.label =
-      String(label || "").trim();
+      String(
+        label || ""
+      ).trim();
 
-    return updateCarStaffSlots(
+    return await saveStaffSlots(
       car,
       staffSlots
     );
   }
 
-  function updateStaffName(
+  async function updateStaffName(
     car,
     staffId,
     displayName
@@ -145,20 +242,19 @@ console.log(
       getStaffSlots(car);
 
     const target =
-      staffSlots.find(function (
-        staff
-      ) {
-        return (
-          staff.id === staffId
-        );
-      });
-
-    if (!target) {
-      console.error(
-        "找不到要指派的工作人員席位"
+      staffSlots.find(
+        function (staff) {
+          return (
+            String(staff.id) ===
+            String(staffId)
+          );
+        }
       );
 
-      return staffSlots;
+    if (!target) {
+      throw new Error(
+        "找不到要修改的工作人員欄位"
+      );
     }
 
     target.displayName =
@@ -166,13 +262,17 @@ console.log(
         displayName || ""
       ).trim();
 
-    return updateCarStaffSlots(
+    return await saveStaffSlots(
       car,
       staffSlots
     );
   }
 
   window.JLYStaffActions = {
+    getStaffSlots,
+    createLocalStaffSlot,
+    normalizeStaffSlots,
+    saveStaffSlots,
     addStaffSlot,
     updateStaffLabel,
     updateStaffName

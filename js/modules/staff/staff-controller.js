@@ -16,7 +16,10 @@ console.log(
   ) {
     if (
       !car ||
-      !window.JLYStaffData
+      !window.JLYStaffData ||
+      typeof window.JLYStaffData
+        .getStaffSlots !==
+        "function"
     ) {
       return null;
     }
@@ -25,19 +28,35 @@ console.log(
       window.JLYStaffData
         .getStaffSlots(car);
 
-    return staffSlots.find(
-      function (staff) {
-        return (
-          staff.id === staffId
-        );
-      }
-    ) || null;
+    if (
+      !Array.isArray(staffSlots)
+    ) {
+      return null;
+    }
+
+    return (
+      staffSlots.find(
+        function (staff) {
+          return (
+            String(staff.id) ===
+            String(staffId)
+          );
+        }
+      ) ||
+      null
+    );
   }
 
   function render(car) {
     if (
       !window.JLYStaffData ||
-      !window.JLYStaffRender
+      !window.JLYStaffRender ||
+      typeof window.JLYStaffData
+        .getStaffSlots !==
+        "function" ||
+      typeof window.JLYStaffRender
+        .renderStaff !==
+        "function"
     ) {
       return "";
     }
@@ -70,7 +89,28 @@ console.log(
       render(car);
   }
 
-  function addStaffSlot() {
+  function setBusyState(
+    isBusy
+  ) {
+    const addButton =
+      document.querySelector(
+        ".staff-add-button"
+      );
+
+    if (!addButton) {
+      return;
+    }
+
+    addButton.disabled =
+      Boolean(isBusy);
+
+    addButton.textContent =
+      isBusy
+        ? "儲存中……"
+        : "＋ 新增工作人員";
+  }
+
+  async function addStaffSlot() {
     const car =
       getCurrentCar();
 
@@ -82,13 +122,46 @@ console.log(
       return;
     }
 
-    window.JLYStaffActions
-      .addStaffSlot(car);
+    if (
+      !window.JLYStaffActions ||
+      typeof window.JLYStaffActions
+        .addStaffSlot !==
+        "function"
+    ) {
+      console.error(
+        "JLYStaffActions 尚未正確載入"
+      );
 
-    refresh(car);
+      alert(
+        "工作人員模組尚未載入完成"
+      );
+
+      return;
+    }
+
+    try {
+      setBusyState(true);
+
+      await window
+        .JLYStaffActions
+        .addStaffSlot(car);
+
+      refresh(car);
+    } catch (error) {
+      console.error(
+        "新增工作人員失敗：",
+        error
+      );
+
+      alert(
+        "新增失敗，請稍後再試。"
+      );
+    } finally {
+      setBusyState(false);
+    }
   }
 
-  function editStaffLabel(
+  async function editStaffLabel(
     staffId
   ) {
     const car =
@@ -108,32 +181,56 @@ console.log(
       return;
     }
 
-    const defaultTitle =
-      String(
-        staff.label || ""
-      );
-
     const newLabel =
       prompt(
         "請輸入工作人員稱謂。\n留空會恢復為數字編號：",
-        defaultTitle
+        String(
+          staff.label || ""
+        )
       );
 
-    if (newLabel === null) {
+    if (
+      newLabel === null
+    ) {
       return;
     }
 
-    window.JLYStaffActions
-      .updateStaffLabel(
-        car,
-        staffId,
-        newLabel
+    if (
+      !window.JLYStaffActions ||
+      typeof window.JLYStaffActions
+        .updateStaffLabel !==
+        "function"
+    ) {
+      alert(
+        "工作人員模組尚未載入完成"
       );
 
-    refresh(car);
+      return;
+    }
+
+    try {
+      await window
+        .JLYStaffActions
+        .updateStaffLabel(
+          car,
+          staffId,
+          newLabel
+        );
+
+      refresh(car);
+    } catch (error) {
+      console.error(
+        "修改工作人員稱謂失敗：",
+        error
+      );
+
+      alert(
+        "稱謂儲存失敗，請稍後再試。"
+      );
+    }
   }
 
-  function editStaffPerson(
+  async function editStaffPerson(
     staffId
   ) {
     const car =
@@ -156,21 +253,51 @@ console.log(
     const newName =
       prompt(
         "請輸入工作人員名稱：",
-        staff.displayName || ""
+        String(
+          staff.displayName ||
+          ""
+        )
       );
 
-    if (newName === null) {
+    if (
+      newName === null
+    ) {
       return;
     }
 
-    window.JLYStaffActions
-      .updateStaffName(
-        car,
-        staffId,
-        newName
+    if (
+      !window.JLYStaffActions ||
+      typeof window.JLYStaffActions
+        .updateStaffName !==
+        "function"
+    ) {
+      alert(
+        "工作人員模組尚未載入完成"
       );
 
-    refresh(car);
+      return;
+    }
+
+    try {
+      await window
+        .JLYStaffActions
+        .updateStaffName(
+          car,
+          staffId,
+          newName
+        );
+
+      refresh(car);
+    } catch (error) {
+      console.error(
+        "修改工作人員名稱失敗：",
+        error
+      );
+
+      alert(
+        "工作人員儲存失敗，請稍後再試。"
+      );
+    }
   }
 
   window.JLYStaffController = {
