@@ -1,3 +1,8 @@
+// ============================================================
+// car-view-render.js
+// 第 1 / 6 段
+// ============================================================
+
 console.log("car-view-render.js 已成功載入！");
 
 (function () {
@@ -17,36 +22,42 @@ console.log("car-view-render.js 已成功載入！");
       value == null ? "" : value
     ).trim();
 
-    return text || fallback || "未提供";
+    return (
+      text ||
+      fallback ||
+      "未提供"
+    );
   }
 
   function getPlayers(car) {
     const players =
-      Array.isArray(car && car.players)
+      Array.isArray(
+        car &&
+        car.players
+      )
         ? car.players
         : [];
 
-    return players.filter(function (player) {
-      if (!player) {
-        return false;
+    return players.filter(
+      function (player) {
+        if (!player) {
+          return false;
+        }
+
+        const status =
+          String(
+            player.status || ""
+          ).trim();
+
+        return (
+          status !== "已取消" &&
+          status !== "取消" &&
+          status !== "cancelled" &&
+          status !== "canceled"
+        );
       }
-
-      const status = String(
-        player.status || ""
-      ).trim();
-
-      return (
-        status !== "已取消" &&
-        status !== "取消" &&
-        status !== "cancelled" &&
-        status !== "canceled"
-      );
-    });
+    );
   }
-
-  // ============================================================
-  // 工作人員
-  // ============================================================
 
   function normalizeStaffItem(
     item,
@@ -57,38 +68,53 @@ console.log("car-view-render.js 已成功載入！");
       return null;
     }
 
-    if (typeof item === "string") {
-      const name = item.trim();
+    if (
+      typeof item === "string"
+    ) {
+      const name =
+        item.trim();
 
       if (!name) {
         return null;
       }
 
       return {
-        id: "legacy-staff-" + index,
-        title: legacyTitle || "",
-        name: name
+        id:
+          "legacy-staff-" +
+          index,
+
+        title:
+          legacyTitle ||
+          "",
+
+        name:
+          name
       };
     }
 
-    const title = String(
-      item.title ||
-      item.role ||
-      item.jobTitle ||
-      item.staffTitle ||
-      legacyTitle ||
-      ""
-    ).trim();
+    const title =
+      String(
+        item.title ||
+        item.role ||
+        item.jobTitle ||
+        item.staffTitle ||
+        legacyTitle ||
+        ""
+      ).trim();
 
-    const name = String(
-      item.name ||
-      item.displayName ||
-      item.staffName ||
-      item.dmName ||
-      ""
-    ).trim();
+    const name =
+      String(
+        item.name ||
+        item.displayName ||
+        item.staffName ||
+        item.dmName ||
+        ""
+      ).trim();
 
-    if (!title && !name) {
+    if (
+      !title &&
+      !name
+    ) {
       return null;
     }
 
@@ -96,20 +122,31 @@ console.log("car-view-render.js 已成功載入！");
       id:
         item.id ||
         item.staffId ||
-        "staff-" + index,
+        "staff-" +
+          index,
 
-      title: title,
-      name: name
+      title:
+        title,
+
+      name:
+        name
     };
   }
 
   function getStaffList(car) {
     if (
-      Array.isArray(car && car.staffList) &&
-      car.staffList.length > 0
+      Array.isArray(
+        car &&
+        car.staffList
+      ) &&
+      car.staffList.length >
+        0
     ) {
       return car.staffList
-        .map(function (item, index) {
+        .map(function (
+          item,
+          index
+        ) {
           return normalizeStaffItem(
             item,
             index,
@@ -119,13 +156,19 @@ console.log("car-view-render.js 已成功載入！");
         .filter(Boolean);
     }
 
-    // 相容舊的 dmList
     if (
-      Array.isArray(car && car.dmList) &&
-      car.dmList.length > 0
+      Array.isArray(
+        car &&
+        car.dmList
+      ) &&
+      car.dmList.length >
+        0
     ) {
       return car.dmList
-        .map(function (item, index) {
+        .map(function (
+          item,
+          index
+        ) {
           return normalizeStaffItem(
             item,
             index,
@@ -135,7 +178,6 @@ console.log("car-view-render.js 已成功載入！");
         .filter(Boolean);
     }
 
-    // 相容更舊的單一 DM 欄位
     const legacyDm =
       car &&
       (
@@ -150,11 +192,16 @@ console.log("car-view-render.js 已成功載入！");
     ) {
       return [
         {
-          id: "legacy-single-dm",
-          title: "DM",
-          name: String(
-            legacyDm
-          ).trim()
+          id:
+            "legacy-single-dm",
+
+          title:
+            "DM",
+
+          name:
+            String(
+              legacyDm
+            ).trim()
         }
       ];
     }
@@ -167,7 +214,8 @@ console.log("car-view-render.js 已成功載入！");
       getStaffList(car);
 
     if (
-      staffList.length === 0
+      staffList.length ===
+      0
     ) {
       return (
         '<span class="car-view-muted">' +
@@ -178,6 +226,7 @@ console.log("car-view-render.js 已成功載入！");
 
     return (
       '<div class="car-view-staff-list">' +
+
       staffList
         .map(function (staff) {
           const titleHtml =
@@ -188,6 +237,7 @@ console.log("car-view-render.js 已成功載入！");
                     staff.title
                   ) +
                   "</span>" +
+
                   '<span class="car-view-staff-divider">' +
                   "｜" +
                   "</span>"
@@ -196,75 +246,89 @@ console.log("car-view-render.js 已成功載入！");
 
           return (
             '<div class="car-view-staff-item">' +
+
             titleHtml +
+
             '<span class="car-view-staff-name">' +
             escapeHtml(
               staff.name ||
               "未填姓名"
             ) +
             "</span>" +
+
             "</div>"
           );
         })
         .join("") +
+
       "</div>"
     );
   }
 
   // ============================================================
-  // 人數與狀態
-  // ============================================================
+// 第 2 / 6 段
+// ============================================================
 
   function getTotal(car) {
-    const total = Number(
-      (
-        car &&
+    const total =
+      Number(
         (
-          car.totalPeople ||
-          car.capacity
-        )
-      ) || 0
-    );
+          car &&
+          (
+            car.totalPeople ||
+            car.capacity
+          )
+        ) ||
+        0
+      );
 
-    const male = Number(
-      (
-        car &&
+    const male =
+      Number(
         (
-          car.maleSlots ||
-          car.maleCount
-        )
-      ) || 0
-    );
+          car &&
+          (
+            car.maleSlots ||
+            car.maleCount
+          )
+        ) ||
+        0
+      );
 
-    const female = Number(
-      (
-        car &&
+    const female =
+      Number(
         (
-          car.femaleSlots ||
-          car.femaleCount
-        )
-      ) || 0
-    );
+          car &&
+          (
+            car.femaleSlots ||
+            car.femaleCount
+          )
+        ) ||
+        0
+      );
 
-    const flexible = Number(
-      (
-        car &&
+    const flexible =
+      Number(
         (
-          car.flexibleSlots ||
-          car.flexSlots ||
-          car.anySlots ||
-          car.flexibleCount
-        )
-      ) || 0
-    );
+          car &&
+          (
+            car.flexibleSlots ||
+            car.flexSlots ||
+            car.anySlots ||
+            car.flexibleCount
+          )
+        ) ||
+        0
+      );
 
-    return total > 0
-      ? total
-      : (
-          male +
-          female +
-          flexible
-        );
+    if (total > 0) {
+      return total;
+    }
+
+    return (
+      male +
+      female +
+      flexible
+    );
   }
 
   function getStatus(car) {
@@ -273,7 +337,8 @@ console.log("car-view-render.js 已成功載入！");
         (
           car &&
           car.status
-        ) || ""
+        ) ||
+        ""
       ).trim();
 
     if (
@@ -300,16 +365,15 @@ console.log("car-view-render.js 已成功載入！");
       );
     }
 
-    return (
-      getPlayers(car).length >= total
-        ? "已滿團"
-        : "招募中"
-    );
-  }
+    if (
+      getPlayers(car).length >=
+      total
+    ) {
+      return "已滿團";
+    }
 
-  // ============================================================
-  // 金額
-  // ============================================================
+    return "招募中";
+  }
 
   function getPriceValue(car) {
     const candidates = [
@@ -343,14 +407,17 @@ console.log("car-view-render.js 已成功載入！");
     const rawValue =
       getPriceValue(car);
 
-    if (rawValue === null) {
+    if (
+      rawValue === null
+    ) {
       return "未提供";
     }
 
     const text =
-      String(rawValue).trim();
+      String(
+        rawValue
+      ).trim();
 
-    // 已包含文字或貨幣符號時，直接照原資料顯示
     if (
       /[^\d.,-]/.test(text)
     ) {
@@ -381,10 +448,6 @@ console.log("car-view-render.js 已成功載入！");
       "／人"
     );
   }
-
-  // ============================================================
-  // 資訊卡
-  // ============================================================
 
   function renderInfoRow(
     icon,
@@ -452,13 +515,10 @@ console.log("car-view-render.js 已成功載入！");
       "</div>" +
 
       "</div>" +
+
       "</div>"
     );
   }
-
-  // ============================================================
-  // 報名與狀態按鈕
-  // ============================================================
 
   function getActionHtml(
     status,
@@ -516,8 +576,88 @@ console.log("car-view-render.js 已成功載入！");
   }
 
   // ============================================================
-  // 主畫面
-  // ============================================================
+// 第 3 / 6 段
+// ============================================================
+
+  function renderSeatBoard(car) {
+    const seatMount =
+      document.getElementById(
+        "carViewSeatMount"
+      );
+
+    if (!seatMount) {
+      return;
+    }
+
+    const players =
+      Array.isArray(
+        car &&
+        car.players
+      )
+        ? car.players
+        : [];
+
+    const options = {
+      editable: false,
+      draggable: false,
+      showWaitingArea: false,
+      showSummary: true
+    };
+
+    try {
+      if (
+        window.JLYSeatController &&
+        typeof window
+          .JLYSeatController
+          .render ===
+          "function"
+      ) {
+        window.JLYSeatController
+          .render(
+            seatMount,
+            car,
+            players,
+            options
+          );
+
+        return;
+      }
+
+      if (
+        window.JLYSeatBoard &&
+        typeof window
+          .JLYSeatBoard
+          .render ===
+          "function"
+      ) {
+        window.JLYSeatBoard
+          .render(
+            seatMount,
+            car,
+            players,
+            options
+          );
+
+        return;
+      }
+
+      seatMount.innerHTML =
+        '<div class="car-view-seat-loading">' +
+        "座位模組尚未準備完成" +
+        "</div>";
+
+    } catch (error) {
+      console.error(
+        "玩家頁座位顯示失敗：",
+        error
+      );
+
+      seatMount.innerHTML =
+        '<div class="car-view-seat-loading">' +
+        "座位顯示失敗，請重新整理" +
+        "</div>";
+    }
+  }
 
   function renderCarView(
     container,
@@ -528,7 +668,8 @@ console.log("car-view-render.js 已成功載入！");
       return;
     }
 
-    car = car || {};
+    car =
+      car || {};
 
     const players =
       getPlayers(car);
@@ -561,6 +702,10 @@ console.log("car-view-render.js 已成功載入！");
       car.studio ||
       car.organizer ||
       "未提供";
+
+      // ============================================================
+// 第 4 / 6 段
+// ============================================================
 
     const infoHtml =
       renderInfoRow(
@@ -657,13 +802,22 @@ console.log("car-view-render.js 已成功載入！");
       '<div class="car-view-status" data-status="' +
       escapeHtml(status) +
       '">' +
+
       escapeHtml(status) +
+
       "</div>" +
 
-      "</header>" +
+      "</header>";
 
+      // ============================================================
+// 第 5 / 6 段
+// ============================================================
+
+    container.innerHTML +=
       '<section class="car-view-info-card" aria-label="車團基本資訊">' +
+
       infoHtml +
+
       "</section>" +
 
       noteHtml +
@@ -693,73 +847,18 @@ console.log("car-view-render.js 已成功載入！");
       "</section>" +
 
       '<div class="car-view-action">' +
+
       getActionHtml(
         status,
         carId
       ) +
+
       "</div>" +
 
-            "</article>";
+      "</article>";
 
-    const seatMount =
-      document.getElementById(
-        "carViewSeatMount"
-      );
-
-    if (
-      seatMount &&
-      window.JLYSeatController &&
-      typeof window.JLYSeatController.render ===
-        "function"
-    ) {
-      window.JLYSeatController.render(
-        seatMount,
-        car,
-        car.players || [],
-        {
-          editable: false,
-          draggable: false,
-          showWaitingArea: false,
-          showSummary: true
-        }
-      );
-
-      return;
-    }
-
-    if (
-      seatMount &&
-      window.JLYSeatBoard &&
-      typeof window.JLYSeatBoard.render ===
-        "function"
-    ) {
-      window.JLYSeatBoard.render(
-        seatMount,
-        car,
-        car.players || [],
-        {
-          editable: false,
-          draggable: false,
-          showWaitingArea: false,
-          showSummary: true
-        }
-      );
-
-      return;
-    }
-
-    if (seatMount) {
-      seatMount.innerHTML =
-        '<div class="car-view-seat-loading">' +
-        "座位模組尚未準備完成" +
-        "</div>";
-    }
+    renderSeatBoard(car);
   }
-  }
-
-  // ============================================================
-  // 載入與錯誤畫面
-  // ============================================================
 
   function renderLoading(
     container
@@ -790,18 +889,20 @@ console.log("car-view-render.js 已成功載入！");
       "</h2>" +
 
       "<p>" +
+
       escapeHtml(
         message ||
         "請稍後再試"
       ) +
+
       "</p>" +
 
       "</div>";
   }
 
   // ============================================================
-  // 對外公開
-  // ============================================================
+// 第 6 / 6 段
+// ============================================================
 
   window.JLYCarViewRender = {
     escapeHtml:
@@ -834,4 +935,5 @@ console.log("car-view-render.js 已成功載入！");
     renderError:
       renderError
   };
+
 })();
