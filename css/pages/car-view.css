@@ -1,140 +1,301 @@
 /* ======================================================
+   JLY Host System V2
+   玩家查看頁
+====================================================== */
+
+#car-view-page {
+  width: 100%;
+}
+
+#car-view-content {
+  width: 100%;
+}
+
+.car-view-card {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding-bottom: 32px;
+}
+
+/* ======================================================
+   固定劇本標題列
+====================================================== */
+
+.car-view-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  min-height: 68px;
+  padding: 12px 16px;
+  margin: 0 -16px 18px;
+
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid #ececec;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.car-view-header-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.car-view-title {
+  margin: 0;
+  overflow: hidden;
+
+  color: #222;
+  font-size: clamp(20px, 5vw, 28px);
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.car-view-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+
+  padding: 7px 11px;
+
+  color: #3d3d3d;
+  background: #f5f5f5;
+  border: 1px solid #e7e7e7;
+  border-radius: 999px;
+
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.car-view-status-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+
+  background: #2dbf70;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(45, 191, 112, 0.14);
+}
+
+.car-view-status[data-status="已滿團"] .car-view-status-dot {
+  background: #ef5350;
+  box-shadow: 0 0 0 4px rgba(239, 83, 80, 0.14);
+}
+
+.car-view-status[data-status="已結束"] .car-view-status-dot {
+  background: #777;
+  box-shadow: 0 0 0 4px rgba(119, 119, 119, 0.14);
+}
+
+.car-view-status[data-status="已取消"] .car-view-status-dot {
+  background: #aaa;
+  box-shadow: 0 0 0 4px rgba(170, 170, 170, 0.14);
+}
+
+/* ======================================================
    車團資訊卡
 ====================================================== */
 
-.car-view-info-card{
-    display:grid;
-    gap:14px;
-    margin-top:18px;
+.car-view-info-card {
+  display: grid;
+  gap: 12px;
+  margin-top: 0;
 }
 
-.car-view-info-row{
-    display:flex;
-    align-items:flex-start;
-    gap:12px;
+.car-view-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 
-    padding:14px 16px;
+  padding: 14px 16px;
 
-    background:#fff;
-    border-radius:14px;
-    border:1px solid #ececec;
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: 14px;
 }
 
-.car-view-info-row.is-emphasized{
-    background:#fff8e8;
-    border:2px solid #ffd76d;
+.car-view-info-row.is-emphasized {
+  background: #fff8e8;
+  border-color: #ffd76d;
 }
 
-.car-view-info-row.is-full-width{
-    align-items:flex-start;
+.car-view-info-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+
+  background: #f5f5f5;
+  border-radius: 10px;
+  font-size: 18px;
 }
 
-.car-view-info-icon{
-    width:34px;
-    height:34px;
-
-    border-radius:10px;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    background:#f5f5f5;
-
-    font-size:18px;
-
-    flex-shrink:0;
+.car-view-info-content {
+  min-width: 0;
+  flex: 1;
 }
 
-.car-view-info-content{
-    flex:1;
+.car-view-info-label {
+  margin-bottom: 4px;
+  color: #888;
+  font-size: 13px;
 }
 
-.car-view-info-label{
-
-    font-size:13px;
-    color:#888;
-
-    margin-bottom:4px;
+.car-view-info-value {
+  color: #222;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
-.car-view-info-value{
-
-    font-size:16px;
-    font-weight:600;
-    color:#222;
-
-    word-break:break-word;
-}
-
-/* ===========================
+/* ======================================================
    工作人員
-=========================== */
+====================================================== */
 
-.car-view-staff-list{
-
-    display:flex;
-    flex-direction:column;
-
-    gap:8px;
+.car-view-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.car-view-staff-item{
-
-    display:flex;
-    align-items:center;
-    flex-wrap:wrap;
-
-    gap:2px;
+.car-view-staff-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
 }
 
-.car-view-staff-title{
-
-    color:#6b5cff;
-    font-weight:700;
+.car-view-staff-title {
+  color: #6b5cff;
+  font-weight: 750;
 }
 
-.car-view-staff-divider{
-
-    color:#bbb;
+.car-view-staff-divider {
+  color: #bbb;
 }
 
-.car-view-staff-name{
-
-    color:#222;
+.car-view-staff-name {
+  color: #222;
 }
 
-/* ===========================
-   座位區
-=========================== */
-
-.car-view-section-header{
-
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-
-    margin-bottom:14px;
+.car-view-muted {
+  color: #999;
+  font-weight: 500;
 }
 
-.car-view-readonly-label{
+/* ======================================================
+   備註與座位區
+====================================================== */
 
-    font-size:12px;
+.car-view-section {
+  margin-top: 18px;
+  padding: 16px;
 
-    color:#888;
-
-    background:#f3f3f3;
-
-    padding:4px 10px;
-
-    border-radius:999px;
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: 16px;
 }
 
-.car-view-seat-loading{
+.car-view-section-title {
+  margin: 0;
+  color: #222;
+  font-size: 17px;
+  font-weight: 800;
+}
 
-    text-align:center;
+.car-view-note {
+  margin-top: 12px;
+  color: #444;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
-    padding:30px;
+.car-view-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
 
-    color:#999;
+.car-view-readonly-label {
+  padding: 4px 10px;
+  color: #888;
+  background: #f3f3f3;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.car-view-seat-loading {
+  padding: 30px;
+  color: #999;
+  text-align: center;
+}
+
+.car-view-action {
+  margin-top: 18px;
+}
+
+.car-view-join-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+
+  color: #fff;
+  background: #6b5cff;
+  border-radius: 14px;
+
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.car-view-status-message {
+  padding: 14px 16px;
+  color: #666;
+  background: #f5f5f5;
+  border-radius: 14px;
+  text-align: center;
+}
+
+@media (min-width: 680px) {
+  .car-view-info-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .car-view-info-row.is-full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 679px) {
+  .car-view-header {
+    min-height: 62px;
+    padding: 10px 14px;
+  }
+
+  .car-view-title {
+    font-size: 20px;
+  }
+
+  .car-view-status {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
 }

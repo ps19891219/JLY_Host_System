@@ -12,69 +12,50 @@
 
   <link
     rel="stylesheet"
-    href="../css/style.css"
+    href="./css/style.css"
   >
 
   <link
     rel="stylesheet"
-    href="../css/cardetail.css"
+    href="./css/cardetail.css"
   >
 
   <link
     rel="stylesheet"
-    href="../css/pages/car-detail.css"
+    href="./css/pages/car-view.css"
   >
-
-  <link
-  rel="stylesheet"
-  href="../css/pages/car-view.css"
->
-
-<link
-  rel="stylesheet"
-  href="../css/components/seat-engine.css"
->
-
 </head>
 
 <body>
-  <div class="container">
-    <div id="car-view-page">
-      <h2>🎭 車團資訊</h2>
 
-      <div id="car-view-content">
+<div class="container">
+
+    <div id="car-view-content">
         讀取中...
-      </div>
     </div>
-  </div>
 
-  <!-- Firebase 官方 SDK -->
-  <script
-    src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
-  ></script>
+</div>
 
-  <script
-    src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"
-  ></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-  <!-- Firebase 初始化 -->
-  <script src="/firebase/firebase.js?v=25"></script>
+<script src="/firebase/firebase.js?v=25"></script>
 
-  <!-- 共用車團資料 -->
-  <script src="/js/car/car-data.js?v=1"></script>
+<script src="/js/car/car-data.js?v=1"></script>
 
-  <!-- Seat Engine -->
-  <script src="/js/car/seat/seat-data.js?v=1"></script>
-  <script src="/js/car/seat/seat-layout.js?v=1"></script>
-  <script src="/js/car/seat/seat-render.js?v=1"></script>
-  <script src="/js/car/seat/seat-actions.js?v=1"></script>
-  <script src="/js/car/seat/seat-assignment.js?v=1"></script>
-  <script src="/js/car/seat/drag.js?v=1"></script>
-  <script src="/js/car/seat/seat-board.js?v=1"></script>
-  <script src="/js/car/seat/seat-controller.js?v=1"></script>
+<!-- Seat Engine -->
+<script src="/js/car/seat/seat-data.js?v=1"></script>
+<script src="/js/car/seat/seat-layout.js?v=1"></script>
+<script src="/js/car/seat/seat-render.js?v=1"></script>
+<script src="/js/car/seat/seat-actions.js?v=1"></script>
+<script src="/js/car/seat/seat-assignment.js?v=1"></script>
+<script src="/js/car/seat/drag.js?v=1"></script>
+<script src="/js/car/seat/seat-board.js?v=1"></script>
+<script src="/js/car/seat/seat-controller.js?v=1"></script>
 
-  <!-- 玩家查看頁 -->
-  <script src="/js/car/car-view-render.js?v=1"></script>
-  <script src="/js/car/car-view.js?v=1"></script>
+<script src="/js/car/car-view-render.js?v=1"></script>
+<script src="/js/car/car-view.js?v=1"></script>
+
 </body>
 </html>
