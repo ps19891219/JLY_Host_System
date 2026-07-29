@@ -93,6 +93,42 @@ function getAutoStatus(car) {
     : "招募中";
 }
 
+function getPlayerViewUrl(carId) {
+  return (
+    location.origin +
+    "/pages/car-view.html?id=" +
+    encodeURIComponent(carId)
+  );
+}
+
+async function copyPlayerViewUrl() {
+  const carId = getCarId();
+
+  if (!carId) {
+    alert("找不到車團 ID");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(
+      getPlayerViewUrl(carId)
+    );
+
+    closeCarMenu();
+
+    alert("✅ 已複製玩家查看連結");
+  } catch (error) {
+    console.error(
+      "複製玩家查看連結失敗：",
+      error
+    );
+
+    alert(
+      "複製失敗，請稍後再試"
+    );
+  }
+}
+
 function getJoinUrl(carId) {
   return (
     location.origin +
@@ -380,11 +416,18 @@ function buildCarNavigation(scriptName) {
           </button>
 
           <button
-            type="button"
-            onclick="copyPlayerJoinLink()"
-          >
-            🔗 複製玩家連結
-          </button>
+  type="button"
+  onclick="copyPlayerViewUrl()"
+>
+  👀 複製玩家查看連結
+</button>
+
+<button
+  type="button"
+  onclick="copyJoinUrl(getCarId())"
+>
+  📝 複製玩家報名連結
+</button>
 
           <button
             type="button"
