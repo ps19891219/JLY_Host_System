@@ -3499,26 +3499,28 @@ function buildCarSummaryHtml(config) {
         : "";
 
     const clickAttribute =
-      editable
-        ? `onclick="openEditCarPage()"`
+      editable && field
+        ? `onclick="openSingleFieldEditor('${escapeHtml(field)}')"`
         : "";
 
     const keyboardAttributes =
-      editable
-        ? `
-          role="button"
-          tabindex="0"
-          onkeydown="
-            if (
-              event.key === 'Enter' ||
-              event.key === ' '
-            ) {
-              event.preventDefault();
-              openEditCarPage();
-            }
-          "
-        `
-        : "";
+  editable && field
+    ? `
+      role="button"
+      tabindex="0"
+      onkeydown="
+        if (
+          event.key === 'Enter' ||
+          event.key === ' '
+        ) {
+          event.preventDefault();
+          openSingleFieldEditor(
+            '${escapeHtml(field)}'
+          );
+        }
+      "
+    `
+    : "";
 
     return `
       <div
@@ -3648,6 +3650,32 @@ function buildCarSummaryHtml(config) {
       </div>
     </section>
   `;
+}
+
+// ============================================================
+// 單一欄位編輯入口
+// 目前先顯示提示，下一步再接正式編輯視窗
+// ============================================================
+
+function openSingleFieldEditor(fieldName) {
+  const fieldLabelMap = {
+    gameDate: "日期",
+    gameTime: "時間",
+    price: "金額",
+    studioName: "工作室",
+    location: "地點",
+    note: "備註"
+  };
+
+  const label =
+    fieldLabelMap[fieldName] ||
+    "這個欄位";
+
+  alert(
+    "接下來會開啟「" +
+    label +
+    "」的單一修改視窗。"
+  );
 }
 
 function buildApplicationsSectionHtml(applications) {
