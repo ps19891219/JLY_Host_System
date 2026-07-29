@@ -3657,25 +3657,351 @@ function buildCarSummaryHtml(config) {
 // 目前先顯示提示，下一步再接正式編輯視窗
 // ============================================================
 
+// ============================================================
+// 第 5B-3：車團資訊單一欄位編輯
+// ============================================================
+
 function openSingleFieldEditor(fieldName) {
-  const fieldLabelMap = {
-    gameDate: "日期",
-    gameTime: "時間",
-    price: "金額",
-    studioName: "工作室",
-    location: "地點",
-    note: "備註"
+  const car =
+    window.currentCarData;
+
+  if (!car) {
+    alert("車團資料尚未載入");
+    return;
+  }
+
+  const fieldConfigMap = {
+    gameDate: {
+      label: "日期",
+      type: "date",
+      value: car.gameDate || ""
+    },
+
+    gameTime: {
+      label: "時間",
+      type: "time",
+      value: car.gameTime || ""
+    },
+
+    price: {
+      label: "金額",
+      type: "number",
+      value: car.price || "",
+      placeholder: "請輸入金額"
+    },
+
+    studioName: {
+      label: "工作室",
+      type: "text",
+      value:
+        car.studioName ||
+        car.organizer ||
+        "",
+      placeholder: "請輸入工作室名稱"
+    },
+
+    location: {
+      label: "地點",
+      type: "text",
+      value:
+        car.location ||
+        car.address ||
+        "",
+      placeholder: "請輸入地點"
+    },
+
+    note: {
+      label: "備註",
+      type: "textarea",
+      value: car.note || "",
+      placeholder: "請輸入備註"
+    }
   };
 
-  const label =
-    fieldLabelMap[fieldName] ||
-    "這個欄位";
+  const config =
+    fieldConfigMap[fieldName];
 
-  alert(
-    "接下來會開啟「" +
-    label +
-    "」的單一修改視窗。"
+  if (!config) {
+    alert("這個欄位目前無法編輯");
+    return;
+  }
+
+  closeSingleFieldEditor();
+
+  const backdrop =
+    document.createElement("div");
+
+  backdrop.id =
+    "singleFieldEditorBackdrop";
+
+  backdrop.className =
+    "single-field-editor-backdrop";
+
+  backdrop.innerHTML = `
+    <div
+      class="single-field-editor-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="singleFieldEditorTitle"
+    >
+      <div class="single-field-editor-header">
+        <h3 id="singleFieldEditorTitle">
+          修改${escapeHtml(config.label)}
+        </h3>
+
+        <button
+          type="button"
+          class="single-field-editor-close"
+          onclick="closeSingleFieldEditor()"
+          aria-label="關閉"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="single-field-editor-body">
+        ${
+          config.type === "textarea"
+            ? `
+              <textarea
+                id="singleFieldEditorInput"
+                class="single-field-editor-input single-field-editor-textarea"
+                placeholder="${escapeHtml(
+                  config.placeholder || ""
+                )}"
+              ></textarea>
+            `
+            : `
+              <input
+                id="singleFieldEditorInput"
+                class="single-field-editor-input"
+                type="${escapeHtml(config.type)}"
+                placeholder="${escapeHtml(
+                  config.placeholder || ""
+                )}"
+                ${
+                  config.type === "number"
+                    ? `min="0" step="1" inputmode="numeric"`
+                    : ""
+                }
+              >
+            `
+        }
+      </div>
+
+      <div class="single-field-editor-actions">
+        <button
+          type="button"
+          class="single-field-editor-cancel"
+          onclick="closeSingleFieldEditor()"
+        >
+          取消
+        </button>
+
+        <button
+          type="button"
+          class="single-field-editor-save"
+          onclick="saveSingleFieldEdit('${escapeHtml(
+            fieldName
+          )}')"
+        >
+          儲存
+        </button>
+      </div>
+    </div>
+  `;
+
+  backdrop.addEventListener(
+    "click",
+    function (event) {
+      if (event.target === backdrop) {
+        closeSingleFieldEditor();
+      }
+    }
   );
+
+  document.body.appendChild(
+    backdrop
+  );
+
+  const input =
+    document.getElementById(
+      "singleFieldEditorInput"
+    );
+
+  if (input) {
+    input.value =
+      String(config.value || "");
+
+    setTimeout(function () {
+      input.focus();
+
+      if (
+        typeof input.select ===
+          "function" &&
+        config.type !== "date" &&
+        config.type !== "time"
+      ) {
+        input.select();
+      }
+    }, 50);
+
+    input.addEventListener(
+      "keydown",
+      function (event) {
+        if (
+          event.key === "Enter" &&
+          config.type !== "textarea"
+        ) {
+          event.preventDefault();
+
+          saveSingleFieldEdit(
+            fieldName
+          );
+        }
+
+        if (event.key === "Escape") {
+          closeSingleFieldEditor();
+        }
+      }
+    );
+  }
+}
+
+function closeSingleFieldEditor() {
+  const backdrop =
+    document.getElementById(
+      "singleFieldEditorBackdrop"
+    );
+
+  if (backdrop) {
+    backdrop.remove();
+  }
+}
+
+async function saveSingleFieldEdit(
+  fieldName
+) {
+  const db =
+    window.db;
+
+  const carId =
+    getCarId();
+
+  const input =
+    document.getElementById(
+      "singleFieldEditorInput"
+    );
+
+  const saveButton =
+    document.querySelector(
+      ".single-field-editor-save"
+    );
+
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  if (!carId) {
+    alert("找不到車團 ID");
+    return;
+  }
+
+  if (!input) {
+    alert("找不到輸入欄位");
+    return;
+  }
+
+  let value =
+    input.value.trim();
+
+  if (fieldName === "price") {
+    const priceNumber =
+      Number(value || 0);
+
+    if (
+      !Number.isFinite(priceNumber) ||
+      priceNumber < 0
+    ) {
+      alert("請輸入正確的金額");
+      input.focus();
+      return;
+    }
+
+    value = priceNumber;
+  }
+
+  if (
+    fieldName === "gameDate" &&
+    !value
+  ) {
+    alert("請選擇日期");
+    input.focus();
+    return;
+  }
+
+  if (
+    fieldName === "gameTime" &&
+    !value
+  ) {
+    alert("請選擇時間");
+    input.focus();
+    return;
+  }
+
+  const updateData = {
+    [fieldName]: value,
+    updatedAt:
+      firebase.firestore
+        .FieldValue
+        .serverTimestamp()
+  };
+
+  try {
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.textContent =
+        "儲存中…";
+    }
+
+    await db
+      .collection("cars")
+      .doc(carId)
+      .update(updateData);
+
+    if (
+      window.currentCarData
+    ) {
+      window.currentCarData[
+        fieldName
+      ] = value;
+    }
+
+    closeSingleFieldEditor();
+
+    await renderCarDetail();
+
+  } catch (error) {
+    console.error(
+      "更新車團欄位失敗：",
+      error
+    );
+
+    alert(
+      "儲存失敗：" +
+      (
+        error.message ||
+        "未知錯誤"
+      )
+    );
+
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.textContent =
+        "儲存";
+    }
+  }
 }
 
 function buildApplicationsSectionHtml(applications) {

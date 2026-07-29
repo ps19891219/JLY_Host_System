@@ -1396,3 +1396,148 @@ white-space:pre-wrap;
   min-width: 108px;
   margin: 0;
 }
+
+/* ============================================================
+   第 5B-3：單一欄位編輯視窗
+============================================================ */
+
+.single-field-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+
+  padding: 16px;
+  box-sizing: border-box;
+
+  background: rgba(20, 20, 20, 0.38);
+}
+
+.single-field-editor-modal {
+  width: 100%;
+  max-width: 420px;
+
+  overflow: hidden;
+
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.single-field-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  padding: 18px 18px 12px;
+}
+
+.single-field-editor-header h3 {
+  margin: 0;
+
+  color: #2f2f2f;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.single-field-editor-close {
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 !important;
+  margin: 0;
+
+  border: 0;
+  border-radius: 50%;
+
+  background: #f3f3f3;
+  color: #555555;
+
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.single-field-editor-body {
+  padding: 8px 18px 18px;
+}
+
+.single-field-editor-input {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+
+  padding: 12px 14px;
+  border: 1px solid #dddddd;
+  border-radius: 13px;
+  box-sizing: border-box;
+
+  background: #ffffff;
+  color: #2f2f2f;
+
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.single-field-editor-input:focus {
+  border-color: #888888;
+  box-shadow: 0 0 0 3px rgba(80, 80, 80, 0.09);
+}
+
+.single-field-editor-textarea {
+  min-height: 130px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.single-field-editor-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+
+  padding: 14px 18px 18px;
+  border-top: 1px solid #eeeeee;
+}
+
+.single-field-editor-cancel,
+.single-field-editor-save {
+  width: 100% !important;
+  min-height: 46px;
+  margin: 0;
+  padding: 10px 14px;
+
+  border-radius: 13px;
+
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.single-field-editor-cancel {
+  border: 1px solid #dddddd;
+  background: #ffffff;
+  color: #555555;
+}
+
+.single-field-editor-save {
+  border: 1px solid #333333;
+  background: #333333;
+  color: #ffffff;
+}
+
+.single-field-editor-save:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+@media (min-width: 600px) {
+  .single-field-editor-backdrop {
+    align-items: center;
+  }
+}
