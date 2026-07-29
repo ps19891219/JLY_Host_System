@@ -4165,11 +4165,9 @@ function buildCarDetailPageHtml(config) {
       config
     )}
 
-    ${buildStaffSectionHtml(
-      config.car
-    )}
-
     ${buildSeatSectionHtml()}
+
+    ${buildStaffSectionHtml(config.car)}
 
     ${buildApplicationsSectionHtml(
       config.applications
