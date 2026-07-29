@@ -100,61 +100,92 @@ console.log("car-view-render.js 已成功載入！");
   }
 
   function getStaffList(car) {
+  const sourceCar = car || {};
 
-  // ===== V2：優先讀 staffSlots =====
+  // ===== V2：直接讀 Firestore 的 staffSlots =====
   if (
-    window.JLYStaffData &&
-    typeof window.JLYStaffData.getStaffSlots === "function"
+    Array.isArray(sourceCar.staffSlots) &&
+    sourceCar.staffSlots.length > 0
   ) {
-    const slots =
-      window.JLYStaffData.getStaffSlots(car);
+    return sourceCar.staffSlots
+      .map(function (slot, index) {
+        const sourceSlot = slot || {};
 
-    if (Array.isArray(slots) && slots.length > 0) {
-      return slots.map(function (slot, index) {
         return {
-          id: slot.id,
-          title: slot.label || "",
-          name: slot.displayName || ""
+          id:
+            sourceSlot.id ||
+            sourceSlot.slotId ||
+            "staff-slot-" + index,
+
+          title: String(
+            sourceSlot.label ||
+            sourceSlot.roleLabel ||
+            sourceSlot.title ||
+            ""
+          ).trim(),
+
+          name: String(
+            sourceSlot.displayName ||
+            sourceSlot.name ||
+            ""
+          ).trim()
         };
+      })
+      .filter(function (staff) {
+        return Boolean(
+          staff.title ||
+          staff.name
+        );
       });
-    }
   }
 
   // ===== 舊版 staffList 相容 =====
   if (
-    Array.isArray(car?.staffList) &&
-    car.staffList.length > 0
+    Array.isArray(sourceCar.staffList) &&
+    sourceCar.staffList.length > 0
   ) {
-    return car.staffList
-      .map((item, index) =>
-        normalizeStaffItem(item, index, "")
-      )
+    return sourceCar.staffList
+      .map(function (item, index) {
+        return normalizeStaffItem(
+          item,
+          index,
+          ""
+        );
+      })
       .filter(Boolean);
   }
 
   // ===== 舊版 dmList 相容 =====
   if (
-    Array.isArray(car?.dmList) &&
-    car.dmList.length > 0
+    Array.isArray(sourceCar.dmList) &&
+    sourceCar.dmList.length > 0
   ) {
-    return car.dmList
-      .map((item, index) =>
-        normalizeStaffItem(item, index, "DM")
-      )
+    return sourceCar.dmList
+      .map(function (item, index) {
+        return normalizeStaffItem(
+          item,
+          index,
+          "DM"
+        );
+      })
       .filter(Boolean);
   }
 
-  // ===== 更舊版 =====
+  // ===== 更舊版單一 DM =====
   const legacyDm =
-    car &&
-    (car.dm || car.dmName);
+    sourceCar.dm ||
+    sourceCar.dmName;
 
-  if (String(legacyDm || "").trim()) {
+  if (
+    String(legacyDm || "").trim()
+  ) {
     return [
       {
         id: "legacy-single-dm",
         title: "DM",
-        name: String(legacyDm).trim()
+        name: String(
+          legacyDm
+        ).trim()
       }
     ];
   }
