@@ -3402,92 +3402,164 @@ function buildCarSummaryHtml(config) {
     scriptName,
     car,
     studioName,
-    dmText,
     status,
-    maleCount,
-    femaleCount,
-    anyCount,
-    maleSlots,
-    femaleSlots,
-    flexibleSlots,
     activePlayerCount,
-    total,
-    need
+    total
   } = config;
 
+  const dateText =
+    car.gameDate ||
+    "尚未設定";
+
+  const timeText =
+    car.gameTime ||
+    "尚未設定";
+
+  const priceNumber =
+    Number(car.price || 0);
+
+  const priceText =
+    priceNumber > 0
+      ? `NT$ ${priceNumber.toLocaleString("zh-TW")}`
+      : "尚未設定";
+
+  const peopleText =
+    total > 0
+      ? `${activePlayerCount} / ${total}`
+      : `${activePlayerCount} 人`;
+
+  const locationText =
+    car.location ||
+    car.address ||
+    "尚未設定";
+
+  const noteText =
+    car.note ||
+    "無";
+
+  const statusClass =
+    status === "招募中"
+      ? "is-recruiting"
+      : status === "已滿"
+        ? "is-full"
+        : status === "已結束"
+          ? "is-finished"
+          : status === "已取消"
+            ? "is-cancelled"
+            : "";
+
   return `
-    <div class="card">
-      <h2>
-        🎭 ${escapeHtml(scriptName)}
-      </h2>
+    <section class="car-info-card">
 
-      <p>
-        📅 ${escapeHtml(car.gameDate || "未填日期")}
-        ${escapeHtml(car.gameTime || "")}
-      </p>
+      <div class="car-info-title-row">
+        <h1 class="car-info-title">
+          ${escapeHtml(scriptName)}
+        </h1>
 
-      <p>
-        🏠 ${escapeHtml(studioName)}
-      </p>
+        <div
+          class="car-status-indicator ${statusClass}"
+          aria-label="${escapeHtml(status)}"
+        >
+          <span class="car-status-light"></span>
 
-      <p>
-        🎲 DM：${escapeHtml(dmText)}
-      </p>
+          <span class="car-status-text">
+            ${escapeHtml(status)}
+          </span>
+        </div>
+      </div>
 
-      <p>
-        💰 車資：${escapeHtml(car.price || 0)}
-      </p>
+      <div class="car-info-list">
 
-      <p>
-        📌 狀態：${escapeHtml(status)}
-      </p>
+        <div
+          class="car-info-item"
+          data-car-field="gameDate"
+        >
+          <div class="car-info-label">
+            日期
+          </div>
 
-      <p>
-        📝 備註：${escapeHtml(car.note || "無")}
-      </p>
+          <div class="car-info-value">
+            ${escapeHtml(dateText)}
+          </div>
+        </div>
 
-      <hr>
+        <div
+          class="car-info-item"
+          data-car-field="gameTime"
+        >
+          <div class="car-info-label">
+            時間
+          </div>
 
-      <p>
-        👦 男位：${maleCount}${
-          maleSlots > 0
-            ? ` / ${maleSlots}`
-            : ""
-        }
-      </p>
+          <div class="car-info-value">
+            ${escapeHtml(timeText)}
+          </div>
+        </div>
 
-      <p>
-        👧 女位：${femaleCount}${
-          femaleSlots > 0
-            ? ` / ${femaleSlots}`
-            : ""
-        }
-      </p>
+        <div
+          class="car-info-item"
+          data-car-field="price"
+        >
+          <div class="car-info-label">
+            金額
+          </div>
 
-      <p>
-        👤 不限：${anyCount}${
-          flexibleSlots > 0
-            ? ` / ${flexibleSlots}`
-            : ""
-        }
-      </p>
+          <div class="car-info-value">
+            ${escapeHtml(priceText)}
+          </div>
+        </div>
 
-      <p>
-        👥 總計：${activePlayerCount}${
-          total > 0
-            ? ` / ${total}`
-            : ""
-        }
-      </p>
+        <div class="car-info-item">
+          <div class="car-info-label">
+            目前人數
+          </div>
 
-      <span class="badge">
-        ${
-          need > 0
-            ? `還缺 ${need} 人`
-            : "🎉 已滿車"
-        }
-      </span>
-    </div>
+          <div class="car-info-value">
+            ${escapeHtml(peopleText)}
+          </div>
+        </div>
+
+        <div
+          class="car-info-item"
+          data-car-field="studioName"
+        >
+          <div class="car-info-label">
+            工作室
+          </div>
+
+          <div class="car-info-value">
+            ${escapeHtml(studioName)}
+          </div>
+        </div>
+
+        <div
+          class="car-info-item"
+          data-car-field="location"
+        >
+          <div class="car-info-label">
+            地點
+          </div>
+
+          <div class="car-info-value">
+            ${escapeHtml(locationText)}
+          </div>
+        </div>
+
+        <div
+          class="car-info-item car-info-note-item"
+          data-car-field="note"
+        >
+          <div class="car-info-label">
+            備註
+          </div>
+
+          <div class="car-info-value car-info-note">
+            ${escapeHtml(noteText)}
+          </div>
+        </div>
+
+      </div>
+    </section>
   `;
 }
 
