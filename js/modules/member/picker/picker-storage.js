@@ -9,23 +9,104 @@ console.log(
   const RECENT_KEY =
     "jlyRecentStaffIds";
 
-  const MAX_RECENT_MEMBERS =
-    12;
+  const MAX_RECENT_MEMBERS = 12;
 
-  function normalizeId(
-    memberId
-  ) {
+  // ============================================================
+  // 基本整理
+  // ============================================================
+
+  function normalizeId(memberId) {
+    if (
+      memberId &&
+      typeof memberId === "object"
+    ) {
+      memberId =
+        memberId.memberId ||
+        memberId.playerId ||
+        memberId.profileId ||
+        memberId.id ||
+        "";
+    }
+
     return String(
       memberId || ""
     ).trim();
   }
 
+  function getIdCompareKey(memberId) {
+    return normalizeId(memberId)
+      .toLocaleLowerCase();
+  }
+
+  function dedupeIds(memberIds) {
+    const sourceIds =
+      Array.isArray(memberIds)
+        ? memberIds
+        : [];
+
+    const usedKeys = new Set();
+    const safeIds = [];
+
+    sourceIds.forEach(function (
+      memberId
+    ) {
+      const normalizedId =
+        normalizeId(memberId);
+
+      if (!normalizedId) {
+        return;
+      }
+
+      const compareKey =
+        getIdCompareKey(
+          normalizedId
+        );
+
+      if (
+        !compareKey ||
+        usedKeys.has(compareKey)
+      ) {
+        return;
+      }
+
+      usedKeys.add(compareKey);
+      safeIds.push(normalizedId);
+    });
+
+    return safeIds;
+  }
+
+  function areIdListsEqual(
+    firstList,
+    secondList
+  ) {
+    if (
+      firstList.length !==
+      secondList.length
+    ) {
+      return false;
+    }
+
+    return firstList.every(
+      function (memberId, index) {
+        return (
+          normalizeId(memberId) ===
+          normalizeId(
+            secondList[index]
+          )
+        );
+      }
+    );
+  }
+
+    // ============================================================
+  // localStorage 讀寫
+  // ============================================================
+
   function readIdList(key) {
     try {
       const rawValue =
-        localStorage.getItem(
-          key
-        );
+        localStorage.getItem(key);
 
       if (!rawValue) {
         return [];
@@ -35,20 +116,38 @@ console.log(
         JSON.parse(rawValue);
 
       if (
-        !Array.isArray(
-          parsedValue
-        )
+        !Array.isArray(parsedValue)
       ) {
+        localStorage.removeItem(key);
         return [];
       }
 
-      return [
-        ...new Set(
-          parsedValue
-            .map(normalizeId)
-            .filter(Boolean)
+      const safeIds =
+        dedupeIds(parsedValue);
+
+      /*
+       * 舊資料如果包含：
+       * 1. 重複 ID
+       * 2. 空白 ID
+       * 3. 數字型 ID
+       * 4. 舊物件格式
+       *
+       * 讀取時直接清洗並寫回，
+       * 避免下次開啟時再次出現。
+       */
+      if (
+        !areIdListsEqual(
+          parsedValue,
+          safeIds
         )
-      ];
+      ) {
+        localStorage.setItem(
+          key,
+          JSON.stringify(safeIds)
+        );
+      }
+
+      return safeIds;
     } catch (error) {
       console.warn(
         "讀取 Member Picker 本機資料失敗：",
@@ -65,25 +164,12 @@ console.log(
     memberIds
   ) {
     try {
-      const safeIds = [
-        ...new Set(
-          (
-            Array.isArray(
-              memberIds
-            )
-              ? memberIds
-              : []
-          )
-            .map(normalizeId)
-            .filter(Boolean)
-        )
-      ];
+      const safeIds =
+        dedupeIds(memberIds);
 
       localStorage.setItem(
         key,
-        JSON.stringify(
-          safeIds
-        )
+        JSON.stringify(safeIds)
       );
 
       return safeIds;
@@ -98,15 +184,17 @@ console.log(
     }
   }
 
+  // ============================================================
+  // 最愛名單
+  // ============================================================
+
   function getFavoriteIds() {
     return readIdList(
       FAVORITES_KEY
     );
   }
 
-  function isFavorite(
-    memberId
-  ) {
+  function isFavorite(memberId) {
     const targetId =
       normalizeId(memberId);
 
@@ -114,19 +202,29 @@ console.log(
       return false;
     }
 
-    return getFavoriteIds()
-      .includes(targetId);
+    const targetKey =
+      getIdCompareKey(targetId);
+
+    return getFavoriteIds().some(
+      function (id) {
+        return (
+          getIdCompareKey(id) ===
+          targetKey
+        );
+      }
+    );
   }
 
-  function addFavorite(
-    memberId
-  ) {
+    function addFavorite(memberId) {
     const targetId =
       normalizeId(memberId);
 
     if (!targetId) {
       return getFavoriteIds();
     }
+
+    const targetKey =
+      getIdCompareKey(targetId);
 
     const currentIds =
       getFavoriteIds();
@@ -135,10 +233,12 @@ console.log(
       FAVORITES_KEY,
       [
         targetId,
+
         ...currentIds.filter(
           function (id) {
             return (
-              id !== targetId
+              getIdCompareKey(id) !==
+              targetKey
             );
           }
         )
@@ -156,12 +256,16 @@ console.log(
       return getFavoriteIds();
     }
 
+    const targetKey =
+      getIdCompareKey(targetId);
+
     return writeIdList(
       FAVORITES_KEY,
       getFavoriteIds().filter(
         function (id) {
           return (
-            id !== targetId
+            getIdCompareKey(id) !==
+            targetKey
           );
         }
       )
@@ -177,6 +281,7 @@ console.log(
     if (!targetId) {
       return {
         isFavorite: false,
+
         favoriteIds:
           getFavoriteIds()
       };
@@ -193,22 +298,46 @@ console.log(
 
     return {
       isFavorite:
-        nextIds.includes(
-          targetId
+        nextIds.some(
+          function (id) {
+            return (
+              getIdCompareKey(id) ===
+              getIdCompareKey(
+                targetId
+              )
+            );
+          }
         ),
 
-      favoriteIds:
-        nextIds
+      favoriteIds: nextIds
     };
   }
 
+  // ============================================================
+  // 歷史名單
+  // ============================================================
+
   function getRecentIds() {
-    return readIdList(
-      RECENT_KEY
+    const recentIds =
+      readIdList(RECENT_KEY)
+        .slice(
+          0,
+          MAX_RECENT_MEMBERS
+        );
+
+    /*
+     * 舊資料如果超過 12 筆，
+     * 讀取時也同步縮減並寫回。
+     */
+    writeIdList(
+      RECENT_KEY,
+      recentIds
     );
+
+    return recentIds;
   }
 
-  function rememberRecent(
+    function rememberRecent(
     memberId
   ) {
     const targetId =
@@ -218,16 +347,26 @@ console.log(
       return getRecentIds();
     }
 
+    const targetKey =
+      getIdCompareKey(targetId);
+
     const currentIds =
       getRecentIds();
 
+    /*
+     * 新選取的人放在最前面。
+     *
+     * 原本歷史中若已有相同 ID，
+     * 先移除舊位置，再重新放到第一筆。
+     */
     const nextIds = [
       targetId,
 
       ...currentIds.filter(
         function (id) {
           return (
-            id !== targetId
+            getIdCompareKey(id) !==
+            targetKey
           );
         }
       )
@@ -242,9 +381,7 @@ console.log(
     );
   }
 
-  function removeRecent(
-    memberId
-  ) {
+  function removeRecent(memberId) {
     const targetId =
       normalizeId(memberId);
 
@@ -252,12 +389,16 @@ console.log(
       return getRecentIds();
     }
 
+    const targetKey =
+      getIdCompareKey(targetId);
+
     return writeIdList(
       RECENT_KEY,
       getRecentIds().filter(
         function (id) {
           return (
-            id !== targetId
+            getIdCompareKey(id) !==
+            targetKey
           );
         }
       )
@@ -277,6 +418,10 @@ console.log(
       []
     );
   }
+
+  // ============================================================
+  // 對外公開
+  // ============================================================
 
   window.JLYMemberPickerStorage = {
     getFavoriteIds,
