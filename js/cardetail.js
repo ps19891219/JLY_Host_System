@@ -3729,8 +3729,13 @@ function buildSeatSectionHtml() {
 // 未來再改成獨立席位設定 Modal
 // ============================================================
 
+// ============================================================
+// 席位設定入口
+// ============================================================
+
 function openSeatSettings() {
-  const carId = getCarId();
+  const carId =
+    getCarId();
 
   if (!carId) {
     alert("找不到車團 ID");
@@ -3740,8 +3745,12 @@ function openSeatSettings() {
   location.href =
     "editcar.html?id=" +
     encodeURIComponent(carId) +
-    "&section=seat";
+    "#seat-settings";
 }
+
+// ============================================================
+// 車團歷史紀錄區
+// ============================================================
 
 function buildHistorySectionHtml(history) {
   return `
@@ -3749,21 +3758,30 @@ function buildHistorySectionHtml(history) {
       <h3>📜 車團紀錄</h3>
 
       ${
-        Array.isArray(history) && history.length
+        Array.isArray(history) &&
+        history.length
           ? history
               .slice()
               .reverse()
               .map(function (item) {
                 return `
                   <div class="history-item">
-                    <strong>${escapeHtml(item.type || "")}</strong>
+                    <strong>
+                      ${escapeHtml(
+                        item.type || ""
+                      )}
+                    </strong>
 
                     <p>
-                      ${escapeHtml(item.text || "")}
+                      ${escapeHtml(
+                        item.text || ""
+                      )}
                     </p>
 
                     <small>
-                      ${escapeHtml(item.time || "")}
+                      ${escapeHtml(
+                        item.time || ""
+                      )}
                     </small>
                   </div>
                 `;
@@ -3779,11 +3797,19 @@ function buildHistorySectionHtml(history) {
   `;
 }
 
+// ============================================================
+// 車團詳情頁完整結構
+// ============================================================
+
 function buildCarDetailPageHtml(config) {
   return `
-    ${buildCarNavigation(config.scriptName)}
+    ${buildCarNavigation(
+      config.scriptName
+    )}
 
-    ${buildCarSummaryHtml(config)}
+    ${buildCarSummaryHtml(
+      config
+    )}
 
     ${buildSeatSectionHtml()}
 
@@ -3796,6 +3822,10 @@ function buildCarDetailPageHtml(config) {
     )}
   `;
 }
+
+// ============================================================
+// 載入並顯示車團詳情
+// ============================================================
 
 async function renderCarDetail() {
   const detailBox =
@@ -3884,12 +3914,16 @@ async function renderCarDetail() {
       getActivePlayers(car);
 
     const applications =
-      Array.isArray(car.applications)
+      Array.isArray(
+        car.applications
+      )
         ? car.applications
         : [];
 
     const history =
-      Array.isArray(car.history)
+      Array.isArray(
+        car.history
+      )
         ? car.history
         : [];
 
@@ -4042,6 +4076,7 @@ async function renderCarDetail() {
 /* =========================
    全域函式
 ========================= */
+
 window.openEmptySeat =
   async function (
     seatId

@@ -1357,3 +1357,42 @@ white-space:pre-wrap;
     font-size: 13px;
   }
 }
+
+/* ============================================================
+   修正席位區標題被全域按鈕樣式擠壓
+============================================================ */
+
+.seat-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.seat-section-title-group {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.seat-section-title {
+  width: auto;
+  margin: 0;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
+}
+
+.seat-section-description {
+  width: auto;
+  margin: 5px 0 0;
+  white-space: normal;
+  writing-mode: horizontal-tb;
+}
+
+.seat-settings-button {
+  flex: 0 0 auto;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 108px;
+  margin: 0;
+}
