@@ -1,100 +1,314 @@
-console.log("car-view.js 已成功載入！");
+console.log(
+  "car-view.js 已成功載入！"
+);
 
 (function () {
   "use strict";
 
+  // ==========================================================
+  // 玩家查看頁即時資料控制
+  // ==========================================================
+
+  let unsubscribeCarSnapshot =
+    null;
+
+  let firebaseWaitTimer =
+    null;
+
+  // ==========================================================
+  // 基本工具
+  // ==========================================================
+
   function getCarId() {
-    return new URLSearchParams(location.search).get("id");
+    return new URLSearchParams(
+      location.search
+    ).get("id");
   }
 
   function getContainer() {
-    return document.getElementById("car-view-content");
+    return document.getElementById(
+      "car-view-content"
+    );
   }
 
-  async function loadCar() {
-    const container = getContainer();
+  function getRenderModule() {
+    return window.JLYCarViewRender;
+  }
 
-    if (!window.JLYCarViewRender) {
-      console.error("找不到 JLYCarViewRender");
+  function stopFirebaseWaitTimer() {
+    if (!firebaseWaitTimer) {
       return;
     }
 
-    window.JLYCarViewRender.renderLoading(container);
+    clearInterval(
+      firebaseWaitTimer
+    );
 
-    const carId = getCarId();
+    firebaseWaitTimer =
+      null;
+  }
+
+  function stopCarListener() {
+    if (
+      typeof unsubscribeCarSnapshot ===
+      "function"
+    ) {
+      unsubscribeCarSnapshot();
+    }
+
+    unsubscribeCarSnapshot =
+      null;
+  }
+
+  // ==========================================================
+  // 錯誤訊息
+  // ==========================================================
+
+  function showMissingRenderError() {
+    console.error(
+      "找不到 JLYCarViewRender"
+    );
+  }
+
+  function showMissingCarId(
+    container
+  ) {
+    const renderModule =
+      getRenderModule();
+
+    renderModule.renderError(
+      container,
+      "缺少車團 ID"
+    );
+  }
+
+  function showFirebaseError(
+    container
+  ) {
+    const renderModule =
+      getRenderModule();
+
+    renderModule.renderError(
+      container,
+      "Firebase 尚未載入，請重新整理頁面"
+    );
+  }
+
+  // ==========================================================
+  // 即時顯示單一車團
+  // ==========================================================
+
+  function subscribeCar(
+    carId,
+    container
+  ) {
+    const renderModule =
+      getRenderModule();
+
+    const db =
+      window.db;
+
+    if (!db) {
+      showFirebaseError(
+        container
+      );
+
+      return;
+    }
+
+    stopCarListener();
+
+    renderModule.renderLoading(
+      container
+    );
+
+    const carRef =
+      db
+        .collection("cars")
+        .doc(carId);
+
+    unsubscribeCarSnapshot =
+      carRef.onSnapshot(
+        function (carDoc) {
+          if (!carDoc.exists) {
+            renderModule.renderNotFound(
+              container
+            );
+
+            return;
+          }
+
+          const car = {
+            id: carDoc.id,
+            ...carDoc.data()
+          };
+
+          window.currentPublicCarData =
+            car;
+
+          renderModule.renderCarView(
+            container,
+            car,
+            carDoc.id
+          );
+
+          console.log(
+            "玩家頁已同步最新車團資料：",
+            carDoc.id
+          );
+        },
+
+        function (error) {
+          console.error(
+            "玩家頁即時同步失敗：",
+            error
+          );
+
+          renderModule.renderError(
+            container,
+            error &&
+            error.message
+              ? error.message
+              : "讀取車團資料失敗"
+          );
+        }
+      );
+  }
+
+  // ==========================================================
+  // 等待 Firebase 載入
+  // ==========================================================
+
+  function waitForFirebase(
+    carId,
+    container
+  ) {
+    let waitCount =
+      0;
+
+    const maxWaitCount =
+      50;
+
+    stopFirebaseWaitTimer();
+
+    firebaseWaitTimer =
+      setInterval(
+        function () {
+          waitCount += 1;
+
+          if (window.db) {
+            stopFirebaseWaitTimer();
+
+            subscribeCar(
+              carId,
+              container
+            );
+
+            return;
+          }
+
+          if (
+            waitCount >=
+            maxWaitCount
+          ) {
+            stopFirebaseWaitTimer();
+
+            showFirebaseError(
+              container
+            );
+          }
+        },
+        200
+      );
+  }
+
+  // ==========================================================
+  // 初始化玩家查看頁
+  // ==========================================================
+
+  function initCarView() {
+    const container =
+      getContainer();
+
+    const renderModule =
+      getRenderModule();
+
+    if (!container) {
+      console.error(
+        "找不到玩家查看頁容器 car-view-content"
+      );
+
+      return;
+    }
+
+    if (!renderModule) {
+      showMissingRenderError();
+
+      return;
+    }
+
+    const carId =
+      getCarId();
 
     if (!carId) {
-      window.JLYCarViewRender.renderError(
-        container,
-        "缺少車團 ID"
+      showMissingCarId(
+        container
       );
+
       return;
     }
 
-    try {
+    renderModule.renderLoading(
+      container
+    );
 
-    if (!window.JLYCarData) {
-        throw new Error(
-            "JLYCarData 尚未載入"
-        );
-    }
-
-    const car =
-        await window.JLYCarData.getCarById(
-            carId
-        );
-
-    if (!car) {
-        window.JLYCarViewRender.renderError(
-            container,
-            "找不到這台車"
-        );
-        return;
-    }
-
-      window.JLYCarViewRender.renderCarView(
-        container,
-        car,
-        carId
+    if (window.db) {
+      subscribeCar(
+        carId,
+        container
       );
 
-      // 如果 Seat Engine 已載入，就畫座位
-      if (
-        window.JLYSeatController &&
-        typeof window.JLYSeatController.render ===
-          "function"
-      ) {
-        const seatMount =
-          document.getElementById(
-          "seatBoardMount"
-        );
-
-        if (seatMount) {
-          window.JLYSeatController.render(
-          seatMount,
-          car,
-          car.players || [],
-        {
-          editable: false,
-          draggable: false,
-          showWaitingArea: false,
-          showSummary: false
-        }
-         );
-        }
-      }
-    } catch (error) {
-      console.error(error);
-
-      window.JLYCarViewRender.renderError(
-        container,
-        error.message
-      );
+      return;
     }
+
+    waitForFirebase(
+      carId,
+      container
+    );
+  }
+
+  // ==========================================================
+  // 離開頁面時關閉監聽
+  // ==========================================================
+
+  function cleanupCarView() {
+    stopFirebaseWaitTimer();
+    stopCarListener();
   }
 
   document.addEventListener(
     "DOMContentLoaded",
-    loadCar
+    initCarView
   );
+
+  window.addEventListener(
+    "pagehide",
+    cleanupCarView
+  );
+
+  window.addEventListener(
+    "beforeunload",
+    cleanupCarView
+  );
+
+  window.JLYCarViewController = {
+    init:
+      initCarView,
+
+    subscribe:
+      subscribeCar,
+
+    cleanup:
+      cleanupCarView
+  };
 })();
