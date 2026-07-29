@@ -3392,6 +3392,202 @@ function buildHistoryHtml(
     .join("");
 }
 
+/* ============================================================
+   車團詳情頁區塊渲染
+   第一階段只拆分畫面結構，不改變原有功能與資料流程。
+============================================================ */
+
+function buildCarSummaryHtml(config) {
+  const {
+    scriptName,
+    car,
+    studioName,
+    dmText,
+    status,
+    maleCount,
+    femaleCount,
+    anyCount,
+    maleSlots,
+    femaleSlots,
+    flexibleSlots,
+    activePlayerCount,
+    total,
+    need
+  } = config;
+
+  return `
+    <div class="card">
+      <h2>
+        🎭 ${escapeHtml(scriptName)}
+      </h2>
+
+      <p>
+        📅 ${escapeHtml(car.gameDate || "未填日期")}
+        ${escapeHtml(car.gameTime || "")}
+      </p>
+
+      <p>
+        🏠 ${escapeHtml(studioName)}
+      </p>
+
+      <p>
+        🎲 DM：${escapeHtml(dmText)}
+      </p>
+
+      <p>
+        💰 車資：${escapeHtml(car.price || 0)}
+      </p>
+
+      <p>
+        📌 狀態：${escapeHtml(status)}
+      </p>
+
+      <p>
+        📝 備註：${escapeHtml(car.note || "無")}
+      </p>
+
+      <hr>
+
+      <p>
+        👦 男位：${maleCount}${
+          maleSlots > 0
+            ? ` / ${maleSlots}`
+            : ""
+        }
+      </p>
+
+      <p>
+        👧 女位：${femaleCount}${
+          femaleSlots > 0
+            ? ` / ${femaleSlots}`
+            : ""
+        }
+      </p>
+
+      <p>
+        👤 不限：${anyCount}${
+          flexibleSlots > 0
+            ? ` / ${flexibleSlots}`
+            : ""
+        }
+      </p>
+
+      <p>
+        👥 總計：${activePlayerCount}${
+          total > 0
+            ? ` / ${total}`
+            : ""
+        }
+      </p>
+
+      <span class="badge">
+        ${
+          need > 0
+            ? `還缺 ${need} 人`
+            : "🎉 已滿車"
+        }
+      </span>
+    </div>
+  `;
+}
+
+function buildApplicationsSectionHtml(applications) {
+  return `
+    <div class="card">
+      <h3>
+        🔔 待確認申請
+      </h3>
+
+      ${buildApplicationsHtml(applications)}
+    </div>
+  `;
+}
+
+function buildStaffSectionHtml(car) {
+  if (
+    !window.JLYStaffController ||
+    typeof window.JLYStaffController.render !== "function"
+  ) {
+    return "";
+  }
+
+  return window.JLYStaffController.render(car);
+}
+
+function buildSeatSectionHtml() {
+  return `
+    <div class="seat-header">
+      <h3>席位安排</h3>
+    </div>
+
+    <p class="compact-player-meta">
+      點玩家即可編輯本場資料或移出車團。
+    </p>
+
+    <div id="seatBoardMount">
+      <div class="seat-empty-state">
+        座位載入中……
+      </div>
+    </div>
+  `;
+}
+
+function buildHistorySectionHtml(history) {
+  return `
+    <div class="card">
+      <h3>📜 車團紀錄</h3>
+
+      ${
+        Array.isArray(history) && history.length
+          ? history
+              .slice()
+              .reverse()
+              .map(function (item) {
+                return `
+                  <div class="history-item">
+                    <strong>${escapeHtml(item.type || "")}</strong>
+
+                    <p>
+                      ${escapeHtml(item.text || "")}
+                    </p>
+
+                    <small>
+                      ${escapeHtml(item.time || "")}
+                    </small>
+                  </div>
+                `;
+              })
+              .join("")
+          : `
+            <p class="empty-text">
+              尚無紀錄
+            </p>
+          `
+      }
+    </div>
+  `;
+}
+
+function buildCarDetailPageHtml(config) {
+  return `
+    ${buildCarNavigation(config.scriptName)}
+
+    ${buildCarSummaryHtml(config)}
+
+    ${buildStaffSectionHtml(config.car)}
+
+    ${buildSeatSectionHtml()}
+
+    ${buildApplicationsSectionHtml(
+      config.applications
+    )}
+
+    ${buildHistorySectionHtml(
+      config.history
+    )}
+  `;
+}
+
 async function renderCarDetail() {
   const detailBox =
     getDetailBox();
@@ -3455,7 +3651,7 @@ async function renderCarDetail() {
 
     if (!carDoc.exists) {
       detailBox.innerHTML = `
-        ${buildCarNavigation()}
+        ${buildCarNavigation("")}
 
         <div class="card">
           <h2>
@@ -3468,9 +3664,7 @@ async function renderCarDetail() {
     }
 
     const car = {
-      id:
-        carDoc.id,
-
+      id: carDoc.id,
       ...carDoc.data()
     };
 
@@ -3481,16 +3675,12 @@ async function renderCarDetail() {
       getActivePlayers(car);
 
     const applications =
-      Array.isArray(
-        car.applications
-      )
+      Array.isArray(car.applications)
         ? car.applications
         : [];
 
     const history =
-      Array.isArray(
-        car.history
-      )
+      Array.isArray(car.history)
         ? car.history
         : [];
 
@@ -3528,7 +3718,7 @@ async function renderCarDetail() {
         car.femaleSlots || 0
       );
 
-      const flexibleSlots =
+    const flexibleSlots =
       Number(
         car.flexibleSlots ||
         car.flexSlots ||
@@ -3556,9 +3746,7 @@ async function renderCarDetail() {
       "未填地點／工作室";
 
     const dmText =
-      Array.isArray(
-        car.dmList
-      )
+      Array.isArray(car.dmList)
         ? car.dmList
             .filter(Boolean)
             .join("、")
@@ -3567,161 +3755,49 @@ async function renderCarDetail() {
             "未填 DM"
           );
 
-    const canOperate =
-      car.status !==
-        "已結束" &&
-      car.status !==
-        "已取消";
+    detailBox.innerHTML =
+      buildCarDetailPageHtml({
+        scriptName,
 
-    detailBox.innerHTML = `
-      ${buildCarNavigation(scriptName)}
+        car,
 
-      <div class="card">
-        <h2>
-          🎭 ${escapeHtml(
-            scriptName
-          )}
-        </h2>
+        studioName,
 
-        <p>
-          📅 ${escapeHtml(
-            car.gameDate ||
-            "未填日期"
-          )}
-          ${escapeHtml(
-            car.gameTime ||
-            ""
-          )}
-        </p>
+        dmText,
 
-        <p>
-          🏠 ${escapeHtml(
-            studioName
-          )}
-        </p>
+        status,
 
-        <p>
-          🎲 DM：${escapeHtml(
-            dmText
-          )}
-        </p>
+        maleCount,
 
-        <p>
-          💰 車資：${escapeHtml(
-            car.price || 0
-          )}
-        </p>
+        femaleCount,
 
-        <p>
-          📌 狀態：${escapeHtml(
-            status
-          )}
-        </p>
+        anyCount,
 
-        <p>
-          📝 備註：${escapeHtml(
-            car.note || "無"
-          )}
-        </p>
+        maleSlots,
 
-        <hr>
+        femaleSlots,
 
-        <p>
-          👦 男位：${maleCount}${
-            maleSlots > 0
-              ? ` / ${maleSlots}`
-              : ""
-          }
-        </p>
+        flexibleSlots,
 
-        <p>
-          👧 女位：${femaleCount}${
-            femaleSlots > 0
-              ? ` / ${femaleSlots}`
-              : ""
-          }
-        </p>
+        activePlayerCount:
+          activePlayers.length,
 
-        <p>
-          👤 不限：${anyCount}${
-            flexibleSlots > 0
-              ?  `/ ${flexibleSlots}`
-              : ""
-          }
-        </p>
+        total,
 
-        <p>
-          👥 總計：${activePlayers.length}${
-            total > 0
-              ? ` / ${total}`
-              : ""
-          }
-        </p>
+        need,
 
-        <span class="badge">
-          ${
-            need > 0
-              ? `還缺 ${need} 人`
-              : "🎉 已滿車"
-          }
-        </span>
-      </div>
+        applications,
 
-            <div class="card">
-        <h3>
-          🔔 待確認申請
-        </h3>
-
-        ${buildApplicationsHtml(
-          applications
-        )}
-      </div>
-
-      ${
-        window.JLYStaffController &&
-        typeof window.JLYStaffController.render ===
-          "function"
-          ? window.JLYStaffController.render(
-              car
-            )
-          : ""
-      }
-
-      <div class="seat-header">
-  <h3>席位安排</h3>
-  
-</div>
-
-        <p
-          class="compact-player-meta"
-        >
-          點玩家即可編輯本場資料或移出車團。
-        </p>
-
-                <div id="seatBoardMount">
-          <div class="seat-empty-state">
-            座位載入中……
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>
-          📜 紀錄時間軸
-        </h3>
-
-        <div class="timeline">
-          ${buildHistoryHtml(
-            history
-          )}
-        </div>
-      </div>
-        `;
+        history
+      });
 
     renderSeatBoard(
       car,
       players
     );
+
+    enableSwipeNavigation();
+
   } catch (error) {
     console.error(
       "載入車團詳情失敗：",
@@ -3729,7 +3805,7 @@ async function renderCarDetail() {
     );
 
     detailBox.innerHTML = `
-      ${buildCarNavigation()}
+      ${buildCarNavigation("")}
 
       <div class="card">
         <h2>
