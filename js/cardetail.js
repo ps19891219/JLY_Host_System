@@ -3397,6 +3397,11 @@ function buildHistoryHtml(
    第一階段只拆分畫面結構，不改變原有功能與資料流程。
 ============================================================ */
 
+// ============================================================
+// 第 5B-1：車團資訊小卡
+// 未來拆檔時，可整段搬到 cardetail-info.js
+// ============================================================
+
 function buildCarSummaryHtml(config) {
   const {
     scriptName,
@@ -3406,6 +3411,10 @@ function buildCarSummaryHtml(config) {
     activePlayerCount,
     total
   } = config;
+
+  // ----------------------------------------------------------
+  // 顯示文字
+  // ----------------------------------------------------------
 
   const dateText =
     car.gameDate ||
@@ -3428,6 +3437,10 @@ function buildCarSummaryHtml(config) {
       ? `${activePlayerCount} / ${total}`
       : `${activePlayerCount} 人`;
 
+  const studioText =
+    studioName ||
+    "尚未設定";
+
   const locationText =
     car.location ||
     car.address ||
@@ -3436,6 +3449,10 @@ function buildCarSummaryHtml(config) {
   const noteText =
     car.note ||
     "無";
+
+  // ----------------------------------------------------------
+  // 車團狀態燈號
+  // ----------------------------------------------------------
 
   const statusClass =
     status === "招募中"
@@ -3448,8 +3465,107 @@ function buildCarSummaryHtml(config) {
             ? "is-cancelled"
             : "";
 
+  // ----------------------------------------------------------
+  // 單張資訊卡產生器
+  // editable 為 true 時，點擊會前往編輯車團頁
+  // 目前人數只顯示，因此不傳 editable
+  // ----------------------------------------------------------
+
+  function buildInfoItem(options) {
+    const {
+      icon,
+      label,
+      value,
+      field,
+      editable,
+      wide
+    } = options;
+
+    const cardClass = [
+      "car-info-item",
+      editable
+        ? "is-editable"
+        : "is-readonly",
+      wide
+        ? "is-wide"
+        : ""
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const fieldAttribute =
+      field
+        ? `data-car-field="${escapeHtml(field)}"`
+        : "";
+
+    const clickAttribute =
+      editable
+        ? `onclick="openEditCarPage()"`
+        : "";
+
+    const keyboardAttributes =
+      editable
+        ? `
+          role="button"
+          tabindex="0"
+          onkeydown="
+            if (
+              event.key === 'Enter' ||
+              event.key === ' '
+            ) {
+              event.preventDefault();
+              openEditCarPage();
+            }
+          "
+        `
+        : "";
+
+    return `
+      <div
+        class="${cardClass}"
+        ${fieldAttribute}
+        ${clickAttribute}
+        ${keyboardAttributes}
+      >
+        <div class="car-info-item-top">
+          <span
+            class="car-info-icon"
+            aria-hidden="true"
+          >
+            ${icon}
+          </span>
+
+          <span class="car-info-label">
+            ${escapeHtml(label)}
+          </span>
+
+          ${
+            editable
+              ? `
+                <span
+                  class="car-info-edit-hint"
+                  aria-hidden="true"
+                >
+                  ›
+                </span>
+              `
+              : ""
+          }
+        </div>
+
+        <div class="car-info-value">
+          ${escapeHtml(value)}
+        </div>
+      </div>
+    `;
+  }
+
+  // ----------------------------------------------------------
+  // 完整資訊區
+  // ----------------------------------------------------------
+
   return `
-    <section class="car-info-card">
+    <section class="car-info-section">
 
       <div class="car-info-title-row">
         <h1 class="car-info-title">
@@ -3460,7 +3576,10 @@ function buildCarSummaryHtml(config) {
           class="car-status-indicator ${statusClass}"
           aria-label="${escapeHtml(status)}"
         >
-          <span class="car-status-light"></span>
+          <span
+            class="car-status-light"
+            aria-hidden="true"
+          ></span>
 
           <span class="car-status-text">
             ${escapeHtml(status)}
@@ -3468,95 +3587,63 @@ function buildCarSummaryHtml(config) {
         </div>
       </div>
 
-      <div class="car-info-list">
+      <div class="car-info-grid">
 
-        <div
-          class="car-info-item"
-          data-car-field="gameDate"
-        >
-          <div class="car-info-label">
-            日期
-          </div>
+        ${buildInfoItem({
+          icon: "📅",
+          label: "日期",
+          value: dateText,
+          field: "gameDate",
+          editable: true
+        })}
 
-          <div class="car-info-value">
-            ${escapeHtml(dateText)}
-          </div>
-        </div>
+        ${buildInfoItem({
+          icon: "🕒",
+          label: "時間",
+          value: timeText,
+          field: "gameTime",
+          editable: true
+        })}
 
-        <div
-          class="car-info-item"
-          data-car-field="gameTime"
-        >
-          <div class="car-info-label">
-            時間
-          </div>
+        ${buildInfoItem({
+          icon: "💰",
+          label: "金額",
+          value: priceText,
+          field: "price",
+          editable: true
+        })}
 
-          <div class="car-info-value">
-            ${escapeHtml(timeText)}
-          </div>
-        </div>
+        ${buildInfoItem({
+          icon: "👥",
+          label: "目前人數",
+          value: peopleText,
+          editable: false
+        })}
 
-        <div
-          class="car-info-item"
-          data-car-field="price"
-        >
-          <div class="car-info-label">
-            金額
-          </div>
+        ${buildInfoItem({
+          icon: "🏠",
+          label: "工作室",
+          value: studioText,
+          field: "studioName",
+          editable: true
+        })}
 
-          <div class="car-info-value">
-            ${escapeHtml(priceText)}
-          </div>
-        </div>
+        ${buildInfoItem({
+          icon: "📍",
+          label: "地點",
+          value: locationText,
+          field: "location",
+          editable: true
+        })}
 
-        <div class="car-info-item">
-          <div class="car-info-label">
-            目前人數
-          </div>
-
-          <div class="car-info-value">
-            ${escapeHtml(peopleText)}
-          </div>
-        </div>
-
-        <div
-          class="car-info-item"
-          data-car-field="studioName"
-        >
-          <div class="car-info-label">
-            工作室
-          </div>
-
-          <div class="car-info-value">
-            ${escapeHtml(studioName)}
-          </div>
-        </div>
-
-        <div
-          class="car-info-item"
-          data-car-field="location"
-        >
-          <div class="car-info-label">
-            地點
-          </div>
-
-          <div class="car-info-value">
-            ${escapeHtml(locationText)}
-          </div>
-        </div>
-
-        <div
-          class="car-info-item car-info-note-item"
-          data-car-field="note"
-        >
-          <div class="car-info-label">
-            備註
-          </div>
-
-          <div class="car-info-value car-info-note">
-            ${escapeHtml(noteText)}
-          </div>
-        </div>
+        ${buildInfoItem({
+          icon: "📝",
+          label: "備註",
+          value: noteText,
+          field: "note",
+          editable: true,
+          wide: true
+        })}
 
       </div>
     </section>
@@ -3586,22 +3673,74 @@ function buildStaffSectionHtml(car) {
   return window.JLYStaffController.render(car);
 }
 
+// ============================================================
+// 第 5B-2：席位區標題與席位設定入口
+// 未來拆檔時，可整段搬到 cardetail-seat.js
+// ============================================================
+
 function buildSeatSectionHtml() {
   return `
-    <div class="seat-header">
-      <h3>席位安排</h3>
-    </div>
+    <section class="seat-section">
 
-    <p class="compact-player-meta">
-      點玩家即可編輯本場資料或移出車團。
-    </p>
+      <div class="seat-section-header">
 
-    <div id="seatBoardMount">
-      <div class="seat-empty-state">
-        座位載入中……
+        <div class="seat-section-title-group">
+          <h3 class="seat-section-title">
+            席位安排
+          </h3>
+
+          <p class="seat-section-description">
+            點玩家可編輯本場資料，點空位可加入玩家。
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="seat-settings-button"
+          onclick="openSeatSettings()"
+        >
+          <span
+            class="seat-settings-icon"
+            aria-hidden="true"
+          >
+            ⚙️
+          </span>
+
+          <span>
+            席位設定
+          </span>
+        </button>
+
       </div>
-    </div>
+
+      <div id="seatBoardMount">
+        <div class="seat-empty-state">
+          座位載入中……
+        </div>
+      </div>
+
+    </section>
   `;
+}
+
+// ============================================================
+// 席位設定入口
+// 目前先沿用完整編輯車團頁
+// 未來再改成獨立席位設定 Modal
+// ============================================================
+
+function openSeatSettings() {
+  const carId = getCarId();
+
+  if (!carId) {
+    alert("找不到車團 ID");
+    return;
+  }
+
+  location.href =
+    "editcar.html?id=" +
+    encodeURIComponent(carId) +
+    "&section=seat";
 }
 
 function buildHistorySectionHtml(history) {

@@ -1023,3 +1023,335 @@ line-height:1.5;
 white-space:pre-wrap;
 
 }
+
+/* ============================================================
+   第 5B-1：車團資訊小卡
+   未來拆檔時，可搬到 cardetail-info.css
+============================================================ */
+
+.car-info-section {
+  margin: 14px 0 18px;
+}
+
+.car-info-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin-bottom: 14px;
+  padding: 0 2px;
+}
+
+.car-info-title {
+  min-width: 0;
+  margin: 0;
+
+  color: #2f2f2f;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.35;
+
+  overflow-wrap: anywhere;
+}
+
+.car-status-indicator {
+  flex: 0 0 auto;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 7px 11px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+
+  background: #ffffff;
+  color: #666666;
+
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.car-status-light {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+
+  background: #aaaaaa;
+  box-shadow: 0 0 0 4px rgba(170, 170, 170, 0.13);
+}
+
+.car-status-indicator.is-recruiting {
+  color: #267c55;
+  background: #f3fff9;
+  border-color: rgba(38, 124, 85, 0.18);
+}
+
+.car-status-indicator.is-recruiting
+.car-status-light {
+  background: #35b978;
+  box-shadow: 0 0 0 4px rgba(53, 185, 120, 0.15);
+}
+
+.car-status-indicator.is-full {
+  color: #b36b18;
+  background: #fffaf1;
+  border-color: rgba(179, 107, 24, 0.18);
+}
+
+.car-status-indicator.is-full
+.car-status-light {
+  background: #f0a63e;
+  box-shadow: 0 0 0 4px rgba(240, 166, 62, 0.16);
+}
+
+.car-status-indicator.is-finished {
+  color: #646b78;
+  background: #f7f8fa;
+  border-color: rgba(100, 107, 120, 0.17);
+}
+
+.car-status-indicator.is-finished
+.car-status-light {
+  background: #8a929f;
+  box-shadow: 0 0 0 4px rgba(138, 146, 159, 0.15);
+}
+
+.car-status-indicator.is-cancelled {
+  color: #b14949;
+  background: #fff5f5;
+  border-color: rgba(177, 73, 73, 0.18);
+}
+
+.car-status-indicator.is-cancelled
+.car-status-light {
+  background: #df6868;
+  box-shadow: 0 0 0 4px rgba(223, 104, 104, 0.15);
+}
+
+/* ------------------------------------------------------------
+   資訊卡網格
+------------------------------------------------------------ */
+
+.car-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.car-info-item {
+  min-width: 0;
+  min-height: 92px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 13px;
+
+  padding: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  box-sizing: border-box;
+
+  background: #ffffff;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.035);
+}
+
+.car-info-item.is-wide {
+  grid-column: 1 / -1;
+  min-height: 88px;
+}
+
+.car-info-item.is-editable {
+  cursor: pointer;
+
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.car-info-item.is-editable:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.car-info-item.is-editable:active {
+  transform: scale(0.985);
+}
+
+.car-info-item.is-editable:focus-visible {
+  outline: 3px solid rgba(86, 139, 224, 0.22);
+  outline-offset: 2px;
+}
+
+.car-info-item.is-readonly {
+  background: #fafafa;
+}
+
+.car-info-item-top {
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.car-info-icon {
+  flex: 0 0 auto;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.car-info-label {
+  min-width: 0;
+  flex: 1;
+
+  color: #777777;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.car-info-edit-hint {
+  flex: 0 0 auto;
+
+  color: #aaaaaa;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.car-info-value {
+  color: #303030;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.45;
+
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* ============================================================
+   第 5B-2：席位區標題與設定入口
+   未來拆檔時，可搬到 cardetail-seat.css
+============================================================ */
+
+.seat-section {
+  margin: 18px 0;
+}
+
+.seat-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin-bottom: 14px;
+}
+
+.seat-section-title-group {
+  min-width: 0;
+  flex: 1;
+}
+
+.seat-section-title {
+  margin: 0;
+
+  color: #303030;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.seat-section-description {
+  margin: 5px 0 0;
+
+  color: #777777;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.seat-settings-button {
+  flex: 0 0 auto;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 12px;
+
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+
+  background: #ffffff;
+  color: #454545;
+
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.seat-settings-button:hover {
+  background: #f7f7f7;
+}
+
+.seat-settings-button:active {
+  transform: scale(0.98);
+}
+
+.seat-settings-icon {
+  font-size: 15px;
+}
+
+/* ============================================================
+   手機版
+============================================================ */
+
+@media (max-width: 520px) {
+  .car-info-title-row {
+    align-items: flex-start;
+  }
+
+  .car-info-title {
+    font-size: 21px;
+  }
+
+  .car-status-indicator {
+    margin-top: 2px;
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+
+  .car-info-grid {
+    gap: 8px;
+  }
+
+  .car-info-item {
+    min-height: 86px;
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .car-info-value {
+    font-size: 15px;
+  }
+
+  .seat-section-header {
+    align-items: center;
+  }
+
+  .seat-section-description {
+    font-size: 12px;
+  }
+
+  .seat-settings-button {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}
