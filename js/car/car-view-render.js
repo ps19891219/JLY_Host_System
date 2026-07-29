@@ -194,51 +194,93 @@ console.log("car-view-render.js 已成功載入！");
 }
 
   function renderStaffValue(car) {
-    const staffList =
-      getStaffList(car);
+  const staffList =
+    getStaffList(car);
 
-    if (staffList.length === 0) {
-      return (
-        '<span class="car-view-muted">' +
-        "未提供" +
-        "</span>"
-      );
-    }
-
+  if (staffList.length === 0) {
     return (
-      '<div class="car-view-staff-list">' +
-      staffList
-        .map(function (staff) {
-          const titleHtml =
-            staff.title
-              ? (
-                  '<span class="car-view-staff-title">' +
-                  escapeHtml(
-                    staff.title
-                  ) +
-                  "</span>" +
-                  '<span class="car-view-staff-divider">' +
-                  "｜" +
-                  "</span>"
-                )
-              : "";
+      '<div class="seat-row staff-seat-row is-empty">' +
 
-          return (
-            '<div class="car-view-staff-item">' +
-            titleHtml +
-            '<span class="car-view-staff-name">' +
-            escapeHtml(
-              staff.name ||
-              "未填姓名"
-            ) +
-            "</span>" +
-            "</div>"
-          );
-        })
-        .join("") +
+      '<div class="seat-row-handle" aria-hidden="true">' +
+      "☰" +
+      "</div>" +
+
+      '<div class="seat-row-main">' +
+
+      '<div class="seat-row-label-cell">' +
+      "DM" +
+      "</div>" +
+
+      '<div class="seat-row-player-cell">' +
+      '<span class="car-view-muted">' +
+      "尚未安排" +
+      "</span>" +
+      "</div>" +
+
+      "</div>" +
+
       "</div>"
     );
   }
+
+  return (
+    '<div class="staff-seat-list">' +
+
+    staffList
+      .map(function (staff, index) {
+        const label =
+          String(
+            staff.title ||
+            index + 1
+          ).trim();
+
+        const displayName =
+          String(
+            staff.name ||
+            ""
+          ).trim();
+
+        const assignedClass =
+          displayName
+            ? "is-assigned"
+            : "is-empty";
+
+        return (
+          '<div class="seat-row staff-seat-row ' +
+          assignedClass +
+          '">' +
+
+          '<div class="seat-row-handle" aria-hidden="true">' +
+          "☰" +
+          "</div>" +
+
+          '<div class="seat-row-main">' +
+
+          '<div class="seat-row-label-cell">' +
+          '<span class="staff-seat-label">' +
+          escapeHtml(label) +
+          "</span>" +
+          "</div>" +
+
+          '<div class="seat-row-player-cell">' +
+          '<span class="staff-seat-person-name">' +
+          escapeHtml(
+            displayName ||
+            "尚未安排"
+          ) +
+          "</span>" +
+          "</div>" +
+
+          "</div>" +
+
+          "</div>"
+        );
+      })
+      .join("") +
+
+    "</div>"
+  );
+}
 
   function getTotal(car) {
     const total = Number(
