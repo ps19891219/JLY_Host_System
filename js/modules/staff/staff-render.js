@@ -23,12 +23,15 @@ console.log(
   function hasAssignedMember(
     staff
   ) {
+    const safeStaff =
+      staff || {};
+
     return Boolean(
       String(
-        staff.memberId || ""
+        safeStaff.memberId || ""
       ).trim() ||
       String(
-        staff.displayName || ""
+        safeStaff.displayName || ""
       ).trim()
     );
   }
@@ -37,9 +40,12 @@ console.log(
     staff,
     index
   ) {
+    const safeStaff =
+      staff || {};
+
     return (
       String(
-        staff.label || ""
+        safeStaff.label || ""
       ).trim() ||
       String(index + 1)
     );
@@ -48,48 +54,15 @@ console.log(
   function getStaffDisplayName(
     staff
   ) {
+    const safeStaff =
+      staff || {};
+
     return (
       String(
-        staff.displayName || ""
+        safeStaff.displayName || ""
       ).trim() ||
       "尚未安排"
     );
-  }
-
-  function renderMemberStatus(
-    staff
-  ) {
-    if (
-      String(
-        staff.memberId || ""
-      ).trim()
-    ) {
-      return `
-        <span
-          class="staff-member-status"
-          title="已連結會員資料"
-        >
-          已連結
-        </span>
-      `;
-    }
-
-    if (
-      String(
-        staff.displayName || ""
-      ).trim()
-    ) {
-      return `
-        <span
-          class="staff-member-status staff-member-status-manual"
-          title="舊資料或手動名稱"
-        >
-          手動名稱
-        </span>
-      `;
-    }
-
-    return "";
   }
 
   function renderClearButton(
@@ -124,9 +97,12 @@ console.log(
     staff,
     index
   ) {
+    const safeStaff =
+      staff || {};
+
     const rawStaffId =
       String(
-        staff.id || ""
+        safeStaff.id || ""
       );
 
     const staffId =
@@ -141,17 +117,19 @@ console.log(
 
     const label =
       getStaffLabel(
-        staff,
+        safeStaff,
         index
       );
 
     const displayName =
       getStaffDisplayName(
-        staff
+        safeStaff
       );
 
     const assignedClass =
-      hasAssignedMember(staff)
+      hasAssignedMember(
+        safeStaff
+      )
         ? "is-assigned"
         : "is-empty";
 
@@ -203,14 +181,10 @@ console.log(
                   displayName
                 )}
               </span>
-
-              ${renderMemberStatus(
-                staff
-              )}
             </button>
 
             ${renderClearButton(
-              staff,
+              safeStaff,
               rawStaffId
             )}
           </div>
