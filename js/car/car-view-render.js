@@ -901,33 +901,45 @@ console.log("car-view-render.js 已成功載入！");
     );
   }
 
-  function renderSeatSection() {
-    return (
-      '<section class="car-view-section">' +
+  function renderSeatSection(car) {
+  return (
+    '<section class="car-view-section">' +
 
-      '<div class="car-view-section-header">' +
+    '<div class="car-view-section-header">' +
 
-      '<h2 class="car-view-section-title">' +
-      "座位安排" +
-      "</h2>" +
+    '<h2 class="car-view-section-title">' +
+    "座位安排" +
+    "</h2>" +
 
-      '<span class="car-view-readonly-label">' +
-      "僅供查看" +
-      "</span>" +
+    '<span class="car-view-readonly-label">' +
+    "僅供查看" +
+    "</span>" +
 
-      "</div>" +
+    "</div>" +
 
-      '<div id="carViewSeatMount">' +
+    '<div class="car-view-seat-staff">' +
 
-      '<div class="car-view-seat-loading">' +
-      "座位讀取中..." +
-      "</div>" +
+    '<div class="car-view-seat-staff-title">' +
+    "🎭 工作人員" +
+    "</div>" +
 
-      "</div>" +
+    '<div class="car-view-seat-staff-content">' +
+    renderStaffValue(car) +
+    "</div>" +
 
-      "</section>"
-    );
-  }
+    "</div>" +
+
+    '<div id="carViewSeatMount">' +
+
+    '<div class="car-view-seat-loading">' +
+    "座位讀取中..." +
+    "</div>" +
+
+    "</div>" +
+
+    "</section>"
+  );
+}
 
   function buildInfoHtml(car) {
     /*
@@ -968,16 +980,6 @@ console.log("car-view-render.js 已成功載入！");
         "👥",
         "目前人數",
         getPlayerCountText(car)
-      ) +
-
-      renderInfoRow(
-        "🎭",
-        "工作人員",
-        renderStaffValue(car),
-        {
-          html: true,
-          fullWidth: true
-        }
       ) +
 
       renderInfoRow(
@@ -1090,7 +1092,9 @@ console.log("car-view-render.js 已成功載入！");
       );
 
     const seatHtml =
-      renderSeatSection();
+  renderSeatSection(
+    sourceCar
+  );
 
     const actionHtml =
       buildActionSectionHtml(
