@@ -100,65 +100,67 @@ console.log("car-view-render.js 已成功載入！");
   }
 
   function getStaffList(car) {
-    if (
-      Array.isArray(
-        car && car.staffList
-      ) &&
-      car.staffList.length > 0
-    ) {
-      return car.staffList
-        .map(function (item, index) {
-          return normalizeStaffItem(
-            item,
-            index,
-            ""
-          );
-        })
-        .filter(Boolean);
+
+  // ===== V2：優先讀 staffSlots =====
+  if (
+    window.JLYStaffData &&
+    typeof window.JLYStaffData.getStaffSlots === "function"
+  ) {
+    const slots =
+      window.JLYStaffData.getStaffSlots(car);
+
+    if (Array.isArray(slots) && slots.length > 0) {
+      return slots.map(function (slot, index) {
+        return {
+          id: slot.id,
+          title: slot.label || "",
+          name: slot.displayName || ""
+        };
+      });
     }
-
-    if (
-      Array.isArray(
-        car && car.dmList
-      ) &&
-      car.dmList.length > 0
-    ) {
-      return car.dmList
-        .map(function (item, index) {
-          return normalizeStaffItem(
-            item,
-            index,
-            "DM"
-          );
-        })
-        .filter(Boolean);
-    }
-
-    const legacyDm =
-      car &&
-      (
-        car.dm ||
-        car.dmName
-      );
-
-    if (
-      String(
-        legacyDm || ""
-      ).trim()
-    ) {
-      return [
-        {
-          id: "legacy-single-dm",
-          title: "DM",
-          name: String(
-            legacyDm
-          ).trim()
-        }
-      ];
-    }
-
-    return [];
   }
+
+  // ===== 舊版 staffList 相容 =====
+  if (
+    Array.isArray(car?.staffList) &&
+    car.staffList.length > 0
+  ) {
+    return car.staffList
+      .map((item, index) =>
+        normalizeStaffItem(item, index, "")
+      )
+      .filter(Boolean);
+  }
+
+  // ===== 舊版 dmList 相容 =====
+  if (
+    Array.isArray(car?.dmList) &&
+    car.dmList.length > 0
+  ) {
+    return car.dmList
+      .map((item, index) =>
+        normalizeStaffItem(item, index, "DM")
+      )
+      .filter(Boolean);
+  }
+
+  // ===== 更舊版 =====
+  const legacyDm =
+    car &&
+    (car.dm || car.dmName);
+
+  if (String(legacyDm || "").trim()) {
+    return [
+      {
+        id: "legacy-single-dm",
+        title: "DM",
+        name: String(legacyDm).trim()
+      }
+    ];
+  }
+
+  return [];
+}
 
   function renderStaffValue(car) {
     const staffList =
