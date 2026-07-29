@@ -3785,8 +3785,6 @@ function buildCarDetailPageHtml(config) {
 
     ${buildCarSummaryHtml(config)}
 
-    ${buildStaffSectionHtml(config.car)}
-
     ${buildSeatSectionHtml()}
 
     ${buildApplicationsSectionHtml(
