@@ -4032,7 +4032,7 @@ function buildStaffSectionHtml(car) {
 // 未來拆檔時，可整段搬到 cardetail-seat.js
 // ============================================================
 
-function buildSeatSectionHtml() {
+function buildSeatSectionHtml(car) {
   return `
     <section class="seat-section">
 
@@ -4066,6 +4066,8 @@ function buildSeatSectionHtml() {
         </button>
 
       </div>
+
+      ${buildStaffSectionHtml(car)}
 
       <div id="seatBoardMount">
         <div class="seat-empty-state">
@@ -4165,9 +4167,7 @@ function buildCarDetailPageHtml(config) {
       config
     )}
 
-    ${buildSeatSectionHtml()}
-
-    ${buildStaffSectionHtml(config.car)}
+    ${buildSeatSectionHtml(config.car)}
 
     ${buildApplicationsSectionHtml(
       config.applications
