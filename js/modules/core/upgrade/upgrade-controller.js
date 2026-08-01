@@ -68,9 +68,10 @@ console.log(
       );
 
     const upgradedSlots =
-      SeatUpgrade.upgradeSeats(
-        sourceCar.slots
-      );
+  SeatUpgrade.upgradeSeats(
+    sourceCar.slots,
+    playerResult.players
+  );
 
     const nextCar = {
       ...sourceCar,
