@@ -2214,16 +2214,15 @@ console.log(
 );
 
 const cleanedSlots = currentSlots.map(function (slot) {
-  const seatedPlayer =
-    slot && slot.player
-      ? slot.player
-      : null;
-
-  if (!seatedPlayer) {
+  if (!slot) {
     return slot;
   }
 
+  const seatedPlayer =
+    slot.player || {};
+
   const seatedPlayerId = String(
+    slot.playerId ||
     seatedPlayer.playerId ||
     seatedPlayer.id ||
     ""
@@ -2250,7 +2249,7 @@ const cleanedSlots = currentSlots.map(function (slot) {
     return slot;
   }
 
-    return {
+  return {
     ...slot,
 
     playerId: null,
