@@ -140,18 +140,23 @@ console.log("seat-render.js 已成功載入！");
   // ------------------------------------------------------------
 
   function renderPlayerContent(slot) {
-    if (
-      !slot ||
-      !slot.playerId
-    ) {
-      return `
-        <div class="seat-player seat-player-empty">
-          <span class="seat-player-placeholder">
-            等待安排
-          </span>
-        </div>
-      `;
-    }
+  console.log(
+    "🧪 Seat Render 收到 slot：",
+    slot
+  );
+
+  if (
+    !slot ||
+    !slot.playerId
+  ) {
+    return `
+      <div class="seat-player seat-player-empty">
+        <span class="seat-player-placeholder">
+          等待安排
+        </span>
+      </div>
+    `;
+  }
 
     const playerName =
       (
