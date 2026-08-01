@@ -4503,20 +4503,6 @@ console.log(
     const players =
       getPlayers(car);
 
-    const car =
-  preparedCarResult.car;
-
-console.log(
-  "🧩 Car Detail Prepare Result：",
-  {
-    upgrade:
-      preparedCarResult.upgradeResult,
-
-    repair:
-      preparedCarResult.repairResult
-  }
-);
-
 const players =
   getPlayers(car);
 
