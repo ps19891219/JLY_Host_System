@@ -4434,6 +4434,9 @@ async function renderCarDetail() {
   ...carDoc.data()
 };
 
+console.log("🔥 Raw Slots", rawCar.slots);
+console.log("🔥 Raw Players", rawCar.players);
+
 const upgradeController =
   window.JLYUpgradeController;
 
