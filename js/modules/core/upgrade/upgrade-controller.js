@@ -73,6 +73,14 @@ console.log(
     playerResult.players
   );
 
+  const seatChanged =
+  JSON.stringify(
+    Array.isArray(sourceCar.slots)
+      ? sourceCar.slots
+      : []
+  ) !==
+  JSON.stringify(upgradedSlots);
+
     const nextCar = {
       ...sourceCar,
 
@@ -84,22 +92,21 @@ console.log(
     };
 
     return {
-      car: nextCar,
+  car: nextCar,
 
-      changed:
-        Boolean(
-          playerResult.changed
-        ),
+  changed:
+    Boolean(
+      playerResult.changed ||
+      seatChanged
+    ),
 
-      playerChanged:
-        Boolean(
-          playerResult.changed
-        ),
+  playerChanged:
+    Boolean(
+      playerResult.changed
+    ),
 
-      seatChanged:
-        false
-    };
-  }
+  seatChanged
+};
 
   window.JLYUpgradeController = {
     upgradeCarData
