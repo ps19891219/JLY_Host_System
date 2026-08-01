@@ -168,158 +168,42 @@ console.log(
   // ------------------------------------------------------------
 
   function buildCarSummaryHtml(config) {
-    const safeConfig =
-      config || {};
+  const summaryRender =
+    window.JLYCarDetailSummaryRender;
 
-    const car =
-      safeConfig.car || {};
-
-    const dateText =
-      car.gameDate ||
-      "尚未設定";
-
-    const timeText =
-      car.gameTime ||
-      "尚未設定";
-
-    const priceNumber =
-      Number(car.price || 0);
-
-    const priceText =
-      priceNumber > 0
-        ? `NT$ ${priceNumber.toLocaleString(
-            "zh-TW"
-          )}`
-        : "尚未設定";
-
-    const total =
-      Number(
-        safeConfig.total || 0
-      );
-
-    const activePlayerCount =
-      Number(
-        safeConfig.activePlayerCount ||
-        0
-      );
-
-    const peopleText =
-      total > 0
-        ? `${activePlayerCount} / ${total}`
-        : `${activePlayerCount} 人`;
-
-    const studioText =
-      safeConfig.studioName ||
-      "尚未設定";
-
-    const locationText =
-      car.location ||
-      car.address ||
-      "尚未設定";
-
-    const noteText =
-      car.note ||
-      "無";
-
-    const status =
-      safeConfig.status || "";
-
-    const statusClass =
-      status === "招募中"
-        ? "is-recruiting"
-        : status === "已滿"
-          ? "is-full"
-          : status === "已結束"
-            ? "is-finished"
-            : status === "已取消"
-              ? "is-cancelled"
-              : "";
-
-    return `
-      <section class="car-info-section">
-        <div class="car-info-title-row">
-          <h1 class="car-info-title">
-            ${escapeValue(
-              safeConfig.scriptName ||
-              "未命名劇本"
-            )}
-          </h1>
-
-          <div
-            class="car-status-indicator ${statusClass}"
-            aria-label="${escapeValue(status)}"
-          >
-            <span
-              class="car-status-light"
-              aria-hidden="true"
-            ></span>
-
-            <span class="car-status-text">
-              ${escapeValue(status)}
-            </span>
-          </div>
-        </div>
-
-        <div class="car-info-grid">
-          ${buildInfoItem({
-            icon: "📅",
-            label: "日期",
-            value: dateText,
-            field: "gameDate",
-            editable: true
-          })}
-
-          ${buildInfoItem({
-            icon: "🕒",
-            label: "時間",
-            value: timeText,
-            field: "gameTime",
-            editable: true
-          })}
-
-          ${buildInfoItem({
-            icon: "💰",
-            label: "金額",
-            value: priceText,
-            field: "price",
-            editable: true
-          })}
-
-          ${buildInfoItem({
-            icon: "👥",
-            label: "目前人數",
-            value: peopleText,
-            editable: false
-          })}
-
-          ${buildInfoItem({
-            icon: "🏠",
-            label: "工作室",
-            value: studioText,
-            field: "studioName",
-            editable: true
-          })}
-
-          ${buildInfoItem({
-            icon: "📍",
-            label: "地點",
-            value: locationText,
-            field: "location",
-            editable: true
-          })}
-
-          ${buildInfoItem({
-            icon: "📝",
-            label: "備註",
-            value: noteText,
-            field: "note",
-            editable: true,
-            wide: true
-          })}
-        </div>
-      </section>
-    `;
+  if (
+    summaryRender &&
+    typeof summaryRender.buildSummaryHtml ===
+      "function"
+  ) {
+    return summaryRender.buildSummaryHtml(
+      config
+    );
   }
+
+  console.warn(
+    "Car Detail Summary Render 尚未載入"
+  );
+
+  return `
+    <section class="car-info-section">
+      <div class="car-info-title-row">
+        <h1 class="car-info-title">
+          ${escapeValue(
+            config &&
+            config.scriptName
+              ? config.scriptName
+              : "未命名劇本"
+          )}
+        </h1>
+      </div>
+
+      <p class="empty-text">
+        車團資訊載入中……
+      </p>
+    </section>
+  `;
+}
 
   // ------------------------------------------------------------
   // 工作人員區
