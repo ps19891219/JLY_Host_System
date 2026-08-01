@@ -138,46 +138,63 @@ console.log("seat-assignment.js 已成功載入！");
   // ------------------------------------------------------------
 
   function canPlayerUseSlot(
-    player,
-    slot
+  player,
+  slot,
+  options
+) {
+  const SeatRules =
+    window.JLYSeatRules;
+
+  if (
+    SeatRules &&
+    typeof SeatRules.canPlayerUseSlot ===
+      "function"
   ) {
-    const SeatData = getSeatData();
-
-    if (!player || !slot) {
-      return false;
-    }
-
-    const playerPosition =
-      SeatData.getPlayerPosition(
-        player
+    return SeatRules
+      .canPlayerUseSlot(
+        player,
+        slot,
+        options
       );
-
-    const slotType =
-      SeatData.normalizePosition(
-        slot.originalType ||
-        slot.type ||
-        "flexible"
-      );
-
-    // 不限位可以安排任何玩家
-    if (slotType === "flexible") {
-      return true;
-    }
-
-    // 玩家選擇不限，可使用任何固定位置
-    if (
-      playerPosition ===
-      "flexible"
-    ) {
-      return true;
-    }
-
-    // 固定位置必須同分類
-    return (
-      playerPosition ===
-      slotType
-    );
   }
+
+  // Seat Rules 尚未載入時，
+  // 維持原本嚴格規則作為安全備援。
+  const SeatData =
+    getSeatData();
+
+  if (!player || !slot) {
+    return false;
+  }
+
+  const playerPosition =
+    SeatData.getPlayerPosition(
+      player
+    );
+
+  const slotType =
+    SeatData.normalizePosition(
+      slot.originalType ||
+      slot.type ||
+      "flexible"
+    );
+
+  if (slotType === "flexible") {
+    return true;
+  }
+
+  if (
+    playerPosition ===
+    "flexible"
+  ) {
+    return true;
+  }
+
+  return (
+    playerPosition ===
+    slotType
+  );
+}
 
   function getPlacementReason(
     player,
