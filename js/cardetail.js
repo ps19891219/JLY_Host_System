@@ -2910,6 +2910,16 @@ async function repairUpgradedCarData(
       .doc(carId)
       .update(updateData);
 
+      const verifyDoc = await db
+  .collection("cars")
+  .doc(carId)
+  .get();
+
+console.log(
+  "🔥 Firestore Verify",
+  verifyDoc.data().slots
+);
+
     console.log(
       "✅ Auto Upgrade Repair 完成",
       {
