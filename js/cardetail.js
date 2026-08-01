@@ -4424,107 +4424,70 @@ async function renderCarDetail() {
   `;
 
   try {
-    const carDoc =
-      await db
-        .collection("cars")
-        .doc(carId)
-        .get();
-
-    if (!carDoc.exists) {
-      detailBox.innerHTML = `
-        ${buildCarNavigation("")}
-
-        <div class="card">
-          <h2>
-            找不到這台車
-          </h2>
-        </div>
-      `;
-
-      return;
-    }
-
-    const rawCar = {
-  id: carDoc.id,
-  ...carDoc.data()
-};
-
-const upgradeBridge =
-  window.JLYCarDetailUpgrade;
-
-let preparedCarResult;
+    const detailLoader =
+  window.JLYCarDetailLoader;
 
 if (
-  upgradeBridge &&
-  typeof upgradeBridge.prepareCar ===
+  !detailLoader ||
+  typeof detailLoader.loadCar !==
     "function"
 ) {
-  preparedCarResult =
-    await upgradeBridge.prepareCar(
-      carId,
-      rawCar
-    );
-} else {
-  console.warn(
-    "Car Detail Upgrade Bridge 尚未載入，暫時使用原始車團資料"
+  throw new Error(
+    "Car Detail Loader 尚未載入"
   );
-
-  preparedCarResult = {
-    car: rawCar,
-
-    upgradeResult: {
-      car: rawCar,
-      changed: false,
-      playerChanged: false,
-      seatChanged: false
-    },
-
-    repairResult: {
-      repaired: false,
-      reason: "bridge-not-loaded"
-    }
-  };
 }
 
+const loadedResult =
+  await detailLoader.loadCar(
+    carId
+  );
+
 const car =
-  preparedCarResult.car;
-
-console.log(
-  "🧩 Car Detail Prepare Result：",
-  {
-    upgrade:
-      preparedCarResult.upgradeResult,
-
-    repair:
-      preparedCarResult.repairResult
-  }
-);
+  loadedResult.car;
 
 const players =
-  getPlayers(car);
+  loadedResult.players;
 
-    const activePlayers =
-      getActivePlayers(car);
+const activePlayers =
+  loadedResult.activePlayers;
 
-    const applications =
-      Array.isArray(
-        car.applications
+const applications =
+  loadedResult.applications;
+
+const history =
+  loadedResult.history;
+
+window.currentCarData =
+  car;
+
+window.currentCarPlayers =
+  players;
+
+console.log(
+  "🧩 Card Detail 使用 Loader 資料：",
+  {
+    carId:
+      loadedResult.carId,
+
+    playerCount:
+      players.length,
+
+    activePlayerCount:
+      activePlayers.length,
+
+    applicationCount:
+      applications.length,
+
+    slotCount:
+      loadedResult.slots.length,
+
+    upgradeChanged:
+      Boolean(
+        loadedResult.upgradeResult &&
+        loadedResult.upgradeResult.changed
       )
-        ? car.applications
-        : [];
-
-    const history =
-      Array.isArray(
-        car.history
-      )
-        ? car.history
-        : [];
-
-    window.currentCarData =
-      car;
-
-    window.currentCarPlayers =
-      players;
+  }
+);
 
     const maleCount =
       countPlayersByPosition(
