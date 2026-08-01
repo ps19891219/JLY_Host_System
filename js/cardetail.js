@@ -961,284 +961,54 @@ async function rejectApplication(index) {
 
 /* =========================
    Player 搜尋工具
+   已搬至：
+   modules/car/detail/player/player-search.js
 ========================= */
 
-function normalizePlayerName(name) {
-  return String(
-    name || ""
-  )
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "");
-}
+function getPlayerSearchModule() {
+  const module =
+    window.JLYCarDetailPlayerSearch;
 
-function getPlayerDatabaseName(player) {
-  return (
-    player.displayName ||
-    player.nickname ||
-    player.playerName ||
-    player.name ||
-    "未命名玩家"
-  );
-}
-
-async function searchPlayersByName(name) {
-  const db = window.db;
-
-  if (!db) {
+  if (!module) {
     throw new Error(
-      "Firebase 尚未載入"
+      "Player Search 模組尚未載入"
     );
   }
 
-  const targetName =
-    normalizePlayerName(name);
+  return module;
+}
 
-  const snapshot =
-    await db
-      .collection("players")
-      .get();
+function normalizePlayerName(name) {
+  return getPlayerSearchModule()
+    .normalizePlayerName(name);
+}
 
-  return snapshot.docs
-    .map(function (doc) {
-      return {
-        id: doc.id,
-        ...doc.data()
-      };
-    })
-    .filter(function (player) {
-      const names = [
-        player.displayName,
-        player.nickname,
-        player.playerName,
-        player.lineDisplayName,
-        ...(
-          Array.isArray(
-            player.aliases
-          )
-            ? player.aliases
-            : []
-        )
-      ];
+function getPlayerDatabaseName(player) {
+  return getPlayerSearchModule()
+    .getPlayerDatabaseName(player);
+}
 
-      return names.some(
-        function (item) {
-          return (
-            normalizePlayerName(
-              item
-            ) === targetName
-          );
-        }
-      );
-    });
+async function searchPlayersByName(name) {
+  return getPlayerSearchModule()
+    .searchPlayersByName(name);
 }
 
 async function createGuestPlayer(
   playerName
 ) {
-  const db = window.db;
-
-  if (!db) {
-    throw new Error(
-      "Firebase 尚未載入"
+  return getPlayerSearchModule()
+    .createGuestPlayer(
+      playerName
     );
-  }
-
-  const now =
-    nowTime();
-
-  const newPlayerRef =
-    await db
-      .collection("players")
-      .add({
-        displayName:
-          playerName,
-
-        nickname:
-          playerName,
-
-        aliases:
-          [],
-
-        memberType:
-          "guest",
-
-        type:
-          "guest",
-
-        status:
-          "active",
-
-        isLineLinked:
-          false,
-
-        lineUserId:
-          null,
-
-        lineDisplayName:
-          "",
-
-        linePictureUrl:
-          "",
-
-        source:
-          "host_manual",
-
-        defaultPosition:
-          "不限",
-
-        defaultCrossPlay:
-          false,
-
-        createdAt:
-          now,
-
-        updatedAt:
-          now
-      });
-
-  return {
-    id:
-      newPlayerRef.id,
-
-    displayName:
-      playerName,
-
-    nickname:
-      playerName,
-
-    aliases:
-      [],
-
-    memberType:
-      "guest",
-
-    type:
-      "guest",
-
-    status:
-      "active",
-
-    isLineLinked:
-      false,
-
-    defaultPosition:
-      "不限",
-
-    defaultCrossPlay:
-      false,
-
-    createdAt:
-      now,
-
-    updatedAt:
-      now
-  };
 }
 
 async function selectOrCreatePlayer(
   playerName
 ) {
-  const matches =
-    await searchPlayersByName(
+  return getPlayerSearchModule()
+    .selectOrCreatePlayer(
       playerName
     );
-
-  let selectedPlayer = null;
-
-  if (matches.length > 0) {
-    let message =
-      "找到同名玩家：\n\n";
-
-    matches.forEach(
-      function (
-        player,
-        index
-      ) {
-        const linkedText =
-          player.isLineLinked
-            ? "已串 LINE"
-            : "訪客玩家";
-
-        const defaultPosition =
-          player.defaultPosition ||
-          "不限";
-
-        const crossPlayText =
-          player.defaultCrossPlay
-            ? "｜反串"
-            : "";
-
-        message +=
-          `${index + 1}.`  +
-          `${getPlayerDatabaseName(player)}` +
-          `｜${linkedText}` +
-          `｜${defaultPosition}` +
-          `${crossPlayText}\n`;
-      }
-    );
-
-    message +=
-      "\n請輸入要使用的玩家編號。\n" +
-      "輸入 0 代表建立另一位同名玩家。";
-
-    const answer =
-      prompt(
-        message,
-        "1"
-      );
-
-    if (answer === null) {
-      return null;
-    }
-
-    const selectedNumber =
-      Number(answer);
-
-    if (
-      !Number.isInteger(
-        selectedNumber
-      ) ||
-      selectedNumber < 0 ||
-      selectedNumber >
-        matches.length
-    ) {
-      alert(
-        "輸入的編號不正確"
-      );
-
-      return null;
-    }
-
-    if (
-      selectedNumber > 0
-    ) {
-      selectedPlayer =
-        matches[
-          selectedNumber - 1
-        ];
-    }
-  }
-
-  if (!selectedPlayer) {
-    const createNew =
-      confirm(
-        matches.length > 0
-          ? `確定要建立另一位新的「${playerName}」嗎？`
-          : `目前沒有「${playerName}」的資料，是否建立為訪客玩家？`
-      );
-
-    if (!createNew) {
-      return null;
-    }
-
-    selectedPlayer =
-      await createGuestPlayer(
-        playerName
-      );
-  }
-
-  return selectedPlayer;
 }
 
 /* =========================
