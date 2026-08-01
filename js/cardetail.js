@@ -4434,6 +4434,17 @@ async function renderCarDetail() {
   ...carDoc.data()
 };
 
+console.log("===== Upgrade Before =====");
+console.log(upgradedCar);
+
+const result =
+  window.JLYUpgradeController.upgradeCarData(upgradedCar);
+
+console.log("===== Upgrade Result =====");
+console.log(result);
+
+const upgradedCar = result.upgradedCar;
+
 const upgradeController =
   window.JLYUpgradeController;
 
