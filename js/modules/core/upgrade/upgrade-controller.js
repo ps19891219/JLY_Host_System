@@ -32,7 +32,8 @@ console.log(
 
   function upgradeCarData(car) {
     const sourceCar =
-      car && typeof car === "object"
+      car &&
+      typeof car === "object"
         ? cloneValue(car)
         : {};
 
@@ -68,18 +69,30 @@ console.log(
       );
 
     const upgradedSlots =
-  SeatUpgrade.upgradeSeats(
-    sourceCar.slots,
-    playerResult.players
-  );
+      SeatUpgrade.upgradeSeats(
+        sourceCar.slots,
+        playerResult.players
+      );
 
-  const seatChanged =
-  JSON.stringify(
-    Array.isArray(sourceCar.slots)
-      ? sourceCar.slots
-      : []
-  ) !==
-  JSON.stringify(upgradedSlots);
+    const originalSlots =
+      Array.isArray(sourceCar.slots)
+        ? sourceCar.slots
+        : [];
+
+    const seatChanged =
+      JSON.stringify(originalSlots) !==
+      JSON.stringify(upgradedSlots);
+
+    const playerChanged =
+      Boolean(
+        playerResult.changed
+      );
+
+    const changed =
+      Boolean(
+        playerChanged ||
+        seatChanged
+      );
 
     const nextCar = {
       ...sourceCar,
@@ -92,37 +105,21 @@ console.log(
     };
 
     console.log(
-  "🧪 Upgrade Controller 狀態：",
-  {
-    playerChanged:
-      Boolean(playerResult.changed),
-
-    seatChanged,
-
-    changed:
-      Boolean(
-        playerResult.changed ||
-        seatChanged
-      )
-  }
-);
+      "🧪 Upgrade Controller 狀態：",
+      {
+        playerChanged,
+        seatChanged,
+        changed
+      }
+    );
 
     return {
-  car: nextCar,
-
-  changed:
-    Boolean(
-      playerResult.changed ||
+      car: nextCar,
+      changed,
+      playerChanged,
       seatChanged
-    ),
-
-  playerChanged:
-    Boolean(
-      playerResult.changed
-    ),
-
-  seatChanged
-};
+    };
+  }
 
   window.JLYUpgradeController = {
     upgradeCarData
