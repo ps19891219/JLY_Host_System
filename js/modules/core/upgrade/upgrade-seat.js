@@ -99,17 +99,22 @@
   function upgradeSeats(
   slots,
   players = []
-)
-    return slots.map(function (
-  slot,
-  index
 ) {
-  return normalizeSeat(
+  if (!Array.isArray(slots)) {
+    return [];
+  }
+
+  return slots.map(function (
     slot,
-    index,
-    players
-  );
-});
+    index
+  ) {
+    return normalizeSeat(
+      slot,
+      index,
+      players
+    );
+  });
+}
 
   window.JLYUpgradeSeat = {
     normalizeSeat,
