@@ -2834,6 +2834,116 @@ function getDetailBox() {
   );
 }
 
+async function repairUpgradedCarData(
+  carId,
+  upgradeResult
+) {
+  const db = window.db;
+
+  if (!db || !carId) {
+    return {
+      repaired: false,
+      reason: "missing-context"
+    };
+  }
+
+  if (
+    !upgradeResult ||
+    upgradeResult.changed !== true ||
+    !upgradeResult.car
+  ) {
+    return {
+      repaired: false,
+      reason: "no-change"
+    };
+  }
+
+  const upgradedCar =
+    upgradeResult.car;
+
+  const updateData = {
+    updatedAt: nowTime()
+  };
+
+  if (
+    upgradeResult.playerChanged === true &&
+    Array.isArray(upgradedCar.players)
+  ) {
+    updateData.players =
+      upgradedCar.players;
+  }
+
+  if (
+    upgradeResult.seatChanged === true &&
+    Array.isArray(upgradedCar.slots)
+  ) {
+    updateData.slots =
+      upgradedCar.slots.map(
+        function (slot) {
+          return {
+            ...slot,
+
+            player:
+              slot && slot.player
+                ? {
+                    ...slot.player
+                  }
+                : null
+          };
+        }
+      );
+  }
+
+  const fields =
+    Object.keys(updateData);
+
+  if (fields.length <= 1) {
+    return {
+      repaired: false,
+      reason: "nothing-to-write"
+    };
+  }
+
+  try {
+    await db
+      .collection("cars")
+      .doc(carId)
+      .update(updateData);
+
+    console.log(
+      "✅ Auto Upgrade Repair 完成",
+      {
+        carId,
+
+        playerRepaired:
+          Boolean(
+            updateData.players
+          ),
+
+        seatRepaired:
+          Boolean(
+            updateData.slots
+          )
+      }
+    );
+
+    return {
+      repaired: true
+    };
+  } catch (error) {
+    console.error(
+      "Auto Upgrade Repair 失敗：",
+      error
+    );
+
+    return {
+      repaired: false,
+      reason: "write-failed",
+      error
+    };
+  }
+}
+
 async function saveSeatSlotsToFirestore(
   nextSlots,
   actionResult
@@ -4469,6 +4579,11 @@ const upgradeResult =
 
 const car =
   upgradeResult.car;
+
+  await repairUpgradedCarData(
+  carId,
+  upgradeResult
+);
 
   console.log(
   "🧪 Upgrade Result：",
