@@ -7,11 +7,11 @@ Module：
 Car Detail Page Render
 
 用途：
-1. 建立車團資訊卡
-2. 建立工作人員與席位外框
-3. 建立待確認申請區
-4. 建立歷史紀錄區
-5. 組合完整車團詳情頁 HTML
+1. 組合車團詳情頁
+2. 呼叫 Summary Render
+3. 呼叫 Seat Section Render
+4. 組合待確認申請區
+5. 呼叫 History Render
 
 規則：
 - 只產生 HTML
@@ -21,10 +21,11 @@ Car Detail Page Render
 - 不操作 Seat Engine
 
 依賴：
-- window.escapeHtml
 - window.buildCarNavigation
 - window.buildApplicationsHtml
-- window.JLYStaffController
+- window.JLYCarDetailSummaryRender
+- window.JLYCarDetailSeatSectionRender
+- window.JLYCarDetailHistoryRender
 
 ====================================================
 */
@@ -45,7 +46,9 @@ console.log(
       typeof window.escapeHtml ===
         "function"
     ) {
-      return window.escapeHtml(value);
+      return window.escapeHtml(
+        value
+      );
     }
 
     return String(
@@ -61,185 +64,74 @@ console.log(
   }
 
   // ------------------------------------------------------------
-  // 單張資訊卡
+  // Summary Render
   // ------------------------------------------------------------
 
-  function buildInfoItem(options) {
-    const config =
-      options || {};
+  function getSummaryRenderModule() {
+    const module =
+      window
+        .JLYCarDetailSummaryRender;
 
-    const cardClass = [
-      "car-info-item",
+    if (!module) {
+      throw new Error(
+        "Summary Render 模組尚未載入"
+      );
+    }
 
-      config.editable
-        ? "is-editable"
-        : "is-readonly",
-
-      config.wide
-        ? "is-wide"
-        : ""
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    const field =
-      config.field || "";
-
-    const fieldAttribute =
-      field
-        ? `data-car-field="${escapeValue(
-            field
-          )}"`
-        : "";
-
-    const clickAttribute =
-      config.editable && field
-        ? `onclick="openSingleFieldEditor('${escapeValue(
-            field
-          )}')"`
-        : "";
-
-    const keyboardAttributes =
-      config.editable && field
-        ? `
-          role="button"
-          tabindex="0"
-          onkeydown="
-            if (
-              event.key === 'Enter' ||
-              event.key === ' '
-            ) {
-              event.preventDefault();
-
-              openSingleFieldEditor(
-                '${escapeValue(field)}'
-              );
-            }
-          "
-        `
-        : "";
-
-    return `
-      <div
-        class="${cardClass}"
-        ${fieldAttribute}
-        ${clickAttribute}
-        ${keyboardAttributes}
-      >
-        <div class="car-info-item-top">
-          <span
-            class="car-info-icon"
-            aria-hidden="true"
-          >
-            ${config.icon || ""}
-          </span>
-
-          <span class="car-info-label">
-            ${escapeValue(
-              config.label || ""
-            )}
-          </span>
-
-          ${
-            config.editable
-              ? `
-                <span
-                  class="car-info-edit-hint"
-                  aria-hidden="true"
-                >
-                  ›
-                </span>
-              `
-              : ""
-          }
-        </div>
-
-        <div class="car-info-value">
-          ${escapeValue(
-            config.value || ""
-          )}
-        </div>
-      </div>
-    `;
+    return module;
   }
 
-  // ------------------------------------------------------------
-  // 車團資訊區
-  // ------------------------------------------------------------
-
-  function buildCarSummaryHtml(config) {
-  const summaryRender =
-    window.JLYCarDetailSummaryRender;
-
-  if (
-    summaryRender &&
-    typeof summaryRender.buildSummaryHtml ===
-      "function"
+  function buildCarSummaryHtml(
+    config
   ) {
-    return summaryRender.buildSummaryHtml(
-      config
-    );
+    return getSummaryRenderModule()
+      .buildSummaryHtml(
+        config
+      );
   }
-
-  console.warn(
-    "Car Detail Summary Render 尚未載入"
-  );
-
-  return `
-    <section class="car-info-section">
-      <div class="car-info-title-row">
-        <h1 class="car-info-title">
-          ${escapeValue(
-            config &&
-            config.scriptName
-              ? config.scriptName
-              : "未命名劇本"
-          )}
-        </h1>
-      </div>
-
-      <p class="empty-text">
-        車團資訊載入中……
-      </p>
-    </section>
-  `;
-}
-
-// ------------------------------------------------------------
-// 工作人員與席位區
-// 已搬至：
-// render/seat-section-render.js
-// ------------------------------------------------------------
-
-function getSeatSectionRenderModule() {
-  const module =
-    window.JLYCarDetailSeatSectionRender;
-
-  if (!module) {
-    throw new Error(
-      "Seat Section Render 模組尚未載入"
-    );
-  }
-
-  return module;
-}
-
-function buildStaffSectionHtml(car) {
-  return getSeatSectionRenderModule()
-    .buildStaffSectionHtml(
-      car
-    );
-}
-
-function buildSeatSectionHtml(car) {
-  return getSeatSectionRenderModule()
-    .buildSeatSectionHtml(
-      car
-    );
-}
 
   // ------------------------------------------------------------
-  // 申請區
+  // Seat Section Render
+  // ------------------------------------------------------------
+
+  function getSeatSectionRenderModule() {
+    const module =
+      window
+        .JLYCarDetailSeatSectionRender;
+
+    if (!module) {
+      throw new Error(
+        "Seat Section Render 模組尚未載入"
+      );
+    }
+
+    return module;
+  }
+
+  function buildStaffSectionHtml(
+    car
+  ) {
+    return getSeatSectionRenderModule()
+      .buildStaffSectionHtml(
+        car
+      );
+  }
+
+  function buildSeatSectionHtml(
+    car
+  ) {
+    return getSeatSectionRenderModule()
+      .buildSeatSectionHtml(
+        car
+      );
+  }
+
+  // ------------------------------------------------------------
+  // Application Render
+  //
+  // 目前申請卡內容仍由 cardetail.js 的
+  // window.buildApplicationsHtml() 提供。
+  // 下一階段再將申請動作與畫面一起搬至 Application 模組。
   // ------------------------------------------------------------
 
   function buildApplicationsSectionHtml(
@@ -248,12 +140,18 @@ function buildSeatSectionHtml(car) {
     const builder =
       window.buildApplicationsHtml;
 
+    const safeApplications =
+      Array.isArray(
+        applications
+      )
+        ? applications
+        : [];
+
     const content =
-      typeof builder === "function"
+      typeof builder ===
+        "function"
         ? builder(
-            Array.isArray(applications)
-              ? applications
-              : []
+            safeApplications
           )
         : `
           <p class="empty-text">
@@ -273,58 +171,56 @@ function buildSeatSectionHtml(car) {
   }
 
   // ------------------------------------------------------------
-  // 歷史紀錄區
+  // History Render
   // ------------------------------------------------------------
 
-  function buildHistorySectionHtml(history) {
-    const sourceHistory =
-      Array.isArray(history)
-        ? history
-        : [];
+  function getHistoryRenderModule() {
+    const module =
+      window
+        .JLYCarDetailHistoryRender;
 
-    return `
-      <div class="card">
-        <h3>
-          📜 車團紀錄
-        </h3>
+    if (!module) {
+      throw new Error(
+        "History Render 模組尚未載入"
+      );
+    }
 
-        ${
-          sourceHistory.length
-            ? sourceHistory
-                .slice()
-                .reverse()
-                .map(function (item) {
-                  return `
-                    <div class="history-item">
-                      <strong>
-                        ${escapeValue(
-                          item.type || ""
-                        )}
-                      </strong>
+    return module;
+  }
 
-                      <p>
-                        ${escapeValue(
-                          item.text || ""
-                        )}
-                      </p>
+  function buildHistorySectionHtml(
+    history
+  ) {
+    return getHistoryRenderModule()
+      .buildHistorySectionHtml(
+        history
+      );
+  }
 
-                      <small>
-                        ${escapeValue(
-                          item.time || ""
-                        )}
-                      </small>
-                    </div>
-                  `;
-                })
-                .join("")
-            : `
-              <p class="empty-text">
-                尚無紀錄
-              </p>
-            `
-        }
-      </div>
-    `;
+  // ------------------------------------------------------------
+  // Navigation
+  // ------------------------------------------------------------
+
+  function buildNavigationHtml(
+    scriptName
+  ) {
+    const builder =
+      window.buildCarNavigation;
+
+    if (
+      typeof builder !==
+        "function"
+    ) {
+      console.warn(
+        "Car Navigation 尚未載入"
+      );
+
+      return "";
+    }
+
+    return builder(
+      scriptName || ""
+    );
   }
 
   // ------------------------------------------------------------
@@ -332,49 +228,63 @@ function buildSeatSectionHtml(car) {
   // ------------------------------------------------------------
 
   function buildPageHtml(config) {
-    const navigationBuilder =
-      window.buildCarNavigation;
+    const safeConfig =
+      config &&
+      typeof config ===
+        "object"
+        ? config
+        : {};
 
-    const navigationHtml =
-      typeof navigationBuilder ===
-        "function"
-        ? navigationBuilder(
-            config &&
-            config.scriptName
-              ? config.scriptName
-              : ""
-          )
-        : "";
+    const car =
+      safeConfig.car &&
+      typeof safeConfig.car ===
+        "object"
+        ? safeConfig.car
+        : {};
+
+    const applications =
+      Array.isArray(
+        safeConfig.applications
+      )
+        ? safeConfig.applications
+        : [];
+
+    const history =
+      Array.isArray(
+        safeConfig.history
+      )
+        ? safeConfig.history
+        : [];
 
     return `
-      ${navigationHtml}
+      ${buildNavigationHtml(
+        safeConfig.scriptName
+      )}
 
-      ${buildCarSummaryHtml(config)}
+      ${buildCarSummaryHtml(
+        safeConfig
+      )}
 
       ${buildSeatSectionHtml(
-        config && config.car
-          ? config.car
-          : {}
+        car
       )}
 
       ${buildApplicationsSectionHtml(
-        config &&
-        config.applications
-          ? config.applications
-          : []
+        applications
       )}
 
       ${buildHistorySectionHtml(
-        config &&
-        config.history
-          ? config.history
-          : []
+        history
       )}
     `;
   }
 
+  // ------------------------------------------------------------
+  // 對外公開
+  // ------------------------------------------------------------
+
   window.JLYCarDetailPageRender = {
-    buildInfoItem,
+    escapeValue,
 
     buildCarSummaryHtml,
 
@@ -385,6 +295,8 @@ function buildSeatSectionHtml(car) {
     buildApplicationsSectionHtml,
 
     buildHistorySectionHtml,
+
+    buildNavigationHtml,
 
     buildPageHtml
   };
