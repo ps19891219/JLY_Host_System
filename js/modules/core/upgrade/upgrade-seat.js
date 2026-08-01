@@ -1,38 +1,115 @@
 (function () {
-  function normalizeSeat(slot, index) {
-    const seat = slot || {};
+  function normalizeSeat(
+  slot,
+  index,
+  players = []
+) {
+  const seat = slot || {};
 
-    return {
-      seatId: seat.seatId || `slot-${index + 1}`,
-      id: seat.id || seat.seatId || `slot-${index + 1}`,
+  const playerId =
+    seat.playerId || null;
 
-      type: seat.type || "flexible",
-      originalType:
-        seat.originalType || seat.type || "flexible",
+  let player =
+    seat.player || null;
 
-      order:
-        typeof seat.order === "number"
-          ? seat.order
-          : index + 1,
+  if (playerId) {
+    const matchedPlayer =
+      players.find(function (p) {
+        return (
+          p &&
+          p.playerId === playerId
+        );
+      });
 
-      playerId: seat.playerId || null,
+    if (matchedPlayer) {
+      player = matchedPlayer;
+    } else {
+      return {
+        seatId:
+          seat.seatId ||
+          `slot-${index + 1}`,
 
-      player: seat.player || null,
+        id:
+          seat.id ||
+          seat.seatId ||
+          `slot-${index + 1}`,
 
-      updatedAt:
-        seat.updatedAt || null
-    };
-  }
+        type:
+          seat.originalType ||
+          seat.type ||
+          "flexible",
 
-  function upgradeSeats(slots) {
-    if (!Array.isArray(slots)) {
-      return [];
+        originalType:
+          seat.originalType ||
+          seat.type ||
+          "flexible",
+
+        order:
+          typeof seat.order ===
+          "number"
+            ? seat.order
+            : index + 1,
+
+        playerId: null,
+
+        player: null,
+
+        updatedAt:
+          seat.updatedAt ||
+          null
+      };
     }
-
-    return slots.map(function (slot, index) {
-      return normalizeSeat(slot, index);
-    });
   }
+
+  return {
+    seatId:
+      seat.seatId ||
+      `slot-${index + 1}`,
+
+    id:
+      seat.id ||
+      seat.seatId ||
+      `slot-${index + 1}`,
+
+    type:
+      seat.type ||
+      "flexible",
+
+    originalType:
+      seat.originalType ||
+      seat.type ||
+      "flexible",
+
+    order:
+      typeof seat.order ===
+      "number"
+        ? seat.order
+        : index + 1,
+
+    playerId,
+
+    player,
+
+    updatedAt:
+      seat.updatedAt ||
+      null
+  };
+}
+
+  function upgradeSeats(
+  slots,
+  players = []
+)
+    return slots.map(function (
+  slot,
+  index
+) {
+  return normalizeSeat(
+    slot,
+    index,
+    players
+  );
+});
 
   window.JLYUpgradeSeat = {
     normalizeSeat,
