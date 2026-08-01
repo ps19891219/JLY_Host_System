@@ -205,73 +205,38 @@ console.log(
   `;
 }
 
-  // ------------------------------------------------------------
-  // 工作人員區
-  // ------------------------------------------------------------
+// ------------------------------------------------------------
+// 工作人員與席位區
+// 已搬至：
+// render/seat-section-render.js
+// ------------------------------------------------------------
 
-  function buildStaffSectionHtml(car) {
-    const controller =
-      window.JLYStaffController;
+function getSeatSectionRenderModule() {
+  const module =
+    window.JLYCarDetailSeatSectionRender;
 
-    if (
-      !controller ||
-      typeof controller.render !==
-        "function"
-    ) {
-      return "";
-    }
-
-    return controller.render(
-      car || {}
+  if (!module) {
+    throw new Error(
+      "Seat Section Render 模組尚未載入"
     );
   }
 
-  // ------------------------------------------------------------
-  // 席位區外框
-  // ------------------------------------------------------------
+  return module;
+}
 
-  function buildSeatSectionHtml(car) {
-    return `
-      <section class="seat-section">
-        <div class="seat-section-header">
-          <div class="seat-section-title-group">
-            <h3 class="seat-section-title">
-              席位安排
-            </h3>
+function buildStaffSectionHtml(car) {
+  return getSeatSectionRenderModule()
+    .buildStaffSectionHtml(
+      car
+    );
+}
 
-            <p class="seat-section-description">
-              點玩家可編輯本場資料，點空位可加入玩家。
-            </p>
-          </div>
-
-          <button
-            type="button"
-            class="seat-settings-button"
-            onclick="openSeatSettings()"
-          >
-            <span
-              class="seat-settings-icon"
-              aria-hidden="true"
-            >
-              ⚙️
-            </span>
-
-            <span>
-              席位設定
-            </span>
-          </button>
-        </div>
-
-        ${buildStaffSectionHtml(car)}
-
-        <div id="seatBoardMount">
-          <div class="seat-empty-state">
-            座位載入中……
-          </div>
-        </div>
-      </section>
-    `;
-  }
+function buildSeatSectionHtml(car) {
+  return getSeatSectionRenderModule()
+    .buildSeatSectionHtml(
+      car
+    );
+}
 
   // ------------------------------------------------------------
   // 申請區
