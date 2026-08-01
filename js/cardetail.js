@@ -4429,10 +4429,28 @@ async function renderCarDetail() {
       return;
     }
 
-    const car = {
-      id: carDoc.id,
-      ...carDoc.data()
-    };
+    const rawCar = {
+  id: carDoc.id,
+  ...carDoc.data()
+};
+
+const upgradeController =
+  window.JLYUpgradeController;
+
+const upgradeResult =
+  upgradeController &&
+  typeof upgradeController.upgradeCarData ===
+    "function"
+    ? upgradeController.upgradeCarData(
+        rawCar
+      )
+    : {
+        car: rawCar,
+        changed: false
+      };
+
+const car =
+  upgradeResult.car;
 
     const players =
       getPlayers(car);
