@@ -4,30 +4,24 @@
 JLY Host System
 
 Module：
-Seat Player Drag V1
+Seat Player Drag V2
 
 用途：
-1. 辨識席位中的玩家拖曳
+1. 辨識席位玩家拖曳
 2. 辨識等待安排玩家拖曳
-3. 辨識目標席位
-4. 辨識等待安排區
-5. 建立標準玩家移動請求
-6. 交給 Player Move Pipeline 評估
-
-目前階段：
-- 已完成 Drag Start
-- 已完成 Drop Target
-- 已接 Player Move Pipeline
-- 尚未由 Controller 正式儲存結果
+3. 辨識目標席位與等待安排區
+4. 呼叫 Player Move Pipeline
+5. 安全重綁事件，不重複累積 Listener
 
 規則：
 - 不直接修改 slots
 - 不直接修改 players
 - 不直接寫入 Firestore
-- 不影響原本 Seat Row Drag
+- 不影響整列 Seat Row Drag
 
 依賴：
 - window.JLYPlayerMovePipeline
+- window.JLYSeatRules
 
 ====================================================
 */
@@ -40,27 +34,18 @@ console.log(
   "use strict";
 
   const dragState = {
-    container:
-      null,
-
-    sourceType:
-      "",
-
-    playerId:
-      "",
-
-    sourceSlotId:
-      "",
-
-    sourceElement:
-      null,
-
-    targetElement:
-      null
+    container: null,
+    sourceType: "",
+    playerId: "",
+    sourceSlotId: "",
+    sourceElement: null,
+    targetElement: null
   };
 
+  let currentSettings = {};
+
   // ------------------------------------------------------------
-  // 模組
+  // 模組檢查
   // ------------------------------------------------------------
 
   function getPipeline() {
@@ -76,14 +61,28 @@ console.log(
     return pipeline;
   }
 
+  function getSeatRules() {
+    const rules =
+      window.JLYSeatRules;
+
+    if (!rules) {
+      throw new Error(
+        "Seat Rules 尚未載入"
+      );
+    }
+
+    return rules;
+  }
+
   function isReady() {
     return Boolean(
-      window.JLYPlayerMovePipeline
+      window.JLYPlayerMovePipeline &&
+      window.JLYSeatRules
     );
   }
 
   // ------------------------------------------------------------
-  // 基礎工具
+  // 基本工具
   // ------------------------------------------------------------
 
   function normalizeId(value) {
@@ -267,7 +266,6 @@ console.log(
 
     if (!playerId) {
       event.preventDefault();
-
       return;
     }
 
@@ -300,24 +298,21 @@ console.log(
     );
 
     if (event.dataTransfer) {
-      event.dataTransfer
-        .setData(
-          "application/x-jly-player",
-          JSON.stringify({
-            sourceType,
-            playerId,
-            sourceSlotId
-          })
-        );
+      event.dataTransfer.setData(
+        "application/x-jly-player",
+        JSON.stringify({
+          sourceType,
+          playerId,
+          sourceSlotId
+        })
+      );
 
-      event.dataTransfer
-        .setData(
-          "text/plain",
-          playerId
-        );
+      event.dataTransfer.setData(
+        "text/plain",
+        playerId
+      );
 
-      event.dataTransfer
-        .effectAllowed =
+      event.dataTransfer.effectAllowed =
         "move";
     }
 
@@ -355,7 +350,6 @@ console.log(
       !waitingArea
     ) {
       clearTargetState();
-
       return;
     }
 
@@ -372,7 +366,6 @@ console.log(
           dragState.sourceSlotId
       ) {
         clearTargetState();
-
         return;
       }
     }
@@ -380,8 +373,7 @@ console.log(
     event.preventDefault();
 
     if (event.dataTransfer) {
-      event.dataTransfer
-        .dropEffect =
+      event.dataTransfer.dropEffect =
         "move";
     }
 
@@ -395,9 +387,7 @@ console.log(
   // 建立移動請求
   // ------------------------------------------------------------
 
-  function createMoveRequest(
-    event
-  ) {
+  function createMoveRequest(event) {
     const targetSeat =
       getSeatRow(
         event.target
@@ -456,7 +446,7 @@ console.log(
   }
 
   // ------------------------------------------------------------
-  // 執行 Pipeline
+  // 呼叫 Pipeline
   // ------------------------------------------------------------
 
   function runPipeline(
@@ -465,6 +455,10 @@ console.log(
   ) {
     const pipeline =
       getPipeline();
+
+    const hostMode =
+      getSeatRules()
+        .MODES.HOST;
 
     if (
       request.sourceType ===
@@ -480,8 +474,7 @@ console.log(
           request.targetSlotId,
           {
             mode:
-              window.JLYSeatRules
-                .MODES.HOST
+              hostMode
           }
         );
     }
@@ -500,8 +493,7 @@ console.log(
           request.targetSlotId,
           {
             mode:
-              window.JLYSeatRules
-                .MODES.HOST
+              hostMode
           }
         );
     }
@@ -521,12 +513,8 @@ console.log(
     }
 
     return {
-      success:
-        false,
-
-      status:
-        "failed",
-
+      success: false,
+      status: "failed",
       reason:
         "目前不支援這種玩家移動"
     };
@@ -536,10 +524,7 @@ console.log(
   // Drop
   // ------------------------------------------------------------
 
-  function handleDrop(
-    event,
-    settings
-  ) {
+  function handleDrop(event) {
     if (!dragState.playerId) {
       return;
     }
@@ -564,7 +549,7 @@ console.log(
       result =
         runPipeline(
           request,
-          settings
+          currentSettings
         );
     } catch (error) {
       console.error(
@@ -573,10 +558,11 @@ console.log(
       );
 
       if (
-        typeof settings.onError ===
+        typeof currentSettings
+          .onError ===
           "function"
       ) {
-        settings.onError(
+        currentSettings.onError(
           error
         );
       }
@@ -594,11 +580,11 @@ console.log(
         "confirmation-required"
     ) {
       if (
-        typeof settings
+        typeof currentSettings
           .onConfirmationRequired ===
           "function"
       ) {
-        settings
+        currentSettings
           .onConfirmationRequired(
             result
           );
@@ -609,10 +595,11 @@ console.log(
 
     if (!result.success) {
       if (
-        typeof settings.onError ===
+        typeof currentSettings
+          .onError ===
           "function"
       ) {
-        settings.onError(
+        currentSettings.onError(
           new Error(
             result.reason ||
             "玩家移動失敗"
@@ -625,18 +612,62 @@ console.log(
     }
 
     if (
-      typeof settings.onMove ===
+      typeof currentSettings.onMove ===
         "function"
     ) {
-      settings.onMove(
+      currentSettings.onMove(
         result
       );
     }
   }
 
+  function handleDragEnd() {
+    clearDragState();
+  }
+
   // ------------------------------------------------------------
-  // 綁定
+  // 綁定／解除
   // ------------------------------------------------------------
+
+  function unbind(container) {
+    const target =
+      container ||
+      dragState.container;
+
+    if (!target) {
+      return;
+    }
+
+    target.removeEventListener(
+      "dragstart",
+      handleDragStart
+    );
+
+    target.removeEventListener(
+      "dragover",
+      handleDragOver
+    );
+
+    target.removeEventListener(
+      "drop",
+      handleDrop
+    );
+
+    target.removeEventListener(
+      "dragend",
+      handleDragEnd
+    );
+
+    clearDragState();
+
+    if (
+      dragState.container ===
+      target
+    ) {
+      dragState.container =
+        null;
+    }
+  }
 
   function bind(options) {
     const settings =
@@ -649,13 +680,11 @@ console.log(
       !container ||
       !(
         container instanceof
-        HTMLElement
+          HTMLElement
       )
     ) {
       return {
-        success:
-          false,
-
+        success: false,
         reason:
           "找不到 Player Drag 容器"
       };
@@ -663,16 +692,38 @@ console.log(
 
     if (!isReady()) {
       return {
-        success:
-          false,
-
+        success: false,
         reason:
           "Player Move Pipeline 尚未載入"
       };
     }
 
+    if (dragState.container) {
+      unbind(
+        dragState.container
+      );
+    }
+
     dragState.container =
       container;
+
+    currentSettings = {
+      ...settings,
+
+      players:
+        Array.isArray(
+          settings.players
+        )
+          ? settings.players
+          : [],
+
+      slots:
+        Array.isArray(
+          settings.slots
+        )
+          ? settings.slots
+          : []
+    };
 
     container.addEventListener(
       "dragstart",
@@ -686,17 +737,12 @@ console.log(
 
     container.addEventListener(
       "drop",
-      function (event) {
-        handleDrop(
-          event,
-          settings
-        );
-      }
+      handleDrop
     );
 
     container.addEventListener(
       "dragend",
-      clearDragState
+      handleDragEnd
     );
 
     console.log(
@@ -704,55 +750,17 @@ console.log(
     );
 
     return {
-      success:
-        true
+      success: true
     };
   }
 
-  // ------------------------------------------------------------
-  // 解除
-  // ------------------------------------------------------------
-
-  function unbind(container) {
-    if (!container) {
-      return;
-    }
-
-    container.removeEventListener(
-      "dragstart",
-      handleDragStart
-    );
-
-    container.removeEventListener(
-      "dragover",
-      handleDragOver
-    );
-
-    container.removeEventListener(
-      "dragend",
-      clearDragState
-    );
-
-    clearDragState();
-  }
-
-  // ------------------------------------------------------------
-  // 對外公開
-  // ------------------------------------------------------------
-
   window.JLYSeatPlayerDrag = {
     isReady,
-
     getSeatId,
-
     getPlayerId,
-
     createMoveRequest,
-
     runPipeline,
-
     bind,
-
     unbind,
 
     getState:
@@ -771,6 +779,6 @@ console.log(
   };
 
   console.log(
-    "✅ Seat Player Drag V1 已載入"
+    "✅ Seat Player Drag V2 已載入"
   );
 })();
