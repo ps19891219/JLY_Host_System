@@ -2834,126 +2834,6 @@ function getDetailBox() {
   );
 }
 
-async function repairUpgradedCarData(
-  carId,
-  upgradeResult
-) {
-  const db = window.db;
-
-  if (!db || !carId) {
-    return {
-      repaired: false,
-      reason: "missing-context"
-    };
-  }
-
-  if (
-    !upgradeResult ||
-    upgradeResult.changed !== true ||
-    !upgradeResult.car
-  ) {
-    return {
-      repaired: false,
-      reason: "no-change"
-    };
-  }
-
-  const upgradedCar =
-    upgradeResult.car;
-
-  const updateData = {
-    updatedAt: nowTime()
-  };
-
-  if (
-    upgradeResult.playerChanged === true &&
-    Array.isArray(upgradedCar.players)
-  ) {
-    updateData.players =
-      upgradedCar.players;
-  }
-
-  if (
-    upgradeResult.seatChanged === true &&
-    Array.isArray(upgradedCar.slots)
-  ) {
-    updateData.slots =
-      upgradedCar.slots.map(
-        function (slot) {
-          return {
-            ...slot,
-
-            player:
-              slot && slot.player
-                ? {
-                    ...slot.player
-                  }
-                : null
-          };
-        }
-      );
-  }
-
-  const fields =
-    Object.keys(updateData);
-
-  if (fields.length <= 1) {
-    return {
-      repaired: false,
-      reason: "nothing-to-write"
-    };
-  }
-
-  try {
-    await db
-      .collection("cars")
-      .doc(carId)
-      .update(updateData);
-
-      const verifyDoc = await db
-  .collection("cars")
-  .doc(carId)
-  .get();
-
-console.log(
-  "🔥 Firestore Verify",
-  verifyDoc.data().slots
-);
-
-    console.log(
-      "✅ Auto Upgrade Repair 完成",
-      {
-        carId,
-
-        playerRepaired:
-          Boolean(
-            updateData.players
-          ),
-
-        seatRepaired:
-          Boolean(
-            updateData.slots
-          )
-      }
-    );
-
-    return {
-      repaired: true
-    };
-  } catch (error) {
-    console.error(
-      "Auto Upgrade Repair 失敗：",
-      error
-    );
-
-    return {
-      repaired: false,
-      reason: "write-failed",
-      error
-    };
-  }
-}
-
 async function saveSeatSlotsToFirestore(
   nextSlots,
   actionResult
@@ -4569,39 +4449,76 @@ async function renderCarDetail() {
   ...carDoc.data()
 };
 
-console.log("🔥 Raw Slots", rawCar.slots);
-console.log("🔥 Raw Players", rawCar.players);
+const upgradeBridge =
+  window.JLYCarDetailUpgrade;
 
-const upgradeController =
-  window.JLYUpgradeController;
+let preparedCarResult;
 
-const upgradeResult =
-  upgradeController &&
-  typeof upgradeController.upgradeCarData ===
+if (
+  upgradeBridge &&
+  typeof upgradeBridge.prepareCar ===
     "function"
-    ? upgradeController.upgradeCarData(
-        rawCar
-      )
-    : {
-        car: rawCar,
-        changed: false
-      };
+) {
+  preparedCarResult =
+    await upgradeBridge.prepareCar(
+      carId,
+      rawCar
+    );
+} else {
+  console.warn(
+    "Car Detail Upgrade Bridge 尚未載入，暫時使用原始車團資料"
+  );
+
+  preparedCarResult = {
+    car: rawCar,
+
+    upgradeResult: {
+      car: rawCar,
+      changed: false,
+      playerChanged: false,
+      seatChanged: false
+    },
+
+    repairResult: {
+      repaired: false,
+      reason: "bridge-not-loaded"
+    }
+  };
+}
 
 const car =
-  upgradeResult.car;
+  preparedCarResult.car;
 
-  await repairUpgradedCarData(
-  carId,
-  upgradeResult
-);
+console.log(
+  "🧩 Car Detail Prepare Result：",
+  {
+    upgrade:
+      preparedCarResult.upgradeResult,
 
-  console.log(
-  "🧪 Upgrade Result：",
-  upgradeResult
+    repair:
+      preparedCarResult.repairResult
+  }
 );
 
     const players =
       getPlayers(car);
+
+    const car =
+  preparedCarResult.car;
+
+console.log(
+  "🧩 Car Detail Prepare Result：",
+  {
+    upgrade:
+      preparedCarResult.upgradeResult,
+
+    repair:
+      preparedCarResult.repairResult
+  }
+);
+
+const players =
+  getPlayers(car);
 
     const activePlayers =
       getActivePlayers(car);
