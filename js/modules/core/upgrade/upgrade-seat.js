@@ -7,44 +7,68 @@ console.log(
 // Seat Data Upgrade
 //
 // 負責：
-// 1. 將舊席位整理為 Seat Engine V2 格式
-// 2. 優先使用固定 playerId 對應玩家
-// 3. 舊 playerId 失效時，以姓名安全修復關聯
-// 4. 找不到任何對應玩家時，清除幽靈席位
+// 1. 將舊席位整理成 Seat Engine V2 格式
+// 2. 使用固定 playerId 重新連結玩家
+// 3. 舊 playerId 失效時，使用唯一姓名安全配對
+// 4. 清除已不存在於 car.players 的幽靈席位
+// 5. 保證重複執行後，資料結果保持一致
 //
 // 不負責：
 // - 修改 car.players
 // - 寫入 Firestore
 // - 畫面 Render
-// - 安排或拖曳玩家
+// - 更改座位 updatedAt
+// - 自動安排玩家
 // ============================================================
 
 (function () {
   "use strict";
 
+  // ------------------------------------------------------------
+  // 基礎文字整理
+  // ------------------------------------------------------------
+
   function normalizeText(value) {
     return String(
-      value || ""
+      value == null
+        ? ""
+        : value
     )
       .trim()
       .toLowerCase()
       .replace(/\s+/g, "");
   }
 
+  // ------------------------------------------------------------
+  // 取得玩家固定 ID
+  // ------------------------------------------------------------
+
   function getPlayerId(player) {
-    if (!player) {
+    if (
+      !player ||
+      typeof player !== "object"
+    ) {
       return "";
     }
 
     return String(
       player.playerId ||
       player.id ||
+      player.profileId ||
+      player.applicationId ||
       ""
     ).trim();
   }
 
+  // ------------------------------------------------------------
+  // 取得玩家可能使用的名字
+  // ------------------------------------------------------------
+
   function getPlayerNames(player) {
-    if (!player) {
+    if (
+      !player ||
+      typeof player !== "object"
+    ) {
       return [];
     }
 
@@ -63,19 +87,29 @@ console.log(
     );
   }
 
-  function getSeatPlayerNames(seat) {
-    if (!seat) {
+  // ------------------------------------------------------------
+  // 取得舊席位裡可能保存的玩家名字
+  // ------------------------------------------------------------
+
+  function getSeatPlayerNames(slot) {
+    if (
+      !slot ||
+      typeof slot !== "object"
+    ) {
       return [];
     }
 
     const seatPlayer =
-      seat.player || {};
+      slot.player &&
+      typeof slot.player === "object"
+        ? slot.player
+        : {};
 
     const names = [
-      seat.hostAlias,
-      seat.displayName,
-      seat.playerName,
-      seat.name,
+      slot.hostAlias,
+      slot.displayName,
+      slot.playerName,
+      slot.name,
 
       seatPlayer.hostAlias,
       seatPlayer.displayName,
@@ -91,27 +125,67 @@ console.log(
     );
   }
 
+  // ------------------------------------------------------------
+  // 取得席位目前記錄的玩家 ID
+  // ------------------------------------------------------------
+
+  function getSeatPlayerId(slot) {
+    if (
+      !slot ||
+      typeof slot !== "object"
+    ) {
+      return "";
+    }
+
+    const seatPlayer =
+      slot.player &&
+      typeof slot.player === "object"
+        ? slot.player
+        : {};
+
+    return String(
+      slot.playerId ||
+      seatPlayer.playerId ||
+      seatPlayer.id ||
+      ""
+    ).trim();
+  }
+
+  // ------------------------------------------------------------
+  // 依固定 ID 尋找玩家
+  // ------------------------------------------------------------
+
   function findPlayerById(
     players,
     playerId
   ) {
     const normalizedPlayerId =
-      String(playerId || "").trim();
+      String(
+        playerId || ""
+      ).trim();
 
     if (!normalizedPlayerId) {
       return null;
     }
 
     return (
-      players.find(function (player) {
-        return (
-          getPlayerId(player) ===
-          normalizedPlayerId
-        );
-      }) ||
+      players.find(
+        function (player) {
+          return (
+            getPlayerId(player) ===
+            normalizedPlayerId
+          );
+        }
+      ) ||
       null
     );
   }
+
+  // ------------------------------------------------------------
+  // 依姓名尋找唯一玩家
+  //
+  // 若有兩位以上同名玩家，系統不自行猜測。
+  // ------------------------------------------------------------
 
   function findUniquePlayerByName(
     players,
@@ -125,20 +199,21 @@ console.log(
     }
 
     const matches =
-      players.filter(function (player) {
-        const playerNames =
-          getPlayerNames(player);
+      players.filter(
+        function (player) {
+          const playerNames =
+            getPlayerNames(player);
 
-        return seatNames.some(
-          function (seatName) {
-            return playerNames.includes(
-              seatName
-            );
-          }
-        );
-      });
+          return seatNames.some(
+            function (seatName) {
+              return playerNames.includes(
+                seatName
+              );
+            }
+          );
+        }
+      );
 
-    // 同名玩家超過一位時，不自動猜測。
     if (matches.length !== 1) {
       return null;
     }
@@ -146,61 +221,109 @@ console.log(
     return matches[0];
   }
 
-  function buildBaseSeat(
-    seat,
+  // ------------------------------------------------------------
+  // 整理座位 ID
+  // ------------------------------------------------------------
+
+  function getSeatId(
+    slot,
     index
   ) {
-    const fallbackSeatId =
-      `slot-${index + 1}`;
+    return String(
+      slot.seatId ||
+      slot.slotId ||
+      slot.id ||
+      `slot-${index + 1}`
+    );
+  }
+
+  // ------------------------------------------------------------
+  // 整理原始座位分類
+  // ------------------------------------------------------------
+
+  function getOriginalType(slot) {
+    return (
+      slot.originalType ||
+      slot.type ||
+      "flexible"
+    );
+  }
+
+  // ------------------------------------------------------------
+  // 建立固定、可重複比較的基礎席位
+  //
+  // 不修改：
+  // - createdAt
+  // - updatedAt
+  // - roleName
+  // - 其他既有設定
+  // ------------------------------------------------------------
+
+  function buildBaseSeat(
+    slot,
+    index
+  ) {
+    const sourceSlot =
+      slot &&
+      typeof slot === "object"
+        ? slot
+        : {};
 
     const seatId =
-      seat.seatId ||
-      seat.slotId ||
-      seat.id ||
-      fallbackSeatId;
+      getSeatId(
+        sourceSlot,
+        index
+      );
 
     const originalType =
-      seat.originalType ||
-      seat.type ||
-      "flexible";
+      getOriginalType(
+        sourceSlot
+      );
 
     return {
-      ...seat,
-
-      seatId,
-      slotId:
-        seat.slotId ||
-        seatId,
+      ...sourceSlot,
 
       id:
-        seat.id ||
+        sourceSlot.id ||
         seatId,
 
-      type:
-        seat.type ||
-        originalType,
+      seatId:
+        sourceSlot.seatId ||
+        seatId,
+
+      slotId:
+        sourceSlot.slotId ||
+        seatId,
+
+      order:
+        Number.isFinite(
+          Number(sourceSlot.order)
+        )
+          ? Number(sourceSlot.order)
+          : index + 1,
 
       originalType,
 
-      order:
-        typeof seat.order ===
-        "number"
-          ? seat.order
-          : index + 1,
-
-      updatedAt:
-        seat.updatedAt ||
-        null
+      type:
+        sourceSlot.type ||
+        originalType
     };
   }
 
+  // ------------------------------------------------------------
+  // 建立空席位
+  //
+  // 若原本是 flexible，但曾因玩家改為 male／female，
+  // 玩家被移除後要恢復 flexible。
+  // ------------------------------------------------------------
+
   function buildEmptySeat(
-    seat,
+    slot,
     index
   ) {
     const baseSeat =
       buildBaseSeat(
-        seat,
+        slot,
         index
       );
 
@@ -217,37 +340,52 @@ console.log(
     };
   }
 
+  // ------------------------------------------------------------
+  // 建立已入席座位
+  //
+  // 不產生新的時間資料，
+  // 不修改席位 updatedAt。
+  // ------------------------------------------------------------
+
   function buildOccupiedSeat(
-    seat,
+    slot,
     index,
     matchedPlayer
   ) {
     const baseSeat =
       buildBaseSeat(
-        seat,
+        slot,
         index
+      );
+
+    const playerId =
+      getPlayerId(
+        matchedPlayer
       );
 
     return {
       ...baseSeat,
 
-      playerId:
-        getPlayerId(
-          matchedPlayer
-        ),
+      playerId,
 
       player: {
-        ...matchedPlayer
+        ...matchedPlayer,
+
+        playerId
       }
     };
   }
 
+  // ------------------------------------------------------------
+  // 整理單一席位
+  // ------------------------------------------------------------
+
   function normalizeSeat(
     slot,
     index,
-    players = []
+    players
   ) {
-    const seat =
+    const sourceSlot =
       slot &&
       typeof slot === "object"
         ? slot
@@ -259,25 +397,25 @@ console.log(
         : [];
 
     const seatPlayerId =
-      String(
-        seat.playerId ||
-        (
-          seat.player &&
-          (
-            seat.player.playerId ||
-            seat.player.id
-          )
-        ) ||
-        ""
-      ).trim();
+      getSeatPlayerId(
+        sourceSlot
+      );
 
-    // 空席位本來就不需要尋找玩家。
-    if (
-      !seatPlayerId &&
-      !seat.player
-    ) {
+    const seatNames =
+      getSeatPlayerNames(
+        sourceSlot
+      );
+
+    const hasPlayerData =
+      Boolean(
+        seatPlayerId ||
+        seatNames.length > 0
+      );
+
+    // 完全沒有玩家資料，本來就是空位。
+    if (!hasPlayerData) {
       return buildEmptySeat(
-        seat,
+        sourceSlot,
         index
       );
     }
@@ -291,18 +429,13 @@ console.log(
 
     if (matchedById) {
       return buildOccupiedSeat(
-        seat,
+        sourceSlot,
         index,
         matchedById
       );
     }
 
-    // 第二順位：舊資料中的姓名。
-    const seatNames =
-      getSeatPlayerNames(
-        seat
-      );
-
+    // 第二順位：舊資料姓名。
     const matchedByName =
       findUniquePlayerByName(
         sourcePlayers,
@@ -311,26 +444,36 @@ console.log(
 
     if (matchedByName) {
       return buildOccupiedSeat(
-        seat,
+        sourceSlot,
         index,
         matchedByName
       );
     }
 
-    // ID 與姓名皆無法確認，判定為幽靈席位。
+    // ID 與姓名都找不到，代表玩家已不在 car.players。
+    // 清除幽靈席位。
     return buildEmptySeat(
-      seat,
+      sourceSlot,
       index
     );
   }
 
+  // ------------------------------------------------------------
+  // 整理整份席位
+  // ------------------------------------------------------------
+
   function upgradeSeats(
     slots,
-    players = []
+    players
   ) {
     if (!Array.isArray(slots)) {
       return [];
     }
+
+    const sourcePlayers =
+      Array.isArray(players)
+        ? players
+        : [];
 
     return slots.map(
       function (
@@ -340,20 +483,34 @@ console.log(
         return normalizeSeat(
           slot,
           index,
-          players
+          sourcePlayers
         );
       }
     );
   }
 
+  // ------------------------------------------------------------
+  // 對外公開
+  // ------------------------------------------------------------
+
   window.JLYUpgradeSeat = {
     normalizeText,
+
     getPlayerId,
     getPlayerNames,
+
+    getSeatPlayerId,
     getSeatPlayerNames,
 
     findPlayerById,
     findUniquePlayerByName,
+
+    getSeatId,
+    getOriginalType,
+
+    buildBaseSeat,
+    buildEmptySeat,
+    buildOccupiedSeat,
 
     normalizeSeat,
     upgradeSeats
