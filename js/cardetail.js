@@ -47,6 +47,41 @@ function getActivePlayers(car) {
   );
 }
 
+function getCurrentSeatSlots(car) {
+  const currentCar =
+    window.currentCarData &&
+    typeof window.currentCarData ===
+      "object"
+      ? window.currentCarData
+      : null;
+
+  const sourceSlots =
+    currentCar &&
+    Array.isArray(currentCar.slots)
+      ? currentCar.slots
+      : (
+          car &&
+          Array.isArray(car.slots)
+            ? car.slots
+            : []
+        );
+
+  return sourceSlots.map(
+    function (slot) {
+      return {
+        ...slot,
+
+        player:
+          slot && slot.player
+            ? {
+                ...slot.player
+              }
+            : null
+      };
+    }
+  );
+}
+
 function getTotal(car) {
   const total = Number(
     car.totalPeople || 0
@@ -1835,19 +1870,7 @@ async function savePlayerEditor(updateDefault) {
         : [];
 
         const slots =
-  window.JLYSeatBoard &&
-  typeof window.JLYSeatBoard.getCarSlots ===
-    "function"
-    ? window.JLYSeatBoard.getCarSlots(car)
-    : (
-        Array.isArray(car.slots)
-          ? car.slots.map(function (seat) {
-              return {
-                ...seat
-              };
-            })
-          : []
-      );
+  getCurrentSeatSlots(car);
 
     let playerId = null;
     let historyType = "";
@@ -2589,15 +2612,7 @@ console.log(
         : [];
 
     const slots =
-  window.JLYSeatBoard &&
-  typeof window.JLYSeatBoard.getCarSlots ===
-    "function"
-    ? window.JLYSeatBoard.getCarSlots(car)
-    : (
-        Array.isArray(car.slots)
-          ? [...car.slots]
-          : []
-      );
+  getCurrentSeatSlots(car);
 
     const existingPlayer =
   players.find(function (
