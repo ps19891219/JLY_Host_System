@@ -91,6 +91,22 @@ console.log(
         upgradedSlots
     };
 
+    console.log(
+  "🧪 Upgrade Controller 狀態：",
+  {
+    playerChanged:
+      Boolean(playerResult.changed),
+
+    seatChanged,
+
+    changed:
+      Boolean(
+        playerResult.changed ||
+        seatChanged
+      )
+  }
+);
+
     return {
   car: nextCar,
 
