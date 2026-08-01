@@ -4500,9 +4500,6 @@ console.log(
   }
 );
 
-    const players =
-      getPlayers(car);
-
 const players =
   getPlayers(car);
 
