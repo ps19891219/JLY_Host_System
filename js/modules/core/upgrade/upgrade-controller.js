@@ -127,4 +127,8 @@ console.log(
   window.JLYUpgradeController = {
     upgradeCarData
   };
+
+  console.log(
+    "✅ Upgrade Controller 已載入"
+  );
 })();
