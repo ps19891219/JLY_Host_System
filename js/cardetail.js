@@ -749,6 +749,20 @@ async function approveApplication(index) {
       app.playerName ||
       "未命名玩家";
 
+    const stablePlayerId = String(
+  app.playerId ||
+  app.id ||
+  app.applicationId ||
+  (
+    "car-player-" +
+    Date.now() +
+    "-" +
+    Math.random()
+      .toString(36)
+      .slice(2, 10)
+  )
+);
+
     players.push({
   playerId:
     stablePlayerId,
