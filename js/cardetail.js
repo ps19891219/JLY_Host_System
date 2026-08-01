@@ -2251,10 +2251,17 @@ const cleanedSlots = currentSlots.map(function (slot) {
   }
 
   return {
-    ...slot,
-    player: null
-  };
-});
+  ...slot,
+
+  playerId: null,
+  player: null,
+
+  type:
+    slot.originalType ||
+    slot.type,
+
+  updatedAt: nowTime()
+};
 
     const history = Array.isArray(carData.history)
       ? [...carData.history]
