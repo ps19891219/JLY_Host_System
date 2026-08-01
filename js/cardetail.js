@@ -2250,22 +2250,23 @@ const cleanedSlots = currentSlots.map(function (slot) {
     return slot;
   }
 
-  return {
-  ...slot,
+    return {
+    ...slot,
 
-  playerId: null,
-  player: null,
+    playerId: null,
+    player: null,
 
-  type:
-    slot.originalType ||
-    slot.type,
+    type:
+      slot.originalType ||
+      slot.type,
 
-  updatedAt: nowTime()
-};
+    updatedAt: nowTime()
+  };
+});
 
-    const history = Array.isArray(carData.history)
-      ? [...carData.history]
-      : [];
+const history = Array.isArray(carData.history)
+  ? [...carData.history]
+  : [];
 
     history.push({
       type: "主揪移除玩家",
