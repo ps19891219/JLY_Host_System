@@ -4344,6 +4344,23 @@ function buildHistorySectionHtml(history) {
 // ============================================================
 
 function buildCarDetailPageHtml(config) {
+  const pageRender =
+    window.JLYCarDetailPageRender;
+
+  if (
+    pageRender &&
+    typeof pageRender.buildPageHtml ===
+      "function"
+  ) {
+    return pageRender.buildPageHtml(
+      config
+    );
+  }
+
+  console.warn(
+    "Car Detail Page Render 尚未載入，使用舊版頁面組合"
+  );
+
   return `
     ${buildCarNavigation(
       config.scriptName
@@ -4353,7 +4370,9 @@ function buildCarDetailPageHtml(config) {
       config
     )}
 
-    ${buildSeatSectionHtml(config.car)}
+    ${buildSeatSectionHtml(
+      config.car
+    )}
 
     ${buildApplicationsSectionHtml(
       config.applications
