@@ -1061,236 +1061,30 @@ async function savePlayerEditor(
 
 // ============================================================
 // 第 4B：將玩家移出車團
+// 已搬至：
+// modules/car/detail/player/player-actions.js
 // ============================================================
 
-async function removePlayerFromCar(playerIndex) {
-  const db = window.db;
-  const carId = getCarId();
+function getPlayerActionsModule() {
+  const module =
+    window.JLYCarDetailPlayerActions;
 
-  if (!db) {
-    alert("Firebase 尚未載入");
-    return;
-  }
-
-  if (!carId) {
-    alert("找不到車團 ID");
-    return;
-  }
-
-  const normalizedPlayerIndex = Number(playerIndex);
-
-  if (
-    !Number.isInteger(normalizedPlayerIndex) ||
-    normalizedPlayerIndex < 0
-  ) {
-    alert("找不到要移除的玩家");
-    return;
-  }
-
-  try {
-    const carRef = db
-      .collection("cars")
-      .doc(carId);
-
-    const carSnapshot = await carRef.get();
-
-    if (!carSnapshot.exists) {
-      alert("找不到這台車");
-      return;
-    }
-
-    const carData = carSnapshot.data() || {};
-
-    const players = Array.isArray(carData.players)
-      ? [...carData.players]
-      : [];
-
-    if (normalizedPlayerIndex >= players.length) {
-      alert("這位玩家已不存在，請重新整理頁面");
-      await renderCarDetail();
-      return;
-    }
-
-    const targetPlayer =
-      players[normalizedPlayerIndex] || {};
-
-    const playerDisplayName =
-      targetPlayer.hostAlias ||
-      targetPlayer.displayName ||
-      targetPlayer.playerName ||
-      "未命名玩家";
-
-      const targetPlayerId = String(
-  targetPlayer.playerId ||
-  targetPlayer.id ||
-  ""
-).trim();
-
-const targetPlayerNames = new Set(
-  [
-    targetPlayer.hostAlias,
-    targetPlayer.displayName,
-    targetPlayer.playerName,
-    targetPlayer.name
-  ]
-    .map(function (name) {
-      return String(name || "").trim();
-    })
-    .filter(Boolean)
-);
-
-    const confirmRemove = confirm(
-      `確定要將「${playerDisplayName}」移出這台車嗎？\n\n` +
-        "移除後會保留在車團紀錄時間軸中。"
-    );
-
-    if (!confirmRemove) {
-      return;
-    }
-
-    players.splice(normalizedPlayerIndex, 1);
-
-    const currentSlots = Array.isArray(carData.slots)
-  ? carData.slots
-  : [];
-
-  console.log("🧪 準備移除的玩家：", targetPlayer);
-
-console.log(
-  "🧪 移除前的席位資料：",
-  currentSlots.map(function (slot) {
-    return {
-      slotId: slot && (slot.id || slot.seatId),
-      type: slot && slot.type,
-      status: slot && slot.status,
-
-      player: slot && slot.player,
-
-      playerId: slot && slot.playerId,
-      playerName: slot && slot.playerName,
-      displayName: slot && slot.displayName,
-      hostAlias: slot && slot.hostAlias,
-
-      assignedPlayer:
-        slot && slot.assignedPlayer,
-
-      assignment:
-        slot && slot.assignment
-    };
-  })
-);
-
-const cleanedSlots = currentSlots.map(function (slot) {
-  if (!slot) {
-    return slot;
-  }
-
-  const seatedPlayer =
-    slot.player || {};
-
-  const seatedPlayerId = String(
-    slot.playerId ||
-    seatedPlayer.playerId ||
-    seatedPlayer.id ||
-    ""
-  ).trim();
-
-  const seatedPlayerName = String(
-    seatedPlayer.hostAlias ||
-    seatedPlayer.displayName ||
-    seatedPlayer.playerName ||
-    seatedPlayer.name ||
-    ""
-  ).trim();
-
-  const matchedById =
-    Boolean(targetPlayerId) &&
-    seatedPlayerId === targetPlayerId;
-
-  const matchedByName =
-    !targetPlayerId &&
-    Boolean(seatedPlayerName) &&
-    targetPlayerNames.has(seatedPlayerName);
-
-  if (!matchedById && !matchedByName) {
-    return slot;
-  }
-
-  return {
-    ...slot,
-
-    playerId: null,
-    player: null,
-
-    type:
-      slot.originalType ||
-      slot.type,
-
-    updatedAt: nowTime()
-  };
-});
-
-const history = Array.isArray(carData.history)
-  ? [...carData.history]
-  : [];
-
-    history.push({
-      type: "主揪移除玩家",
-      text: `主揪將玩家「${playerDisplayName}」移出車團`,
-      time: new Date().toISOString(),
-
-      playerId:
-        targetPlayer.playerId ||
-        targetPlayer.id ||
-        "",
-
-      playerName:
-        targetPlayer.playerName ||
-        targetPlayer.displayName ||
-        playerDisplayName,
-
-      hostAlias:
-        targetPlayer.hostAlias ||
-        "",
-
-      position:
-        targetPlayer.position ||
-        "不限",
-
-      isCrossPlay:
-        Boolean(targetPlayer.isCrossPlay),
-
-      source:
-        targetPlayer.source ||
-        ""
-    });
-
-    await carRef.update({
-      players: players,
-      slots: cleanedSlots,
-      history: history,
-      updatedAt:
-        firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    closePlayerEditor();
-
-    alert(`已將「${playerDisplayName}」移出車團`);
-
-    await renderCarDetail();
-  } catch (error) {
-    console.error(
-      "removePlayerFromCar 發生錯誤：",
-      error
-    );
-
-    alert(
-      "移除玩家失敗，請稍後再試。\n\n" +
-        (error && error.message
-          ? error.message
-          : "")
+  if (!module) {
+    throw new Error(
+      "Player Actions 模組尚未載入"
     );
   }
+
+  return module;
+}
+
+async function removePlayerFromCar(
+  playerIndex
+) {
+  return getPlayerActionsModule()
+    .removePlayerFromCar(
+      playerIndex
+    );
 }
 
 // ============================================================
