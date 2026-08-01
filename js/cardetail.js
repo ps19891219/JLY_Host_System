@@ -2153,6 +2153,25 @@ async function removePlayerFromCar(playerIndex) {
       targetPlayer.playerName ||
       "未命名玩家";
 
+      const targetPlayerId = String(
+  targetPlayer.playerId ||
+  targetPlayer.id ||
+  ""
+).trim();
+
+const targetPlayerNames = new Set(
+  [
+    targetPlayer.hostAlias,
+    targetPlayer.displayName,
+    targetPlayer.playerName,
+    targetPlayer.name
+  ]
+    .map(function (name) {
+      return String(name || "").trim();
+    })
+    .filter(Boolean)
+);
+
     const confirmRemove = confirm(
       `確定要將「${playerDisplayName}」移出這台車嗎？\n\n` +
         "移除後會保留在車團紀錄時間軸中。"
@@ -2163,6 +2182,53 @@ async function removePlayerFromCar(playerIndex) {
     }
 
     players.splice(normalizedPlayerIndex, 1);
+
+    const currentSlots = Array.isArray(carData.slots)
+  ? carData.slots
+  : [];
+
+const cleanedSlots = currentSlots.map(function (slot) {
+  const seatedPlayer =
+    slot && slot.player
+      ? slot.player
+      : null;
+
+  if (!seatedPlayer) {
+    return slot;
+  }
+
+  const seatedPlayerId = String(
+    seatedPlayer.playerId ||
+    seatedPlayer.id ||
+    ""
+  ).trim();
+
+  const seatedPlayerName = String(
+    seatedPlayer.hostAlias ||
+    seatedPlayer.displayName ||
+    seatedPlayer.playerName ||
+    seatedPlayer.name ||
+    ""
+  ).trim();
+
+  const matchedById =
+    Boolean(targetPlayerId) &&
+    seatedPlayerId === targetPlayerId;
+
+  const matchedByName =
+    !targetPlayerId &&
+    Boolean(seatedPlayerName) &&
+    targetPlayerNames.has(seatedPlayerName);
+
+  if (!matchedById && !matchedByName) {
+    return slot;
+  }
+
+  return {
+    ...slot,
+    player: null
+  };
+});
 
     const history = Array.isArray(carData.history)
       ? [...carData.history]
@@ -2201,6 +2267,7 @@ async function removePlayerFromCar(playerIndex) {
 
     await carRef.update({
       players: players,
+      slots: cleanedSlots,
       history: history,
       updatedAt:
         firebase.firestore.FieldValue.serverTimestamp()
