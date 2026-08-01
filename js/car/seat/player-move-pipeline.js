@@ -4,36 +4,38 @@
 JLY Host System
 
 Module：
-Player Move Pipeline V1
+Player Move Pipeline V2
 
 用途：
-1. 統一處理玩家移動需求
-2. 支援等待區 → 席位
+1. 統一處理玩家移動
+2. 支援等待安排 → 席位
 3. 支援席位 → 席位
-4. 支援席位 → 等待區
-5. 呼叫 Seat Rules 評估分類
-6. 產生主揪確認需要的資料
-7. 呼叫既有 Seat Actions 執行移動
+4. 支援席位 → 等待安排
+5. 呼叫 Seat Rules 評估位置規則
+6. 產生主揪確認資料
+7. 確認後交給 Player Move Executor 強制執行
+8. 支援保留或同步修改玩家 position
 
 規則：
 - 不直接操作 DOM
 - 不直接寫入 Firestore
-- 不直接顯示確認視窗
 - 不直接重新 Render
 - 自動安排維持嚴格分類
-- 主揪手動安排可以跨位，但要先確認
+- 主揪手動安排可以跨分類
+- 跨分類時提醒，不硬性阻擋
 
 依賴：
 - window.JLYSeatData
 - window.JLYSeatRules
 - window.JLYSeatActions
 - window.JLYSeatAssignment
+- window.JLYPlayerMoveExecutor
 
 ====================================================
 */
 
 console.log(
-  "player-move-pipeline.js 已成功載入！"
+  "player-move-pipeline.js V2 已成功載入！"
 );
 
 (function () {
@@ -70,7 +72,7 @@ console.log(
     });
 
   // ------------------------------------------------------------
-  // 模組取得
+  // 取得模組
   // ------------------------------------------------------------
 
   function getSeatData() {
@@ -111,6 +113,16 @@ console.log(
     }
 
     return window.JLYSeatAssignment;
+  }
+
+  function getMoveExecutor() {
+    if (!window.JLYPlayerMoveExecutor) {
+      throw new Error(
+        "Player Move Executor 尚未載入"
+      );
+    }
+
+    return window.JLYPlayerMoveExecutor;
   }
 
   // ------------------------------------------------------------
@@ -266,7 +278,7 @@ console.log(
   }
 
   // ------------------------------------------------------------
-  // 標準 Pipeline 結果
+  // 建立標準 Pipeline 結果
   // ------------------------------------------------------------
 
   function createPipelineResult(
@@ -377,7 +389,10 @@ console.log(
           false,
 
         players:
-          nextPlayers
+          nextPlayers,
+
+        reason:
+          "找不到要修改位置的玩家"
       };
     }
 
@@ -488,7 +503,7 @@ console.log(
   }
 
   // ------------------------------------------------------------
-  // 評估單一玩家移入席位
+  // 評估玩家移入席位
   // ------------------------------------------------------------
 
   function evaluatePlayerToSeat(
@@ -502,6 +517,12 @@ console.log(
       mode:
         getSeatRules()
           .MODES.HOST,
+
+      sourceType:
+        SOURCE_TYPES.WAITING,
+
+      sourceSlotId:
+        "",
 
       ...(
         options || {}
@@ -526,6 +547,20 @@ console.log(
 
           playerId:
             normalizeId(playerId),
+
+          sourceType:
+            settings.sourceType,
+
+          sourceSlotId:
+            settings.sourceSlotId,
+
+          targetType:
+            TARGET_TYPES.SEAT,
+
+          targetSlotId:
+            normalizeId(
+              targetSlotId
+            ),
 
           slots:
             cloneValue(slots),
@@ -558,8 +593,19 @@ console.log(
           playerName:
             getPlayerName(player),
 
+          sourceType:
+            settings.sourceType,
+
+          sourceSlotId:
+            settings.sourceSlotId,
+
+          targetType:
+            TARGET_TYPES.SEAT,
+
           targetSlotId:
-            normalizeId(targetSlotId),
+            normalizeId(
+              targetSlotId
+            ),
 
           slots:
             cloneValue(slots),
@@ -598,8 +644,19 @@ console.log(
           playerName:
             getPlayerName(player),
 
+          sourceType:
+            settings.sourceType,
+
+          sourceSlotId:
+            settings.sourceSlotId,
+
+          targetType:
+            TARGET_TYPES.SEAT,
+
           targetSlotId:
-            normalizeId(targetSlotId),
+            normalizeId(
+              targetSlotId
+            ),
 
           slots:
             cloneValue(slots),
@@ -624,8 +681,7 @@ console.log(
             "player-to-seat",
 
           sourceType:
-            settings.sourceType ||
-            SOURCE_TYPES.WAITING,
+            settings.sourceType,
 
           targetType:
             TARGET_TYPES.SEAT,
@@ -637,11 +693,14 @@ console.log(
             getPlayerName(player),
 
           sourceSlotId:
-            settings.sourceSlotId ||
-            "",
+            normalizeId(
+              settings.sourceSlotId
+            ),
 
           targetSlotId:
-            normalizeId(targetSlotId),
+            normalizeId(
+              targetSlotId
+            ),
 
           requiresConfirmation:
             true,
@@ -672,8 +731,7 @@ console.log(
           "player-to-seat",
 
         sourceType:
-          settings.sourceType ||
-          SOURCE_TYPES.WAITING,
+          settings.sourceType,
 
         targetType:
           TARGET_TYPES.SEAT,
@@ -685,11 +743,14 @@ console.log(
           getPlayerName(player),
 
         sourceSlotId:
-          settings.sourceSlotId ||
-          "",
+          normalizeId(
+            settings.sourceSlotId
+          ),
 
         targetSlotId:
-          normalizeId(targetSlotId),
+          normalizeId(
+            targetSlotId
+          ),
 
         slots:
           cloneValue(slots),
@@ -701,7 +762,7 @@ console.log(
   }
 
   // ------------------------------------------------------------
-  // 等待區 → 席位
+  // 等待安排 → 席位
   // ------------------------------------------------------------
 
   function moveWaitingPlayerToSeat(
@@ -771,8 +832,13 @@ console.log(
           playerId:
             normalizeId(playerId),
 
+          playerName:
+            evaluation.playerName,
+
           targetSlotId:
-            normalizeId(targetSlotId),
+            normalizeId(
+              targetSlotId
+            ),
 
           slots:
             actionResult.slots,
@@ -807,7 +873,9 @@ console.log(
           evaluation.playerName,
 
         targetSlotId:
-          normalizeId(targetSlotId),
+          normalizeId(
+            targetSlotId
+          ),
 
         slots:
           actionResult.slots,
@@ -822,9 +890,6 @@ console.log(
 
   // ------------------------------------------------------------
   // 席位 → 席位
-  //
-  // 主揪模式下，先由 Rule Engine 評估。
-  // 真正交換仍交給 Seat Actions。
   // ------------------------------------------------------------
 
   function moveSeatedPlayer(
@@ -844,17 +909,30 @@ console.log(
       return createPipelineResult(
         false,
         {
+          status:
+            "failed",
+
           reason:
             "找不到來源座位",
 
           action:
             "seat-to-seat",
 
+          sourceType:
+            SOURCE_TYPES.SEAT,
+
+          targetType:
+            TARGET_TYPES.SEAT,
+
           sourceSlotId:
-            normalizeId(sourceSlotId),
+            normalizeId(
+              sourceSlotId
+            ),
 
           targetSlotId:
-            normalizeId(targetSlotId),
+            normalizeId(
+              targetSlotId
+            ),
 
           slots:
             cloneValue(slots),
@@ -874,17 +952,30 @@ console.log(
       return createPipelineResult(
         false,
         {
+          status:
+            "failed",
+
           reason:
             "來源座位沒有玩家",
 
           action:
             "seat-to-seat",
 
+          sourceType:
+            SOURCE_TYPES.SEAT,
+
+          targetType:
+            TARGET_TYPES.SEAT,
+
           sourceSlotId:
-            normalizeId(sourceSlotId),
+            normalizeId(
+              sourceSlotId
+            ),
 
           targetSlotId:
-            normalizeId(targetSlotId),
+            normalizeId(
+              targetSlotId
+            ),
 
           slots:
             cloneValue(slots),
@@ -968,6 +1059,9 @@ console.log(
 
           playerId,
 
+          playerName:
+            evaluation.playerName,
+
           slots:
             actionResult.slots,
 
@@ -1021,7 +1115,7 @@ console.log(
   }
 
   // ------------------------------------------------------------
-  // 席位 → 等待區
+  // 席位 → 等待安排
   // ------------------------------------------------------------
 
   function movePlayerToWaiting(
@@ -1101,12 +1195,16 @@ console.log(
   }
 
   // ------------------------------------------------------------
-  // 確認後繼續執行
+  // 主揪確認後繼續執行
   //
-  // decision：
-  // keep   保留玩家原位置
-  // update 同步修改玩家 position
-  // cancel 取消移動
+  // keep：
+  // 保留玩家原位置設定。
+  //
+  // update：
+  // 將玩家 position 改成目標席位分類。
+  //
+  // cancel：
+  // 取消移動。
   // ------------------------------------------------------------
 
   function continueAfterConfirmation(
@@ -1121,14 +1219,22 @@ console.log(
       return createPipelineResult(
         false,
         {
+          status:
+            "failed",
+
           reason:
             "找不到等待確認的移動資料"
         }
       );
     }
 
+    const normalizedDecision =
+      String(
+        decision || ""
+      ).trim();
+
     if (
-      decision ===
+      normalizedDecision ===
       POSITION_DECISIONS.CANCEL
     ) {
       return createPipelineResult(
@@ -1180,23 +1286,71 @@ console.log(
       );
 
     if (
-      decision ===
+      normalizedDecision ===
       POSITION_DECISIONS.UPDATE
     ) {
+      const confirmation =
+        pendingResult.confirmation ||
+        {};
+
       const updateResult =
         updatePlayerPosition(
           nextPlayers,
           pendingResult.playerId,
-          pendingResult
-            .confirmation
-            .targetPosition
+          confirmation.targetPosition
         );
+
+      if (!updateResult.changed) {
+        return createPipelineResult(
+          false,
+          {
+            status:
+              "failed",
+
+            reason:
+              updateResult.reason ||
+              "無法修改玩家位置",
+
+            action:
+              pendingResult.action,
+
+            sourceType:
+              pendingResult.sourceType,
+
+            targetType:
+              pendingResult.targetType,
+
+            sourceSlotId:
+              pendingResult.sourceSlotId,
+
+            targetSlotId:
+              pendingResult.targetSlotId,
+
+            playerId:
+              pendingResult.playerId,
+
+            playerName:
+              pendingResult.playerName,
+
+            slots:
+              cloneValue(
+                pendingResult.slots
+              ),
+
+            players:
+              nextPlayers
+          }
+        );
+      }
 
       nextPlayers =
         updateResult.players;
     }
 
-    let actionResult;
+    const executor =
+      getMoveExecutor();
+
+    let executeResult;
 
     if (
       pendingResult.sourceType ===
@@ -1204,35 +1358,47 @@ console.log(
       pendingResult.targetType ===
         TARGET_TYPES.SEAT
     ) {
-      actionResult =
-        getSeatActions()
-          .moveWaitingPlayerToSlot(
-            nextPlayers,
-            pendingResult.slots,
-            pendingResult.playerId,
-            pendingResult.targetSlotId
-          );
+      executeResult =
+        executor.assignWaitingPlayer(
+          nextPlayers,
+          pendingResult.slots,
+          pendingResult.playerId,
+          pendingResult.targetSlotId
+        );
     } else if (
       pendingResult.sourceType ===
         SOURCE_TYPES.SEAT &&
       pendingResult.targetType ===
         TARGET_TYPES.SEAT
     ) {
-      /*
-       * Seat Assignment 原本是嚴格模式。
-       *
-       * 下一階段會替 Seat Actions 增加
-       * hostOverride 參數，讓主揪確認後
-       * 可以正式跨分類執行。
-       */
+      executeResult =
+        executor.movePlayerBetweenSeats(
+          nextPlayers,
+          pendingResult.slots,
+          pendingResult.sourceSlotId,
+          pendingResult.targetSlotId
+        );
+    } else if (
+      pendingResult.sourceType ===
+        SOURCE_TYPES.SEAT &&
+      pendingResult.targetType ===
+        TARGET_TYPES.WAITING
+    ) {
+      executeResult =
+        executor.movePlayerToWaiting(
+          nextPlayers,
+          pendingResult.slots,
+          pendingResult.playerId
+        );
+    } else {
       return createPipelineResult(
         false,
         {
           status:
-            "host-override-required",
+            "failed",
 
           reason:
-            "主揪跨分類移動尚待接入 Seat Actions",
+            "目前不支援這種玩家移動",
 
           action:
             pendingResult.action,
@@ -1264,17 +1430,12 @@ console.log(
             nextPlayers
         }
       );
-    } else {
-      return createPipelineResult(
-        false,
-        {
-          reason:
-            "目前不支援這種玩家移動"
-        }
-      );
     }
 
-    if (!actionResult.success) {
+    if (
+      !executeResult ||
+      !executeResult.success
+    ) {
       return createPipelineResult(
         false,
         {
@@ -1282,7 +1443,10 @@ console.log(
             "failed",
 
           reason:
-            actionResult.reason ||
+            (
+              executeResult &&
+              executeResult.reason
+            ) ||
             "確認後仍無法完成移動",
 
           action:
@@ -1307,12 +1471,26 @@ console.log(
             pendingResult.playerName,
 
           slots:
-            actionResult.slots,
+            executeResult &&
+            Array.isArray(
+              executeResult.slots
+            )
+              ? executeResult.slots
+              : cloneValue(
+                  pendingResult.slots
+                ),
 
           players:
-            nextPlayers,
+            executeResult &&
+            Array.isArray(
+              executeResult.players
+            )
+              ? executeResult.players
+              : nextPlayers,
 
-          actionResult
+          actionResult:
+            executeResult ||
+            null
         }
       );
     }
@@ -1324,6 +1502,7 @@ console.log(
           "completed",
 
         action:
+          executeResult.action ||
           pendingResult.action,
 
         sourceType:
@@ -1345,12 +1524,13 @@ console.log(
           pendingResult.playerName,
 
         slots:
-          actionResult.slots,
+          executeResult.slots,
 
         players:
-          nextPlayers,
+          executeResult.players,
 
-        actionResult
+        actionResult:
+          executeResult
       }
     );
   }
@@ -1394,6 +1574,6 @@ console.log(
   };
 
   console.log(
-    "✅ Player Move Pipeline V1 已載入"
+    "✅ Player Move Pipeline V2 已載入"
   );
 })();
