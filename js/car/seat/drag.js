@@ -236,55 +236,80 @@ console.log(
   // ------------------------------------------------------------
 
   function handleDragStart(event) {
-    const row =
-      getSeatRow(
-        event.target
-      );
+  // ----------------------------------------------------------
+  // 玩家拖曳交給 player-drag.js
+  // 等待安排玩家也交給 player-drag.js
+  // 不可在這裡 preventDefault，否則玩家拖曳會被取消
+  // ----------------------------------------------------------
 
-    if (!row) {
-      return;
-    }
-
-    const slotId =
-      getSlotId(row);
-
-    if (
-      !slotId ||
-      slotId !==
-        dragState.armedSlotId
-    ) {
-      event.preventDefault();
-
-      row.setAttribute(
-        "draggable",
-        "false"
-      );
-
-      return;
-    }
-
-    dragState.sourceSlotId =
-      slotId;
-
-    dragState.sourceRow =
-      row;
-
-    row.classList.add(
-      "is-dragging"
+  const playerDragElement =
+    event.target.closest(
+      '[data-seat-player-drag="true"]'
     );
 
-    if (event.dataTransfer) {
-      event.dataTransfer
-        .setData(
-          "text/plain",
-          slotId
-        );
+  const waitingPlayerElement =
+    event.target.closest(
+      '[data-waiting-player="true"]'
+    );
 
-      event.dataTransfer
-        .effectAllowed =
-          "move";
-    }
+  if (
+    playerDragElement ||
+    waitingPlayerElement
+  ) {
+    return;
   }
+
+  // ----------------------------------------------------------
+  // 以下才是原本的整列 Seat Drag
+  // ----------------------------------------------------------
+
+  const row =
+    getSeatRow(
+      event.target
+    );
+
+  if (!row) {
+    return;
+  }
+
+  const slotId =
+    getSlotId(row);
+
+  if (
+    !slotId ||
+    slotId !==
+      dragState.armedSlotId
+  ) {
+    event.preventDefault();
+
+    row.setAttribute(
+      "draggable",
+      "false"
+    );
+
+    return;
+  }
+
+  dragState.sourceSlotId =
+    slotId;
+
+  dragState.sourceRow =
+    row;
+
+  row.classList.add(
+    "is-dragging"
+  );
+
+  if (event.dataTransfer) {
+    event.dataTransfer.setData(
+      "text/plain",
+      slotId
+    );
+
+    event.dataTransfer.effectAllowed =
+      "move";
+  }
+}
 
   // ------------------------------------------------------------
   // Drag Over
