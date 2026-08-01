@@ -2187,6 +2187,32 @@ const targetPlayerNames = new Set(
   ? carData.slots
   : [];
 
+  console.log("🧪 準備移除的玩家：", targetPlayer);
+
+console.log(
+  "🧪 移除前的席位資料：",
+  currentSlots.map(function (slot) {
+    return {
+      slotId: slot && (slot.id || slot.seatId),
+      type: slot && slot.type,
+      status: slot && slot.status,
+
+      player: slot && slot.player,
+
+      playerId: slot && slot.playerId,
+      playerName: slot && slot.playerName,
+      displayName: slot && slot.displayName,
+      hostAlias: slot && slot.hostAlias,
+
+      assignedPlayer:
+        slot && slot.assignedPlayer,
+
+      assignment:
+        slot && slot.assignment
+    };
+  })
+);
+
 const cleanedSlots = currentSlots.map(function (slot) {
   const seatedPlayer =
     slot && slot.player
