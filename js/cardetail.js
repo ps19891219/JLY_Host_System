@@ -750,8 +750,8 @@ async function approveApplication(index) {
       "未命名玩家";
 
     players.push({
-      playerId:
-        app.playerId || null,
+  playerId:
+    stablePlayerId,
 
       playerName:
         defaultName,
@@ -3116,6 +3116,20 @@ function buildApplicationsHtml(
         app.name ||
         app.playerName ||
         "未命名玩家";
+
+        const stablePlayerId = String(
+  app.playerId ||
+  app.id ||
+  app.applicationId ||
+  (
+    "car-player-" +
+    Date.now() +
+    "-" +
+    Math.random()
+      .toString(36)
+      .slice(2, 10)
+  )
+);
 
       const position =
         app.role ||
