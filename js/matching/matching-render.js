@@ -154,74 +154,47 @@
     `;
   }
 
-  function buildCandidateConflicts(
-  slot
-) {
-  const conflicts =
-    Array.isArray(
-      slot.conflicts
-    )
-      ? slot.conflicts
-      : [];
+  function buildCandidateConflicts(slot) {
+    const conflicts = Array.isArray(slot.conflicts)
+        ? slot.conflicts
+        : [];
 
-  if (
-    conflicts.length === 0
-  ) {
-    return "";
-  }
+    if (conflicts.length === 0) {
+        return "";
+    }
 
-  return `
-    <div class="matching-candidate-conflicts">
-      ${
-        conflicts
-          .map(function (
-            conflict
-          ) {
-            const title =
-              conflict.title ||
-              "未命名行程";
+    return `
+        <div class="matching-candidate-conflicts">
+            ${conflicts
+                .map(function (conflict) {
 
-            const time =
-              conflict.time ||
-              "";
+                    const title =
+                        conflict.title ||
+                        "未命名行程";
 
-            const conflictId =
-              conflict.carId ||
-              conflict.id ||
-              "";
+                    const time =
+                        conflict.time ||
+                        "";
 
-            return `
-              <div
-                class="matching-conflict-note"
-                onclick="openConflictCar('${escapeHtml(
-                  conflictId
-                )}')"
-                title="查看這台車"
-              >
-                <div class="matching-conflict-title">
-                  🚗 ${escapeHtml(
-                    title
-                  )}
-                </div>
+                    const conflictId =
+                        conflict.carId ||
+                        conflict.id ||
+                        "";
 
-                ${
-                  time
-                    ? `
-                      <div class="matching-conflict-time">
-                        🕒 ${escapeHtml(
-                          time
-                        )}
-                      </div>
-                    `
-                    : ""
-                }
-              </div>
-            `;
-          })
-          .join("")
-      }
-    </div>
-  `;
+                    return `
+                        <div
+                            class="matching-conflict-note"
+                            onclick="openConflictCar('${escapeHtml(conflictId)}')"
+                            title="查看車團"
+                        >
+                            🚗 ${escapeHtml(time)}
+                            ${title ? "　" + escapeHtml(title) : ""}
+                        </div>
+                    `;
+                })
+                .join("")}
+        </div>
+    `;
 }
 
   function buildCandidateRow(
