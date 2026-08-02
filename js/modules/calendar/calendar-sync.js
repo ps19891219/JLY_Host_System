@@ -1,6 +1,11 @@
 (function () {
   "use strict";
 
+  function nowIso() {
+    return new Date()
+      .toISOString();
+  }
+
   async function syncCreatedCar(
     config
   ) {
@@ -16,14 +21,9 @@
         .updateCarCalendar(
           carId,
           {
-            syncEnabled:
-              true,
-
-            syncStatus:
-              "syncing",
-
-            lastError:
-              ""
+            syncEnabled: true,
+            syncStatus: "syncing",
+            lastError: ""
           }
         );
 
@@ -32,19 +32,13 @@
           .JLYCalendarProviderGoogle
           .createEvent({
             carId,
-
             car,
 
             carUrl:
               config.carUrl,
 
             durationMinutes:
-              config
-                .durationMinutes,
-
-            titleTemplate:
-              config
-                .titleTemplate,
+              config.durationMinutes,
 
             calendarId:
               config.calendarId
@@ -56,25 +50,21 @@
           .updateCarCalendar(
             carId,
             {
-              syncEnabled:
-                true,
+              syncEnabled: true,
 
               calendarId:
                 config.calendarId ||
                 "primary",
 
               eventId:
-                event.id ||
-                "",
+                event.id || "",
 
               eventUrl:
-                event.htmlLink ||
-                "",
+                event.htmlLink || "",
 
               eventDurationMinutes:
                 Number(
-                  config
-                    .durationMinutes ||
+                  config.durationMinutes ||
                   60
                 ),
 
@@ -82,19 +72,15 @@
                 "synced",
 
               lastSyncAt:
-                new Date()
-                  .toISOString(),
+                nowIso(),
 
-              lastError:
-                ""
+              lastError: ""
             }
           );
 
       return {
         ok: true,
-
         event,
-
         calendar
       };
     } catch (error) {
@@ -109,15 +95,9 @@
           .updateCarCalendar(
             carId,
             {
-              syncEnabled:
-                true,
-
-              syncStatus:
-                "failed",
-
-              lastSyncAt:
-                new Date()
-                  .toISOString(),
+              syncEnabled: true,
+              syncStatus: "failed",
+              lastSyncAt: nowIso(),
 
               lastError:
                 error.message ||
@@ -126,20 +106,198 @@
           );
       } catch (writeError) {
         console.error(
-          "寫回 Calendar 同步錯誤失敗：",
+          "寫回同步錯誤失敗：",
           writeError
         );
       }
 
       return {
         ok: false,
+        error
+      };
+    }
+  }
 
+  async function syncUpdatedCar(
+    config
+  ) {
+    const carId =
+      config.carId;
+
+    const car =
+      config.car || {};
+
+    const calendar =
+      car.calendar || {};
+
+    if (
+      calendar.syncEnabled !== true ||
+      !calendar.eventId
+    ) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: "not_synced"
+      };
+    }
+
+    try {
+      await window
+        .JLYCalendarData
+        .updateCarCalendar(
+          carId,
+          {
+            syncStatus: "syncing",
+            lastError: ""
+          }
+        );
+
+      const event =
+        await window
+          .JLYCalendarProviderGoogle
+          .updateEvent({
+            carId,
+            car,
+
+            eventId:
+              calendar.eventId,
+
+            calendarId:
+              calendar.calendarId ||
+              "primary",
+
+            durationMinutes:
+              calendar
+                .eventDurationMinutes ||
+              60,
+
+            carUrl:
+              config.carUrl
+          });
+
+      const nextCalendar =
+        await window
+          .JLYCalendarData
+          .updateCarCalendar(
+            carId,
+            {
+              syncEnabled: true,
+
+              eventId:
+                event.id ||
+                calendar.eventId,
+
+              eventUrl:
+                event.htmlLink ||
+                calendar.eventUrl ||
+                "",
+
+              syncStatus:
+                "synced",
+
+              lastSyncAt:
+                nowIso(),
+
+              lastError: ""
+            }
+          );
+
+      return {
+        ok: true,
+        skipped: false,
+        event,
+        calendar:
+          nextCalendar
+      };
+    } catch (error) {
+      console.error(
+        "Google Calendar 更新失敗：",
+        error
+      );
+
+      try {
+        await window
+          .JLYCalendarData
+          .updateCarCalendar(
+            carId,
+            {
+              syncStatus: "failed",
+              lastSyncAt: nowIso(),
+
+              lastError:
+                error.message ||
+                "未知錯誤"
+            }
+          );
+      } catch (writeError) {
+        console.error(
+          "寫回更新錯誤失敗：",
+          writeError
+        );
+      }
+
+      return {
+        ok: false,
+        skipped: false,
+        error
+      };
+    }
+  }
+
+  async function removeSyncedEvent(
+    config
+  ) {
+    const car =
+      config.car || {};
+
+    const calendar =
+      car.calendar || {};
+
+    if (!calendar.eventId) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: "missing_event_id"
+      };
+    }
+
+    try {
+      await window
+        .JLYCalendarProviderGoogle
+        .deleteEvent({
+          eventId:
+            calendar.eventId,
+
+          calendarId:
+            calendar.calendarId ||
+            "primary"
+        });
+
+      return {
+        ok: true,
+        skipped: false
+      };
+    } catch (error) {
+      console.error(
+        "Google Calendar 刪除失敗：",
+        error
+      );
+
+      return {
+        ok: false,
+        skipped: false,
         error
       };
     }
   }
 
   window.JLYCalendarSync = {
-    syncCreatedCar
+    syncCreatedCar,
+    syncUpdatedCar,
+    removeSyncedEvent
   };
+
+  console.log(
+    "✅ Calendar Sync V2 已載入"
+  );
 })();

@@ -22,8 +22,7 @@
 
     const headers =
       new Headers(
-        options.headers ||
-        {}
+        options.headers || {}
       );
 
     headers.set(
@@ -33,9 +32,7 @@
 
     if (
       options.body &&
-      !headers.has(
-        "Content-Type"
-      )
+      !headers.has("Content-Type")
     ) {
       headers.set(
         "Content-Type",
@@ -66,15 +63,13 @@
             ? body.error.message
             : message;
       } catch (error) {
-        // 保留預設錯誤訊息
+        // 使用預設錯誤訊息
       }
 
       throw new Error(message);
     }
 
-    if (
-      response.status === 204
-    ) {
+    if (response.status === 204) {
       return null;
     }
 
@@ -93,9 +88,7 @@
       date.getFullYear();
 
     const month =
-      pad(
-        date.getMonth() + 1
-      );
+      pad(date.getMonth() + 1);
 
     const day =
       pad(date.getDate());
@@ -117,20 +110,20 @@
         ? "+"
         : "-";
 
-    const abs =
-      Math.abs(
-        offsetMinutes
-      );
+    const absoluteOffset =
+      Math.abs(offsetMinutes);
 
     const offsetHour =
       pad(
         Math.floor(
-          abs / 60
+          absoluteOffset / 60
         )
       );
 
     const offsetMinute =
-      pad(abs % 60);
+      pad(
+        absoluteOffset % 60
+      );
 
     return (
       `${year}-${month}-${day}` +
@@ -157,14 +150,10 @@
 
     return {
       timeMin:
-        formatLocalDateTime(
-          start
-        ),
+        formatLocalDateTime(start),
 
       timeMax:
-        formatLocalDateTime(
-          end
-        )
+        formatLocalDateTime(end)
     };
   }
 
@@ -193,8 +182,7 @@
 
     const duration =
       Number(
-        durationMinutes ||
-        60
+        durationMinutes || 60
       );
 
     const end =
@@ -208,98 +196,18 @@
       end,
 
       startDateTime:
-        formatLocalDateTime(
-          start
-        ),
+        formatLocalDateTime(start),
 
       endDateTime:
-        formatLocalDateTime(
-          end
-        )
+        formatLocalDateTime(end)
     };
-  }
-
-  function formatTimeRange(
-    gameDate,
-    gameTime,
-    durationMinutes
-  ) {
-    const range =
-      buildEventDateTimes(
-        gameDate,
-        gameTime,
-        durationMinutes
-      );
-
-    return (
-      pad(
-        range.start
-          .getHours()
-      ) +
-      ":" +
-      pad(
-        range.start
-          .getMinutes()
-      ) +
-      "-" +
-      pad(
-        range.end
-          .getHours()
-      ) +
-      ":" +
-      pad(
-        range.end
-          .getMinutes()
-      )
-    );
-  }
-
-  function applyTitleTemplate(
-    template,
-    values
-  ) {
-    return String(
-      template ||
-      "【時間】 【活動類型】-【活動名稱】",
-    )
-      .replaceAll(
-        "【時間】",
-        values.timeRange ||
-        ""
-      )
-      .replaceAll(
-        "【開始時間】",
-        values.startTime ||
-        ""
-      )
-      .replaceAll(
-        "【結束時間】",
-        values.endTime ||
-        ""
-      )
-      .replaceAll(
-        "【活動類型】",
-        values.activityType ||
-        ""
-      )
-      .replaceAll(
-        "【活動名稱】",
-        values.activityName ||
-        ""
-      )
-      .replace(
-        /\s+/g,
-        " "
-      )
-      .trim();
   }
 
   function buildEventResource(
     config
   ) {
     const car =
-      config.car ||
-      {};
+      config.car || {};
 
     const durationMinutes =
       Number(
@@ -321,13 +229,6 @@
         durationMinutes
       );
 
-    const timeRange =
-      formatTimeRange(
-        car.gameDate,
-        car.gameTime,
-        durationMinutes
-      );
-
     const activityType =
       car.activityType ||
       getConfig()
@@ -339,38 +240,17 @@
       car.scriptName ||
       "未命名活動";
 
+    /*
+      標題不放時間。
+      Google Calendar 本身會顯示時間。
+    */
     const title =
-      applyTitleTemplate(
-        config.titleTemplate ||
-        getConfig()
-          .defaultTitleTemplate,
-        {
-          timeRange,
-
-          startTime:
-            car.gameTime ||
-            "",
-
-          endTime:
-            pad(
-              range.end
-                .getHours()
-            ) +
-            ":" +
-            pad(
-              range.end
-                .getMinutes()
-            ),
-
-          activityType,
-
-          activityName
-        }
-      );
+      activityType +
+      "－" +
+      activityName;
 
     const carUrl =
-      config.carUrl ||
-      "";
+      config.carUrl || "";
 
     const studioName =
       car.studioName ||
@@ -378,73 +258,73 @@
       car.organizer ||
       "";
 
+    const locationText =
+      car.location ||
+      car.locationName ||
+      car.address ||
+      "";
+
     const descriptionLines = [
-  "🎭 " + activityType,
-  "",
+      "🎭 " + activityType,
+      "",
+      "名稱",
+      activityName,
 
-  "名稱",
-  activityName,
+      studioName
+        ? ""
+        : "",
 
-  studioName
-    ? ""
-    : "",
+      studioName
+        ? "🏠 主辦"
+        : "",
 
-  studioName
-    ? "🏠 主辦"
-    : "",
+      studioName
+        ? studioName
+        : "",
 
-  studioName
-    ? studioName
-    : "",
+      locationText
+        ? ""
+        : "",
 
-  car.location || car.locationName
-    ? ""
-    : "",
+      locationText
+        ? "📍 地點"
+        : "",
 
-  car.location || car.locationName
-    ? "📍 地點"
-    : "",
+      locationText
+        ? locationText
+        : "",
 
-  car.location || car.locationName
-    ? (
-        car.location ||
-        car.locationName
-      )
-    : "",
+      "",
+      "────────────",
+      "",
 
-  "",
-  "────────────",
-  "",
+      carUrl
+        ? "🔗 JLY Host System"
+        : "",
 
-  carUrl
-    ? "🔗 JLY Host System"
-    : "",
-
-  carUrl
-    ? carUrl
-    : ""
-].filter(Boolean);
+      carUrl
+        ? carUrl
+        : ""
+    ].filter(function (line) {
+      return line !== null &&
+        line !== undefined;
+    });
 
     return {
       summary: title,
 
       location:
-        car.location ||
-        car.locationName ||
-        "",
+        locationText,
 
       description:
-        descriptionLines.join(
-          "\n"
-        ),
+        descriptionLines.join("\n"),
 
       start: {
         dateTime:
           range.startDateTime,
 
         timeZone:
-          getConfig()
-            .timeZone ||
+          getConfig().timeZone ||
           "Asia/Taipei"
       },
 
@@ -453,8 +333,7 @@
           range.endDateTime,
 
         timeZone:
-          getConfig()
-            .timeZone ||
+          getConfig().timeZone ||
           "Asia/Taipei"
       },
 
@@ -462,15 +341,19 @@
         private: {
           source: "JLY",
 
-          village: "script",
+          village:
+            getConfig()
+              .sourceVillage ||
+            "script",
 
           sourceModule:
+            getConfig()
+              .sourceModule ||
             "host",
 
           carId:
             String(
-              config.carId ||
-              ""
+              config.carId || ""
             )
         }
       }
@@ -481,14 +364,11 @@
     gameDate
   ) {
     const range =
-      buildDayRange(
-        gameDate
-      );
+      buildDayRange(gameDate);
 
     const calendarId =
       encodeURIComponent(
-        getConfig()
-          .calendarId ||
+        getConfig().calendarId ||
         "primary"
       );
 
@@ -533,15 +413,12 @@
     const calendarId =
       encodeURIComponent(
         config.calendarId ||
-        getConfig()
-          .calendarId ||
+        getConfig().calendarId ||
         "primary"
       );
 
     const resource =
-      buildEventResource(
-        config
-      );
+      buildEventResource(config);
 
     return authorizedFetch(
       `${API_BASE}/calendars/` +
@@ -550,18 +427,101 @@
         method: "POST",
 
         body:
-          JSON.stringify(
-            resource
-          )
+          JSON.stringify(resource)
       }
     );
+  }
+
+  async function updateEvent(
+    config
+  ) {
+    const eventId =
+      String(
+        config.eventId || ""
+      ).trim();
+
+    if (!eventId) {
+      throw new Error(
+        "找不到 Google Calendar eventId"
+      );
+    }
+
+    const calendarId =
+      encodeURIComponent(
+        config.calendarId ||
+        getConfig().calendarId ||
+        "primary"
+      );
+
+    const encodedEventId =
+      encodeURIComponent(eventId);
+
+    const resource =
+      buildEventResource(config);
+
+    return authorizedFetch(
+      `${API_BASE}/calendars/` +
+      `${calendarId}/events/` +
+      encodedEventId,
+      {
+        method: "PATCH",
+
+        body:
+          JSON.stringify(resource)
+      }
+    );
+  }
+
+  async function deleteEvent(
+    config
+  ) {
+    const eventId =
+      String(
+        config.eventId || ""
+      ).trim();
+
+    if (!eventId) {
+      return {
+        skipped: true,
+        reason: "missing_event_id"
+      };
+    }
+
+    const calendarId =
+      encodeURIComponent(
+        config.calendarId ||
+        getConfig().calendarId ||
+        "primary"
+      );
+
+    const encodedEventId =
+      encodeURIComponent(eventId);
+
+    await authorizedFetch(
+      `${API_BASE}/calendars/` +
+      `${calendarId}/events/` +
+      encodedEventId,
+      {
+        method: "DELETE"
+      }
+    );
+
+    return {
+      skipped: false,
+      deleted: true
+    };
   }
 
   window
     .JLYCalendarProviderGoogle = {
       listEventsForDate,
       createEvent,
-      buildEventResource,
-      formatTimeRange
+      updateEvent,
+      deleteEvent,
+      buildEventResource
     };
+
+  console.log(
+    "✅ Google Calendar Provider V2 已載入"
+  );
 })();

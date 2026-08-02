@@ -509,6 +509,14 @@ function buildCarNavigation(scriptName) {
             🚫 取消車團
           </button>
 
+          <button
+  type="button"
+  class="car-menu-danger"
+  onclick="deleteCurrentCar()"
+>
+  🗑️ 刪除車團（測試）
+</button>
+
         </div>
       </div>
     </div>
@@ -2270,28 +2278,149 @@ async function saveSingleFieldEdit(
   };
 
   try {
-    if (saveButton) {
-      saveButton.disabled = true;
-      saveButton.textContent =
-        "儲存中…";
-    }
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.textContent =
+      "儲存中…";
+  }
 
-    await db
-      .collection("cars")
-      .doc(carId)
-      .update(updateData);
+  const currentCar =
+    window.currentCarData
+      ? {
+          ...window.currentCarData
+        }
+      : null;
+
+  const shouldSyncCalendar =
+    Boolean(
+      currentCar &&
+      window
+        .JLYCalendarDetailActions &&
+      window
+        .JLYCalendarDetailActions
+        .needsCalendarSync(
+          currentCar,
+          fieldName
+        )
+    );
+
+  /*
+    Google OAuth 必須靠近使用者按下
+    「儲存」的操作，避免 Popup 被阻擋。
+  */
+  let googleAuthorized =
+    false;
+
+  if (shouldSyncCalendar) {
+    try {
+      await window
+        .JLYCalendarDetailActions
+        .authorizeForCar(
+          currentCar
+        );
+
+      googleAuthorized =
+        true;
+    } catch (authError) {
+      console.warn(
+        "Google Calendar 授權未完成：",
+        authError
+      );
+    }
+  }
+
+  /*
+    JLY 資料先正常更新。
+    Google 失敗不能阻止 JLY。
+  */
+  await db
+    .collection("cars")
+    .doc(carId)
+    .update(updateData);
+
+  if (
+    window.currentCarData
+  ) {
+    window.currentCarData[
+      fieldName
+    ] = value;
 
     if (
-      window.currentCarData
+      fieldName ===
+      "scriptName"
     ) {
-      window.currentCarData[
-        fieldName
-      ] = value;
+      window.currentCarData
+        .activityName =
+        value;
     }
 
-    closeSingleFieldEditor();
+    if (
+      fieldName ===
+      "location"
+    ) {
+      window.currentCarData
+        .locationName =
+        value;
+    }
 
-    await renderCarDetail();
+    if (
+      fieldName ===
+      "locationName"
+    ) {
+      window.currentCarData
+        .location =
+        value;
+    }
+  }
+
+  let calendarResult =
+    null;
+
+  if (
+    shouldSyncCalendar &&
+    googleAuthorized
+  ) {
+    calendarResult =
+      await window
+        .JLYCalendarDetailActions
+        .syncAfterFieldUpdate({
+          carId,
+          car:
+            currentCar,
+
+          fieldName,
+          value
+        });
+  }
+
+  closeSingleFieldEditor();
+
+  await renderCarDetail();
+
+  if (
+    shouldSyncCalendar &&
+    !googleAuthorized
+  ) {
+    alert(
+      "JLY 車團已更新，但 Google Calendar 尚未同步。\n\n" +
+      "Google 授權未完成，之後可重新同步。"
+    );
+  } else if (
+    calendarResult &&
+    calendarResult.ok ===
+      false
+  ) {
+    alert(
+      "JLY 車團已更新，但 Google Calendar 更新失敗。\n\n" +
+      (
+        calendarResult.error &&
+        calendarResult.error.message
+          ? calendarResult
+              .error.message
+          : "未知錯誤"
+      )
+    );
+  }
 
   } catch (error) {
     console.error(
