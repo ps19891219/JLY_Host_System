@@ -944,10 +944,44 @@
   border-radius: 0;
 }
 
-/* 空欄位仍由名字框本身呈現 */
+/* 工作人員空欄位與一般名字框完全一致 */
 .staff-seat-person.seat-player-empty
+.seat-player-name-box,
+.car-view-seat-staff
+.seat-player-empty
 .seat-player-name-box {
-  border-style: dashed;
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
+  min-height: 38px;
+  flex: 0 0 116px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 9px 12px;
+
   color: #999;
-  background: #fff;
+  background: #f3f0ff;
+
+  border: 1px solid #ded7ff;
+  border-radius: 11px;
+}
+
+.staff-seat-person.seat-player-empty
+.seat-player-placeholder,
+.car-view-seat-staff
+.seat-player-empty
+.seat-player-placeholder {
+  width: 100%;
+  padding: 0;
+
+  color: #999;
+  background: transparent;
+
+  border: 0;
+  border-radius: 0;
+
+  text-align: center;
 }
