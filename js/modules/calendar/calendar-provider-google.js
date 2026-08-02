@@ -260,7 +260,7 @@
   ) {
     return String(
       template ||
-      "【時間】 【活動類型】-【活動名稱】"
+      "【時間】 【活動類型】-【活動名稱】",
     )
       .replaceAll(
         "【時間】",
@@ -379,22 +379,51 @@
       "";
 
     const descriptionLines = [
-      "活動類型：" +
-        activityType,
+  "🎭 " + activityType,
+  "",
 
-      "活動名稱：" +
-        activityName,
+  "名稱",
+  activityName,
 
-      studioName
-        ? "工作室：" +
-          studioName
-        : "",
+  studioName
+    ? ""
+    : "",
 
-      carUrl
-        ? "JLY 車團：" +
-          carUrl
-        : ""
-    ].filter(Boolean);
+  studioName
+    ? "🏠 主辦"
+    : "",
+
+  studioName
+    ? studioName
+    : "",
+
+  car.location || car.locationName
+    ? ""
+    : "",
+
+  car.location || car.locationName
+    ? "📍 地點"
+    : "",
+
+  car.location || car.locationName
+    ? (
+        car.location ||
+        car.locationName
+      )
+    : "",
+
+  "",
+  "────────────",
+  "",
+
+  carUrl
+    ? "🔗 JLY Host System"
+    : "",
+
+  carUrl
+    ? carUrl
+    : ""
+].filter(Boolean);
 
     return {
       summary: title,
