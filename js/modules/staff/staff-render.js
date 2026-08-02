@@ -1,5 +1,5 @@
 console.log(
-  "staff-render.js V2 已成功載入！"
+  "staff-render.js V3 已成功載入！"
 );
 
 (function () {
@@ -85,20 +85,16 @@ console.log(
       getText(
         safeStaff.label
       ) ||
-      String(
-        index + 1
-      )
+      String(index + 1)
     );
   }
 
   function getStaffDisplayName(
     staff
   ) {
-    const safeStaff =
-      staff || {};
-
     return getText(
-      safeStaff.displayName
+      staff &&
+      staff.displayName
     );
   }
 
@@ -111,7 +107,7 @@ console.log(
     return (
       safeStaff.isCrossPlay ===
         true ||
-      (
+      Boolean(
         safeStaff.memberSnapshot &&
         safeStaff.memberSnapshot
           .isCrossPlay === true
@@ -120,7 +116,7 @@ console.log(
   }
 
   // ============================================================
-  // 反串標籤
+  // 反串狀態
   // ============================================================
 
   function renderStaffStatus(
@@ -157,12 +153,45 @@ console.log(
   // ============================================================
 
   function renderStaffNameBox(
+    displayName
+  ) {
+    return `
+      <span
+        class="seat-player-name-box"
+      >
+        <span
+          class="seat-player-name"
+        >
+          ${escapeHtml(
+            displayName
+          )}
+        </span>
+      </span>
+    `;
+  }
+
+  // ============================================================
+  // 工作人員內容
+  //
+  // 結構與玩家 seat-player 一致：
+  // 名字框 + 反串
+  // ============================================================
+
+  function renderStaffPerson(
     staff,
     jsStaffId
   ) {
+    const safeStaff =
+      staff || {};
+
     const displayName =
       getStaffDisplayName(
-        staff
+        safeStaff
+      );
+
+    const rawStaffId =
+      getText(
+        safeStaff.id
       );
 
     if (!displayName) {
@@ -174,11 +203,11 @@ console.log(
             seat-player-empty
             staff-seat-person
           "
-          title="選擇工作人員"
           data-staff-member-drag="true"
           data-staff-id="${escapeHtml(
-            staff.id || ""
+            rawStaffId
           )}"
+          title="選擇工作人員"
           onclick="
             JLYStaffController.editStaffPerson(
               '${jsStaffId}'
@@ -186,9 +215,13 @@ console.log(
           "
         >
           <span
-            class="seat-player-placeholder"
+            class="seat-player-name-box"
           >
-            尚未安排
+            <span
+              class="seat-player-placeholder"
+            >
+              尚未安排
+            </span>
           </span>
         </button>
       `;
@@ -205,7 +238,7 @@ console.log(
         draggable="true"
         data-staff-member-drag="true"
         data-staff-id="${escapeHtml(
-          staff.id || ""
+          rawStaffId
         )}"
         title="點擊更換工作人員"
         onclick="
@@ -214,63 +247,43 @@ console.log(
           )
         "
       >
-        <span
-          class="seat-player-name-box"
-        >
-          <span
-            class="seat-player-name"
-          >
-            ${escapeHtml(
-              displayName
-            )}
-          </span>
-        </span>
+        ${renderStaffNameBox(
+          displayName
+        )}
 
         ${renderStaffStatus(
-          staff
+          safeStaff
         )}
       </button>
     `;
   }
 
   // ============================================================
-  // 刪除欄位按鈕
+  // 刪除欄位
   // ============================================================
 
   function renderRemoveButton(
     staff,
     jsStaffId
   ) {
-    const label =
-      getText(
-        staff.label
-      );
+    const safeStaff =
+      staff || {};
 
-    const displayName =
+    const description =
       getStaffDisplayName(
-        staff
-      );
-
-    const ariaLabel =
-      displayName
-        ? (
-            "刪除工作人員欄位：" +
-            displayName
-          )
-        : (
-            "刪除工作人員欄位：" +
-            (
-              label ||
-              "未命名欄位"
-            )
-          );
+        safeStaff
+      ) ||
+      getText(
+        safeStaff.label
+      ) ||
+      "工作人員欄位";
 
     return `
       <button
         type="button"
         class="staff-remove-slot"
-        aria-label="${escapeHtml(
-          ariaLabel
+        aria-label="刪除${escapeHtml(
+          description
         )}"
         title="刪除整個工作人員欄位"
         onclick="
@@ -375,10 +388,14 @@ console.log(
             data-staff-drop-zone="true"
             data-staff-id="${staffId}"
           >
-            ${renderStaffNameBox(
-              safeStaff,
-              jsStaffId
-            )}
+            <div
+              class="staff-player-content"
+            >
+              ${renderStaffPerson(
+                safeStaff,
+                jsStaffId
+              )}
+            </div>
 
             ${renderRemoveButton(
               safeStaff,
@@ -505,33 +522,24 @@ console.log(
 
   window.JLYStaffRender = {
     escapeHtml,
-
     escapeJsString,
-
     getText,
 
     hasAssignedMember,
-
     getStaffLabel,
-
     getStaffDisplayName,
-
     isStaffCrossPlay,
 
     renderStaffStatus,
-
     renderStaffNameBox,
-
+    renderStaffPerson,
     renderRemoveButton,
-
     renderStaffRow,
-
     renderEmptyState,
-
     renderStaff
   };
 
   console.log(
-    "✅ Staff Render V2 已載入"
+    "✅ Staff Render V3 已載入"
   );
 })();
