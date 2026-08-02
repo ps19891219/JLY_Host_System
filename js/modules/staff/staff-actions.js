@@ -1,8 +1,49 @@
 console.log(
-  "staff-actions.js 已成功載入！"
+  "staff-actions.js V2 已成功載入！"
 );
 
 (function () {
+  "use strict";
+
+  // ============================================================
+  // 基礎工具
+  // ============================================================
+
+  function getText(value) {
+    return String(
+      value == null
+        ? ""
+        : value
+    ).trim();
+  }
+
+  function getBoolean(value) {
+    return value === true;
+  }
+
+  function cloneValue(value) {
+    if (
+      !value ||
+      typeof value !== "object"
+    ) {
+      return value;
+    }
+
+    try {
+      return JSON.parse(
+        JSON.stringify(value)
+      );
+    } catch (error) {
+      return {
+        ...value
+      };
+    }
+  }
+
+  // ============================================================
+  // 取得工作人員欄位
+  // ============================================================
+
   function getStaffSlots(car) {
     if (
       window.JLYStaffData &&
@@ -20,15 +61,45 @@ console.log(
         return staffSlots.map(
           function (staff) {
             return {
-              ...staff
+              ...staff,
+
+              memberSnapshot:
+                cloneValue(
+                  staff.memberSnapshot ||
+                  {}
+                )
             };
           }
         );
       }
     }
 
-    return [];
+    const sourceSlots =
+      car &&
+      Array.isArray(
+        car.staffSlots
+      )
+        ? car.staffSlots
+        : [];
+
+    return sourceSlots.map(
+      function (staff) {
+        return {
+          ...staff,
+
+          memberSnapshot:
+            cloneValue(
+              staff.memberSnapshot ||
+              {}
+            )
+        };
+      }
+    );
   }
+
+  // ============================================================
+  // 建立 ID
+  // ============================================================
 
   function createStaffId() {
     return (
@@ -41,15 +112,214 @@ console.log(
     );
   }
 
+  // ============================================================
+  // 取得會員資料
+  // ============================================================
+
+  function getMemberSource(member) {
+    const safeMember =
+      member &&
+      typeof member === "object"
+        ? member
+        : {};
+
+    if (
+      safeMember.member &&
+      typeof safeMember.member ===
+        "object"
+    ) {
+      return {
+        ...safeMember.member,
+        ...safeMember
+      };
+    }
+
+    if (
+      safeMember.player &&
+      typeof safeMember.player ===
+        "object"
+    ) {
+      return {
+        ...safeMember.player,
+        ...safeMember
+      };
+    }
+
+    return safeMember;
+  }
+
+  function getMemberId(member) {
+    const safeMember =
+      getMemberSource(
+        member
+      );
+
+    return getText(
+      safeMember.memberId ||
+      safeMember.playerId ||
+      safeMember.profileId ||
+      safeMember.id ||
+      safeMember.applicationId
+    );
+  }
+
+  function getMemberDisplayName(
+    member
+  ) {
+    const safeMember =
+      getMemberSource(
+        member
+      );
+
+    return getText(
+      safeMember.hostAlias ||
+      safeMember.displayName ||
+      safeMember.playerName ||
+      safeMember.nickname ||
+      safeMember.name ||
+      safeMember.lineDisplayName
+    );
+  }
+
+  function getMemberPosition(
+    member
+  ) {
+    const safeMember =
+      getMemberSource(
+        member
+      );
+
+    return getText(
+      safeMember.position ||
+      safeMember.playPosition ||
+      safeMember.currentPosition ||
+      safeMember.requestedPosition ||
+      safeMember.roleChoice
+    );
+  }
+
+  function getMemberCrossPlay(
+    member
+  ) {
+    const safeMember =
+      getMemberSource(
+        member
+      );
+
+    return (
+      safeMember.isCrossPlay ===
+      true
+    );
+  }
+
+  function buildMemberSnapshot(
+    member
+  ) {
+    const safeMember =
+      getMemberSource(
+        member
+      );
+
+    return {
+      memberId:
+        getMemberId(
+          safeMember
+        ),
+
+      displayName:
+        getMemberDisplayName(
+          safeMember
+        ),
+
+      isCrossPlay:
+        getMemberCrossPlay(
+          safeMember
+        ),
+
+      position:
+        getMemberPosition(
+          safeMember
+        ),
+
+      hostAlias:
+        getText(
+          safeMember.hostAlias
+        ),
+
+      playerName:
+        getText(
+          safeMember.playerName
+        ),
+
+      lineDisplayName:
+        getText(
+          safeMember.lineDisplayName
+        ),
+
+      source:
+        getText(
+          safeMember.source ||
+          "member_picker"
+        )
+    };
+  }
+
+  // ============================================================
+  // 建立空白工作人員欄位
+  // ============================================================
+
   function createLocalStaffSlot(
     order
   ) {
+    const safeOrder =
+      Number(order || 1);
+
+    if (
+      window.JLYStaffData &&
+      typeof window.JLYStaffData
+        .createStaffSlot ===
+        "function"
+    ) {
+      return window.JLYStaffData
+        .createStaffSlot(
+          safeOrder,
+          {
+            id:
+              createStaffId(),
+
+            order:
+              safeOrder,
+
+            label:
+              "",
+
+            memberId:
+              "",
+
+            displayName:
+              "",
+
+            isCrossPlay:
+              false,
+
+            position:
+              "",
+
+            memberSnapshot:
+              {},
+
+            source:
+              "host_manual"
+          }
+        );
+    }
+
     return {
       id:
         createStaffId(),
 
       order:
-        Number(order || 0),
+        safeOrder,
 
       label:
         "",
@@ -60,52 +330,98 @@ console.log(
       displayName:
         "",
 
+      isCrossPlay:
+        false,
+
+      position:
+        "",
+
+      memberSnapshot:
+        {},
+
       source:
         "host_manual"
     };
   }
 
+  // ============================================================
+  // 標準化
+  // ============================================================
+
   function normalizeStaffSlots(
     staffSlots
   ) {
-    const safeStaffSlots =
-      Array.isArray(staffSlots)
+    const safeSlots =
+      Array.isArray(
+        staffSlots
+      )
         ? staffSlots
         : [];
 
-    return safeStaffSlots.map(
+    if (
+      window.JLYStaffData &&
+      typeof window.JLYStaffData
+        .normalizeStaffSlots ===
+        "function"
+    ) {
+      return window.JLYStaffData
+        .normalizeStaffSlots(
+          safeSlots
+        );
+    }
+
+    return safeSlots.map(
       function (
         staff,
         index
       ) {
+        const safeStaff =
+          staff || {};
+
         return {
           id:
-            String(
-              staff.id ||
-              createStaffId()
-            ),
+            getText(
+              safeStaff.id
+            ) ||
+            createStaffId(),
 
           order:
             index + 1,
 
           label:
-            String(
-              staff.label || ""
-            ).trim(),
+            getText(
+              safeStaff.label
+            ),
 
           memberId:
-            String(
-              staff.memberId || ""
-            ).trim(),
+            getText(
+              safeStaff.memberId
+            ),
 
           displayName:
-            String(
-              staff.displayName || ""
-            ).trim(),
+            getText(
+              safeStaff.displayName
+            ),
+
+          isCrossPlay:
+            getBoolean(
+              safeStaff.isCrossPlay
+            ),
+
+          position:
+            getText(
+              safeStaff.position
+            ),
+
+          memberSnapshot:
+            cloneValue(
+              safeStaff.memberSnapshot ||
+              {}
+            ),
 
           source:
-            String(
-              staff.source ||
+            getText(
+              safeStaff.source ||
               "host_manual"
             )
         };
@@ -113,21 +429,45 @@ console.log(
     );
   }
 
+  // ============================================================
+  // 查找欄位
+  // ============================================================
+
   function findStaffSlot(
     staffSlots,
     staffId
   ) {
-    const safeStaffSlots =
-      Array.isArray(staffSlots)
-        ? staffSlots
-        : [];
+    if (
+      window.JLYStaffData &&
+      typeof window.JLYStaffData
+        .findStaffSlot ===
+        "function"
+    ) {
+      return window.JLYStaffData
+        .findStaffSlot(
+          staffSlots,
+          staffId
+        );
+    }
+
+    const targetId =
+      getText(
+        staffId
+      );
 
     return (
-      safeStaffSlots.find(
+      (
+        Array.isArray(
+          staffSlots
+        )
+          ? staffSlots
+          : []
+      ).find(
         function (staff) {
           return (
-            String(staff.id) ===
-            String(staffId)
+            getText(
+              staff && staff.id
+            ) === targetId
           );
         }
       ) ||
@@ -135,48 +475,35 @@ console.log(
     );
   }
 
-  function getMemberId(
-    member
+  function getStaffIndex(
+    staffSlots,
+    staffId
   ) {
-    const safeMember =
-      member || {};
+    const targetId =
+      getText(
+        staffId
+      );
 
-    return String(
-      safeMember.memberId ||
-      safeMember.id ||
-      (
-        safeMember.member &&
-        (
-          safeMember.member.memberId ||
-          safeMember.member.id
-        )
-      ) ||
-      ""
-    ).trim();
+    return (
+      Array.isArray(
+        staffSlots
+      )
+        ? staffSlots
+        : []
+    ).findIndex(
+      function (staff) {
+        return (
+          getText(
+            staff && staff.id
+          ) === targetId
+        );
+      }
+    );
   }
 
-  function getMemberDisplayName(
-    member
-  ) {
-    const safeMember =
-      member || {};
-
-    const rawMember =
-      safeMember.member ||
-      {};
-
-    return String(
-      safeMember.displayName ||
-      safeMember.hostAlias ||
-      safeMember.nickname ||
-      safeMember.name ||
-      rawMember.displayName ||
-      rawMember.hostAlias ||
-      rawMember.nickname ||
-      rawMember.name ||
-      ""
-    ).trim();
-  }
+  // ============================================================
+  // Firestore 儲存
+  // ============================================================
 
   async function saveStaffSlots(
     car,
@@ -236,6 +563,10 @@ console.log(
     return normalizedSlots;
   }
 
+  // ============================================================
+  // 新增欄位
+  // ============================================================
+
   async function addStaffSlot(
     car
   ) {
@@ -263,6 +594,10 @@ console.log(
     );
   }
 
+  // ============================================================
+  // 修改欄位名稱
+  // ============================================================
+
   async function updateStaffLabel(
     car,
     staffId,
@@ -284,15 +619,17 @@ console.log(
     }
 
     target.label =
-      String(
-        label || ""
-      ).trim();
+      getText(label);
 
     return await saveStaffSlots(
       car,
       staffSlots
     );
   }
+
+  // ============================================================
+  // 手動修改顯示名稱
+  // ============================================================
 
   async function updateStaffName(
     car,
@@ -314,16 +651,48 @@ console.log(
       );
     }
 
+    const nextName =
+      getText(
+        displayName
+      );
+
     target.displayName =
-      String(
-        displayName || ""
-      ).trim();
+      nextName;
+
+    target.memberSnapshot = {
+      ...(
+        target.memberSnapshot ||
+        {}
+      ),
+
+      memberId:
+        getText(
+          target.memberId
+        ),
+
+      displayName:
+        nextName,
+
+      isCrossPlay:
+        getBoolean(
+          target.isCrossPlay
+        ),
+
+      position:
+        getText(
+          target.position
+        )
+    };
 
     return await saveStaffSlots(
       car,
       staffSlots
     );
   }
+
+  // ============================================================
+  // 選擇或更換工作人員
+  // ============================================================
 
   async function updateStaffMember(
     car,
@@ -365,11 +734,40 @@ console.log(
       );
     }
 
+    const snapshot =
+      buildMemberSnapshot(
+        member
+      );
+
     target.memberId =
       memberId;
 
     target.displayName =
       displayName;
+
+    target.isCrossPlay =
+      getMemberCrossPlay(
+        member
+      );
+
+    target.position =
+      getMemberPosition(
+        member
+      );
+
+    target.memberSnapshot = {
+      ...snapshot,
+
+      memberId,
+
+      displayName,
+
+      isCrossPlay:
+        target.isCrossPlay,
+
+      position:
+        target.position
+    };
 
     target.source =
       "member_picker";
@@ -379,6 +777,50 @@ console.log(
       staffSlots
     );
   }
+
+  // ============================================================
+  // 刪除整個工作人員欄位
+  //
+  // 只會刪除這台車裡的欄位，
+  // 不會刪除玩家／會員資料庫中的人物。
+  // ============================================================
+
+  async function removeStaffSlot(
+    car,
+    staffId
+  ) {
+    const staffSlots =
+      getStaffSlots(car);
+
+    const targetIndex =
+      getStaffIndex(
+        staffSlots,
+        staffId
+      );
+
+    if (targetIndex < 0) {
+      throw new Error(
+        "找不到要刪除的工作人員欄位"
+      );
+    }
+
+    staffSlots.splice(
+      targetIndex,
+      1
+    );
+
+    return await saveStaffSlots(
+      car,
+      staffSlots
+    );
+  }
+
+  // ============================================================
+  // 舊版清除人員
+  //
+  // 保留函式名稱避免舊程式報錯。
+  // 新版畫面不會使用它。
+  // ============================================================
 
   async function clearStaffMember(
     car,
@@ -405,6 +847,15 @@ console.log(
     target.displayName =
       "";
 
+    target.isCrossPlay =
+      false;
+
+    target.position =
+      "";
+
+    target.memberSnapshot =
+      {};
+
     target.source =
       "host_manual";
 
@@ -414,18 +865,245 @@ console.log(
     );
   }
 
+  // ============================================================
+  // 移動整個工作人員欄位
+  // ============================================================
+
+  async function moveStaffSlot(
+    car,
+    sourceStaffId,
+    targetStaffId
+  ) {
+    const staffSlots =
+      getStaffSlots(car);
+
+    const sourceIndex =
+      getStaffIndex(
+        staffSlots,
+        sourceStaffId
+      );
+
+    const targetIndex =
+      getStaffIndex(
+        staffSlots,
+        targetStaffId
+      );
+
+    if (
+      sourceIndex < 0 ||
+      targetIndex < 0
+    ) {
+      throw new Error(
+        "找不到要移動的工作人員欄位"
+      );
+    }
+
+    if (
+      sourceIndex ===
+      targetIndex
+    ) {
+      return staffSlots;
+    }
+
+    const movedItems =
+      staffSlots.splice(
+        sourceIndex,
+        1
+      );
+
+    const movedSlot =
+      movedItems[0];
+
+    staffSlots.splice(
+      targetIndex,
+      0,
+      movedSlot
+    );
+
+    return await saveStaffSlots(
+      car,
+      staffSlots
+    );
+  }
+
+  // ============================================================
+  // 移動工作人員名字
+  //
+  // 來源欄位保留，但人員資料移到目標欄位。
+  // 若目標已有工作人員，兩邊交換。
+  // ============================================================
+
+  async function moveStaffMember(
+    car,
+    sourceStaffId,
+    targetStaffId
+  ) {
+    const staffSlots =
+      getStaffSlots(car);
+
+    const source =
+      findStaffSlot(
+        staffSlots,
+        sourceStaffId
+      );
+
+    const target =
+      findStaffSlot(
+        staffSlots,
+        targetStaffId
+      );
+
+    if (
+      !source ||
+      !target
+    ) {
+      throw new Error(
+        "找不到要移動的工作人員欄位"
+      );
+    }
+
+    if (
+      getText(source.id) ===
+      getText(target.id)
+    ) {
+      return staffSlots;
+    }
+
+    const sourceMemberData = {
+      memberId:
+        getText(
+          source.memberId
+        ),
+
+      displayName:
+        getText(
+          source.displayName
+        ),
+
+      isCrossPlay:
+        getBoolean(
+          source.isCrossPlay
+        ),
+
+      position:
+        getText(
+          source.position
+        ),
+
+      memberSnapshot:
+        cloneValue(
+          source.memberSnapshot ||
+          {}
+        ),
+
+      source:
+        getText(
+          source.source ||
+          "host_manual"
+        )
+    };
+
+    const targetMemberData = {
+      memberId:
+        getText(
+          target.memberId
+        ),
+
+      displayName:
+        getText(
+          target.displayName
+        ),
+
+      isCrossPlay:
+        getBoolean(
+          target.isCrossPlay
+        ),
+
+      position:
+        getText(
+          target.position
+        ),
+
+      memberSnapshot:
+        cloneValue(
+          target.memberSnapshot ||
+          {}
+        ),
+
+      source:
+        getText(
+          target.source ||
+          "host_manual"
+        )
+    };
+
+    Object.assign(
+      source,
+      targetMemberData
+    );
+
+    Object.assign(
+      target,
+      sourceMemberData
+    );
+
+    return await saveStaffSlots(
+      car,
+      staffSlots
+    );
+  }
+
+  // ============================================================
+  // 對外公開
+  // ============================================================
+
   window.JLYStaffActions = {
+    getText,
+
     getStaffSlots,
+
+    createStaffId,
+
     createLocalStaffSlot,
+
     normalizeStaffSlots,
+
     findStaffSlot,
 
+    getStaffIndex,
+
+    getMemberSource,
+
+    getMemberId,
+
+    getMemberDisplayName,
+
+    getMemberPosition,
+
+    getMemberCrossPlay,
+
+    buildMemberSnapshot,
+
     saveStaffSlots,
+
     addStaffSlot,
 
     updateStaffLabel,
+
     updateStaffName,
+
     updateStaffMember,
-    clearStaffMember
+
+    removeStaffSlot,
+
+    clearStaffMember,
+
+    moveStaffSlot,
+
+    moveStaffMember
   };
+
+  console.log(
+    "✅ Staff Actions V2 已載入"
+  );
 })();

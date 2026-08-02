@@ -657,78 +657,335 @@ console.log(
   }
 
   // ============================================================
-  // 統計列
-  // ============================================================
+// 目前車配統計
+//
+// 顯示：
+// 男位／女位／待入座
+//
+// 規則：
+// - 男位區入座者計入男位
+// - 女位區入座者計入女位
+// - 不限位依玩家本場選擇的男位／女位計算
+// - 待入座顯示尚未放進任何席位的人數
+// - 不負責顯示缺額，缺額直接看下方空位
+// ============================================================
 
-  function renderSeatSummary(
-    viewModel
+function normalizePlayerPosition(
+  value
+) {
+  const text =
+    String(
+      value == null
+        ? ""
+        : value
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    text === "male" ||
+    text === "m" ||
+    text === "男" ||
+    text === "男位" ||
+    text === "boy"
   ) {
-    return `
-      <div
-        class="seat-summary"
-      >
-        <div
-          class="seat-summary-item"
-        >
-          <span
-            class="seat-summary-label"
-          >
-            已入座
-          </span>
-
-          <strong
-            class="seat-summary-value"
-          >
-            ${Number(
-              viewModel
-                .occupiedSeatCount ||
-              0
-            )}
-          </strong>
-        </div>
-
-        <div
-          class="seat-summary-item"
-        >
-          <span
-            class="seat-summary-label"
-          >
-            空位
-          </span>
-
-          <strong
-            class="seat-summary-value"
-          >
-            ${Number(
-              viewModel
-                .emptySeatCount ||
-              0
-            )}
-          </strong>
-        </div>
-
-        <div
-          class="seat-summary-item"
-        >
-          <span
-            class="seat-summary-label"
-          >
-            待安排
-          </span>
-
-          <strong
-            class="seat-summary-value"
-          >
-            ${Number(
-              viewModel.waitingCount ||
-              0
-            )}
-          </strong>
-        </div>
-      </div>
-    `;
+    return "male";
   }
 
+  if (
+    text === "female" ||
+    text === "f" ||
+    text === "女" ||
+    text === "女位" ||
+    text === "girl"
+  ) {
+    return "female";
+  }
+
+  return "";
+}
+
+// ============================================================
+// 取得玩家本場實際選擇位置
+// ============================================================
+
+function getPlayerActualPosition(
+  value
+) {
+  const source =
+    value || {};
+
+  const player =
+    getPlayerSource(
+      value
+    );
+
+  const candidates = [
+    player.currentPosition,
+    player.playPosition,
+    player.position,
+    player.requestedPosition,
+    player.selectedPosition,
+    player.genderPosition,
+
+    source.currentPosition,
+    source.playPosition,
+    source.position,
+    source.requestedPosition,
+    source.selectedPosition
+  ];
+
+  for (
+    let index = 0;
+    index < candidates.length;
+    index += 1
+  ) {
+    const normalized =
+      normalizePlayerPosition(
+        candidates[index]
+      );
+
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return "";
+}
+
+// ============================================================
+// 取得座位所屬分區
+// ============================================================
+
+function getSlotSectionType(
+  slot
+) {
+  const source =
+    slot || {};
+
+  const candidates = [
+    source.sectionType,
+    source.slotType,
+    source.type,
+    source.currentType,
+    source.originalType,
+    source.positionType
+  ];
+
+  for (
+    let index = 0;
+    index < candidates.length;
+    index += 1
+  ) {
+    const normalized =
+      normalizePlayerPosition(
+        candidates[index]
+      );
+
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return "";
+}
+
+// ============================================================
+// 計算目前男位／女位／待入座
+// ============================================================
+
+function getCurrentSeatSummary(
+  viewModel
+) {
+  const safeViewModel =
+    viewModel || {};
+
+  const sections =
+    Array.isArray(
+      safeViewModel.sections
+    )
+      ? safeViewModel.sections
+      : [];
+
+  let maleCount = 0;
+  let femaleCount = 0;
+
+  sections.forEach(
+    function (section) {
+      const safeSection =
+        section || {};
+
+      const sectionType =
+        normalizePlayerPosition(
+          safeSection.type ||
+          safeSection.sectionType
+        );
+
+      const slots =
+        Array.isArray(
+          safeSection.slots
+        )
+          ? safeSection.slots
+          : [];
+
+      slots.forEach(
+        function (slot) {
+          const safeSlot =
+            slot || {};
+
+          if (
+            !safeSlot.playerId
+          ) {
+            return;
+          }
+
+          /*
+           * 男位區、女位區直接以目前所在分區為準。
+           *
+           * 不限位則讀取玩家本場實際選擇，
+           * 將其併入男位或女位統計。
+           */
+          let actualPosition =
+            sectionType;
+
+          if (
+            actualPosition !==
+              "male" &&
+            actualPosition !==
+              "female"
+          ) {
+            actualPosition =
+              getPlayerActualPosition(
+                safeSlot
+              );
+          }
+
+          /*
+           * 若 section.type 使用 flexible／any，
+           * 但 slot 本身保存了男位或女位，
+           * 再從 slot 資料補一次。
+           */
+          if (
+            actualPosition !==
+              "male" &&
+            actualPosition !==
+              "female"
+          ) {
+            actualPosition =
+              getSlotSectionType(
+                safeSlot
+              );
+          }
+
+          if (
+            actualPosition ===
+            "male"
+          ) {
+            maleCount += 1;
+          } else if (
+            actualPosition ===
+            "female"
+          ) {
+            femaleCount += 1;
+          }
+        }
+      );
+    }
+  );
+
+  return {
+    maleCount,
+
+    femaleCount,
+
+    waitingCount:
+      Number(
+        safeViewModel.waitingCount ||
+        (
+          Array.isArray(
+            safeViewModel.waitingPlayers
+          )
+            ? safeViewModel
+                .waitingPlayers
+                .length
+            : 0
+        )
+      )
+  };
+}
+
+// ============================================================
+// 統計列
+// ============================================================
+
+function renderSeatSummary(
+  viewModel
+) {
+  const summary =
+    getCurrentSeatSummary(
+      viewModel
+    );
+
+  return `
+    <div
+      class="seat-summary"
+    >
+      <div
+        class="seat-summary-item"
+      >
+        <span
+          class="seat-summary-label"
+        >
+          男位
+        </span>
+
+        <strong
+          class="seat-summary-value"
+        >
+          ${Number(
+            summary.maleCount || 0
+          )}
+        </strong>
+      </div>
+
+      <div
+        class="seat-summary-item"
+      >
+        <span
+          class="seat-summary-label"
+        >
+          女位
+        </span>
+
+        <strong
+          class="seat-summary-value"
+        >
+          ${Number(
+            summary.femaleCount || 0
+          )}
+        </strong>
+      </div>
+
+      <div
+        class="seat-summary-item"
+      >
+        <span
+          class="seat-summary-label"
+        >
+          待入座
+        </span>
+
+        <strong
+          class="seat-summary-value"
+        >
+          ${Number(
+            summary.waitingCount || 0
+          )}
+        </strong>
+      </div>
+    </div>
+  `;
+}
   // ============================================================
   // 尚未建立座位
   // ============================================================
@@ -1226,7 +1483,15 @@ console.log(
 
     renderWaitingArea,
 
-    renderSeatSummary,
+normalizePlayerPosition,
+
+getPlayerActualPosition,
+
+getSlotSectionType,
+
+getCurrentSeatSummary,
+
+renderSeatSummary,
 
     renderNoSeats,
 
