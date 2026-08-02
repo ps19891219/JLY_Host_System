@@ -100,92 +100,237 @@ console.log("car-view-render.js 已成功載入！");
   }
 
   function getStaffList(car) {
-  const sourceCar = car || {};
+  const sourceCar =
+    car || {};
 
-  // ===== V2：直接讀 Firestore 的 staffSlots =====
+  // ========================================
+  // V2：正式工作人員席位
+  // ========================================
+
   if (
-    Array.isArray(sourceCar.staffSlots) &&
+    Array.isArray(
+      sourceCar.staffSlots
+    ) &&
     sourceCar.staffSlots.length > 0
   ) {
     return sourceCar.staffSlots
-      .map(function (slot, index) {
-        const sourceSlot = slot || {};
+      .map(
+        function (
+          slot,
+          index
+        ) {
+          const sourceSlot =
+            slot || {};
 
-        return {
-          id:
-            sourceSlot.id ||
-            sourceSlot.slotId ||
-            "staff-slot-" + index,
+          return {
+            id:
+              sourceSlot.id ||
+              sourceSlot.slotId ||
+              (
+                "staff-slot-" +
+                index
+              ),
 
-          title: String(
-            sourceSlot.label ||
-            sourceSlot.roleLabel ||
-            sourceSlot.title ||
-            ""
-          ).trim(),
+            order:
+              Number(
+                sourceSlot.order ||
+                index + 1
+              ),
 
-          name: String(
-            sourceSlot.displayName ||
-            sourceSlot.name ||
-            ""
-          ).trim()
-        };
-      })
-      .filter(function (staff) {
-        return Boolean(
-          staff.title ||
-          staff.name
-        );
-      });
+            label:
+              String(
+                sourceSlot.label ||
+                sourceSlot.roleLabel ||
+                sourceSlot.title ||
+                index + 1
+              ).trim(),
+
+            name:
+              String(
+                sourceSlot.displayName ||
+                sourceSlot.name ||
+                ""
+              ).trim(),
+
+            playerId:
+              String(
+                sourceSlot.playerId ||
+                sourceSlot.profileId ||
+                ""
+              ).trim(),
+
+            isCrossPlay:
+              sourceSlot.isCrossPlay ===
+                true ||
+              (
+                sourceSlot.player &&
+                sourceSlot.player
+                  .isCrossPlay === true
+              ),
+
+            player:
+              sourceSlot.player &&
+              typeof sourceSlot.player ===
+                "object"
+                ? {
+                    ...sourceSlot.player
+                  }
+                : null
+          };
+        }
+      )
+      .sort(
+        function (a, b) {
+          return (
+            Number(a.order || 0) -
+            Number(b.order || 0)
+          );
+        }
+      );
   }
 
-  // ===== 舊版 staffList 相容 =====
+  // ========================================
+  // 舊版 staffList 相容
+  // ========================================
+
   if (
-    Array.isArray(sourceCar.staffList) &&
+    Array.isArray(
+      sourceCar.staffList
+    ) &&
     sourceCar.staffList.length > 0
   ) {
     return sourceCar.staffList
-      .map(function (item, index) {
-        return normalizeStaffItem(
+      .map(
+        function (
           item,
-          index,
-          ""
-        );
-      })
+          index
+        ) {
+          const staff =
+            normalizeStaffItem(
+              item,
+              index,
+              ""
+            );
+
+          if (!staff) {
+            return null;
+          }
+
+          return {
+            ...staff,
+
+            order:
+              index + 1,
+
+            label:
+              String(
+                staff.title ||
+                index + 1
+              ),
+
+            isCrossPlay:
+              Boolean(
+                item &&
+                typeof item ===
+                  "object" &&
+                item.isCrossPlay ===
+                  true
+              )
+          };
+        }
+      )
       .filter(Boolean);
   }
 
-  // ===== 舊版 dmList 相容 =====
+  // ========================================
+  // 舊版 dmList 相容
+  //
+  // 只相容資料，不把 DM 寫死在席位名稱。
+  // 席位仍顯示 1、2、3。
+  // ========================================
+
   if (
-    Array.isArray(sourceCar.dmList) &&
+    Array.isArray(
+      sourceCar.dmList
+    ) &&
     sourceCar.dmList.length > 0
   ) {
     return sourceCar.dmList
-      .map(function (item, index) {
-        return normalizeStaffItem(
+      .map(
+        function (
           item,
-          index,
-          "DM"
-        );
-      })
+          index
+        ) {
+          const staff =
+            normalizeStaffItem(
+              item,
+              index,
+              ""
+            );
+
+          if (!staff) {
+            return null;
+          }
+
+          return {
+            ...staff,
+
+            order:
+              index + 1,
+
+            label:
+              String(
+                index + 1
+              ),
+
+            isCrossPlay:
+              Boolean(
+                item &&
+                typeof item ===
+                  "object" &&
+                item.isCrossPlay ===
+                  true
+              )
+          };
+        }
+      )
       .filter(Boolean);
   }
 
-  // ===== 更舊版單一 DM =====
+  // ========================================
+  // 更舊版單一工作人員資料
+  // ========================================
+
   const legacyDm =
     sourceCar.dm ||
     sourceCar.dmName;
 
   if (
-    String(legacyDm || "").trim()
+    String(
+      legacyDm || ""
+    ).trim()
   ) {
     return [
       {
-        id: "legacy-single-dm",
-        title: "DM",
-        name: String(
-          legacyDm
-        ).trim()
+        id:
+          "legacy-single-staff",
+
+        order:
+          1,
+
+        label:
+          "1",
+
+        name:
+          String(
+            legacyDm
+          ).trim(),
+
+        isCrossPlay:
+          false,
+
+        player:
+          null
       }
     ];
   }
@@ -193,12 +338,16 @@ console.log("car-view-render.js 已成功載入！");
   return [];
 }
 
-  function renderStaffValue(car) {
+ function renderStaffValue(car) {
   const staffList =
     getStaffList(car);
 
-  if (staffList.length === 0) {
+  if (
+    staffList.length === 0
+  ) {
     return (
+      '<div class="staff-seat-list">' +
+
       '<div class="seat-row staff-seat-row is-empty">' +
 
       '<div class="seat-row-handle" aria-hidden="true">' +
@@ -208,13 +357,21 @@ console.log("car-view-render.js 已成功載入！");
       '<div class="seat-row-main">' +
 
       '<div class="seat-row-label-cell">' +
-      "DM" +
+      "1" +
       "</div>" +
 
       '<div class="seat-row-player-cell">' +
-      '<span class="car-view-muted">' +
+
+      '<div class="seat-player seat-player-empty">' +
+
+      '<span class="seat-player-placeholder">' +
       "尚未安排" +
       "</span>" +
+
+      "</div>" +
+
+      "</div>" +
+
       "</div>" +
 
       "</div>" +
@@ -227,55 +384,97 @@ console.log("car-view-render.js 已成功載入！");
     '<div class="staff-seat-list">' +
 
     staffList
-      .map(function (staff, index) {
-        const label =
-          String(
-            staff.title ||
-            index + 1
-          ).trim();
+      .map(
+        function (
+          staff,
+          index
+        ) {
+          const label =
+            String(
+              staff.label ||
+              staff.order ||
+              index + 1
+            ).trim();
 
-        const displayName =
-          String(
-            staff.name ||
-            ""
-          ).trim();
+          const displayName =
+            String(
+              staff.name ||
+              ""
+            ).trim();
 
-        const assignedClass =
-          displayName
-            ? "is-assigned"
-            : "is-empty";
+          const statusHtml =
+            staff.isCrossPlay ===
+              true
+              ? (
+                  '<span class="seat-player-status-column">' +
 
-        return (
-          '<div class="seat-row staff-seat-row ' +
-          assignedClass +
-          '">' +
+                  '<span class="seat-player-status-badge is-cross-play" ' +
+                  'data-player-status="cross-play">' +
+                  "反串" +
+                  "</span>" +
 
-          '<div class="seat-row-handle" aria-hidden="true">' +
-          "☰" +
-          "</div>" +
+                  "</span>"
+                )
+              : "";
 
-          '<div class="seat-row-main">' +
+          const playerHtml =
+            displayName
+              ? (
+                  '<div class="seat-player seat-player-occupied">' +
 
-          '<div class="seat-row-label-cell">' +
-          '<span class="staff-seat-label">' +
-          escapeHtml(label) +
-          "</span>" +
-          "</div>" +
+                  '<span class="seat-player-name-box">' +
 
-          '<div class="seat-row-player-cell">' +
-          '<span class="staff-seat-person-name">' +
-          escapeHtml(
-            displayName ||
-            "尚未安排"
-          ) +
-          "</span>" +
-          "</div>" +
+                  '<span class="seat-player-name">' +
+                  escapeHtml(
+                    displayName
+                  ) +
+                  "</span>" +
 
-          "</div>" +
+                  "</span>" +
 
-          "</div>"
-        );
-      })
+                  statusHtml +
+
+                  "</div>"
+                )
+              : (
+                  '<div class="seat-player seat-player-empty">' +
+
+                  '<span class="seat-player-placeholder">' +
+                  "尚未安排" +
+                  "</span>" +
+
+                  "</div>"
+                );
+
+          return (
+            '<div class="seat-row staff-seat-row ' +
+            (
+              displayName
+                ? "is-occupied"
+                : "is-empty"
+            ) +
+            '">' +
+
+            '<div class="seat-row-handle" aria-hidden="true">' +
+            "☰" +
+            "</div>" +
+
+            '<div class="seat-row-main">' +
+
+            '<div class="seat-row-label-cell">' +
+            escapeHtml(label) +
+            "</div>" +
+
+            '<div class="seat-row-player-cell">' +
+            playerHtml +
+            "</div>" +
+
+            "</div>" +
+
+            "</div>"
+          );
+        }
+      )
       .join("") +
 
     "</div>"
@@ -683,6 +882,240 @@ console.log("car-view-render.js 已成功載入！");
     return [];
   }
 
+  // ============================================================
+// 玩家頁目前車配統計
+//
+// 顯示：
+// 男位／女位／待入座
+//
+// 不顯示缺額。
+// 不限角色依玩家本場實際選擇，
+// 計入男位或女位。
+// ============================================================
+
+function normalizeSeatPosition(
+  value
+) {
+  const text =
+    String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    text === "male" ||
+    text === "男" ||
+    text === "男位" ||
+    text === "m"
+  ) {
+    return "male";
+  }
+
+  if (
+    text === "female" ||
+    text === "女" ||
+    text === "女位" ||
+    text === "f"
+  ) {
+    return "female";
+  }
+
+  return "flexible";
+}
+
+function getSeatPlayerId(slot) {
+  const sourceSlot =
+    slot || {};
+
+  const player =
+    sourceSlot.player &&
+    typeof sourceSlot.player ===
+      "object"
+      ? sourceSlot.player
+      : {};
+
+  return String(
+    sourceSlot.playerId ||
+    player.playerId ||
+    player.id ||
+    player.profileId ||
+    ""
+  ).trim();
+}
+
+function getSeatPlayerPosition(
+  slot
+) {
+  const sourceSlot =
+    slot || {};
+
+  const player =
+    sourceSlot.player &&
+    typeof sourceSlot.player ===
+      "object"
+      ? sourceSlot.player
+      : {};
+
+  const playerPosition =
+    normalizeSeatPosition(
+      player.playPosition ||
+      player.currentPosition ||
+      player.position ||
+      player.requestedPosition
+    );
+
+  if (
+    playerPosition === "male" ||
+    playerPosition === "female"
+  ) {
+    return playerPosition;
+  }
+
+  return normalizeSeatPosition(
+    sourceSlot.type ||
+    sourceSlot.currentType ||
+    sourceSlot.originalType
+  );
+}
+
+function getCurrentSeatSummary(
+  car
+) {
+  const slots =
+    getSeatSlots(car);
+
+  const players =
+    getPlayers(car);
+
+  const assignedPlayerIds =
+    new Set();
+
+  let maleCount = 0;
+  let femaleCount = 0;
+
+  slots.forEach(
+    function (slot) {
+      const playerId =
+        getSeatPlayerId(
+          slot
+        );
+
+      if (!playerId) {
+        return;
+      }
+
+      assignedPlayerIds.add(
+        playerId
+      );
+
+      const position =
+        getSeatPlayerPosition(
+          slot
+        );
+
+      if (
+        position === "male"
+      ) {
+        maleCount += 1;
+      } else if (
+        position === "female"
+      ) {
+        femaleCount += 1;
+      }
+    }
+  );
+
+  const waitingCount =
+    players.filter(
+      function (
+        player,
+        index
+      ) {
+        const playerId =
+          String(
+            player.playerId ||
+            player.id ||
+            player.profileId ||
+            player.applicationId ||
+            (
+              "legacy-player-" +
+              index
+            )
+          ).trim();
+
+        return (
+          !assignedPlayerIds.has(
+            playerId
+          )
+        );
+      }
+    ).length;
+
+  return {
+    maleCount,
+    femaleCount,
+    waitingCount
+  };
+}
+
+function renderCurrentSeatSummary(
+  car
+) {
+  const summary =
+    getCurrentSeatSummary(
+      car
+    );
+
+  return (
+    '<div class="seat-summary car-view-current-summary">' +
+
+    '<div class="seat-summary-item">' +
+
+    '<span class="seat-summary-label">' +
+    "男位" +
+    "</span>" +
+
+    '<strong class="seat-summary-value">' +
+    String(
+      summary.maleCount
+    ) +
+    "</strong>" +
+
+    "</div>" +
+
+    '<div class="seat-summary-item">' +
+
+    '<span class="seat-summary-label">' +
+    "女位" +
+    "</span>" +
+
+    '<strong class="seat-summary-value">' +
+    String(
+      summary.femaleCount
+    ) +
+    "</strong>" +
+
+    "</div>" +
+
+    '<div class="seat-summary-item">' +
+
+    '<span class="seat-summary-label">' +
+    "待入座" +
+    "</span>" +
+
+    '<strong class="seat-summary-value">' +
+    String(
+      summary.waitingCount
+    ) +
+    "</strong>" +
+
+    "</div>" +
+
+    "</div>"
+  );
+}
+
   function disableSeatInteraction(
     seatMount
   ) {
@@ -856,12 +1289,12 @@ console.log("car-view-render.js 已成功載入！");
       getPlayers(car);
 
     const options = {
-      editable: false,
-      draggable: false,
-      readonly: true,
-      showWaitingArea: false,
-      showSummary: true
-    };
+  editable: false,
+  draggable: false,
+  readonly: true,
+  showWaitingArea: false,
+  showSummary: false
+};
 
     try {
       let rendered = false;
@@ -991,6 +1424,10 @@ console.log("car-view-render.js 已成功載入！");
     "</span>" +
 
     "</div>" +
+
+    renderCurrentSeatSummary(
+      car
+    ) +
 
     '<div class="car-view-seat-staff">' +
 
@@ -1326,6 +1763,21 @@ console.log("car-view-render.js 已成功載入！");
 
     getWaitingPlayers:
       getWaitingPlayers,
+
+      normalizeSeatPosition:
+  normalizeSeatPosition,
+
+getSeatPlayerId:
+  getSeatPlayerId,
+
+getSeatPlayerPosition:
+  getSeatPlayerPosition,
+
+getCurrentSeatSummary:
+  getCurrentSeatSummary,
+
+renderCurrentSeatSummary:
+  renderCurrentSeatSummary,
 
     renderSeatBoard:
       renderSeatBoard,
