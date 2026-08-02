@@ -165,203 +165,258 @@
   }
 
   async function deleteCurrentCar() {
-    const db =
-      window.db;
+  const db =
+    window.db;
 
-    const carId =
-      getCarId();
+  const carId =
+    getCarId();
 
-    if (!db) {
-      alert(
-        "Firebase 尚未載入"
-      );
-      return;
-    }
+  if (!db) {
+    alert(
+      "Firebase 尚未載入"
+    );
+    return;
+  }
 
-    if (!carId) {
-      alert(
-        "找不到車團 ID"
-      );
-      return;
-    }
+  if (!carId) {
+    alert(
+      "找不到車團 ID"
+    );
+    return;
+  }
 
-    const carRef =
-      db.collection("cars")
-        .doc(carId);
+  /*
+    必須直接使用目前頁面已載入的資料，
+    並在任何 Firestore await 之前觸發 Google 授權。
 
+    否則 Chrome 會判定 Popup
+    不是由使用者點擊直接觸發。
+  */
+  const currentCar =
+    window.currentCarData;
+
+  if (!currentCar) {
+    alert(
+      "車團資料尚未載入完成，請重新整理後再試。"
+    );
+    return;
+  }
+
+  const currentCalendar =
+    currentCar.calendar || {};
+
+  let googleAuthorized =
+    false;
+
+  let googleAuthError =
+    null;
+
+  /*
+    有 Google Event 時，
+    點擊刪除後立即取得授權。
+  */
+  if (currentCalendar.eventId) {
     try {
-      const snapshot =
-        await carRef.get();
+      await authorizeForCar(
+        currentCar
+      );
 
-      if (!snapshot.exists) {
-        alert(
-          "找不到這台車"
+      googleAuthorized =
+        true;
+    } catch (error) {
+      googleAuthError =
+        error;
+
+      console.warn(
+        "Google Calendar 授權未完成：",
+        error
+      );
+    }
+  }
+
+  const carRef =
+    db.collection("cars")
+      .doc(carId);
+
+  try {
+    /*
+      Google 授權處理完成後，
+      才讀取最新 Firestore 資料。
+    */
+    const snapshot =
+      await carRef.get();
+
+    if (!snapshot.exists) {
+      alert(
+        "找不到這台車"
+      );
+      return;
+    }
+
+    const car =
+      snapshot.data();
+
+    const calendar =
+      car.calendar || {};
+
+    const summary = [
+      "確定要永久刪除這台測試車嗎？",
+      "",
+      "劇本：" +
+        (
+          car.scriptName ||
+          "未命名劇本"
+        ),
+
+      "日期：" +
+        (
+          car.gameDate ||
+          "未設定"
+        ),
+
+      "時間：" +
+        (
+          car.gameTime ||
+          "未設定"
+        ),
+
+      "",
+      "此操作無法復原。"
+    ].join("\n");
+
+    if (!confirm(summary)) {
+      return;
+    }
+
+    let removeGoogle =
+      false;
+
+    if (calendar.eventId) {
+      removeGoogle =
+        confirm(
+          "這台車已同步到 Google Calendar。\n\n" +
+          "按「確定」：一起刪除 Google 行程\n" +
+          "按「取消」：只刪除 JLY 車團"
         );
-        return;
-      }
+    }
 
-      const car =
-        snapshot.data();
-
-      const calendar =
-        car.calendar || {};
-
-      const summary = [
-        "確定要永久刪除這台測試車嗎？",
-        "",
-        "劇本：" +
-          (
-            car.scriptName ||
-            "未命名劇本"
-          ),
-
-        "日期：" +
-          (
-            car.gameDate ||
-            "未設定"
-          ),
-
-        "時間：" +
-          (
-            car.gameTime ||
-            "未設定"
-          ),
-
-        "",
-        "此操作無法復原。"
-      ].join("\n");
-
-      if (!confirm(summary)) {
-        return;
-      }
-
-      let removeGoogle =
-        false;
-
-      if (calendar.eventId) {
-        removeGoogle =
+    if (removeGoogle) {
+      if (!googleAuthorized) {
+        const deleteJlyOnly =
           confirm(
-            "這台車已同步到 Google Calendar。\n\n" +
-            "按「確定」：一起刪除 Google 行程\n" +
-            "按「取消」：只刪除 JLY 車團"
+            "⚠️ Google Calendar 授權未完成。\n\n" +
+            (
+              googleAuthError &&
+              googleAuthError.message
+                ? googleAuthError.message
+                : "無法取得 Google 授權"
+            ) +
+            "\n\n是否仍只刪除 JLY 車團？"
           );
-      }
 
-      if (removeGoogle) {
-        /*
-          必須在使用者確認後立即授權，
-          避免彈出視窗被瀏覽器阻擋。
-        */
-        try {
-          await authorizeForCar(car);
+        if (!deleteJlyOnly) {
+          return;
+        }
 
-          const calendarResult =
-            await window
-              .JLYCalendarSync
-              .removeSyncedEvent({
-                carId,
-                car
-              });
+        removeGoogle =
+          false;
+      } else {
+        const calendarResult =
+          await window
+            .JLYCalendarSync
+            .removeSyncedEvent({
+              carId,
+              car
+            });
 
-          if (
-            calendarResult.ok !==
-            true
-          ) {
-            const deleteJlyOnly =
-              confirm(
-                "⚠️ Google Calendar 行程刪除失敗。\n\n" +
-                (
-                  calendarResult
-                    .error &&
-                  calendarResult
-                    .error.message
-                    ? calendarResult
-                        .error.message
-                    : "未知錯誤"
-                ) +
-                "\n\n仍要只刪除 JLY 車團嗎？"
-              );
-
-            if (!deleteJlyOnly) {
-              return;
-            }
-          }
-        } catch (error) {
+        if (
+          calendarResult.ok !==
+          true
+        ) {
           const deleteJlyOnly =
             confirm(
-              "⚠️ Google 授權未完成。\n\n" +
+              "⚠️ Google Calendar 行程刪除失敗。\n\n" +
               (
-                error.message ||
-                "未知錯誤"
+                calendarResult
+                  .error &&
+                calendarResult
+                  .error.message
+                  ? calendarResult
+                      .error.message
+                  : "未知錯誤"
               ) +
-              "\n\n仍要只刪除 JLY 車團嗎？"
+              "\n\n是否仍只刪除 JLY 車團？"
             );
 
           if (!deleteJlyOnly) {
             return;
           }
+
+          removeGoogle =
+            false;
         }
       }
+    }
 
-      await carRef.delete();
+    await carRef.delete();
 
-      /*
-        清掉上一台／下一台導覽中的這筆 ID。
-      */
-      try {
-        const key =
-          "mycarNavigationIds";
+    /*
+      清掉上一台／下一台車的導覽資料。
+    */
+    try {
+      const key =
+        "mycarNavigationIds";
 
-        const saved =
-          JSON.parse(
-            sessionStorage
-              .getItem(key) ||
-            "[]"
-          );
+      const saved =
+        JSON.parse(
+          sessionStorage
+            .getItem(key) ||
+          "[]"
+        );
 
-        if (Array.isArray(saved)) {
-          sessionStorage.setItem(
-            key,
-            JSON.stringify(
-              saved.filter(
-                function (id) {
-                  return id !==
-                    carId;
-                }
-              )
+      if (Array.isArray(saved)) {
+        sessionStorage.setItem(
+          key,
+          JSON.stringify(
+            saved.filter(
+              function (id) {
+                return id !==
+                  carId;
+              }
             )
-          );
-        }
-      } catch (error) {
-        console.warn(
-          "清理車團導覽紀錄失敗：",
-          error
+          )
         );
       }
-
-      alert(
-        removeGoogle
-          ? "測試車與 Google Calendar 行程已刪除。"
-          : "測試車已刪除。"
-      );
-
-      location.href =
-        "mycar.html";
     } catch (error) {
-      console.error(
-        "刪除車團失敗：",
+      console.warn(
+        "清理車團導覽紀錄失敗：",
         error
       );
-
-      alert(
-        "刪除失敗：" +
-        (
-          error.message ||
-          "未知錯誤"
-        )
-      );
     }
+
+    alert(
+      removeGoogle
+        ? "測試車與 Google Calendar 行程已刪除。"
+        : "測試車已刪除。"
+    );
+
+    location.href =
+      "mycar.html";
+  } catch (error) {
+    console.error(
+      "刪除車團失敗：",
+      error
+    );
+
+    alert(
+      "刪除失敗：" +
+      (
+        error.message ||
+        "未知錯誤"
+      )
+    );
   }
+}
 
   window
     .JLYCalendarDetailActions = {
