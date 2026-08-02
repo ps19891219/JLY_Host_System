@@ -1,15 +1,19 @@
-console.log("seat-render.js 已成功載入！");
+console.log(
+  "seat-render.js V3 已成功載入！"
+);
 
 // ============================================================
 // JLY Host System
-// Seat Engine V2 - Render
+// Seat Engine V3 - Render
 //
 // 負責：
 // 1. 畫出男位、女位、不限位分區
 // 2. 畫出座位列
-// 3. 畫出等待安排區
+// 3. 畫出待安排區
 // 4. 提供拖曳需要的 DOM 標記
 // 5. 顯示座位統計
+// 6. 顯示玩家本人性別
+// 7. 顯示右側玩家狀態欄
 //
 // 不負責：
 // - 修改座位資料
@@ -50,7 +54,11 @@ console.log("seat-render.js 已成功載入！");
   // ------------------------------------------------------------
 
   function escapeHtml(value) {
-    return String(value || "")
+    return String(
+      value == null
+        ? ""
+        : value
+    )
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
@@ -59,45 +67,231 @@ console.log("seat-render.js 已成功載入！");
   }
 
   // ------------------------------------------------------------
-  // 取得玩家顯示名稱
+  // 玩家基本資料
+  //
+  // 未來可直接搬至：
+  // render/player-status-render.js
+  // ------------------------------------------------------------
+
+  function getPlayerSource(value) {
+    if (!value) {
+      return {};
+    }
+
+    if (
+      value.player &&
+      typeof value.player ===
+        "object"
+    ) {
+      return value.player;
+    }
+
+    return value;
+  }
+
+  function getPlayerName(value) {
+    const player =
+      getPlayerSource(value);
+
+    if (
+      window.JLYSeatData &&
+      typeof window
+        .JLYSeatData
+        .getPlayerName ===
+        "function"
+    ) {
+      return window
+        .JLYSeatData
+        .getPlayerName(
+          player
+        );
+    }
+
+    return String(
+      player.hostAlias ||
+      player.displayName ||
+      player.playerName ||
+      player.name ||
+      player.nickname ||
+      "未命名玩家"
+    );
+  }
+
+  function getPlayerId(value) {
+    const player =
+      getPlayerSource(value);
+
+    return String(
+      value.playerId ||
+      value.id ||
+      player.playerId ||
+      player.id ||
+      player.profileId ||
+      player.applicationId ||
+      ""
+    );
+  }
+
+  function normalizeGender(value) {
+    const text =
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    if (
+      text === "male" ||
+      text === "男" ||
+      text === "男性" ||
+      text === "m"
+    ) {
+      return "male";
+    }
+
+    if (
+      text === "female" ||
+      text === "女" ||
+      text === "女性" ||
+      text === "f"
+    ) {
+      return "female";
+    }
+
+    return "";
+  }
+
+  function getPlayerGender(value) {
+    const player =
+      getPlayerSource(value);
+
+    return normalizeGender(
+      player.gender ||
+      player.playerGender ||
+      player.sex
+    );
+  }
+
+  function getGenderSymbol(value) {
+    const gender =
+      getPlayerGender(value);
+
+    if (gender === "male") {
+      return "♂";
+    }
+
+    if (gender === "female") {
+      return "♀";
+    }
+
+    return "";
+  }
+
+  function isCrossPlayPlayer(value) {
+    const player =
+      getPlayerSource(value);
+
+    return (
+      player.isCrossPlay === true
+    );
+  }
+
+  // ------------------------------------------------------------
+  // 玩家狀態欄
+  // ------------------------------------------------------------
+
+  function buildPlayerStatusItems(
+    value
+  ) {
+    const items = [];
+
+    if (
+      isCrossPlayPlayer(value)
+    ) {
+      items.push({
+        key:
+          "cross-play",
+
+        label:
+          "反串",
+
+        className:
+          "is-cross-play"
+      });
+    }
+
+    return items;
+  }
+
+  function renderPlayerStatusColumn(
+    value
+  ) {
+    const items =
+      buildPlayerStatusItems(
+        value
+      );
+
+    const content =
+      items.length > 0
+        ? items
+            .map(
+              function (item) {
+                return `
+                  <span
+                    class="seat-player-status-badge ${escapeHtml(
+                      item.className
+                    )}"
+                    data-player-status="${escapeHtml(
+                      item.key
+                    )}"
+                  >
+                    ${escapeHtml(
+                      item.label
+                    )}
+                  </span>
+                `;
+              }
+            )
+            .join("")
+        : "";
+
+    return `
+      <span
+        class="seat-player-status-column"
+        aria-label="${
+          items.length > 0
+            ? escapeHtml(
+                items
+                  .map(
+                    function (item) {
+                      return item.label;
+                    }
+                  )
+                  .join("、")
+              )
+            : ""
+        }"
+      >
+        ${content}
+      </span>
+    `;
+  }
+
+  // ------------------------------------------------------------
+  // 待安排玩家資料
   // ------------------------------------------------------------
 
   function getWaitingPlayerName(
     waitingItem
   ) {
-    const SeatData = getSeatData();
-
-    if (!waitingItem) {
-      return "未命名玩家";
-    }
-
-    const player =
-      waitingItem.player ||
-      waitingItem;
-
-    return SeatData.getPlayerName(
-      player
+    return getPlayerName(
+      waitingItem
     );
   }
 
   function getWaitingPlayerId(
     waitingItem
   ) {
-    if (!waitingItem) {
-      return "";
-    }
-
-    return String(
-      waitingItem.playerId ||
-      waitingItem.id ||
-      (
-        waitingItem.player &&
-        (
-          waitingItem.player.playerId ||
-          waitingItem.player.id
-        )
-      ) ||
-      ""
+    return getPlayerId(
+      waitingItem
     );
   }
 
@@ -117,56 +311,60 @@ console.log("seat-render.js 已成功載入！");
     return "◇";
   }
 
-  // ------------------------------------------------------------
-  // 座位狀態文字
-  // ------------------------------------------------------------
-
-  function getSeatStatusText(slot) {
-    if (
-      slot &&
-      slot.playerId
-    ) {
-      return "已入座";
-    }
-
-    return "空位";
-  }
-
-  // ------------------------------------------------------------
-  // 玩家名稱區
-  //
-  // 玩家名稱本身設 draggable，
-  // 之後會用來實作「只拖玩家」。
+    // ------------------------------------------------------------
+  // 玩家列內容
   // ------------------------------------------------------------
 
-  function renderPlayerContent(slot) {
-  console.log(
-    "🧪 Seat Render 收到 slot：",
-    slot
-  );
+  function renderGenderCell(value) {
+    const symbol =
+      getGenderSymbol(value);
 
-  if (
-    !slot ||
-    !slot.playerId
-  ) {
     return `
-      <div class="seat-player seat-player-empty">
-        <span class="seat-player-placeholder">
-          等待安排
-        </span>
-      </div>
+      <span
+        class="seat-player-gender"
+        aria-label="${
+          symbol === "♂"
+            ? "男性"
+            : symbol === "♀"
+              ? "女性"
+              : "未設定性別"
+        }"
+      >
+        ${escapeHtml(symbol)}
+      </span>
     `;
   }
 
+  function renderPlayerContent(slot) {
+    if (
+      !slot ||
+      !slot.playerId
+    ) {
+      return `
+        <div
+          class="seat-player seat-player-empty"
+        >
+          <span
+            class="seat-player-placeholder"
+          >
+            等待安排
+          </span>
+
+          <span
+            class="seat-player-status-column"
+            aria-hidden="true"
+          ></span>
+        </div>
+      `;
+    }
+
+    const player =
+      slot.player || {};
+
     const playerName =
-      (
-        slot.player &&
-        (
-          slot.player.name ||
-          slot.player.displayName
-        )
-      ) ||
-      "未命名玩家";
+      getPlayerName(
+        player
+      );
 
     return `
       <div
@@ -180,97 +378,118 @@ console.log("seat-render.js 已成功載入！");
           slot.slotId
         )}"
       >
-        <span class="seat-player-name">
-          ${escapeHtml(playerName)}
+        <span
+          class="seat-player-identity"
+        >
+          ${renderGenderCell(
+            player
+          )}
+
+          <span
+            class="seat-player-name"
+          >
+            ${escapeHtml(
+              playerName
+            )}
+          </span>
         </span>
+
+        ${renderPlayerStatusColumn(
+          player
+        )}
       </div>
     `;
   }
 
   // ------------------------------------------------------------
   // 單一座位列
-  //
-  // 整列本身可拖曳：
-  // data-seat-row-drag="true"
-  //
-  // 玩家名字也可單獨拖曳：
-  // data-seat-player-drag="true"
   // ------------------------------------------------------------
 
   function renderSeatRow(slot) {
-  const SeatLayout =
-    getSeatLayout();
+    const SeatLayout =
+      getSeatLayout();
 
-  const viewSlot =
-    SeatLayout.buildSlotViewModel(
-      slot
-    );
+    const viewSlot =
+      SeatLayout
+        .buildSlotViewModel(
+          slot
+        );
 
-  const statusClass =
-    viewSlot.isOccupied
-      ? "is-occupied"
-      : "is-empty";
+    const statusClass =
+      viewSlot.isOccupied
+        ? "is-occupied"
+        : "is-empty";
 
-  return `
-    <div
-      class="seat-row ${statusClass}"
-      draggable="true"
-      data-seat-row="true"
-      data-seat-row-drag="true"
-      data-slot-id="${escapeHtml(
-        viewSlot.slotId
-      )}"
-      data-slot-type="${escapeHtml(
-        viewSlot.sectionType
-      )}"
-    >
+    return `
       <div
-        class="seat-row-handle"
-        title="拖曳整列"
-        aria-label="拖曳整列"
+        class="seat-row ${statusClass}"
+        draggable="true"
+        data-seat-row="true"
+        data-seat-row-drag="true"
+        data-slot-id="${escapeHtml(
+          viewSlot.slotId
+        )}"
+        data-slot-type="${escapeHtml(
+          viewSlot.sectionType
+        )}"
       >
-        ☰
-      </div>
-
-      <div class="seat-row-main">
         <div
-  class="seat-row-label-cell"
-  data-seat-label-edit="true"
-  data-slot-id="${escapeHtml(
-    viewSlot.slotId
-  )}"
-  role="button"
-  tabindex="0"
-  title="點擊修改角色名稱"
->
-  ${escapeHtml(
-    viewSlot.displayName
-  )}
-</div>
+          class="seat-row-handle"
+          title="拖曳整列"
+          aria-label="拖曳整列"
+        >
+          ☰
+        </div>
 
-        <div class="seat-row-player-cell">
-          ${renderPlayerContent(
-            viewSlot
-          )}
+        <div
+          class="seat-row-main"
+        >
+          <div
+            class="seat-row-label-cell"
+            data-seat-label-edit="true"
+            data-slot-id="${escapeHtml(
+              viewSlot.slotId
+            )}"
+            role="button"
+            tabindex="0"
+            title="點擊修改角色名稱"
+          >
+            ${escapeHtml(
+              viewSlot.displayName
+            )}
+          </div>
+
+          <div
+            class="seat-row-player-cell"
+          >
+            ${renderPlayerContent(
+              viewSlot
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  `;
-}
+    `;
+  }
 
   // ------------------------------------------------------------
   // 單一分區
   // ------------------------------------------------------------
 
-  function renderSeatSection(section) {
+  function renderSeatSection(
+    section
+  ) {
     if (!section) {
       return "";
     }
 
     const rowsHtml =
-      Array.isArray(section.slots)
+      Array.isArray(
+        section.slots
+      )
         ? section.slots
-            .map(renderSeatRow)
+            .map(
+              renderSeatRow
+            )
             .join("")
         : "";
 
@@ -281,9 +500,15 @@ console.log("seat-render.js 已成功載入！");
           section.type
         )}"
       >
-        <div class="seat-section-header">
-          <div class="seat-section-title-area">
-            <span class="seat-section-icon">
+        <div
+          class="seat-section-header"
+        >
+          <div
+            class="seat-section-title-area"
+          >
+            <span
+              class="seat-section-icon"
+            >
               ${escapeHtml(
                 getSectionIcon(
                   section.type
@@ -291,25 +516,33 @@ console.log("seat-render.js 已成功載入！");
               )}
             </span>
 
-            <h3 class="seat-section-title">
+            <h3
+              class="seat-section-title"
+            >
               ${escapeHtml(
                 section.label
               )}
             </h3>
           </div>
 
-          <div class="seat-section-count">
+          <div
+            class="seat-section-count"
+          >
             ${Number(
-              section.occupiedCount || 0
+              section.occupiedCount ||
+              0
             )}
             /
             ${Number(
-              section.totalCount || 0
+              section.totalCount ||
+              0
             )}
           </div>
         </div>
 
-        <div class="seat-section-list">
+        <div
+          class="seat-section-list"
+        >
           ${rowsHtml}
         </div>
       </section>
@@ -317,162 +550,228 @@ console.log("seat-render.js 已成功載入！");
   }
 
   // ------------------------------------------------------------
-  // 等候玩家列
-  //
-  // 玩家可以拖進指定空位。
+  // 待安排玩家
   // ------------------------------------------------------------
 
   function renderWaitingPlayer(
-  waitingItem
-) {
-  const playerId =
-    getWaitingPlayerId(
-      waitingItem
-    );
+    waitingItem
+  ) {
+    const playerId =
+      getWaitingPlayerId(
+        waitingItem
+      );
 
-  const playerName =
-    getWaitingPlayerName(
-      waitingItem
-    );
+    const playerName =
+      getWaitingPlayerName(
+        waitingItem
+      );
 
-  const waitingReason =
-    String(
-      waitingItem &&
-      waitingItem.waitingReason
-        ? waitingItem.waitingReason
-        : ""
-    ).trim();
+    const player =
+      getPlayerSource(
+        waitingItem
+      );
 
-  return `
-    <div
-      class="seat-waiting-player"
-      draggable="true"
-      data-waiting-player="true"
-      data-player-id="${escapeHtml(
-        playerId
-      )}"
-    >
-      <div class="seat-waiting-player-main">
-        <span class="seat-waiting-player-name">
-          ${escapeHtml(
-            playerName
-          )}
-        </span>
-      </div>
-
-      ${
-        waitingReason
-          ? `
-            <div class="seat-waiting-reason">
-              ${escapeHtml(
-                waitingReason
-              )}
-            </div>
-          `
+    const waitingReason =
+      String(
+        waitingItem &&
+        waitingItem.waitingReason
+          ? waitingItem
+              .waitingReason
           : ""
-      }
+      ).trim();
 
-      <div class="seat-waiting-drag-hint">
-        拖曳到席位進行安排
+    return `
+      <div
+        class="seat-waiting-player"
+        draggable="true"
+        data-waiting-player="true"
+        data-player-id="${escapeHtml(
+          playerId
+        )}"
+      >
+        <div
+          class="seat-waiting-player-main"
+        >
+          <span
+            class="seat-player-identity"
+          >
+            ${renderGenderCell(
+              player
+            )}
+
+            <span
+              class="seat-waiting-player-name"
+            >
+              ${escapeHtml(
+                playerName
+              )}
+            </span>
+          </span>
+
+          ${renderPlayerStatusColumn(
+            player
+          )}
+        </div>
+
+        ${
+          waitingReason
+            ? `
+              <div
+                class="seat-waiting-reason"
+              >
+                ${escapeHtml(
+                  waitingReason
+                )}
+              </div>
+            `
+            : ""
+        }
+
+        <div
+          class="seat-waiting-drag-hint"
+        >
+          拖曳到席位進行安排
+        </div>
       </div>
-    </div>
-  `;
-}
+    `;
+  }
 
-  // ------------------------------------------------------------
-  // 等候區
+    // ------------------------------------------------------------
+  // 待安排區
   // ------------------------------------------------------------
 
   function renderWaitingArea(
-  waitingPlayers
-) {
-  const sourceWaiting =
-    Array.isArray(waitingPlayers)
-      ? waitingPlayers
-      : [];
+    waitingPlayers
+  ) {
+    const sourceWaiting =
+      Array.isArray(
+        waitingPlayers
+      )
+        ? waitingPlayers
+        : [];
 
-  const contentHtml =
-    sourceWaiting.length > 0
-      ? sourceWaiting
-          .map(
-            renderWaitingPlayer
-          )
-          .join("")
-      : `
-        <div class="seat-waiting-empty">
-          目前沒有待安排的玩家
+    const contentHtml =
+      sourceWaiting.length > 0
+        ? sourceWaiting
+            .map(
+              renderWaitingPlayer
+            )
+            .join("")
+        : `
+          <div
+            class="seat-waiting-empty"
+          >
+            目前沒有待安排的玩家
+          </div>
+        `;
+
+    return `
+      <section
+        class="seat-waiting-section"
+        data-seat-waiting-area="true"
+      >
+        <div
+          class="seat-section-header"
+        >
+          <div
+            class="seat-section-title-area"
+          >
+            <span
+              class="seat-section-icon"
+            >
+              ⏳
+            </span>
+
+            <h3
+              class="seat-section-title"
+            >
+              待安排
+            </h3>
+          </div>
+
+          <div
+            class="seat-section-count"
+          >
+            ${sourceWaiting.length}
+          </div>
         </div>
-      `;
 
-  return `
-    <section
-      class="seat-waiting-section"
-      data-seat-waiting-area="true"
-    >
-      <div class="seat-section-header">
-        <div class="seat-section-title-area">
-          <span class="seat-section-icon">
-            ⏳
-          </span>
-
-          <h3 class="seat-section-title">
-            待安排
-          </h3>
+        <div
+          class="seat-waiting-list"
+        >
+          ${contentHtml}
         </div>
-
-        <div class="seat-section-count">
-          ${sourceWaiting.length}
-        </div>
-      </div>
-
-      <div class="seat-waiting-list">
-        ${contentHtml}
-      </div>
-    </section>
-  `;
-}
+      </section>
+    `;
+  }
 
   // ------------------------------------------------------------
   // 統計列
+  //
+  // 目前先保留原本三格。
+  // 男位／女位統計會在下一階段由
+  // Seat Layout 提供正式數值。
   // ------------------------------------------------------------
 
   function renderSeatSummary(
     viewModel
   ) {
     return `
-      <div class="seat-summary">
-        <div class="seat-summary-item">
-          <span class="seat-summary-label">
+      <div
+        class="seat-summary"
+      >
+        <div
+          class="seat-summary-item"
+        >
+          <span
+            class="seat-summary-label"
+          >
             已入座
           </span>
 
-          <strong class="seat-summary-value">
+          <strong
+            class="seat-summary-value"
+          >
             ${Number(
-              viewModel.occupiedSeatCount ||
+              viewModel
+                .occupiedSeatCount ||
               0
             )}
           </strong>
         </div>
 
-        <div class="seat-summary-item">
-          <span class="seat-summary-label">
+        <div
+          class="seat-summary-item"
+        >
+          <span
+            class="seat-summary-label"
+          >
             空位
           </span>
 
-          <strong class="seat-summary-value">
+          <strong
+            class="seat-summary-value"
+          >
             ${Number(
-              viewModel.emptySeatCount ||
+              viewModel
+                .emptySeatCount ||
               0
             )}
           </strong>
         </div>
 
-        <div class="seat-summary-item">
-          <span class="seat-summary-label">
+        <div
+          class="seat-summary-item"
+        >
+          <span
+            class="seat-summary-label"
+          >
             待安排
           </span>
 
-          <strong class="seat-summary-value">
+          <strong
+            class="seat-summary-value"
+          >
             ${Number(
               viewModel.waitingCount ||
               0
@@ -484,21 +783,29 @@ console.log("seat-render.js 已成功載入！");
   }
 
   // ------------------------------------------------------------
-  // 空座位狀態
+  // 沒有席位
   // ------------------------------------------------------------
 
   function renderNoSeats() {
     return `
-      <div class="seat-empty-state">
-        <div class="seat-empty-state-icon">
+      <div
+        class="seat-empty-state"
+      >
+        <div
+          class="seat-empty-state-icon"
+        >
           🪑
         </div>
 
-        <div class="seat-empty-state-title">
+        <div
+          class="seat-empty-state-title"
+        >
           尚未建立席位
         </div>
 
-        <div class="seat-empty-state-text">
+        <div
+          class="seat-empty-state-text"
+        >
           請先設定男位、女位、不限位或總人數。
         </div>
       </div>
@@ -545,7 +852,9 @@ console.log("seat-render.js 已成功載入！");
 
     const sectionsHtml =
       viewModel.sections
-        .map(renderSeatSection)
+        .map(
+          renderSeatSection
+        )
         .join("");
 
     const summaryHtml =
@@ -558,7 +867,8 @@ console.log("seat-render.js 已成功載入！");
     const waitingHtml =
       settings.showWaitingArea
         ? renderWaitingArea(
-            viewModel.waitingPlayers
+            viewModel
+              .waitingPlayers
           )
         : "";
 
@@ -575,7 +885,9 @@ console.log("seat-render.js 已成功載入！");
         >
           ${summaryHtml}
 
-          <div class="seat-engine-sections">
+          <div
+            class="seat-engine-sections"
+          >
             ${seatBodyHtml}
           </div>
 
@@ -588,12 +900,7 @@ console.log("seat-render.js 已成功載入！");
   }
 
   // ------------------------------------------------------------
-  // 畫進指定容器
-  //
-  // container 可以是：
-  // 1. DOM 元素
-  // 2. CSS selector
-  // 3. id 字串
+  // 找到顯示容器
   // ------------------------------------------------------------
 
   function resolveContainer(
@@ -610,28 +917,22 @@ console.log("seat-render.js 已成功載入！");
       return container;
     }
 
-    const containerText =
+    const value =
       String(container);
 
-    if (
-      containerText.startsWith("#") ||
-      containerText.startsWith(".") ||
-      containerText.startsWith("[")
-    ) {
-      return document.querySelector(
-        containerText
-      );
-    }
-
     return (
-      document.getElementById(
-        containerText
-      ) ||
       document.querySelector(
-        containerText
+        value
+      ) ||
+      document.getElementById(
+        value.replace(/^#/, "")
       )
     );
   }
+
+  // ------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------
 
   function render(
     container,
@@ -639,109 +940,57 @@ console.log("seat-render.js 已成功載入！");
     waitingPlayers,
     options
   ) {
-    const targetContainer =
+    const target =
       resolveContainer(
         container
       );
 
-    if (!targetContainer) {
-      console.warn(
-        "Seat Render：找不到指定容器",
-        container
-      );
-
+    if (!target) {
       return {
-        success: false,
+        success:
+          false,
+
         reason:
           "找不到座位顯示容器",
-        viewModel: null
+
+        html:
+          "",
+
+        viewModel:
+          null
       };
     }
 
-    const renderResult =
+    const result =
       buildSeatHtml(
         slots,
         waitingPlayers,
         options
       );
 
-    targetContainer.innerHTML =
-      renderResult.html;
-
-    targetContainer
-      .setAttribute(
-        "data-seat-rendered",
-        "true"
-      );
+    target.innerHTML =
+      result.html;
 
     return {
-      success: true,
-      reason: "",
-      container:
-        targetContainer,
+      success:
+        true,
+
+      reason:
+        "",
+
+      html:
+        result.html,
+
       viewModel:
-        renderResult.viewModel
+        result.viewModel,
+
+      container:
+        target
     };
   }
 
-  // ------------------------------------------------------------
-  // 更新單一玩家名稱
-  //
-  // 不重畫整區，
-  // 之後主揪改顯示名稱時可以使用。
-  // ------------------------------------------------------------
-
-  function updatePlayerName(
-    container,
-    playerId,
-    playerName
-  ) {
-    const targetContainer =
-      resolveContainer(
-        container
-      );
-
-    if (!targetContainer) {
-      return false;
-    }
-
-    const normalizedPlayerId =
-      String(playerId || "");
-
-    const playerElement =
-      targetContainer.querySelector(
-        '[data-seat-player-drag="true"]' +
-        '[data-player-id="' +
-        CSS.escape(
-          normalizedPlayerId
-        ) +
-        '"]'
-      );
-
-    if (!playerElement) {
-      return false;
-    }
-
-    const nameElement =
-      playerElement.querySelector(
-        ".seat-player-name"
-      );
-
-    if (!nameElement) {
-      return false;
-    }
-
-    nameElement.textContent =
-      String(
-        playerName ||
-        "未命名玩家"
-      );
-
-    return true;
-  }
-
-  // ------------------------------------------------------------
-  // 顯示操作錯誤
+    // ------------------------------------------------------------
+  // 操作訊息
   // ------------------------------------------------------------
 
   function showActionMessage(
@@ -749,17 +998,17 @@ console.log("seat-render.js 已成功載入！");
     message,
     type
   ) {
-    const targetContainer =
+    const target =
       resolveContainer(
         container
       );
 
-    if (!targetContainer) {
+    if (!target) {
       return;
     }
 
     const oldMessage =
-      targetContainer.querySelector(
+      target.querySelector(
         ".seat-action-message"
       );
 
@@ -767,36 +1016,341 @@ console.log("seat-render.js 已成功載入！");
       oldMessage.remove();
     }
 
-    const messageElement =
+    const messageBox =
       document.createElement(
         "div"
       );
 
-    messageElement.className =
-      "seat-action-message " +
+    messageBox.className =
+          "seat-action-message " +
       (
         type === "error"
           ? "is-error"
-          : "is-success"
+          : type === "success"
+            ? "is-success"
+            : "is-info"
       );
 
-    messageElement.textContent =
-      String(message || "");
+    messageBox.setAttribute(
+      "role",
+      type === "error"
+        ? "alert"
+        : "status"
+    );
 
-    targetContainer.prepend(
-      messageElement
+    messageBox.textContent =
+      String(
+        message || ""
+      );
+
+    target.prepend(
+      messageBox
     );
 
     window.setTimeout(
       function () {
         if (
-          messageElement &&
-          messageElement.parentNode
+          messageBox &&
+          messageBox.parentNode
         ) {
-          messageElement.remove();
+          messageBox.remove();
         }
       },
-      2500
+      2200
+    );
+  }
+
+  // ------------------------------------------------------------
+  // 更新單一玩家名稱
+  //
+  // 不重新畫整個 Seat Board。
+  // 主揪修改顯示名稱後可以使用。
+  // ------------------------------------------------------------
+
+  function updatePlayerName(
+    container,
+    playerId,
+    playerName
+  ) {
+    const target =
+      resolveContainer(
+        container
+      );
+
+    if (!target) {
+      return {
+        success:
+          false,
+
+        reason:
+          "找不到座位顯示容器"
+      };
+    }
+
+    const normalizedPlayerId =
+      String(
+        playerId || ""
+      );
+
+    const playerElements =
+      target.querySelectorAll(
+        "[data-player-id]"
+      );
+
+    let updatedCount = 0;
+
+    playerElements.forEach(
+      function (element) {
+        const currentPlayerId =
+          String(
+            element.getAttribute(
+              "data-player-id"
+            ) || ""
+          );
+
+        if (
+          currentPlayerId !==
+          normalizedPlayerId
+        ) {
+          return;
+        }
+
+        const nameElement =
+          element.querySelector(
+            ".seat-player-name, .seat-waiting-player-name"
+          );
+
+        if (nameElement) {
+          nameElement.textContent =
+            String(
+              playerName ||
+              "未命名玩家"
+            );
+
+          updatedCount += 1;
+        }
+      }
+    );
+
+    return {
+      success:
+        updatedCount > 0,
+
+      reason:
+        updatedCount > 0
+          ? ""
+          : "找不到玩家顯示位置",
+
+      updatedCount
+    };
+  }
+
+  // ------------------------------------------------------------
+  // 更新單一玩家狀態欄
+  //
+  // 未來付款、候補等狀態，
+  // 可以沿用這個入口。
+  // ------------------------------------------------------------
+
+  function updatePlayerStatus(
+    container,
+    playerId,
+    player
+  ) {
+    const target =
+      resolveContainer(
+        container
+      );
+
+    if (!target) {
+      return {
+        success:
+          false,
+
+        reason:
+          "找不到座位顯示容器"
+      };
+    }
+
+    const normalizedPlayerId =
+      String(
+        playerId || ""
+      );
+
+    const playerElements =
+      target.querySelectorAll(
+        "[data-player-id]"
+      );
+
+    let updatedCount = 0;
+
+    playerElements.forEach(
+      function (element) {
+        const currentPlayerId =
+          String(
+            element.getAttribute(
+              "data-player-id"
+            ) || ""
+          );
+
+        if (
+          currentPlayerId !==
+          normalizedPlayerId
+        ) {
+          return;
+        }
+
+        const statusElement =
+          element.querySelector(
+            ".seat-player-status-column"
+          );
+
+        if (!statusElement) {
+          return;
+        }
+
+        const statusHtml =
+          renderPlayerStatusColumn(
+            player
+          );
+
+        const wrapper =
+          document.createElement(
+            "div"
+          );
+
+        wrapper.innerHTML =
+          statusHtml.trim();
+
+        const nextStatusElement =
+          wrapper.firstElementChild;
+
+        if (nextStatusElement) {
+          statusElement.replaceWith(
+            nextStatusElement
+          );
+
+          updatedCount += 1;
+        }
+      }
+    );
+
+    return {
+      success:
+        updatedCount > 0,
+
+      reason:
+        updatedCount > 0
+          ? ""
+          : "找不到玩家狀態欄",
+
+      updatedCount
+    };
+  }
+
+  // ------------------------------------------------------------
+  // 更新單一玩家性別符號
+  // ------------------------------------------------------------
+
+  function updatePlayerGender(
+    container,
+    playerId,
+    player
+  ) {
+    const target =
+      resolveContainer(
+        container
+      );
+
+    if (!target) {
+      return {
+        success:
+          false,
+
+        reason:
+          "找不到座位顯示容器"
+      };
+    }
+
+    const normalizedPlayerId =
+      String(
+        playerId || ""
+      );
+
+    const playerElements =
+      target.querySelectorAll(
+        "[data-player-id]"
+      );
+
+    let updatedCount = 0;
+
+    playerElements.forEach(
+      function (element) {
+        const currentPlayerId =
+          String(
+            element.getAttribute(
+              "data-player-id"
+            ) || ""
+          );
+
+        if (
+          currentPlayerId !==
+          normalizedPlayerId
+        ) {
+          return;
+        }
+
+        const genderElement =
+          element.querySelector(
+            ".seat-player-gender"
+          );
+
+        if (!genderElement) {
+          return;
+        }
+
+        const symbol =
+          getGenderSymbol(
+            player
+          );
+
+        genderElement.textContent =
+          symbol;
+
+        genderElement.setAttribute(
+          "aria-label",
+          symbol === "♂"
+            ? "男性"
+            : symbol === "♀"
+              ? "女性"
+              : "未設定性別"
+        );
+
+        updatedCount += 1;
+      }
+    );
+
+    return {
+      success:
+        updatedCount > 0,
+
+      reason:
+        updatedCount > 0
+          ? ""
+          : "找不到玩家性別欄位",
+
+      updatedCount
+    };
+  }
+
+  // ------------------------------------------------------------
+  // 檢查模組狀態
+  // ------------------------------------------------------------
+
+  function isReady() {
+    return Boolean(
+      window.JLYSeatData &&
+      window.JLYSeatLayout
     );
   }
 
@@ -805,29 +1359,66 @@ console.log("seat-render.js 已成功載入！");
   // ------------------------------------------------------------
 
   window.JLYSeatRender = {
+    isReady,
+
     escapeHtml,
 
+    getPlayerSource,
+
+    getPlayerName,
+
+    getPlayerId,
+
+    normalizeGender,
+
+    getPlayerGender,
+
+    getGenderSymbol,
+
+    isCrossPlayPlayer,
+
+    buildPlayerStatusItems,
+
+    renderPlayerStatusColumn,
+
     getWaitingPlayerName,
+
     getWaitingPlayerId,
 
     getSectionIcon,
-    getSeatStatusText,
+
+    renderGenderCell,
 
     renderPlayerContent,
+
     renderSeatRow,
+
     renderSeatSection,
 
     renderWaitingPlayer,
+
     renderWaitingArea,
 
     renderSeatSummary,
+
     renderNoSeats,
 
     buildSeatHtml,
+
     resolveContainer,
+
     render,
 
+    showActionMessage,
+
     updatePlayerName,
-    showActionMessage
+
+    updatePlayerStatus,
+
+    updatePlayerGender
   };
+
+  console.log(
+    "✅ Seat Render V3 已載入"
+  );
 })();

@@ -4,7 +4,7 @@
 JLY Host System
 
 Module：
-Player Move Executor V1
+Player Move Executor V2
 
 用途：
 1. 執行主揪已確認的玩家移動
@@ -158,6 +158,259 @@ console.log(
       );
   }
 
+  function normalizePosition(value) {
+    const SeatData =
+      getSeatData();
+
+    return SeatData.normalizePosition(
+      value
+    );
+  }
+
+  function normalizeGender(value) {
+    const text =
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    if (
+      text === "male" ||
+      text === "男" ||
+      text === "男性" ||
+      text === "m"
+    ) {
+      return "male";
+    }
+
+    if (
+      text === "female" ||
+      text === "女" ||
+      text === "女性" ||
+      text === "f"
+    ) {
+      return "female";
+    }
+
+    return "";
+  }
+
+  function getPlayerGender(player) {
+    const source =
+      player &&
+      typeof player === "object"
+        ? player
+        : {};
+
+    return normalizeGender(
+      source.gender ||
+      source.playerGender ||
+      source.sex
+    );
+  }
+
+  function getPlayerPlayPosition(player) {
+    const source =
+      player &&
+      typeof player === "object"
+        ? player
+        : {};
+
+    return normalizePosition(
+      source.playPosition ||
+      source.position ||
+      source.requestedPosition
+    );
+  }
+
+  function getTargetPosition(
+    slot,
+    player
+  ) {
+    const source =
+      slot &&
+      typeof slot === "object"
+        ? slot
+        : {};
+
+    const originalType =
+      normalizePosition(
+        source.originalType ||
+        source.type
+      );
+
+    if (
+      originalType === "male" ||
+      originalType === "female"
+    ) {
+      return originalType;
+    }
+
+    const currentPlayerPosition =
+      getPlayerPlayPosition(
+        player
+
+              );
+
+    if (
+      currentPlayerPosition === "male" ||
+      currentPlayerPosition === "female"
+    ) {
+      return currentPlayerPosition;
+    }
+
+    const currentSlotType =
+      normalizePosition(
+        source.type
+      );
+
+    if (
+      currentSlotType === "male" ||
+      currentSlotType === "female"
+    ) {
+      return currentSlotType;
+    }
+
+    return "flexible";
+  }
+
+  function getPositionLabel(position) {
+    const normalized =
+      normalizePosition(position);
+
+    if (normalized === "male") {
+      return "男位";
+    }
+
+    if (normalized === "female") {
+      return "女位";
+    }
+
+    return "不限";
+  }
+
+  function calculateCrossPlay(
+    player,
+    playPosition
+  ) {
+    const gender =
+      getPlayerGender(player);
+
+    const position =
+      normalizePosition(
+        playPosition
+      );
+
+    if (
+      !gender ||
+      (
+        position !== "male" &&
+        position !== "female"
+      )
+    ) {
+      return false;
+    }
+
+    return gender !== position;
+  }
+
+  function syncPlayerForSlot(
+    players,
+    playerId,
+    slot
+  ) {
+    const nextPlayers =
+      cloneValue(
+        Array.isArray(players)
+          ? players
+          : []
+      );
+
+    const targetId =
+      normalizeId(playerId);
+
+    const playerIndex =
+      nextPlayers.findIndex(
+        function (
+          player,
+          index
+        ) {
+          return (
+            getPlayerId(
+              player,
+              index
+            ) === targetId
+          );
+        }
+      );
+
+    if (playerIndex < 0) {
+      return {
+        success:
+          false,
+
+        reason:
+          "找不到要同步的玩家",
+
+        players:
+          nextPlayers,
+
+        player:
+          null
+      };
+    }
+
+    const currentPlayer =
+      nextPlayers[playerIndex];
+
+    const nextPosition =
+      getTargetPosition(
+        slot,
+        currentPlayer
+      );
+
+    const isCrossPlay =
+      calculateCrossPlay(
+        currentPlayer,
+        nextPosition
+      );
+
+    nextPlayers[playerIndex] = {
+      ...currentPlayer,
+
+      playPosition:
+        nextPosition,
+
+      position:
+        getPositionLabel(
+          nextPosition
+        ),
+
+      isCrossPlay,
+
+      updatedAt:
+        getSeatData().nowTime()
+    };
+
+    return {
+      success:
+        true,
+
+      reason:
+        "",
+
+      players:
+        nextPlayers,
+
+      player:
+        nextPlayers[playerIndex],
+
+      playPosition:
+        nextPosition,
+
+      isCrossPlay
+    };
+  }
+
   function createPlayerSnapshot(
     player,
     playerId
@@ -268,7 +521,7 @@ console.log(
     );
   }
 
-  // ------------------------------------------------------------
+    // ------------------------------------------------------------
   // 等待安排 → 指定席位
   // ------------------------------------------------------------
 
@@ -278,7 +531,7 @@ console.log(
     playerId,
     targetSlotId
   ) {
-    const nextPlayers =
+    let nextPlayers =
       cloneValue(
         Array.isArray(players)
           ? players
@@ -300,17 +553,10 @@ console.log(
 
     if (!player) {
       return {
-        success:
-          false,
-
-        reason:
-          "找不到玩家資料",
-
-        players:
-          nextPlayers,
-
-        slots:
-          nextSlots
+        success: false,
+        reason: "找不到玩家資料",
+        players: nextPlayers,
+        slots: nextSlots
       };
     }
 
@@ -322,33 +568,19 @@ console.log(
 
     if (!targetSlot) {
       return {
-        success:
-          false,
-
-        reason:
-          "找不到目標席位",
-
-        players:
-          nextPlayers,
-
-        slots:
-          nextSlots
+        success: false,
+        reason: "找不到目標席位",
+        players: nextPlayers,
+        slots: nextSlots
       };
     }
 
     if (targetSlot.playerId) {
       return {
-        success:
-          false,
-
-        reason:
-          "這個位置已經有人",
-
-        players:
-          nextPlayers,
-
-        slots:
-          nextSlots
+        success: false,
+        reason: "這個位置已經有人",
+        players: nextPlayers,
+        slots: nextSlots
       };
     }
 
@@ -365,12 +597,31 @@ console.log(
         targetSlotId
       );
 
+    const syncResult =
+      syncPlayerForSlot(
+        nextPlayers,
+        playerId,
+        refreshedTarget
+      );
+
+    if (!syncResult.success) {
+      return {
+        success: false,
+        reason: syncResult.reason,
+        players: nextPlayers,
+        slots: nextSlots
+      };
+    }
+
+    nextPlayers =
+      syncResult.players;
+
     refreshedTarget.playerId =
       normalizeId(playerId);
 
     refreshedTarget.player =
       createPlayerSnapshot(
-        player,
+        syncResult.player,
         playerId
       );
 
@@ -379,30 +630,21 @@ console.log(
 
     applyFlexibleType(
       refreshedTarget,
-      player
+      syncResult.player
     );
 
     return {
-      success:
-        true,
-
-      reason:
-        "",
-
-      action:
-        "waiting-to-seat-host",
-
-      playerId:
-        normalizeId(playerId),
-
-      targetSlotId:
-        normalizeId(targetSlotId),
-
-      players:
-        nextPlayers,
-
-      slots:
-        nextSlots
+      success: true,
+      reason: "",
+      action: "waiting-to-seat-host",
+      playerId: normalizeId(playerId),
+      targetSlotId: normalizeId(targetSlotId),
+      playPosition:
+        syncResult.playPosition,
+      isCrossPlay:
+        syncResult.isCrossPlay,
+      players: nextPlayers,
+      slots: nextSlots
     };
   }
 
@@ -417,7 +659,7 @@ console.log(
     sourceSlotId,
     targetSlotId
   ) {
-    const nextPlayers =
+    let nextPlayers =
       cloneValue(
         Array.isArray(players)
           ? players
@@ -448,33 +690,21 @@ console.log(
       !targetSlot
     ) {
       return {
-        success:
-          false,
-
+        success: false,
         reason:
           "找不到來源或目標席位",
-
-        players:
-          nextPlayers,
-
-        slots:
-          nextSlots
+        players: nextPlayers,
+        slots: nextSlots
       };
     }
 
     if (!sourceSlot.playerId) {
       return {
-        success:
-          false,
-
+        success: false,
         reason:
           "來源席位沒有玩家",
-
-        players:
-          nextPlayers,
-
-        slots:
-          nextSlots
+        players: nextPlayers,
+        slots: nextSlots
       };
     }
 
@@ -491,17 +721,11 @@ console.log(
 
     if (!sourcePlayer) {
       return {
-        success:
-          false,
-
+        success: false,
         reason:
           "找不到來源玩家資料",
-
-        players:
-          nextPlayers,
-
-        slots:
-          nextSlots
+        players: nextPlayers,
+        slots: nextSlots
       };
     }
 
@@ -518,47 +742,94 @@ console.log(
           )
         : null;
 
-    const sourceSnapshot =
-      createPlayerSnapshot(
-        sourcePlayer,
-        sourcePlayerId
+    const sourceSync =
+      syncPlayerForSlot(
+        nextPlayers,
+        sourcePlayerId,
+        targetSlot
       );
 
-    const targetSnapshot =
-      targetPlayer
-        ? createPlayerSnapshot(
-            targetPlayer,
-            targetPlayerId
-          )
-        : null;
+    if (!sourceSync.success) {
+      return {
+        success: false,
+        reason: sourceSync.reason,
+        players: nextPlayers,
+        slots: nextSlots
+      };
+    }
+
+    nextPlayers =
+      sourceSync.players;
+
+    let targetSync =
+      null;
+
+    if (targetPlayerId) {
+      targetSync =
+        syncPlayerForSlot(
+          nextPlayers,
+          targetPlayerId,
+          sourceSlot
+        );
+
+      if (!targetSync.success) {
+        return {
+          success: false,
+          reason: targetSync.reason,
+          players: nextPlayers,
+          slots: nextSlots
+        };
+      }
+
+      nextPlayers =
+        targetSync.players;
+    }
+
+        const syncedSourcePlayer =
+      getPlayerById(
+        nextPlayers,
+        sourcePlayerId
+      );
 
     targetSlot.playerId =
       sourcePlayerId;
 
     targetSlot.player =
-      sourceSnapshot;
+      createPlayerSnapshot(
+        syncedSourcePlayer,
+        sourcePlayerId
+      );
 
     targetSlot.updatedAt =
       getSeatData().nowTime();
 
     applyFlexibleType(
       targetSlot,
-      sourcePlayer
+      syncedSourcePlayer
     );
 
     if (targetPlayerId) {
+      const syncedTargetPlayer =
+        getPlayerById(
+          nextPlayers,
+          targetPlayerId
+        );
+
       sourceSlot.playerId =
         targetPlayerId;
 
       sourceSlot.player =
-        targetSnapshot;
+        createPlayerSnapshot(
+          syncedTargetPlayer,
+          targetPlayerId
+        );
 
       sourceSlot.updatedAt =
         getSeatData().nowTime();
 
       applyFlexibleType(
         sourceSlot,
-        targetPlayer
+        syncedTargetPlayer
       );
     } else {
       Object.assign(
@@ -570,36 +841,30 @@ console.log(
     }
 
     return {
-      success:
-        true,
-
-      reason:
-        "",
-
+      success: true,
+      reason: "",
       action:
         targetPlayerId
           ? "swap-players-host"
           : "seat-to-seat-host",
-
       playerId:
         sourcePlayerId,
-
       sourceSlotId:
         normalizeId(
           sourceSlotId
         ),
-
       targetSlotId:
         normalizeId(
           targetSlotId
         ),
-
       swappedPlayerId:
         targetPlayerId,
-
+      playPosition:
+        sourceSync.playPosition,
+      isCrossPlay:
+        sourceSync.isCrossPlay,
       players:
         nextPlayers,
-
       slots:
         nextSlots
     };
@@ -673,6 +938,22 @@ console.log(
 
     getPlayerName,
 
+    normalizePosition,
+
+    normalizeGender,
+
+    getPlayerGender,
+
+    getPlayerPlayPosition,
+
+    getTargetPosition,
+
+    getPositionLabel,
+
+    calculateCrossPlay,
+
+    syncPlayerForSlot,
+
     createPlayerSnapshot,
 
     clearSlot,
@@ -689,6 +970,6 @@ console.log(
   };
 
   console.log(
-    "✅ Player Move Executor V1 已載入"
+    "✅ Player Move Executor V2 已載入"
   );
 })();

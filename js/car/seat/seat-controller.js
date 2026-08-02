@@ -1,10 +1,10 @@
 console.log(
-  "seat-controller.js V2 已成功載入！"
+  "seat-controller.js V3 已成功載入！"
 );
 
 // ============================================================
 // JLY Host System
-// Seat Controller V2
+// Seat Controller V3
 //
 // 負責：
 // 1. 啟動 Seat Board
@@ -243,12 +243,14 @@ console.log(
       "✅ Seat Controller 已套用結果：",
       {
         actionResult,
+
         slots:
           controllerState.car
             ? controllerState
                 .car
                 .slots
             : [],
+
         players:
           controllerState.players
       }
@@ -295,7 +297,7 @@ console.log(
     );
   }
 
-  // ------------------------------------------------------------
+    // ------------------------------------------------------------
   // 玩家移動失敗
   // ------------------------------------------------------------
 
@@ -329,9 +331,11 @@ console.log(
   // ------------------------------------------------------------
   // 主揪確認玩家位置
   //
-  // 1：保留玩家原位置
-  // 2：同步修改玩家位置
-  // 0：取消
+  // 玩家沒有勾選願意反串時，
+  // 主揪仍可確認安排。
+  //
+  // 未來可直接搬至：
+  // confirm/host-cross-play-confirm.js
   // ------------------------------------------------------------
 
   function askPositionDecision(
@@ -343,14 +347,6 @@ console.log(
         ? confirmation.playerName
         : "這位玩家";
 
-    const currentPosition =
-      confirmation &&
-      confirmation
-        .currentPositionLabel
-        ? confirmation
-            .currentPositionLabel
-        : "原位置";
-
     const targetPosition =
       confirmation &&
       confirmation
@@ -359,35 +355,17 @@ console.log(
             .targetPositionLabel
         : "目標位置";
 
-    const input =
-      prompt(
-        `⚠️ 更改玩家席位\n\n` +
-        `${playerName}\n` +
-        `目前設定：${currentPosition}\n` +
-        `目標席位：${targetPosition}\n\n` +
-        `請輸入：\n` +
-        `1　保留玩家原位置\n` +
-        `2　同步修改為 ${targetPosition}\n` +
-        `0　取消移動`,
-        "1"
+    const confirmed =
+      confirm(
+        `⚠️ 反串安排提醒\n\n` +
+        `${playerName} 本場沒有勾選願意反串。\n` +
+        `這次將安排至 ${targetPosition}，並自動標記為反串。\n\n` +
+        `仍然安排嗎？`
       );
 
-    if (
-      input === null ||
-      String(input).trim() ===
-        "0"
-    ) {
-      return "cancel";
-    }
-
-    if (
-      String(input).trim() ===
-        "2"
-    ) {
-      return "update";
-    }
-
-    return "keep";
+    return confirmed
+      ? "update"
+      : "cancel";
   }
 
   // ------------------------------------------------------------
@@ -481,7 +459,9 @@ console.log(
   // 綁定整列拖曳
   // ------------------------------------------------------------
 
-  function bindRowDrag(boardData) {
+  function bindRowDrag(
+    boardData
+  ) {
     if (!isRowDragReady()) {
       console.warn(
         "Seat Controller：Seat Row Drag 尚未載入"
@@ -523,7 +503,7 @@ console.log(
       return {
         success: false,
         reason:
-          "Player Drag 尚未載入"
+          "Seat Player Drag 尚未載入"
       };
     }
 
@@ -634,7 +614,7 @@ console.log(
     return boardResult;
   }
 
-  // ------------------------------------------------------------
+    // ------------------------------------------------------------
   // Refresh
   // ------------------------------------------------------------
 
@@ -698,6 +678,6 @@ console.log(
   };
 
   console.log(
-    "✅ Seat Controller V2 已載入"
+    "✅ Seat Controller V3 已載入"
   );
 })();

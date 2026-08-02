@@ -4,7 +4,7 @@
 JLY Host System
 
 Module：
-Player Move Pipeline V2
+Player Move Pipeline V3
 
 用途：
 1. 統一處理玩家移動
@@ -35,7 +35,7 @@ Player Move Pipeline V2
 */
 
 console.log(
-  "player-move-pipeline.js V2 已成功載入！"
+  "player-move-pipeline.js V3 已成功載入！"
 );
 
 (function () {
@@ -271,8 +271,52 @@ console.log(
         slot.player &&
         (
           slot.player.playerId ||
-          slot.player.id
+
+                    slot.player.id
         )
+      )
+    );
+  }
+
+  function hasCrossPlayPermission(
+    player
+  ) {
+    const source =
+      player &&
+      typeof player === "object"
+        ? player
+        : {};
+
+    return (
+      source.allowCrossPlay === true ||
+      source.requestedCrossPlay === true ||
+      source.isCrossPlay === true
+    );
+  }
+
+  function shouldWarnForCrossPlay(
+    player,
+    slot
+  ) {
+    const executor =
+      getMoveExecutor();
+
+    const targetPosition =
+      executor.getTargetPosition(
+        slot,
+        player
+      );
+
+    const willCrossPlay =
+      executor.calculateCrossPlay(
+        player,
+        targetPosition
+      );
+
+    return (
+      willCrossPlay &&
+      !hasCrossPlayPermission(
+        player
       )
     );
   }
@@ -444,16 +488,26 @@ console.log(
     slot,
     evaluation
   ) {
-    const SeatRules =
-      getSeatRules();
+    const executor =
+      getMoveExecutor();
+
+    const targetPosition =
+      executor.getTargetPosition(
+        slot,
+        player
+      );
+
+    const targetPositionLabel =
+      executor.getPositionLabel(
+        targetPosition
+      );
 
     return {
       title:
-        "更改玩家席位",
+        "反串安排提醒",
 
       message:
-        evaluation.warningMessage ||
-        "玩家位置與目標席位不同。",
+        "這位玩家本場沒有勾選願意反串。",
 
       playerId:
         getPlayerId(player),
@@ -462,37 +516,37 @@ console.log(
         getPlayerName(player),
 
       currentPosition:
-        evaluation.playerPosition,
+        getSeatData()
+          .getPlayerPosition(
+            player
+          ),
 
       currentPositionLabel:
-        SeatRules.getPositionLabel(
-          evaluation.playerPosition
+        executor.getPositionLabel(
+          getSeatData()
+            .getPlayerPosition(
+              player
+            )
         ),
 
-      targetPosition:
-        evaluation.slotPosition,
+      targetPosition,
 
-      targetPositionLabel:
-        SeatRules.getPositionLabel(
-          evaluation.slotPosition
-        ),
+      targetPositionLabel,
 
       targetSlotId:
         getSeatAssignment()
           .getSlotId(slot),
 
       allowKeepPosition:
-        true,
+        false,
 
       allowUpdatePosition:
-        evaluation
-          .shouldOfferPositionUpdate ===
         true,
 
-      decisions: {
-        keep:
-          POSITION_DECISIONS.KEEP,
+      warningType:
+        "cross-play-not-allowed",
 
+              decisions: {
         update:
           POSITION_DECISIONS.UPDATE,
 
@@ -668,8 +722,10 @@ console.log(
     }
 
     if (
-      evaluation
-        .requiresConfirmation
+      shouldWarnForCrossPlay(
+        player,
+        targetSlot
+      )
     ) {
       return createPipelineResult(
         false,
@@ -762,7 +818,8 @@ console.log(
   }
 
   // ------------------------------------------------------------
-  // 等待安排 → 席位
+
+    // 等待安排 → 席位
   // ------------------------------------------------------------
 
   function moveWaitingPlayerToSeat(
@@ -801,8 +858,8 @@ console.log(
     }
 
     const actionResult =
-      getSeatActions()
-        .moveWaitingPlayerToSlot(
+      getMoveExecutor()
+        .assignWaitingPlayer(
           players,
           slots,
           playerId,
@@ -844,7 +901,7 @@ console.log(
             actionResult.slots,
 
           players:
-            cloneValue(players),
+            actionResult.players,
 
           actionResult
         }
@@ -881,7 +938,7 @@ console.log(
           actionResult.slots,
 
         players:
-          cloneValue(players),
+          actionResult.players,
 
         actionResult
       }
@@ -1019,8 +1076,8 @@ console.log(
     }
 
     const actionResult =
-      getSeatActions()
-        .movePlayer(
+      getMoveExecutor()
+        .movePlayerBetweenSeats(
           players,
           slots,
           sourceSlotId,
@@ -1035,7 +1092,8 @@ console.log(
             "failed",
 
           reason:
-            actionResult.reason ||
+
+                      actionResult.reason ||
             "玩家移動失敗",
 
           action:
@@ -1066,7 +1124,7 @@ console.log(
             actionResult.slots,
 
           players:
-            cloneValue(players),
+            actionResult.players,
 
           actionResult
         }
@@ -1107,7 +1165,7 @@ console.log(
           actionResult.slots,
 
         players:
-          cloneValue(players),
+          actionResult.players,
 
         actionResult
       }
@@ -1308,7 +1366,8 @@ console.log(
               "failed",
 
             reason:
-              updateResult.reason ||
+
+                          updateResult.reason ||
               "無法修改玩家位置",
 
             action:
@@ -1556,6 +1615,10 @@ console.log(
 
     getSlotPlayerId,
 
+    hasCrossPlayPermission,
+
+    shouldWarnForCrossPlay,
+
     createPipelineResult,
 
     updatePlayerPosition,
@@ -1574,6 +1637,6 @@ console.log(
   };
 
   console.log(
-    "✅ Player Move Pipeline V2 已載入"
+    "✅ Player Move Pipeline V3 已載入"
   );
 })();
