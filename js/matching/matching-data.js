@@ -14,9 +14,12 @@
     return db;
   }
 
-  async function getCar(
-    carId
-  ) {
+  function nowTime() {
+    return new Date()
+      .toISOString();
+  }
+
+  async function getCar(carId) {
     if (!carId) {
       throw new Error(
         "找不到車團 ID"
@@ -59,8 +62,7 @@
     }
 
     const now =
-      new Date()
-        .toISOString();
+      nowTime();
 
     const matching = {
       version: 1,
@@ -80,21 +82,24 @@
           label: "上午",
           icon: "🌅",
           time: "09:00",
-          enabled: true
+          enabled: true,
+          isCustom: false
         },
         {
           id: "afternoon",
           label: "下午",
           icon: "🌞",
           time: "14:00",
-          enabled: true
+          enabled: true,
+          isCustom: false
         },
         {
           id: "evening",
           label: "晚上",
           icon: "🌙",
           time: "19:00",
-          enabled: true
+          enabled: true,
+          isCustom: false
         }
       ],
 
@@ -129,12 +134,120 @@
     return matching;
   }
 
+  async function saveCommonSlots(
+    carId,
+    commonSlots
+  ) {
+    if (!carId) {
+      throw new Error(
+        "找不到車團 ID"
+      );
+    }
+
+    if (
+      !Array.isArray(
+        commonSlots
+      )
+    ) {
+      throw new Error(
+        "時段資料格式不正確"
+      );
+    }
+
+    const enabledSlots =
+      commonSlots.filter(
+        function (slot) {
+          return (
+            slot.enabled === true &&
+            slot.time
+          );
+        }
+      );
+
+    if (
+      enabledSlots.length === 0
+    ) {
+      throw new Error(
+        "至少要保留一個啟用中的時段"
+      );
+    }
+
+    const normalizedSlots =
+      commonSlots.map(
+        function (
+          slot,
+          index
+        ) {
+          return {
+            id:
+              slot.id ||
+              (
+                "custom-" +
+                Date.now() +
+                "-" +
+                index
+              ),
+
+            label:
+              String(
+                slot.label ||
+                "自訂"
+              ).trim(),
+
+            icon:
+              slot.icon ||
+              "🕒",
+
+            time:
+              String(
+                slot.time || ""
+              ),
+
+            enabled:
+              slot.enabled ===
+              true,
+
+            isCustom:
+              slot.isCustom ===
+              true
+          };
+        }
+      );
+
+    const updatedAt =
+      nowTime();
+
+    await getDb()
+      .collection("cars")
+      .doc(carId)
+      .update({
+        "matching.commonSlots":
+          normalizedSlots,
+
+        "matching.updatedAt":
+          updatedAt,
+
+        updatedAt:
+          firebase.firestore
+            .FieldValue
+            .serverTimestamp()
+      });
+
+    return {
+      commonSlots:
+        normalizedSlots,
+
+      updatedAt
+    };
+  }
+
   window.JLYMatchingData = {
     getCar,
-    createMatching
+    createMatching,
+    saveCommonSlots
   };
 
   console.log(
-    "✅ Matching Data V1 已載入"
+    "✅ Matching Data V2 已載入"
   );
 })();

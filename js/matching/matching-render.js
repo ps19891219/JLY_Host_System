@@ -1,9 +1,7 @@
 (function () {
   "use strict";
 
-  function escapeHtml(
-    value
-  ) {
+  function escapeHtml(value) {
     return String(
       value == null
         ? ""
@@ -16,9 +14,7 @@
       .replace(/'/g, "&#039;");
   }
 
-  function renderEmpty(
-    car
-  ) {
+  function renderEmpty(car) {
     return `
       <section class="matching-empty-card">
 
@@ -56,9 +52,83 @@
     `;
   }
 
-  function renderDraft(
-    matching
+  function buildCommonSlotRow(
+    slot,
+    index
   ) {
+    const isCustom =
+      slot.isCustom === true;
+
+    return `
+      <div
+        class="matching-common-slot"
+        data-slot-index="${index}"
+      >
+        <label
+          class="matching-slot-toggle"
+          title="是否使用此時段"
+        >
+          <input
+            type="checkbox"
+            class="matching-slot-enabled"
+            ${slot.enabled !== false
+              ? "checked"
+              : ""}
+          >
+
+          <span
+            class="matching-slot-icon"
+            aria-hidden="true"
+          >
+            ${escapeHtml(
+              slot.icon || "🕒"
+            )}
+          </span>
+        </label>
+
+        <input
+          type="text"
+          class="matching-slot-label"
+          value="${escapeHtml(
+            slot.label || ""
+          )}"
+          placeholder="時段名稱"
+          maxlength="10"
+        >
+
+        <input
+          type="time"
+          class="matching-slot-time"
+          value="${escapeHtml(
+            slot.time || ""
+          )}"
+        >
+
+        ${
+          isCustom
+            ? `
+              <button
+                type="button"
+                class="matching-slot-delete"
+                onclick="removeCommonSlot(${index})"
+                aria-label="刪除這個時段"
+                title="刪除時段"
+              >
+                ×
+              </button>
+            `
+            : `
+              <span
+                class="matching-slot-delete-placeholder"
+                aria-hidden="true"
+              ></span>
+            `
+        }
+      </div>
+    `;
+  }
+
+  function renderDraft(matching) {
     const commonSlots =
       Array.isArray(
         matching.commonSlots
@@ -73,44 +143,64 @@
           建立中
         </div>
 
-        <h2 class="matching-section-title">
-          常用時段
-        </h2>
+        <div class="matching-section-heading">
+          <div>
+            <h2 class="matching-section-title">
+              常用時段
+            </h2>
 
-        ${
-          commonSlots
-            .map(function (
-              slot
-            ) {
-              return `
-                <div>
-                  ${escapeHtml(
-                    slot.icon
-                  )}
-                  ${escapeHtml(
-                    slot.label
-                  )}
-                  ${escapeHtml(
-                    slot.time
-                  )}
+            <p class="matching-section-description">
+              先調整這次媒合會使用的時間。
+              之後選取日期時，系統會一次展開。
+            </p>
+          </div>
+        </div>
+
+        <div
+          id="matchingCommonSlots"
+          class="matching-common-slots"
+        >
+          ${
+            commonSlots.length > 0
+              ? commonSlots
+                  .map(
+                    buildCommonSlotRow
+                  )
+                  .join("")
+              : `
+                <div class="matching-inline-empty">
+                  尚未設定常用時段
                 </div>
-              `;
-            })
-            .join("")
-        }
+              `
+          }
+        </div>
+
+        <button
+          type="button"
+          class="matching-secondary-button"
+          onclick="addCustomCommonSlot()"
+        >
+          ＋ 新增自訂時段
+        </button>
+
+        <button
+          type="button"
+          class="matching-primary-button"
+          id="saveCommonSlotsButton"
+          onclick="saveCommonSlots()"
+        >
+          儲存常用時段
+        </button>
 
         <p class="matching-meta">
-          下一步會加入時段編輯、
-          月曆多選與行程提醒。
+          下一步：月曆多選日期與行程提醒
         </p>
 
       </section>
     `;
   }
 
-  function renderApp(
-    car
-  ) {
+  function renderApp(car) {
     const app =
       document.getElementById(
         "matchingApp"
@@ -140,17 +230,11 @@
 
     app.innerHTML =
       matching
-        ? renderDraft(
-            matching
-          )
-        : renderEmpty(
-            car
-          );
+        ? renderDraft(matching)
+        : renderEmpty(car);
   }
 
-  function renderError(
-    error
-  ) {
+  function renderError(error) {
     const app =
       document.getElementById(
         "matchingApp"
@@ -162,6 +246,7 @@
 
     app.innerHTML = `
       <section class="matching-empty-card">
+
         <h2 class="matching-empty-title">
           無法載入時間媒合
         </h2>
@@ -174,6 +259,7 @@
               : "未知錯誤"
           )}
         </p>
+
       </section>
     `;
   }
@@ -184,6 +270,6 @@
   };
 
   console.log(
-    "✅ Matching Render V1 已載入"
+    "✅ Matching Render V2 已載入"
   );
 })();

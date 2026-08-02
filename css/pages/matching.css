@@ -93,3 +93,129 @@
   font-size: 13px;
   font-weight: 700;
 }
+
+.matching-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.matching-section-description {
+  margin: -4px 0 16px;
+  color: #777777;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.matching-common-slots {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.matching-common-slot {
+  display: grid;
+  grid-template-columns:
+    44px
+    minmax(0, 1fr)
+    112px
+    34px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #eeeeee;
+  border-radius: 14px;
+  background: #fafafa;
+}
+
+.matching-slot-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+}
+
+.matching-slot-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.matching-slot-icon {
+  font-size: 20px;
+}
+
+.matching-slot-label,
+.matching-slot-time {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #dddddd;
+  border-radius: 10px;
+  background: #ffffff;
+  font: inherit;
+}
+
+.matching-slot-delete {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f1f1;
+  color: #777777;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.matching-slot-delete-placeholder {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+.matching-secondary-button {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 10px;
+  border: 1px dashed #c9c9c9;
+  border-radius: 13px;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.matching-inline-empty {
+  padding: 18px;
+  border: 1px dashed #dddddd;
+  border-radius: 14px;
+  color: #888888;
+  text-align: center;
+}
+
+.matching-primary-button:disabled,
+.matching-secondary-button:disabled {
+  opacity: 0.55;
+}
+
+@media (max-width: 420px) {
+  .matching-common-slot {
+    grid-template-columns:
+      40px
+      minmax(0, 1fr)
+      96px
+      30px;
+
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .matching-slot-label,
+  .matching-slot-time {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+}
