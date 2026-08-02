@@ -290,3 +290,131 @@
     font-size: 12px;
   }
 }
+
+/* ======================================================
+   玩家頁座位摘要
+====================================================== */
+
+.car-view-current-summary {
+  margin-bottom: 16px;
+}
+
+/* ======================================================
+   玩家頁工作人員區
+====================================================== */
+
+.car-view-seat-staff {
+  margin-bottom: 18px;
+  overflow: hidden;
+
+  background: #fff;
+
+  border: 1px solid #e9e9ee;
+  border-radius: 18px;
+}
+
+.car-view-seat-staff-title {
+  padding: 14px 16px;
+
+  color: #222;
+  background: #f8f8fa;
+
+  border-bottom: 1px solid #ececf1;
+
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.car-view-seat-staff-content {
+  width: 100%;
+}
+
+.staff-seat-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.staff-seat-row:last-child {
+  border-bottom: 0;
+}
+
+/*
+ * 玩家頁為唯讀模式，
+ * 保留與主揪頁相同的欄位外觀，
+ * 但不顯示可操作游標。
+ */
+
+.car-view-seat-staff .seat-row {
+  cursor: default;
+}
+
+.car-view-seat-staff .seat-row-handle {
+  color: #bbb;
+  cursor: default;
+}
+
+.car-view-seat-staff .seat-row-label-cell {
+  cursor: default;
+}
+
+.car-view-seat-staff .seat-row-label-cell:hover {
+  background: transparent;
+}
+
+.car-view-seat-staff .seat-player-occupied {
+  cursor: default;
+}
+
+.car-view-seat-staff .seat-player-occupied:active {
+  cursor: default;
+}
+
+/* ======================================================
+   玩家頁唯讀 Seat Engine
+====================================================== */
+
+#carViewSeatMount[data-readonly="true"]
+.seat-row-handle {
+  cursor: default;
+}
+
+#carViewSeatMount[data-readonly="true"]
+.seat-row-label-cell {
+  cursor: default;
+}
+
+#carViewSeatMount[data-readonly="true"]
+.seat-row-label-cell:hover {
+  background: transparent;
+}
+
+#carViewSeatMount[data-readonly="true"]
+.seat-player-occupied {
+  cursor: default;
+}
+
+#carViewSeatMount[data-readonly="true"]
+.seat-player-occupied:active {
+  cursor: default;
+}
+
+/* ======================================================
+   手機版
+====================================================== */
+
+@media (max-width: 679px) {
+  .car-view-current-summary {
+    margin-bottom: 14px;
+  }
+
+  .car-view-seat-staff {
+    margin-bottom: 14px;
+    border-radius: 15px;
+  }
+
+  .car-view-seat-staff-title {
+    padding: 12px;
+    font-size: 16px;
+  }
+}
