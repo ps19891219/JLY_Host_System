@@ -106,32 +106,6 @@ function sortCars(
   cars,
   keyword
 ) {
-  if (keyword) {
-    return cars.sort(
-      function (a, b) {
-        const aPlanning =
-          isCarPlanning(a);
-
-        const bPlanning =
-          isCarPlanning(b);
-
-        if (
-          aPlanning !==
-          bPlanning
-        ) {
-          return aPlanning
-            ? -1
-            : 1;
-        }
-
-        return (
-          getTimeValue(a) -
-          getTimeValue(b)
-        );
-      }
-    );
-  }
-
   return cars.sort(
     function (a, b) {
       const aPlanning =
@@ -140,18 +114,6 @@ function sortCars(
       const bPlanning =
         isCarPlanning(b);
 
-      /*
-        規劃中的車優先。
-      */
-      if (
-        aPlanning !==
-        bPlanning
-      ) {
-        return aPlanning
-          ? -1
-          : 1;
-      }
-
       const aEnded =
         isCarEnded(a);
 
@@ -159,17 +121,67 @@ function sortCars(
         isCarEnded(b);
 
       /*
-        已結束放最後。
+        排序群組：
+        0 = 開團中
+        1 = 規劃中
+        2 = 已結束
       */
-      if (
-        aEnded !==
-        bEnded
-      ) {
-        return aEnded
-          ? 1
-          : -1;
+      function getSortGroup(car) {
+        if (isCarEnded(car)) {
+          return 2;
+        }
+
+        if (isCarPlanning(car)) {
+          return 1;
+        }
+
+        return 0;
       }
 
+      const aGroup =
+        getSortGroup(a);
+
+      const bGroup =
+        getSortGroup(b);
+
+      if (aGroup !== bGroup) {
+        return aGroup - bGroup;
+      }
+
+      /*
+        同一群組內排序。
+      */
+      if (
+        aGroup === 1
+      ) {
+        /*
+          規劃中沒有日期，
+          依建立或更新時間較新的排前面。
+        */
+        const aPlanningTime =
+          new Date(
+            a.updatedAt ||
+            a.createdAt ||
+            0
+          ).getTime();
+
+        const bPlanningTime =
+          new Date(
+            b.updatedAt ||
+            b.createdAt ||
+            0
+          ).getTime();
+
+        return (
+          bPlanningTime -
+          aPlanningTime
+        );
+      }
+
+      /*
+        開團中與已結束，
+        依日期時間排序。
+      */
       return (
         getTimeValue(a) -
         getTimeValue(b)
