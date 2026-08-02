@@ -217,29 +217,77 @@ function renderEditForm(car) {
       )}"
     >
 
-    <label for="gameDate">
-      日期
-    </label>
+    ${
+  isPlanning
+    ? `
+      <div
+        style="
+          margin: 14px 0 18px;
+          padding: 16px;
+          border: 1px solid #f1d48a;
+          border-radius: 14px;
+          background: #fffaf0;
+        "
+      >
+        <div
+          style="
+            font-weight: 700;
+            margin-bottom: 6px;
+          "
+        >
+          🟡 日期待安排
+        </div>
 
-    <input
-      id="gameDate"
-      type="date"
-      value="${escapeEditHtml(
-        car.gameDate || ""
-      )}"
-    >
+        <div
+          style="
+            color: #777;
+            font-size: 14px;
+            line-height: 1.6;
+          "
+        >
+          這台車目前在規劃中。<br>
+          日期與時間之後可從車團詳細頁安排。
+        </div>
+      </div>
 
-    <label for="gameTime">
-      時間
-    </label>
+      <input
+        id="gameDate"
+        type="hidden"
+        value=""
+      >
 
-    <input
-      id="gameTime"
-      type="time"
-      value="${escapeEditHtml(
-        car.gameTime || ""
-      )}"
-    >
+      <input
+        id="gameTime"
+        type="hidden"
+        value=""
+      >
+    `
+    : `
+      <label for="gameDate">
+        日期
+      </label>
+
+      <input
+        id="gameDate"
+        type="date"
+        value="${escapeEditHtml(
+          car.gameDate || ""
+        )}"
+      >
+
+      <label for="gameTime">
+        時間
+      </label>
+
+      <input
+        id="gameTime"
+        type="time"
+        value="${escapeEditHtml(
+          car.gameTime || ""
+        )}"
+      >
+    `
+}
 
     <label for="locationName">
       地點
@@ -727,19 +775,43 @@ async function saveEditCar() {
       .trim();
 
   if (!scriptName) {
-    alert("請輸入劇本名稱");
-    return;
-  }
+  alert("請輸入劇本名稱");
+  return;
+}
 
-  if (!gameDate) {
-    alert("請選擇日期");
-    return;
-  }
+const isPlanning =
+  currentEditingCar.status ===
+    "規劃中" ||
+  currentEditingCar
+    .planningStatus ===
+    "unscheduled" ||
+  !currentEditingCar.gameDate;
 
-  if (!gameTime) {
-    alert("請選擇時間");
-    return;
-  }
+/*
+  規劃中的車允許沒有日期與時間。
+  正式車才需要日期與時間。
+*/
+if (
+  !isPlanning &&
+  !gameDate
+) {
+  alert("請選擇日期");
+  return;
+}
+
+if (
+  !isPlanning &&
+  !gameTime
+) {
+  alert("請選擇時間");
+  return;
+}
+
+/*
+  地點改成選填。
+  規劃中或尚未確認工作室時，
+  都可以之後再補。
+*/
 
   if (!locationName) {
     alert("請輸入地點");
@@ -845,62 +917,92 @@ async function saveEditCar() {
       : [];
 
   history.push({
-    type: "編輯車團",
-    text:
-      `更新車團資料與人數配置：` +
-      `${maleSlots}男／` +
-      `${femaleSlots}女／` +
-      `${flexibleSlots}不限`,
-    time: editNowTime()
-  });
+  type: "編輯車團",
 
-  const updatedData = {
-    scriptName,
+  text:
+    (
+      isPlanning
+        ? "更新規劃中車團資料；"
+        : "更新正式車團資料；"
+    ) +
+    "人數配置：" +
+    `${maleSlots}男／` +
+    `${femaleSlots}女／` +
+    `${flexibleSlots}不限`,
 
-    gameDate,
-    gameTime,
+  time:
+    editNowTime()
+});
 
-    locationName,
-    location: locationName,
+const updatedData = {
+  scriptName,
 
-    organizerName: studioName,
+  gameDate:
+    isPlanning
+      ? ""
+      : gameDate,
+
+  gameTime:
+    isPlanning
+      ? ""
+      : gameTime,
+
+  status:
+    isPlanning
+      ? "規劃中"
+      : currentEditingCar.status,
+
+  planningStatus:
+    isPlanning
+      ? "unscheduled"
+      : "scheduled",
+
+  locationName,
+  location: locationName,
+
+  organizerName:
     studioName,
 
-    dmName,
+  studioName,
 
-    price:
-      priceValue === ""
-        ? null
-        : Number(priceValue),
+  dmName,
 
-    note,
+  price:
+    priceValue === ""
+      ? null
+      : Number(priceValue),
 
-    peopleMode,
+  note,
 
-    maleSlots,
-    femaleSlots,
-    flexibleSlots,
+  peopleMode,
+
+  maleSlots,
+  femaleSlots,
+  flexibleSlots,
+  totalPeople,
+  capacity:
     totalPeople,
-    capacity: totalPeople,
 
-    slots,
+  slots,
 
-    isHost:
-      document.getElementById(
-        "isHost"
-      ).checked,
+  isHost:
+    document.getElementById(
+      "isHost"
+    ).checked,
 
-    isPlayer:
-      document.getElementById(
-        "isPlayer"
-      ).checked,
+  isPlayer:
+    document.getElementById(
+      "isPlayer"
+    ).checked,
 
-    dataVersion: 1,
-    seatSystemVersion: 1,
+  dataVersion: 1,
+  seatSystemVersion: 1,
 
-    history,
-    updatedAt: editNowTime()
-  };
+  history,
+
+  updatedAt:
+    editNowTime()
+};
 
   try {
     await db
