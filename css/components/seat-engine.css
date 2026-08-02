@@ -744,3 +744,197 @@
     font-size: 11px;
   }
 }
+
+/* ============================================================
+   Staff Seat V2
+   工作人員欄位同步玩家席位
+============================================================ */
+
+/*
+ * 工作人員右側內容區：
+ * 名字框、反串、刪除鈕排在同一列。
+ */
+.staff-seat-player-cell {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/*
+ * 清除網站共用 button 樣式。
+ * staff-seat-person 只是名字內容的操作容器，
+ * 不應顯示成綠色大按鈕。
+ */
+.staff-seat-person {
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+
+  flex: 0 0 auto;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  margin: 0;
+  padding: 0;
+
+  color: inherit;
+  background: transparent;
+
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+
+  font: inherit;
+  text-align: inherit;
+
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.staff-seat-person:hover,
+.staff-seat-person:focus,
+.staff-seat-person:active {
+  color: inherit;
+  background: transparent;
+
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+/*
+ * 名字框直接沿用玩家的固定尺寸。
+ * 有沒有反串，都不改變名字框長度。
+ */
+.staff-seat-person .seat-player-name-box {
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
+  flex: 0 0 116px;
+}
+
+/*
+ * 空欄位也維持和名字框相同寬度，
+ * 避免「尚未安排」整列忽長忽短。
+ */
+.staff-seat-person.seat-player-empty {
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
+  min-height: 38px;
+  flex: 0 0 116px;
+
+  justify-content: center;
+
+  padding: 9px 12px;
+
+  color: #999;
+  background: transparent;
+
+  border: 1px dashed #dedee6;
+  border-radius: 11px;
+}
+
+/*
+ * 反串在名字框外右側，
+ * 不參與名字框寬度計算。
+ */
+.staff-seat-person .seat-player-status-column {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/*
+ * × 固定在整列框框內部最右側。
+ */
+.staff-remove-slot {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 4px 0 auto;
+  padding: 0;
+
+  color: #a89b95;
+  background: transparent;
+
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+
+  font-size: 20px;
+  line-height: 1;
+
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.staff-remove-slot:hover,
+.staff-remove-slot:focus {
+  color: #d75d72;
+  background: #fff0f3;
+  box-shadow: none;
+  transform: none;
+}
+
+.staff-remove-slot:active {
+  transform: scale(0.94);
+}
+
+/*
+ * 工作人員整列沿用玩家列的高度與間距。
+ */
+.staff-seat-row .seat-row-main {
+  min-width: 0;
+}
+
+.staff-seat-row .seat-row-player-cell {
+  min-width: 0;
+}
+
+/* ============================================================
+   手機版
+============================================================ */
+
+@media (max-width: 679px) {
+  .staff-seat-player-cell {
+    gap: 7px;
+  }
+
+  /*
+   * 手機版仍與手機版玩家名字框同寬。
+   * 目前玩家欄位使用 116px，因此維持相同數值。
+   */
+  .staff-seat-person .seat-player-name-box {
+    width: 116px;
+    min-width: 116px;
+    max-width: 116px;
+    flex-basis: 116px;
+  }
+
+  .staff-seat-person.seat-player-empty {
+    width: 116px;
+    min-width: 116px;
+    max-width: 116px;
+    flex-basis: 116px;
+  }
+
+  .staff-remove-slot {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+
+    margin-right: 2px;
+  }
+}
