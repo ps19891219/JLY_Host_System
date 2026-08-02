@@ -241,11 +241,125 @@
     };
   }
 
-  window.JLYMatchingData = {
-    getCar,
-    createMatching,
-    saveCommonSlots
+  async function saveCandidateSlots(
+  carId,
+  selectedDates,
+  candidateSlots
+) {
+  if (!carId) {
+    throw new Error(
+      "找不到車團 ID"
+    );
+  }
+
+  const normalizedDates =
+    Array.from(
+      new Set(
+        Array.isArray(
+          selectedDates
+        )
+          ? selectedDates
+          : []
+      )
+    ).sort();
+
+  const normalizedSlots =
+    (
+      Array.isArray(
+        candidateSlots
+      )
+        ? candidateSlots
+        : []
+    ).map(function (
+      slot,
+      index
+    ) {
+      return {
+        id:
+          slot.id ||
+          (
+            "candidate-" +
+            Date.now() +
+            "-" +
+            index
+          ),
+
+        date:
+          String(
+            slot.date || ""
+          ),
+
+        label:
+          String(
+            slot.label ||
+            "自訂"
+          ).trim(),
+
+        icon:
+          slot.icon ||
+          "🕒",
+
+        time:
+          String(
+            slot.time || ""
+          ),
+
+        enabled:
+          slot.enabled !==
+          false,
+
+        sourceSlotId:
+          slot.sourceSlotId ||
+          "",
+
+        conflictNotes:
+          Array.isArray(
+            slot.conflictNotes
+          )
+            ? slot.conflictNotes
+            : []
+      };
+    });
+
+  const updatedAt =
+    nowTime();
+
+  await getDb()
+    .collection("cars")
+    .doc(carId)
+    .update({
+      "matching.selectedDates":
+        normalizedDates,
+
+      "matching.candidateSlots":
+        normalizedSlots,
+
+      "matching.updatedAt":
+        updatedAt,
+
+      updatedAt:
+        firebase.firestore
+          .FieldValue
+          .serverTimestamp()
+    });
+
+  return {
+    selectedDates:
+      normalizedDates,
+
+    candidateSlots:
+      normalizedSlots,
+
+    updatedAt
   };
+}
+
+  window.JLYMatchingData = {
+  getCar,
+  createMatching,
+  saveCommonSlots,
+  saveCandidateSlots
+};
 
   console.log(
     "✅ Matching Data V2 已載入"

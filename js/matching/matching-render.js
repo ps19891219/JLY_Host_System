@@ -14,10 +14,43 @@
       .replace(/'/g, "&#039;");
   }
 
+  function formatDate(dateKey) {
+    const date =
+      window
+        .JLYMatchingCalendar
+        .parseDateKey(
+          dateKey
+        );
+
+    if (!date) {
+      return dateKey;
+    }
+
+    const weekdays = [
+      "日",
+      "一",
+      "二",
+      "三",
+      "四",
+      "五",
+      "六"
+    ];
+
+    return (
+      (date.getMonth() + 1) +
+      "/" +
+      date.getDate() +
+      "（" +
+      weekdays[
+        date.getDay()
+      ] +
+      "）"
+    );
+  }
+
   function renderEmpty(car) {
     return `
       <section class="matching-empty-card">
-
         <div class="matching-empty-icon">
           🗓️
         </div>
@@ -27,9 +60,9 @@
         </h2>
 
         <p class="matching-empty-text">
-          建立常用時段並挑選候選日期後，
-          就能分享連結讓玩家、DM
-          與工作人員填寫可配合時間。
+          建立時段並挑選候選日期後，
+          就能分享連結讓參與者填寫
+          可配合時間。
         </p>
 
         <button
@@ -47,7 +80,6 @@
             "規劃中"
           )}
         </div>
-
       </section>
     `;
   }
@@ -56,32 +88,26 @@
     slot,
     index
   ) {
-    const isCustom =
-      slot.isCustom === true;
-
     return `
       <div
         class="matching-common-slot"
         data-slot-index="${index}"
       >
-        <label
-          class="matching-slot-toggle"
-          title="是否使用此時段"
-        >
+        <label class="matching-slot-toggle">
           <input
             type="checkbox"
             class="matching-slot-enabled"
-            ${slot.enabled !== false
-              ? "checked"
-              : ""}
+            ${
+              slot.enabled !== false
+                ? "checked"
+                : ""
+            }
           >
 
-          <span
-            class="matching-slot-icon"
-            aria-hidden="true"
-          >
+          <span class="matching-slot-icon">
             ${escapeHtml(
-              slot.icon || "🕒"
+              slot.icon ||
+              "🕒"
             )}
           </span>
         </label>
@@ -105,14 +131,12 @@
         >
 
         ${
-          isCustom
+          slot.isCustom === true
             ? `
               <button
                 type="button"
                 class="matching-slot-delete"
                 onclick="removeCommonSlot(${index})"
-                aria-label="刪除這個時段"
-                title="刪除時段"
               >
                 ×
               </button>
@@ -120,7 +144,6 @@
             : `
               <span
                 class="matching-slot-delete-placeholder"
-                aria-hidden="true"
               ></span>
             `
         }
@@ -128,7 +151,169 @@
     `;
   }
 
-  function renderDraft(matching) {
+  function buildCandidateRow(
+    slot,
+    index
+  ) {
+    return `
+      <div
+        class="
+          matching-candidate-row
+          ${
+            slot.enabled === false
+              ? "is-disabled"
+              : ""
+          }
+        "
+        data-candidate-index="${index}"
+      >
+        <label class="matching-candidate-toggle">
+          <input
+            type="checkbox"
+            class="matching-candidate-enabled"
+            ${
+              slot.enabled !== false
+                ? "checked"
+                : ""
+            }
+            onchange="toggleCandidateSlot(${index}, this.checked)"
+          >
+        </label>
+
+        <span class="matching-candidate-icon">
+          ${escapeHtml(
+            slot.icon ||
+            "🕒"
+          )}
+        </span>
+
+        <input
+          type="text"
+          class="matching-candidate-label"
+          value="${escapeHtml(
+            slot.label || ""
+          )}"
+          maxlength="10"
+          onchange="updateCandidateLabel(${index}, this.value)"
+        >
+
+        <input
+          type="time"
+          class="matching-candidate-time"
+          value="${escapeHtml(
+            slot.time || ""
+          )}"
+          onchange="updateCandidateTime(${index}, this.value)"
+        >
+
+        <button
+          type="button"
+          class="matching-candidate-remove"
+          onclick="removeCandidateSlot(${index})"
+          aria-label="移除候選時段"
+        >
+          ×
+        </button>
+      </div>
+    `;
+  }
+
+  function renderCandidatePreview(
+    matching
+  ) {
+    const container =
+      document.getElementById(
+        "matchingCandidatePreview"
+      );
+
+    if (!container) {
+      return;
+    }
+
+    const candidates =
+      Array.isArray(
+        matching.candidateSlots
+      )
+        ? matching.candidateSlots
+        : [];
+
+    if (
+      candidates.length === 0
+    ) {
+      container.innerHTML = `
+        <div class="matching-inline-empty">
+          選取日期後，候選時段會顯示在這裡。
+        </div>
+      `;
+
+      return;
+    }
+
+    const grouped = {};
+
+    candidates.forEach(
+      function (
+        slot,
+        index
+      ) {
+        if (!grouped[slot.date]) {
+          grouped[slot.date] = [];
+        }
+
+        grouped[slot.date].push({
+          slot,
+          index
+        });
+      }
+    );
+
+    container.innerHTML =
+      Object.keys(grouped)
+        .sort()
+        .map(function (
+          dateKey
+        ) {
+          return `
+            <section class="matching-candidate-day">
+              <div class="matching-candidate-day-header">
+                <strong>
+                  📅 ${formatDate(
+                    dateKey
+                  )}
+                </strong>
+
+                <button
+                  type="button"
+                  class="matching-day-add-button"
+                  onclick="addCandidateSlot('${dateKey}')"
+                >
+                  ＋新增
+                </button>
+              </div>
+
+              <div class="matching-candidate-list">
+                ${
+                  grouped[dateKey]
+                    .map(function (
+                      item
+                    ) {
+                      return buildCandidateRow(
+                        item.slot,
+                        item.index
+                      );
+                    })
+                    .join("")
+                }
+              </div>
+            </section>
+          `;
+        })
+        .join("");
+  }
+
+  function renderDraft(
+    matching
+  ) {
     const commonSlots =
       Array.isArray(
         matching.commonSlots
@@ -138,40 +323,29 @@
 
     return `
       <section class="matching-section">
-
         <div class="matching-status-badge">
           建立中
         </div>
 
-        <div class="matching-section-heading">
-          <div>
-            <h2 class="matching-section-title">
-              常用時段
-            </h2>
+        <h2 class="matching-section-title">
+          ① 本次媒合時段
+        </h2>
 
-            <p class="matching-section-description">
-              先調整這次媒合會使用的時間。
-              之後選取日期時，系統會一次展開。
-            </p>
-          </div>
-        </div>
+        <p class="matching-section-description">
+          這裡是批次產生候選時間的模板，
+          展開後仍可逐筆修改。
+        </p>
 
         <div
           id="matchingCommonSlots"
           class="matching-common-slots"
         >
           ${
-            commonSlots.length > 0
-              ? commonSlots
-                  .map(
-                    buildCommonSlotRow
-                  )
-                  .join("")
-              : `
-                <div class="matching-inline-empty">
-                  尚未設定常用時段
-                </div>
-              `
+            commonSlots
+              .map(
+                buildCommonSlotRow
+              )
+              .join("")
           }
         </div>
 
@@ -189,13 +363,45 @@
           id="saveCommonSlotsButton"
           onclick="saveCommonSlots()"
         >
-          儲存常用時段
+          儲存本次媒合時段
         </button>
+      </section>
 
-        <p class="matching-meta">
-          下一步：月曆多選日期與行程提醒
+      <section class="matching-section">
+        <h2 class="matching-section-title">
+          ② 選擇日期
+        </h2>
+
+        <p class="matching-section-description">
+          可一次選擇多個日期，再到下一區
+          個別調整每一筆時間。
         </p>
 
+        <div id="matchingCalendar"></div>
+      </section>
+
+      <section class="matching-section">
+        <h2 class="matching-section-title">
+          ③ 候選時段
+        </h2>
+
+        <p class="matching-section-description">
+          每一筆時間都能獨立修改、停用或移除。
+        </p>
+
+        <div
+          id="matchingCandidatePreview"
+          class="matching-candidate-preview"
+        ></div>
+
+        <button
+          type="button"
+          class="matching-primary-button"
+          id="saveCandidateSlotsButton"
+          onclick="saveCandidateSlots()"
+        >
+          儲存候選時段
+        </button>
       </section>
     `;
   }
@@ -230,8 +436,26 @@
 
     app.innerHTML =
       matching
-        ? renderDraft(matching)
+        ? renderDraft(
+            matching
+          )
         : renderEmpty(car);
+
+    if (matching) {
+      window
+        .JLYMatchingCalendar
+        .initializeFromDates(
+          matching.selectedDates
+        );
+
+      window
+        .JLYMatchingCalendar
+        .renderCalendar();
+
+      renderCandidatePreview(
+        matching
+      );
+    }
   }
 
   function renderError(error) {
@@ -246,7 +470,6 @@
 
     app.innerHTML = `
       <section class="matching-empty-card">
-
         <h2 class="matching-empty-title">
           無法載入時間媒合
         </h2>
@@ -259,17 +482,17 @@
               : "未知錯誤"
           )}
         </p>
-
       </section>
     `;
   }
 
   window.JLYMatchingRender = {
     renderApp,
-    renderError
+    renderError,
+    renderCandidatePreview
   };
 
   console.log(
-    "✅ Matching Render V2 已載入"
+    "✅ Matching Render V3 已載入"
   );
 })();
