@@ -352,7 +352,6 @@
   gap: 7px;
 
   padding: 0;
-
   background: transparent;
   border: 0;
 }
@@ -372,18 +371,20 @@
 ------------------------------------------------------------ */
 
 .seat-player-name-box {
-  min-width: 0;
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
   min-height: 38px;
 
-  flex: 1;
+  flex: 0 0 116px;
 
   display: flex;
   align-items: center;
+  justify-content: center;
 
   padding: 9px 12px;
 
   color: #222;
-
   background: #f3f0ff;
 
   border: 1px solid #ded7ff;
@@ -419,7 +420,6 @@
 
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
 
   gap: 4px;
 }
@@ -703,10 +703,15 @@
   }
 
   .seat-player-name-box {
-    min-height: 36px;
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
+  min-height: 36px;
 
-    padding: 8px 9px;
-  }
+  flex: 0 0 116px;
+
+  padding: 8px 9px;
+}
 
   .seat-player-name,
   .seat-player-placeholder {
