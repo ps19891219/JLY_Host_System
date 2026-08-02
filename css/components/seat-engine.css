@@ -922,3 +922,32 @@
     margin-right: 2px;
   }
 }
+
+/* 工作人員空欄位：移除內層重複框線 */
+.staff-seat-person.seat-player-empty
+.seat-player-placeholder {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  min-height: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  color: #999;
+  background: transparent;
+
+  border: 0;
+  border-radius: 0;
+}
+
+/* 空欄位仍由名字框本身呈現 */
+.staff-seat-person.seat-player-empty
+.seat-player-name-box {
+  border-style: dashed;
+  color: #999;
+  background: #fff;
+}
