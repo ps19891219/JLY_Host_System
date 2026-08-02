@@ -154,11 +154,73 @@
     `;
   }
 
-  function buildCandidateRow(
-    slot,
-    index
+  function buildCandidateConflicts(
+  slot
+) {
+  const conflicts =
+    Array.isArray(
+      slot.conflicts
+    )
+      ? slot.conflicts
+      : [];
+
+  if (
+    conflicts.length === 0
   ) {
-    return `
+    return "";
+  }
+
+  return `
+    <div class="matching-candidate-conflicts">
+      ${
+        conflicts
+          .map(function (
+            conflict
+          ) {
+            const title =
+              conflict.title ||
+              "未命名行程";
+
+            const time =
+              conflict.time ||
+              "";
+
+            return `
+              <button
+                type="button"
+                class="matching-conflict-note"
+                onclick="openConflictCar('${escapeHtml(
+                  conflict.carId ||
+                  conflict.id ||
+                  ""
+                )}')"
+                title="查看這台車"
+              >
+                ⚠️ ${escapeHtml(
+                  title
+                )}${
+                  time
+                    ? `（${escapeHtml(
+                        time
+                      )}）`
+                    : ""
+                }
+              </button>
+            `;
+          })
+          .join("")
+      }
+    </div>
+  `;
+}
+
+  function buildCandidateRow(
+  slot,
+  index
+) {
+  return `
+    <div class="matching-candidate-item">
+
       <div
         class="
           matching-candidate-row
@@ -201,16 +263,16 @@
         >
 
         <input
-  type="text"
-  inputmode="numeric"
-  class="matching-candidate-time"
-  value="${escapeHtml(
-    slot.time || ""
-  )}"
-  placeholder="HH:MM"
-  maxlength="5"
-  onchange="updateCandidateTime(${index}, this.value)"
->
+          type="text"
+          inputmode="numeric"
+          class="matching-candidate-time"
+          value="${escapeHtml(
+            slot.time || ""
+          )}"
+          placeholder="HH:MM"
+          maxlength="5"
+          onchange="updateCandidateTime(${index}, this.value)"
+        >
 
         <button
           type="button"
@@ -221,8 +283,14 @@
           ×
         </button>
       </div>
-    `;
-  }
+
+      ${buildCandidateConflicts(
+        slot
+      )}
+
+    </div>
+  `;
+}
 
   function renderCandidatePreview(
     matching
@@ -461,6 +529,18 @@
       renderCandidatePreview(
         matching
       );
+
+      if (
+  window.JLYMatchingActions &&
+  typeof window
+    .JLYMatchingActions
+    .refreshCandidateConflicts ===
+    "function"
+) {
+  window
+    .JLYMatchingActions
+    .refreshCandidateConflicts();
+}
     }
   }
 

@@ -19,6 +19,8 @@
     );
   }
 
+  let conflictRefreshToken = 0;
+
   function getMatching() {
     const car =
       window.currentMatchingCar;
@@ -311,7 +313,7 @@
     }
   }
 
-  function removeCommonSlot(
+    function removeCommonSlot(
     index
   ) {
     const matching =
@@ -511,7 +513,7 @@
     }
   }
 
-  function buildCandidateSlots() {
+    function buildCandidateSlots() {
     const matching =
       getMatching();
 
@@ -618,7 +620,7 @@
               sourceSlotId:
                 template.id,
 
-              conflictNotes:
+              conflicts:
                 []
             });
           }
@@ -670,7 +672,73 @@
     return next;
   }
 
-  function refreshCandidatePreview() {
+  async function refreshCandidateConflicts(
+    options = {}
+  ) {
+    const matching =
+      getMatching();
+
+    const car =
+      window.currentMatchingCar;
+
+    if (
+      !matching ||
+      !car ||
+      !window
+        .JLYMatchingConflict
+    ) {
+      return;
+    }
+
+    const currentToken =
+      ++conflictRefreshToken;
+
+    try {
+      const nextSlots =
+        await window
+          .JLYMatchingConflict
+          .applyConflicts(
+            matching
+              .candidateSlots,
+
+            car.id ||
+            getCarId(),
+
+            {
+              forceReload:
+                options.forceReload ===
+                true
+            }
+          );
+
+      /*
+        若使用者在查詢期間又修改時間，
+        舊結果不應覆蓋新結果。
+      */
+      if (
+        currentToken !==
+        conflictRefreshToken
+      ) {
+        return;
+      }
+
+      matching.candidateSlots =
+        nextSlots;
+
+      window
+        .JLYMatchingRender
+        .renderCandidatePreview(
+          matching
+        );
+    } catch (error) {
+      console.error(
+        "候選時段衝突檢查失敗：",
+        error
+      );
+    }
+  }
+
+    function refreshCandidatePreview() {
     const matching =
       getMatching();
 
@@ -700,6 +768,8 @@
       .renderCandidatePreview(
         matching
       );
+
+    refreshCandidateConflicts();
   }
 
   function updateCandidateTime(
@@ -743,7 +813,7 @@
 
     matching
       .candidateSlots[index]
-      .conflictNotes = [];
+      .conflicts = [];
 
     matching
       .candidateSlots
@@ -769,12 +839,7 @@
         matching
       );
 
-    /*
-      下一階段會在這裡重新檢查：
-      Google Calendar
-      JLY 我的車
-      前後兩小時行程提醒
-    */
+    refreshCandidateConflicts();
   }
 
   function updateCandidateLabel(
@@ -858,7 +923,7 @@
       );
   }
 
-  function addCandidateSlot(
+    function addCandidateSlot(
     dateKey
   ) {
     const matching =
@@ -903,7 +968,7 @@
         sourceSlotId:
           "",
 
-        conflictNotes:
+        conflicts:
           []
       });
 
@@ -930,6 +995,8 @@
       .renderCandidatePreview(
         matching
       );
+
+    refreshCandidateConflicts();
   }
 
   async function saveCandidateSlots() {
@@ -1091,6 +1158,28 @@
     }
   }
 
+    function openConflictCar(
+    conflictCarId
+  ) {
+    const id =
+      String(
+        conflictCarId || ""
+      ).trim();
+
+    if (!id) {
+      return;
+    }
+
+    window.open(
+      "car-detail.html?id=" +
+        encodeURIComponent(id),
+
+      "_blank",
+
+      "noopener"
+    );
+  }
+
   function backToMatchingCar() {
     const carId =
       getCarId();
@@ -1132,15 +1221,20 @@
   window.saveCandidateSlots =
     saveCandidateSlots;
 
+  window.openConflictCar =
+    openConflictCar;
+
   window.backToMatchingCar =
     backToMatchingCar;
 
   window.JLYMatchingActions = {
     refreshCandidatePreview,
-    normalizeMatchingTime
+    refreshCandidateConflicts,
+    normalizeMatchingTime,
+    openConflictCar
   };
 
   console.log(
-    "✅ Matching Actions V4 已載入"
+    "✅ Matching Actions V5 已載入"
   );
 })();

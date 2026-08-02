@@ -44,6 +44,24 @@
     };
   }
 
+  async function getConflictCars() {
+  const snapshot =
+    await getDb()
+      .collection("cars")
+      .get();
+
+  return snapshot.docs.map(
+    function (doc) {
+      return {
+        id:
+          doc.id,
+
+        ...doc.data()
+      };
+    }
+  );
+}
+
   async function createMatching(
     carId
   ) {
@@ -356,6 +374,7 @@
 
   window.JLYMatchingData = {
   getCar,
+  getConflictCars,
   createMatching,
   saveCommonSlots,
   saveCandidateSlots
