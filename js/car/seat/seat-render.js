@@ -323,122 +323,114 @@ console.log("seat-render.js 已成功載入！");
   // ------------------------------------------------------------
 
   function renderWaitingPlayer(
-    waitingItem
-  ) {
-    const playerId =
-      getWaitingPlayerId(
-        waitingItem
-      );
+  waitingItem
+) {
+  const playerId =
+    getWaitingPlayerId(
+      waitingItem
+    );
 
-    const playerName =
-      getWaitingPlayerName(
-        waitingItem
-      );
+  const playerName =
+    getWaitingPlayerName(
+      waitingItem
+    );
 
-    const waitingReason =
-      String(
-        waitingItem &&
-        waitingItem.waitingReason
-          ? waitingItem.waitingReason
-          : ""
-      ).trim();
+  const waitingReason =
+    String(
+      waitingItem &&
+      waitingItem.waitingReason
+        ? waitingItem.waitingReason
+        : ""
+    ).trim();
 
-    return `
-      <div
-        class="seat-waiting-player"
-        draggable="true"
-        data-waiting-player="true"
-        data-player-id="${escapeHtml(
-          playerId
-        )}"
-      >
-        <div class="seat-waiting-player-main">
-
-          <span class="seat-waiting-player-name">
-            ${escapeHtml(
-              playerName
-            )}
-          </span>
-        </div>
-
-        ${
-          waitingReason
-            ? `
-              <div class="seat-waiting-reason">
-                ${escapeHtml(
-                  waitingReason
-                )}
-              </div>
-            `
-            : ""
-        }
-
-        <button
-          type="button"
-          class="seat-auto-place-button"
-          data-seat-auto-place="true"
-          data-player-id="${escapeHtml(
-            playerId
-          )}"
-        >
-          自動安排
-        </button>
+  return `
+    <div
+      class="seat-waiting-player"
+      draggable="true"
+      data-waiting-player="true"
+      data-player-id="${escapeHtml(
+        playerId
+      )}"
+    >
+      <div class="seat-waiting-player-main">
+        <span class="seat-waiting-player-name">
+          ${escapeHtml(
+            playerName
+          )}
+        </span>
       </div>
-    `;
-  }
+
+      ${
+        waitingReason
+          ? `
+            <div class="seat-waiting-reason">
+              ${escapeHtml(
+                waitingReason
+              )}
+            </div>
+          `
+          : ""
+      }
+
+      <div class="seat-waiting-drag-hint">
+        拖曳到席位進行安排
+      </div>
+    </div>
+  `;
+}
 
   // ------------------------------------------------------------
   // 等候區
   // ------------------------------------------------------------
 
   function renderWaitingArea(
-    waitingPlayers
-  ) {
-    const sourceWaiting =
-      Array.isArray(waitingPlayers)
-        ? waitingPlayers
-        : [];
+  waitingPlayers
+) {
+  const sourceWaiting =
+    Array.isArray(waitingPlayers)
+      ? waitingPlayers
+      : [];
 
-    const contentHtml =
-      sourceWaiting.length > 0
-        ? sourceWaiting
-            .map(
-              renderWaitingPlayer
-            )
-            .join("")
-        : `
-          <div class="seat-waiting-empty">
-            目前沒有等待安排的玩家
-          </div>
-        `;
+  const contentHtml =
+    sourceWaiting.length > 0
+      ? sourceWaiting
+          .map(
+            renderWaitingPlayer
+          )
+          .join("")
+      : `
+        <div class="seat-waiting-empty">
+          目前沒有待安排的玩家
+        </div>
+      `;
 
-    return `
-      <section
-        class="seat-waiting-section"
-        data-seat-waiting-area="true"
-      >
-        <div class="seat-section-header">
-          <div class="seat-section-title-area">
-            <span class="seat-section-icon">
-              ⏳
-            </span>
+  return `
+    <section
+      class="seat-waiting-section"
+      data-seat-waiting-area="true"
+    >
+      <div class="seat-section-header">
+        <div class="seat-section-title-area">
+          <span class="seat-section-icon">
+            ⏳
+          </span>
 
-            <h3 class="seat-section-title">
-              等待安排
-            </h3>
-          </div>
-
-          <div class="seat-section-count">
-            ${sourceWaiting.length}
-          </div>
+          <h3 class="seat-section-title">
+            待安排
+          </h3>
         </div>
 
-        <div class="seat-waiting-list">
-          ${contentHtml}
+        <div class="seat-section-count">
+          ${sourceWaiting.length}
         </div>
-      </section>
-    `;
-  }
+      </div>
+
+      <div class="seat-waiting-list">
+        ${contentHtml}
+      </div>
+    </section>
+  `;
+}
 
   // ------------------------------------------------------------
   // 統計列
@@ -477,7 +469,7 @@ console.log("seat-render.js 已成功載入！");
 
         <div class="seat-summary-item">
           <span class="seat-summary-label">
-            等待安排
+            待安排
           </span>
 
           <strong class="seat-summary-value">
