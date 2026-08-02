@@ -1,10 +1,9 @@
 console.log(
-  "createcar.js 已成功載入！"
+  "createcar.js Calendar Popup Fix V1.1 已成功載入！"
 );
 
 function nowTime() {
-  return new Date()
-    .toISOString();
+  return new Date().toISOString();
 }
 
 function getRadioValue(
@@ -32,30 +31,41 @@ function togglePeopleMode() {
   const mode =
     getPeopleMode();
 
-  document
-    .getElementById(
+  const genderBox =
+    document.getElementById(
       "genderBox"
-    )
-    .style.display =
+    );
+
+  const totalBox =
+    document.getElementById(
+      "totalBox"
+    );
+
+  if (genderBox) {
+    genderBox.style.display =
       mode === "gender"
         ? "block"
         : "none";
+  }
 
-  document
-    .getElementById(
-      "totalBox"
-    )
-    .style.display =
+  if (totalBox) {
+    totalBox.style.display =
       mode === "total"
         ? "block"
         : "none";
+  }
 }
 
 async function findSameDayCars(
   gameDate
 ) {
-  const db =
-    window.db;
+  const db = window.db;
+
+  if (!db) {
+    throw new Error(
+      "Firebase 尚未載入"
+    );
+  }
 
   const snapshot =
     await db
@@ -128,8 +138,7 @@ function setCreateButtonBusy(
     return;
   }
 
-  button.disabled =
-    isBusy;
+  button.disabled = isBusy;
 
   button.textContent =
     isBusy
@@ -143,24 +152,18 @@ function getCarDetailUrl(
   return (
     location.origin +
     "/pages/car-detail.html?id=" +
-    encodeURIComponent(
-      carId
-    )
+    encodeURIComponent(carId)
   );
 }
 
-async function persistCar(
-  car
-) {
+async function persistCar(car) {
   if (
     typeof window
       .saveCarToFirebase ===
     "function"
   ) {
     return window
-      .saveCarToFirebase(
-        car
-      );
+      .saveCarToFirebase(car);
   }
 
   const ref =
@@ -171,9 +174,111 @@ async function persistCar(
   return ref.id;
 }
 
+function buildJlyConflictMessage(
+  sameDayCars
+) {
+  const lines = [
+    "⚠️ 這一天你已經有車了：",
+    ""
+  ];
+
+  sameDayCars.forEach(
+    function (car) {
+      lines.push(
+        "🎭 " +
+        (
+          car.scriptName ||
+          "未命名劇本"
+        ) +
+        "｜" +
+        (
+          car.gameTime ||
+          "時間未填"
+        )
+      );
+    }
+  );
+
+  lines.push(
+    "",
+    "是否仍要建立新的車？"
+  );
+
+  return lines.join("\n");
+}
+
+/*
+  Google OAuth 必須在使用者點擊後
+  立即觸發。
+
+  不可以先 await Firestore，
+  否則 Chrome 可能阻擋彈出視窗。
+*/
+async function authorizeGoogleImmediately(
+  calendarOptions
+) {
+  const needsGoogle =
+    calendarOptions
+      .scheduleCheckEnabled ||
+    calendarOptions
+      .syncEnabled;
+
+  if (!needsGoogle) {
+    return {
+      needed: false,
+      authorized: false,
+      error: null
+    };
+  }
+
+  if (
+    !window.JLYCalendarAuth ||
+    typeof window
+      .JLYCalendarAuth
+      .requestAccessToken !==
+      "function"
+  ) {
+    return {
+      needed: true,
+      authorized: false,
+      error: new Error(
+        "Google Calendar 授權模組尚未載入"
+      )
+    };
+  }
+
+  try {
+    /*
+      這裡是整個修正的核心。
+
+      requestAccessToken() 必須在
+      createCar() 點擊流程一開始執行。
+    */
+    await window
+      .JLYCalendarAuth
+      .requestAccessToken();
+
+    return {
+      needed: true,
+      authorized: true,
+      error: null
+    };
+  } catch (error) {
+    console.error(
+      "Google Calendar 授權失敗：",
+      error
+    );
+
+    return {
+      needed: true,
+      authorized: false,
+      error
+    };
+  }
+}
+
 async function createCar() {
-  const db =
-    window.db;
+  const db = window.db;
 
   if (!db) {
     alert(
@@ -244,35 +349,30 @@ async function createCar() {
       .value
       .trim();
 
-  if (!scriptName) {
-    alert(
-      "請輸入劇本名稱"
-    );
+  /*
+    先完成同步驗證。
 
+    Google 授權必須接近使用者點擊，
+    但必要欄位仍應先檢查，
+    避免資料沒填完就跳授權。
+  */
+  if (!scriptName) {
+    alert("請輸入劇本名稱");
     return;
   }
 
   if (!gameDate) {
-    alert(
-      "請選擇日期"
-    );
-
+    alert("請選擇日期");
     return;
   }
 
   if (!gameTime) {
-    alert(
-      "請選擇時間"
-    );
-
+    alert("請選擇時間");
     return;
   }
 
   if (!locationName) {
-    alert(
-      "請輸入地點"
-    );
-
+    alert("請輸入地點");
     return;
   }
 
@@ -280,16 +380,12 @@ async function createCar() {
     getPeopleMode();
 
   let maleSlots = 0;
-
   let femaleSlots = 0;
-
   let flexibleSlots = 0;
-
   let totalPeople = 0;
 
   if (
-    peopleMode ===
-    "gender"
+    peopleMode === "gender"
   ) {
     maleSlots =
       Number(
@@ -297,8 +393,7 @@ async function createCar() {
           .getElementById(
             "maleSlots"
           )
-          .value ||
-        0
+          .value || 0
       );
 
     femaleSlots =
@@ -307,8 +402,7 @@ async function createCar() {
           .getElementById(
             "femaleSlots"
           )
-          .value ||
-        0
+          .value || 0
       );
 
     flexibleSlots =
@@ -317,8 +411,7 @@ async function createCar() {
           .getElementById(
             "flexibleSlots"
           )
-          .value ||
-        0
+          .value || 0
       );
 
     totalPeople =
@@ -332,21 +425,15 @@ async function createCar() {
           .getElementById(
             "totalPeople"
           )
-          .value ||
-        0
+          .value || 0
       );
 
     flexibleSlots =
       totalPeople;
   }
 
-  if (
-    totalPeople <= 0
-  ) {
-    alert(
-      "請設定人數"
-    );
-
+  if (totalPeople <= 0) {
+    alert("請設定人數");
     return;
   }
 
@@ -371,14 +458,59 @@ async function createCar() {
   const calendarOptions =
     getCalendarFormValues();
 
-  const now =
-    nowTime();
+  const now = nowTime();
 
-  setCreateButtonBusy(
-    true
-  );
+  setCreateButtonBusy(true);
 
   try {
+    /*
+      重要：
+      這裡必須排在所有 Firestore await 之前。
+    */
+    const googleAuthResult =
+      await authorizeGoogleImmediately(
+        calendarOptions
+      );
+
+    let googleAuthorized =
+      googleAuthResult.authorized;
+
+    let googleAuthError =
+      googleAuthResult.error;
+
+    /*
+      Google 授權失敗不能阻止 JLY 建車。
+
+      使用者可以選擇：
+      - 取消此次建立
+      - 繼續建立，但略過 Google 檢查與同步
+    */
+    if (
+      googleAuthResult.needed &&
+      !googleAuthorized
+    ) {
+      const keepGoing =
+        confirm(
+          "⚠️ Google Calendar 授權未完成。\n\n" +
+          (
+            googleAuthError &&
+            googleAuthError.message
+              ? googleAuthError.message
+              : "無法開啟 Google 授權視窗"
+          ) +
+          "\n\n仍要建立 JLY 車團嗎？\n" +
+          "這次將略過 Google 行程檢查與同步。"
+        );
+
+      if (!keepGoing) {
+        return;
+      }
+    }
+
+    /*
+      Google 授權完成後，
+      才開始查 Firestore。
+    */
     const sameDayCars =
       await findSameDayCars(
         gameDate
@@ -387,24 +519,21 @@ async function createCar() {
     if (
       calendarOptions
         .scheduleCheckEnabled &&
-      (
+      googleAuthorized
+    ) {
+      if (
         !window
           .JLYCalendarController ||
         typeof window
           .JLYCalendarController
           .checkBeforeCreate !==
           "function"
-      )
-    ) {
-      throw new Error(
-        "Calendar Controller 尚未載入"
-      );
-    }
+      ) {
+        throw new Error(
+          "Calendar Controller 尚未載入"
+        );
+      }
 
-    if (
-      calendarOptions
-        .scheduleCheckEnabled
-    ) {
       const checkResult =
         await window
           .JLYCalendarController
@@ -414,58 +543,38 @@ async function createCar() {
             jlyCars:
               sameDayCars,
 
-            checkGoogle:
-              true
+            /*
+              已經授權成功，
+              Provider 會直接重用現有 Token。
+            */
+            checkGoogle: true
           });
 
-      if (
-        !checkResult.proceed
-      ) {
+      if (!checkResult.proceed) {
         return;
       }
     } else if (
-      sameDayCars.length >
-      0
+      sameDayCars.length > 0
     ) {
-      const lines = [
-        "⚠️ 這一天你已經有車了：",
-        ""
-      ];
+      /*
+        沒開 Google 檢查，
+        或 Google 授權失敗時，
+        仍保留原本的 JLY 同日提醒。
+      */
+      const keepGoing =
+        confirm(
+          buildJlyConflictMessage(
+            sameDayCars
+          )
+        );
 
-      sameDayCars.forEach(
-        function (car) {
-          lines.push(
-            "🎭 " +
-            (
-              car.scriptName ||
-              "未命名劇本"
-            ) +
-            "｜" +
-            (
-              car.gameTime ||
-              "時間未填"
-            )
-          );
-        }
-      );
-
-      lines.push(
-        "",
-        "是否仍要建立新的車？"
-      );
-
-      if (
-        !confirm(
-          lines.join("\n")
-        )
-      ) {
+      if (!keepGoing) {
         return;
       }
     }
 
     const conflictStatus =
-      sameDayCars.length >
-      0
+      sameDayCars.length > 0
         ? "pending"
         : "none";
 
@@ -519,6 +628,28 @@ async function createCar() {
             lastError: ""
           };
 
+    /*
+      若使用者要求同步，
+      但 Google 授權失敗，
+      先在 Car 裡留下失敗狀態。
+    */
+    if (
+      calendarOptions.syncEnabled &&
+      !googleAuthorized
+    ) {
+      calendarData.syncStatus =
+        "failed";
+
+      calendarData.lastSyncAt =
+        nowTime();
+
+      calendarData.lastError =
+        googleAuthError &&
+        googleAuthError.message
+          ? googleAuthError.message
+          : "Google 授權未完成";
+    }
+
     const car = {
       activityType:
         "劇本",
@@ -550,9 +681,7 @@ async function createCar() {
       price:
         priceInput === ""
           ? null
-          : Number(
-              priceInput
-            ),
+          : Number(priceInput),
 
       note,
 
@@ -584,18 +713,15 @@ async function createCar() {
 
       dataVersion: 1,
 
-      seatSystemVersion:
-        1,
+      seatSystemVersion: 1,
 
       myRole,
 
       isHost:
-        myRole ===
-        "host",
+        myRole === "host",
 
       isPlayer:
-        myRole ===
-        "player",
+        myRole === "player",
 
       isFavoriteCar:
         myRole ===
@@ -634,7 +760,7 @@ async function createCar() {
 
       /*
         暫時保留舊欄位，
-        避免舊畫面讀取失敗。
+        避免舊版頁面讀取失敗。
       */
       calendarStatus:
         "not_added",
@@ -645,24 +771,24 @@ async function createCar() {
       status:
         "招募中",
 
-      createdAt:
-        now,
+      createdAt: now,
 
-      updatedAt:
-        now
+      updatedAt: now
     };
 
     const carId =
-      await persistCar(
-        car
-      );
+      await persistCar(car);
 
-    let calendarResult =
-      null;
+    let calendarResult = null;
 
+    /*
+      只有使用者勾選同步，
+      而且 Google 已授權成功，
+      才建立 Calendar Event。
+    */
     if (
-      calendarOptions
-        .syncEnabled
+      calendarOptions.syncEnabled &&
+      googleAuthorized
     ) {
       if (
         !window
@@ -699,45 +825,46 @@ async function createCar() {
                   .durationMinutes,
 
               titleTemplate:
-                settings
-                  .titleTemplate,
+                settings.titleTemplate,
 
               calendarId:
-                settings
-                  .calendarId
+                settings.calendarId
             });
       }
     }
 
     if (
       calendarResult &&
-      calendarResult.ok ===
-        false
+      calendarResult.ok === false
     ) {
       alert(
         "車團已建立，但 Google Calendar 同步失敗。\n\n" +
         (
-          calendarResult
-            .error &&
-          calendarResult
-            .error.message
+          calendarResult.error &&
+          calendarResult.error.message
             ? calendarResult
                 .error.message
             : "未知錯誤"
         ) +
-        "\n\n你之後可以在車團詳細頁重新同步。"
+        "\n\n之後可以在車團詳細頁重新同步。"
       );
     } else if (
-      calendarOptions
-        .syncEnabled
+      calendarOptions.syncEnabled &&
+      googleAuthorized
     ) {
       alert(
         "車團建立成功，已同步到 Google Calendar！"
       );
-    } else {
+    } else if (
+      calendarOptions.syncEnabled &&
+      !googleAuthorized
+    ) {
       alert(
-        "車團建立成功！"
+        "車團已建立，但尚未同步到 Google Calendar。\n\n" +
+        "系統已保留同步失敗狀態，之後可以重新同步。"
       );
+    } else {
+      alert("車團建立成功！");
     }
 
     location.href =
@@ -756,14 +883,11 @@ async function createCar() {
       )
     );
   } finally {
-    setCreateButtonBusy(
-      false
-    );
+    setCreateButtonBusy(false);
   }
 }
 
-window.createCar =
-  createCar;
+window.createCar = createCar;
 
 window.togglePeopleMode =
   togglePeopleMode;
