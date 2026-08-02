@@ -1,7 +1,12 @@
 /* ============================================================
    JLY Host System
-   Seat Engine V2
+   Seat Engine V5
    共用座位樣式
+
+   現行規則：
+   - 玩家名字使用獨立名字框
+   - 「反串」顯示於名字框外右側
+   - 不顯示玩家本人性別符號
 ============================================================ */
 
 /* ------------------------------------------------------------
@@ -10,9 +15,12 @@
 
 .seat-engine {
   width: 100%;
+
   display: flex;
   flex-direction: column;
+
   gap: 18px;
+
   box-sizing: border-box;
 }
 
@@ -28,31 +36,47 @@
 
 .seat-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
   gap: 10px;
 }
 
 .seat-summary-item {
   min-width: 0;
+
   padding: 12px 10px;
+
   text-align: center;
+
   background: #f8f8fa;
+
   border: 1px solid #ececf1;
   border-radius: 14px;
 }
 
 .seat-summary-label {
   display: block;
+
   margin-bottom: 4px;
+
   color: #777;
+
   font-size: 12px;
   line-height: 1.4;
 }
 
 .seat-summary-value {
   display: block;
+
   color: #222;
+
   font-size: 20px;
+  font-weight: 800;
   line-height: 1.2;
 }
 
@@ -63,13 +87,16 @@
 .seat-engine-sections {
   display: flex;
   flex-direction: column;
+
   gap: 18px;
 }
 
 .seat-section,
 .seat-waiting-section {
   overflow: hidden;
+
   background: #fff;
+
   border: 1px solid #e9e9ee;
   border-radius: 18px;
 }
@@ -78,72 +105,102 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 12px;
+
   padding: 14px 16px;
+
   background: #f8f8fa;
+
   border-bottom: 1px solid #ececf1;
 }
 
 .seat-section-title-area {
   min-width: 0;
+
   display: flex;
   align-items: center;
+
   gap: 9px;
 }
 
 .seat-section-icon {
   width: 30px;
   height: 30px;
+
   flex-shrink: 0;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   background: #fff;
+
   border: 1px solid #e5e5ea;
   border-radius: 10px;
+
   font-size: 18px;
   font-weight: 700;
 }
 
 .seat-section-title {
   margin: 0;
+
   color: #222;
+
   font-size: 17px;
   font-weight: 700;
   line-height: 1.4;
 }
 
 .seat-section-count {
-  flex-shrink: 0;
   min-width: 46px;
+
+  flex-shrink: 0;
+
   padding: 5px 10px;
+
   color: #555;
+
   text-align: center;
+
   font-size: 13px;
   font-weight: 700;
+
   background: #fff;
+
   border: 1px solid #e5e5ea;
   border-radius: 999px;
 }
 
 /* 分區識別色 */
 
-.seat-section[data-seat-section="male"] .seat-section-icon {
+.seat-section[data-seat-section="male"]
+.seat-section-icon {
   color: #3578d4;
+
   background: #edf5ff;
+
   border-color: #d6e7ff;
 }
 
-.seat-section[data-seat-section="female"] .seat-section-icon {
+.seat-section[data-seat-section="female"]
+.seat-section-icon {
   color: #d45b89;
+
   background: #fff0f5;
+
   border-color: #ffd7e5;
 }
 
-.seat-section[data-seat-section="flexible"] .seat-section-icon,
-.seat-section[data-seat-section="any"] .seat-section-icon {
+.seat-section[data-seat-section="flexible"]
+.seat-section-icon,
+.seat-section[data-seat-section="any"]
+.seat-section-icon {
   color: #7a62c7;
+
   background: #f4f0ff;
+
   border-color: #e4dbff;
 }
 
@@ -158,11 +215,16 @@
 
 .seat-row {
   position: relative;
+
+  min-height: 58px;
+
   display: flex;
   align-items: stretch;
-  min-height: 58px;
+
   background: #fff;
+
   border-bottom: 1px solid #efeff3;
+
   transition:
     background-color 0.15s ease,
     box-shadow 0.15s ease,
@@ -191,14 +253,20 @@
 
 .seat-row-handle {
   width: 42px;
+
   flex-shrink: 0;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   color: #aaa;
+
   font-size: 17px;
+
   user-select: none;
   cursor: grab;
+
   border-right: 1px solid #efeff3;
 }
 
@@ -206,11 +274,21 @@
   cursor: grabbing;
 }
 
+/* ------------------------------------------------------------
+   座位列主體
+------------------------------------------------------------ */
+
 .seat-row-main {
   min-width: 0;
+
   flex: 1;
+
   display: grid;
-  grid-template-columns: minmax(70px, 0.75fr) minmax(120px, 1.6fr);
+
+  grid-template-columns:
+    minmax(70px, 0.75fr)
+    minmax(140px, 1.6fr);
+
   align-items: stretch;
 }
 
@@ -220,15 +298,22 @@
 
 .seat-row-label-cell {
   min-width: 0;
+
   display: flex;
   align-items: center;
+
   padding: 12px 14px;
+
   color: #555;
+
   font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
+
   word-break: break-word;
+
   border-right: 1px solid #efeff3;
+
   cursor: pointer;
 }
 
@@ -237,189 +322,160 @@
 }
 
 /* ------------------------------------------------------------
-   玩家區
+   玩家欄外框
 ------------------------------------------------------------ */
 
 .seat-row-player-cell {
   min-width: 0;
+
   display: flex;
   align-items: center;
+
   padding: 8px 10px;
 }
 
+/* ------------------------------------------------------------
+   玩家列
+
+   結構：
+   [名字框] [反串]
+------------------------------------------------------------ */
+
 .seat-player {
-    width: 100%;
-    min-width: 0;
-    min-height: 38px;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
 
-    display: flex;
-    align-items: center;
+  display: flex;
+  align-items: center;
 
-    padding: 9px 12px;
-    border-radius: 11px;
+  gap: 7px;
+
+  padding: 0;
+
+  background: transparent;
+  border: 0;
 }
 
 .seat-player-occupied {
   color: #222;
-  background: #f3f0ff;
-  border: 1px solid #ded7ff;
+
   cursor: grab;
-}
-
-/* ===========================
-   Seat Player Layout
-=========================== */
-
-.seat-player-occupied{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-}
-
-.seat-player-identity{
-    display:flex;
-    align-items:center;
-    gap:6px;
-
-    flex:1;
-    min-width:0;
-}
-
-.seat-player-gender{
-    width:18px;
-    flex-shrink:0;
-
-    text-align:center;
-
-    font-size:14px;
-    font-weight:700;
-    line-height:1;
-}
-
-.seat-player-gender.male{
-    color:#4d87ff;
-}
-
-.seat-player-gender.female{
-    color:#ef6ea8;
-}
-
-.seat-player-name{
-    flex:1;
-}
-
-.seat-player-status-column{
-    display:flex;
-    justify-content:flex-end;
-    align-items:center;
-
-    gap:6px;
-
-    flex-shrink:0;
-}
-
-.seat-player-status-badge{
-    padding:2px 8px;
-
-    border-radius:999px;
-
-    font-size:11px;
-    font-weight:700;
-}
-
-.seat-player-status-badge.is-cross-play{
-
-    background:#fff1f7;
-
-    color:#d64c82;
-
-    border:1px solid #ffcfe1;
-
 }
 
 .seat-player-occupied:active {
   cursor: grabbing;
 }
 
-.seat-player-empty {
-  color: #999;
-  background: #f7f7f8;
-  border: 1px dashed #d8d8de;
+/* ------------------------------------------------------------
+   玩家名字框
+------------------------------------------------------------ */
+
+.seat-player-name-box {
+  min-width: 0;
+  min-height: 38px;
+
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+
+  padding: 9px 12px;
+
+  color: #222;
+
+  background: #f3f0ff;
+
+  border: 1px solid #ded7ff;
+  border-radius: 11px;
 }
 
 .seat-player-name {
   min-width: 0;
+
+  flex: 1;
+
   overflow: hidden;
+
   color: inherit;
+
   font-size: 15px;
   font-weight: 700;
   line-height: 1.4;
+
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* ===========================
-   玩家資訊排版
-=========================== */
+/* ------------------------------------------------------------
+   玩家狀態欄
 
-.seat-player-occupied{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
+   目前只顯示：
+   - 反串
+------------------------------------------------------------ */
+
+.seat-player-status-column {
+  flex: 0 0 auto;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+
+  gap: 4px;
 }
 
-.seat-player-identity{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    min-width:0;
-    flex:1;
+.seat-player-status-badge {
+  min-height: 21px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 2px 7px;
+
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+
+  white-space: nowrap;
 }
 
-.seat-player-gender{
-    width:18px;
-    text-align:center;
-    font-size:14px;
-    opacity:.8;
-    flex-shrink:0;
+.seat-player-status-badge.is-cross-play {
+  color: #d64c82;
+
+  background: #fff1f7;
+
+  border: 1px solid #ffcfe1;
 }
 
-.seat-player-name{
-    flex:1;
-}
+/* ------------------------------------------------------------
+   空位
+------------------------------------------------------------ */
 
-.seat-player-status-column{
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;
-    gap:6px;
-    flex-shrink:0;
-}
+.seat-player-empty {
+  min-height: 38px;
 
-.seat-player-status-badge{
-    padding:2px 8px;
-    border-radius:999px;
-    font-size:11px;
-    font-weight:700;
-    line-height:18px;
-}
+  padding: 9px 12px;
 
-.seat-player-status-badge.is-cross-play{
-    background:#fff1f6;
-    color:#d64d84;
-    border:1px solid #ffd0e0;
+  color: #999;
+
+  background: #f7f7f8;
+
+  border: 1px dashed #d8d8de;
+  border-radius: 11px;
 }
 
 .seat-player-placeholder {
   color: #999;
+
   font-size: 14px;
   font-weight: 500;
 }
 
 /* ------------------------------------------------------------
-   等待安排區
+   待安排區
 ------------------------------------------------------------ */
 
 .seat-waiting-list {
@@ -429,11 +485,19 @@
 
 .seat-waiting-player {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto;
+
   align-items: center;
-  gap: 10px;
+
+  gap: 8px 10px;
+
   padding: 12px 14px;
+
   background: #fff;
+
   border-bottom: 1px solid #efeff3;
 }
 
@@ -443,44 +507,43 @@
 
 .seat-waiting-player-main {
   min-width: 0;
+
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
 }
 
-.seat-waiting-player-name {
-  display: block;
-  overflow: hidden;
-  color: #222;
-  font-size: 15px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.seat-waiting-player-main
+.seat-player-name-box {
+  flex: 1;
 }
 
 .seat-waiting-reason {
   grid-column: 1 / -1;
+
   color: #777;
+
   font-size: 13px;
   line-height: 1.5;
 }
 
-.seat-auto-place-button {
-  padding: 7px 12px;
-  color: #5f4fb2;
-  font-size: 13px;
-  font-weight: 700;
-  background: #f2efff;
-  border: 1px solid #ddd5ff;
-  border-radius: 10px;
-  cursor: pointer;
-}
+.seat-waiting-drag-hint {
+  color: #8a7bb8;
 
-.seat-auto-place-button:hover {
-  background: #e9e4ff;
+  font-size: 12px;
+  font-weight: 600;
+
+  white-space: nowrap;
 }
 
 .seat-waiting-empty {
   padding: 24px 16px;
+
   color: #999;
+
   text-align: center;
+
   font-size: 14px;
 }
 
@@ -490,23 +553,28 @@
 
 .seat-empty-state {
   padding: 34px 20px;
+
   text-align: center;
 }
 
 .seat-empty-state-icon {
   margin-bottom: 10px;
+
   font-size: 34px;
 }
 
 .seat-empty-state-title {
   margin-bottom: 6px;
+
   color: #333;
+
   font-size: 17px;
   font-weight: 700;
 }
 
 .seat-empty-state-text {
   color: #888;
+
   font-size: 14px;
   line-height: 1.6;
 }
@@ -517,23 +585,31 @@
 
 .seat-action-message {
   padding: 11px 14px;
-  color: #27643d;
+
+  color: #37506b;
+
   font-size: 14px;
   font-weight: 600;
-  background: #edf9f1;
-  border: 1px solid #ccebd6;
+
+  background: #eff6ff;
+
+  border: 1px solid #d4e5fa;
   border-radius: 12px;
 }
 
 .seat-action-message.is-error {
   color: #9a3434;
+
   background: #fff0f0;
+
   border-color: #f2caca;
 }
 
 .seat-action-message.is-success {
   color: #27643d;
+
   background: #edf9f1;
+
   border-color: #ccebd6;
 }
 
@@ -549,7 +625,9 @@
 
 .seat-row.is-drag-over {
   background: #f3f0ff;
-  box-shadow: inset 0 0 0 2px #8b78dc;
+
+  box-shadow:
+    inset 0 0 0 2px #8b78dc;
 }
 
 /* ------------------------------------------------------------
@@ -567,6 +645,7 @@
 
   .seat-summary-item {
     padding: 10px 5px;
+
     border-radius: 12px;
   }
 
@@ -597,15 +676,19 @@
 
   .seat-row-handle {
     width: 34px;
+
     font-size: 15px;
   }
 
   .seat-row-main {
-    grid-template-columns: minmax(54px, 0.65fr) minmax(110px, 1.5fr);
+    grid-template-columns:
+      minmax(54px, 0.65fr)
+      minmax(118px, 1.5fr);
   }
 
   .seat-row-label-cell {
     padding: 10px 8px;
+
     font-size: 13px;
   }
 
@@ -615,6 +698,13 @@
 
   .seat-player {
     min-height: 36px;
+
+    gap: 5px;
+  }
+
+  .seat-player-name-box {
+    min-height: 36px;
+
     padding: 8px 9px;
   }
 
@@ -623,7 +713,29 @@
     font-size: 13px;
   }
 
+  .seat-player-status-badge {
+    min-height: 20px;
+
+    padding: 2px 6px;
+
+    font-size: 10px;
+  }
+
+  .seat-player-empty {
+    min-height: 36px;
+
+    padding: 8px 9px;
+  }
+
   .seat-waiting-player {
     padding: 11px 12px;
+  }
+
+  .seat-waiting-player-main {
+    gap: 5px;
+  }
+
+  .seat-waiting-drag-hint {
+    font-size: 11px;
   }
 }
