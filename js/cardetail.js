@@ -736,227 +736,40 @@ async function cancelCar() {
 
 /* =========================
    報名申請
+   已搬至：
+   modules/car/detail/application/application-actions.js
 ========================= */
 
-async function approveApplication(index) {
-  const db = window.db;
-  const carId = getCarId();
+function getApplicationActionsModule() {
+  const module =
+    window
+      .JLYCarDetailApplicationActions;
 
-  if (!db) {
-    alert("Firebase 尚未載入");
-    return;
-  }
-
-  try {
-    const carRef =
-      db.collection("cars").doc(carId);
-
-    const doc =
-      await carRef.get();
-
-    if (!doc.exists) {
-      alert("找不到這台車");
-      return;
-    }
-
-    const car = doc.data();
-
-    const applications =
-      Array.isArray(car.applications)
-        ? [...car.applications]
-        : [];
-
-    const players =
-      Array.isArray(car.players)
-        ? [...car.players]
-        : [];
-
-    const app =
-      applications[index];
-
-    if (!app) {
-      alert("找不到這筆申請");
-      return;
-    }
-
-    const defaultName =
-      app.name ||
-      app.playerName ||
-      "未命名玩家";
-
-    const stablePlayerId = String(
-  app.playerId ||
-  app.id ||
-  app.applicationId ||
-  (
-    "car-player-" +
-    Date.now() +
-    "-" +
-    Math.random()
-      .toString(36)
-      .slice(2, 10)
-  )
-);
-
-    players.push({
-  playerId:
-    stablePlayerId,
-
-      playerName:
-        defaultName,
-
-      name:
-        defaultName,
-
-      hostAlias:
-        defaultName,
-
-      hostNote:
-        "",
-
-      position:
-        app.role ||
-        app.position ||
-        "不限",
-
-      roleChoice:
-        "",
-
-      seatLabel:
-        String(
-          players.length + 1
-        ),
-
-      isCrossPlay:
-        app.isCrossPlay === true,
-
-      source:
-        app.source ||
-        "join_page",
-
-      status:
-        "已加入",
-
-      joinedAt:
-        nowTime()
-    });
-
-    applications.splice(
-      index,
-      1
-    );
-
-    const history = addHistory(
-      car,
-      "玩家加入",
-      defaultName +
-        " 已核准加入車團"
-    );
-
-    await carRef.update({
-      players,
-      applications,
-      history,
-      updatedAt: nowTime()
-    });
-
-    alert("已核准加入！");
-
-    renderCarDetail();
-  } catch (error) {
-    console.error(
-      "核准申請失敗：",
-      error
-    );
-
-    alert(
-      "核准失敗：" +
-      error.message
+  if (!module) {
+    throw new Error(
+      "Application Actions 模組尚未載入"
     );
   }
+
+  return module;
 }
 
-async function rejectApplication(index) {
-  if (
-    !confirm(
-      "確定要拒絕這筆申請嗎？"
-    )
-  ) {
-    return;
-  }
-
-  const db = window.db;
-  const carId = getCarId();
-
-  if (!db) {
-    alert("Firebase 尚未載入");
-    return;
-  }
-
-  try {
-    const carRef =
-      db.collection("cars").doc(carId);
-
-    const doc =
-      await carRef.get();
-
-    if (!doc.exists) {
-      alert("找不到這台車");
-      return;
-    }
-
-    const car = doc.data();
-
-    const applications =
-      Array.isArray(car.applications)
-        ? [...car.applications]
-        : [];
-
-    const app =
-      applications[index];
-
-    applications.splice(
-      index,
-      1
+async function approveApplication(
+  index
+) {
+  return getApplicationActionsModule()
+    .approveApplication(
+      index
     );
+}
 
-    const playerName =
-      app &&
-      (
-        app.name ||
-        app.playerName
-      )
-        ? app.name ||
-          app.playerName
-        : "一位玩家";
-
-    const history = addHistory(
-      car,
-      "拒絕申請",
-      playerName +
-        " 的報名申請已被拒絕"
+async function rejectApplication(
+  index
+) {
+  return getApplicationActionsModule()
+    .rejectApplication(
+      index
     );
-
-    await carRef.update({
-      applications,
-      history,
-      updatedAt: nowTime()
-    });
-
-    alert("已拒絕申請");
-
-    renderCarDetail();
-  } catch (error) {
-    console.error(
-      "拒絕申請失敗：",
-      error
-    );
-
-    alert(
-      "拒絕失敗：" +
-      error.message
-    );
-  }
 }
 
 /* =========================
@@ -2985,6 +2798,17 @@ window.openEmptySeat =
 
 window.renderCarDetail =
   renderCarDetail;
+
+  window
+  .JLYCarDetailApplicationActionsConfig = {
+    getCarId,
+
+    nowTime,
+
+    addHistory,
+
+    renderCarDetail
+  };
 
 window.finishCar =
   finishCar;
