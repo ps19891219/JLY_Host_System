@@ -123,12 +123,15 @@
         >
 
         <input
-          type="time"
-          class="matching-slot-time"
-          value="${escapeHtml(
-            slot.time || ""
-          )}"
-        >
+  type="text"
+  inputmode="numeric"
+  class="matching-slot-time"
+  value="${escapeHtml(
+    slot.time || ""
+  )}"
+  placeholder="HH:MM"
+  maxlength="5"
+>
 
         ${
           slot.isCustom === true
@@ -198,13 +201,16 @@
         >
 
         <input
-          type="time"
-          class="matching-candidate-time"
-          value="${escapeHtml(
-            slot.time || ""
-          )}"
-          onchange="updateCandidateTime(${index}, this.value)"
-        >
+  type="text"
+  inputmode="numeric"
+  class="matching-candidate-time"
+  value="${escapeHtml(
+    slot.time || ""
+  )}"
+  placeholder="HH:MM"
+  maxlength="5"
+  onchange="updateCandidateTime(${index}, this.value)"
+>
 
         <button
           type="button"

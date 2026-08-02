@@ -33,6 +33,56 @@
     return car.matching;
   }
 
+  /*
+    接受：
+    9:00
+    09:00
+    19:30
+
+    回傳統一格式：
+    09:00
+    19:30
+  */
+  function normalizeMatchingTime(
+    value
+  ) {
+    const text =
+      String(value || "")
+        .trim();
+
+    const match =
+      text.match(
+        /^(\d{1,2}):(\d{2})$/
+      );
+
+    if (!match) {
+      return "";
+    }
+
+    const hour =
+      Number(match[1]);
+
+    const minute =
+      Number(match[2]);
+
+    if (
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59
+    ) {
+      return "";
+    }
+
+    return (
+      String(hour)
+        .padStart(2, "0") +
+      ":" +
+      String(minute)
+        .padStart(2, "0")
+    );
+  }
+
   async function startMatchingSetup() {
     const carId =
       getCarId();
@@ -51,17 +101,14 @@
           );
 
       window.currentMatchingCar = {
-        ...window
-          .currentMatchingCar,
-
+        ...window.currentMatchingCar,
         matching
       };
 
       window
         .JLYMatchingRender
         .renderApp(
-          window
-            .currentMatchingCar
+          window.currentMatchingCar
         );
     } catch (error) {
       console.error(
@@ -71,7 +118,10 @@
 
       alert(
         "建立媒合失敗：" +
-        error.message
+        (
+          error.message ||
+          "未知錯誤"
+        )
       );
     }
   }
@@ -88,54 +138,93 @@
         ? matching.commonSlots
         : [];
 
-    return Array.from(
-      document.querySelectorAll(
-        ".matching-common-slot"
-      )
-    ).map(function (
-      row,
-      index
-    ) {
-      const original =
-        originalSlots[index] ||
-        {};
+    const rows =
+      Array.from(
+        document.querySelectorAll(
+          ".matching-common-slot"
+        )
+      );
 
-      return {
-        id:
-          original.id ||
-          createId("slot"),
+    /*
+      畫面尚未存在時，
+      保留目前記憶體裡的資料。
+    */
+    if (rows.length === 0) {
+      return originalSlots.map(
+        function (slot) {
+          return {
+            ...slot
+          };
+        }
+      );
+    }
 
-        label:
-          row
-            .querySelector(
-              ".matching-slot-label"
-            )
-            .value
-            .trim(),
+    return rows.map(
+      function (
+        row,
+        index
+      ) {
+        const original =
+          originalSlots[index] ||
+          {};
 
-        icon:
-          original.icon ||
-          "🕒",
+        const labelInput =
+          row.querySelector(
+            ".matching-slot-label"
+          );
 
-        time:
-          row
-            .querySelector(
-              ".matching-slot-time"
-            )
-            .value,
+        const timeInput =
+          row.querySelector(
+            ".matching-slot-time"
+          );
 
-        enabled:
-          row
-            .querySelector(
-              ".matching-slot-enabled"
-            )
-            .checked,
+        const enabledInput =
+          row.querySelector(
+            ".matching-slot-enabled"
+          );
 
-        isCustom:
-          original.isCustom ===
-          true
-      };
-    });
+        return {
+          id:
+            original.id ||
+            createId("slot"),
+
+          label:
+            labelInput
+              ? labelInput
+                  .value
+                  .trim()
+              : (
+                  original.label ||
+                  ""
+                ),
+
+          icon:
+            original.icon ||
+            "🕒",
+
+          time:
+            timeInput
+              ? String(
+                  timeInput.value ||
+                  ""
+                ).trim()
+              : (
+                  original.time ||
+                  ""
+                ),
+
+          enabled:
+            enabledInput
+              ? enabledInput.checked
+              : original.enabled !==
+                false,
+
+          isCustom:
+            original.isCustom ===
+            true
+        };
+      }
+    );
   }
 
   function syncCommonSlotsToMemory() {
@@ -160,6 +249,10 @@
       getMatching();
 
     if (!matching) {
+      alert(
+        "媒合資料尚未載入"
+      );
+
       return;
     }
 
@@ -192,9 +285,30 @@
     window
       .JLYMatchingRender
       .renderApp(
-        window
-          .currentMatchingCar
+        window.currentMatchingCar
       );
+
+    const rows =
+      document.querySelectorAll(
+        ".matching-common-slot"
+      );
+
+    const lastRow =
+      rows[
+        rows.length - 1
+      ];
+
+    if (lastRow) {
+      const labelInput =
+        lastRow.querySelector(
+          ".matching-slot-label"
+        );
+
+      if (labelInput) {
+        labelInput.focus();
+        labelInput.select();
+      }
+    }
   }
 
   function removeCommonSlot(
@@ -210,10 +324,12 @@
     const slots =
       syncCommonSlotsToMemory();
 
+    const target =
+      slots[index];
+
     if (
-      !slots[index] ||
-      slots[index]
-        .isCustom !== true
+      !target ||
+      target.isCustom !== true
     ) {
       return;
     }
@@ -226,13 +342,16 @@
     matching.commonSlots =
       slots;
 
-    refreshCandidatePreview();
+    /*
+      刪除模板後重新整理候選時段。
+    */
+    matching.candidateSlots =
+      buildCandidateSlots();
 
     window
       .JLYMatchingRender
       .renderApp(
-        window
-          .currentMatchingCar
+        window.currentMatchingCar
       );
   }
 
@@ -240,16 +359,107 @@
     const carId =
       getCarId();
 
+    const button =
+      document.getElementById(
+        "saveCommonSlotsButton"
+      );
+
+    if (!carId) {
+      alert("找不到車團 ID");
+      return;
+    }
+
     const slots =
       readCommonSlotsFromForm();
 
+    let hasInvalidSlot =
+      false;
+
+    const normalizedSlots =
+      slots.map(
+        function (slot) {
+          if (
+            slot.enabled === false
+          ) {
+            return {
+              ...slot,
+
+              time:
+                slot.time || ""
+            };
+          }
+
+          const normalizedTime =
+            normalizeMatchingTime(
+              slot.time
+            );
+
+          if (
+            !slot.label ||
+            !normalizedTime
+          ) {
+            hasInvalidSlot =
+              true;
+          }
+
+          return {
+            ...slot,
+
+            label:
+              String(
+                slot.label || ""
+              ).trim(),
+
+            time:
+              normalizedTime
+          };
+        }
+      );
+
+    if (hasInvalidSlot) {
+      alert(
+        "啟用中的時段必須填寫名稱與正確時間。\n\n例如：09:00、14:30、19:00"
+      );
+
+      return;
+    }
+
+    const enabledSlots =
+      normalizedSlots.filter(
+        function (slot) {
+          return (
+            slot.enabled ===
+              true &&
+            slot.time
+          );
+        }
+      );
+
+    if (
+      enabledSlots.length === 0
+    ) {
+      alert(
+        "至少要保留一個啟用中的時段。"
+      );
+
+      return;
+    }
+
     try {
+      if (button) {
+        button.disabled =
+          true;
+
+        button.textContent =
+          "儲存中…";
+      }
+
       const result =
         await window
           .JLYMatchingData
           .saveCommonSlots(
             carId,
-            slots
+            normalizedSlots
           );
 
       const matching =
@@ -258,16 +468,46 @@
       matching.commonSlots =
         result.commonSlots;
 
-      refreshCandidatePreview();
+      matching.updatedAt =
+        result.updatedAt;
+
+      /*
+        套用更新後的模板，
+        但已經手動改過的候選時間會保留。
+      */
+      matching.candidateSlots =
+        buildCandidateSlots();
+
+      window
+        .JLYMatchingRender
+        .renderApp(
+          window.currentMatchingCar
+        );
 
       alert(
         "本次媒合時段已儲存。"
       );
     } catch (error) {
+      console.error(
+        "儲存本次媒合時段失敗：",
+        error
+      );
+
       alert(
         "儲存失敗：" +
-        error.message
+        (
+          error.message ||
+          "未知錯誤"
+        )
       );
+
+      if (button) {
+        button.disabled =
+          false;
+
+        button.textContent =
+          "儲存本次媒合時段";
+      }
     }
   }
 
@@ -309,20 +549,21 @@
         ? matching.candidateSlots
         : [];
 
-    const existingMap =
+    const templateMap =
       new Map();
 
     existing.forEach(
       function (slot) {
+        if (!slot.sourceSlotId) {
+          return;
+        }
+
         const key =
           slot.date +
           "|" +
-          (
-            slot.sourceSlotId ||
-            slot.id
-          );
+          slot.sourceSlotId;
 
-        existingMap.set(
+        templateMap.set(
           key,
           slot
         );
@@ -341,44 +582,87 @@
               template.id;
 
             const oldSlot =
-              existingMap.get(
+              templateMap.get(
                 key
               );
 
-            next.push(
-              oldSlot
-                ? {
-                    ...oldSlot
-                  }
-                : {
-                    id:
-                      createId(
-                        "candidate"
-                      ),
+            if (oldSlot) {
+              next.push({
+                ...oldSlot
+              });
 
-                    date:
-                      dateKey,
+              return;
+            }
 
-                    label:
-                      template.label,
+            next.push({
+              id:
+                createId(
+                  "candidate"
+                ),
 
-                    icon:
-                      template.icon,
+              date:
+                dateKey,
 
-                    time:
-                      template.time,
+              label:
+                template.label,
 
-                    enabled:
-                      true,
+              icon:
+                template.icon,
 
-                    sourceSlotId:
-                      template.id,
+              time:
+                template.time,
 
-                    conflictNotes:
-                      []
-                  }
-            );
+              enabled:
+                true,
+
+              sourceSlotId:
+                template.id,
+
+              conflictNotes:
+                []
+            });
           }
+        );
+      }
+    );
+
+    /*
+      保留主揪手動加開的時段。
+    */
+    existing.forEach(
+      function (slot) {
+        if (
+          slot.sourceSlotId
+        ) {
+          return;
+        }
+
+        if (
+          !dates.includes(
+            slot.date
+          )
+        ) {
+          return;
+        }
+
+        next.push({
+          ...slot
+        });
+      }
+    );
+
+    next.sort(
+      function (a, b) {
+        return (
+          (
+            a.date +
+            "|" +
+            a.time
+          ).localeCompare(
+            b.date +
+            "|" +
+            b.time
+          )
         );
       }
     );
@@ -394,8 +678,19 @@
       return;
     }
 
-    matching.commonSlots =
-      readCommonSlotsFromForm();
+    const formRows =
+      document.querySelectorAll(
+        ".matching-common-slot"
+      );
+
+    /*
+      有模板表單時才同步，
+      避免重新渲染過程讀到空畫面。
+    */
+    if (formRows.length > 0) {
+      matching.commonSlots =
+        readCommonSlotsFromForm();
+    }
 
     matching.candidateSlots =
       buildCandidateSlots();
@@ -422,17 +717,63 @@
       return;
     }
 
+    const normalizedTime =
+      normalizeMatchingTime(
+        value
+      );
+
+    if (!normalizedTime) {
+      alert(
+        "請輸入正確時間。\n\n例如：09:00、14:30、19:00"
+      );
+
+      window
+        .JLYMatchingRender
+        .renderCandidatePreview(
+          matching
+        );
+
+      return;
+    }
+
     matching
       .candidateSlots[index]
-      .time = value;
+      .time =
+        normalizedTime;
 
     matching
       .candidateSlots[index]
       .conflictNotes = [];
 
+    matching
+      .candidateSlots
+      .sort(
+        function (a, b) {
+          return (
+            (
+              a.date +
+              "|" +
+              a.time
+            ).localeCompare(
+              b.date +
+              "|" +
+              b.time
+            )
+          );
+        }
+      );
+
+    window
+      .JLYMatchingRender
+      .renderCandidatePreview(
+        matching
+      );
+
     /*
-      下一輪會在這裡重新檢查
-      Google Calendar 與 JLY 行程。
+      下一階段會在這裡重新檢查：
+      Google Calendar
+      JLY 我的車
+      前後兩小時行程提醒
     */
   }
 
@@ -451,11 +792,14 @@
       return;
     }
 
+    const label =
+      String(value || "")
+        .trim();
+
     matching
       .candidateSlots[index]
       .label =
-        String(value || "")
-          .trim();
+        label || "自訂";
   }
 
   function toggleCandidateSlot(
@@ -476,7 +820,7 @@
     matching
       .candidateSlots[index]
       .enabled =
-        enabled;
+        enabled === true;
 
     window
       .JLYMatchingRender
@@ -524,6 +868,15 @@
       return;
     }
 
+    if (
+      !Array.isArray(
+        matching.candidateSlots
+      )
+    ) {
+      matching.candidateSlots =
+        [];
+    }
+
     matching
       .candidateSlots
       .push({
@@ -556,20 +909,21 @@
 
     matching
       .candidateSlots
-      .sort(function (
-        a,
-        b
-      ) {
-        return (
-          (
-            a.date +
-            a.time
-          ).localeCompare(
-            b.date +
-            b.time
-          )
-        );
-      });
+      .sort(
+        function (a, b) {
+          return (
+            (
+              a.date +
+              "|" +
+              a.time
+            ).localeCompare(
+              b.date +
+              "|" +
+              b.time
+            )
+          );
+        }
+      );
 
     window
       .JLYMatchingRender
@@ -585,23 +939,87 @@
     const matching =
       getMatching();
 
+    const button =
+      document.getElementById(
+        "saveCandidateSlotsButton"
+      );
+
+    if (!carId) {
+      alert("找不到車團 ID");
+      return;
+    }
+
     if (!matching) {
+      alert(
+        "媒合資料尚未載入"
+      );
+
+      return;
+    }
+
+    const normalizedSlots =
+      (
+        Array.isArray(
+          matching.candidateSlots
+        )
+          ? matching.candidateSlots
+          : []
+      ).map(
+        function (slot) {
+          const normalizedTime =
+            normalizeMatchingTime(
+              slot.time
+            );
+
+          return {
+            ...slot,
+
+            label:
+              String(
+                slot.label ||
+                "自訂"
+              ).trim(),
+
+            time:
+              normalizedTime
+          };
+        }
+      );
+
+    const invalidSlot =
+      normalizedSlots.find(
+        function (slot) {
+          return (
+            slot.enabled !==
+              false &&
+            (
+              !slot.date ||
+              !slot.label ||
+              !slot.time
+            )
+          );
+        }
+      );
+
+    if (invalidSlot) {
+      alert(
+        "啟用中的候選時段必須有日期、名稱與正確時間。"
+      );
+
       return;
     }
 
     const enabledSlots =
-      matching
-        .candidateSlots
-        .filter(
-          function (slot) {
-            return (
-              slot.enabled !==
-                false &&
-              slot.date &&
-              slot.time
-            );
-          }
-        );
+      normalizedSlots.filter(
+        function (slot) {
+          return (
+            slot.enabled !==
+              false &&
+            slot.date &&
+            slot.time
+          );
+        }
+      );
 
     if (
       enabledSlots.length === 0
@@ -614,13 +1032,21 @@
     }
 
     try {
+      if (button) {
+        button.disabled =
+          true;
+
+        button.textContent =
+          "儲存中…";
+      }
+
       const result =
         await window
           .JLYMatchingData
           .saveCandidateSlots(
             carId,
             matching.selectedDates,
-            matching.candidateSlots
+            normalizedSlots
           );
 
       matching.selectedDates =
@@ -632,14 +1058,36 @@
       matching.updatedAt =
         result.updatedAt;
 
+      window
+        .JLYMatchingRender
+        .renderCandidatePreview(
+          matching
+        );
+
       alert(
         "候選時段已儲存。"
       );
     } catch (error) {
+      console.error(
+        "儲存候選時段失敗：",
+        error
+      );
+
       alert(
         "儲存失敗：" +
-        error.message
+        (
+          error.message ||
+          "未知錯誤"
+        )
       );
+
+      if (button) {
+        button.disabled =
+          false;
+
+        button.textContent =
+          "儲存候選時段";
+      }
     }
   }
 
@@ -688,10 +1136,11 @@
     backToMatchingCar;
 
   window.JLYMatchingActions = {
-    refreshCandidatePreview
+    refreshCandidatePreview,
+    normalizeMatchingTime
   };
 
   console.log(
-    "✅ Matching Actions V3 已載入"
+    "✅ Matching Actions V4 已載入"
   );
 })();
