@@ -385,3 +385,57 @@
     padding-right: 6px;
   }
 }
+
+.matching-candidate-item{
+
+    display:flex;
+
+    flex-direction:column;
+}
+
+.matching-candidate-conflicts{
+
+    margin-top:8px;
+
+    margin-left:44px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:8px;
+}
+
+.matching-conflict-note{
+
+    padding-left:10px;
+
+    border-left:3px solid #E7E7E7;
+
+    cursor:pointer;
+
+    transition:.2s;
+}
+
+.matching-conflict-note:hover{
+
+    border-left-color:#FFC94A;
+}
+
+.matching-conflict-title{
+
+    color:#555;
+
+    font-size:13px;
+
+    font-weight:500;
+}
+
+.matching-conflict-time{
+
+    margin-top:2px;
+
+    color:#999;
+
+    font-size:12px;
+}

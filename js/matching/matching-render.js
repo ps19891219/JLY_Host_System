@@ -185,27 +185,37 @@
               conflict.time ||
               "";
 
+            const conflictId =
+              conflict.carId ||
+              conflict.id ||
+              "";
+
             return `
-              <button
-                type="button"
+              <div
                 class="matching-conflict-note"
                 onclick="openConflictCar('${escapeHtml(
-                  conflict.carId ||
-                  conflict.id ||
-                  ""
+                  conflictId
                 )}')"
                 title="查看這台車"
               >
-                ⚠️ ${escapeHtml(
-                  title
-                )}${
+                <div class="matching-conflict-title">
+                  🚗 ${escapeHtml(
+                    title
+                  )}
+                </div>
+
+                ${
                   time
-                    ? `（${escapeHtml(
-                        time
-                      )}）`
+                    ? `
+                      <div class="matching-conflict-time">
+                        🕒 ${escapeHtml(
+                          time
+                        )}
+                      </div>
+                    `
                     : ""
                 }
-              </button>
+              </div>
             `;
           })
           .join("")
