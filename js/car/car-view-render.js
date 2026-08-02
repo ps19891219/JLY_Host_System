@@ -367,12 +367,12 @@ console.log("car-view-render.js 已成功載入！");
 '<span class="seat-player-name-box">' +
 
 '<span class="seat-player-placeholder">' +
-"尚未安排" +
-"</span>" +
+'尚未安排' +
+'</span>' +
 
-"</span>" +
+'</span>' +
 
-"</div>"
+'</div>'
     );
   }
 
