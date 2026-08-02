@@ -435,11 +435,15 @@ console.log("car-view-render.js 已成功載入！");
               : (
                   '<div class="seat-player seat-player-empty">' +
 
-                  '<span class="seat-player-placeholder">' +
-                  "尚未安排" +
-                  "</span>" +
+'<span class="seat-player-name-box">' +
 
-                  "</div>"
+'<span class="seat-player-placeholder">' +
+'尚未安排' +
+'</span>' +
+
+'</span>' +
+
+'</div>'
                 );
 
           return (
