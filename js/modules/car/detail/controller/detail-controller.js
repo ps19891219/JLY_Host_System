@@ -4,26 +4,32 @@
 JLY Host System V3
 
 Module：
-Car Detail Controller
+Car Detail Controller V2
 
 用途：
 1. 管理目前車團詳情頁狀態
 2. 統一 load、refresh 與 render 流程
-3. 作為 Loader、Render、Events 的交通指揮塔
+3. 所有操作完成後保留目前頁面位置
+4. 支援指定元素重新 Render 後回到原處
+5. 只有使用者主動點擊劇本名稱才回到頁首
 
 依賴：
 - window.JLYCarDetailLoader
-- 目前 cardetail.js 的 renderCarDetail()
+- window.renderCarDetail
 
 ====================================================
 */
 
 console.log(
-  "detail-controller.js 已成功載入！"
+  "detail-controller.js V2 已成功載入！"
 );
 
 (function () {
   "use strict";
+
+  // ============================================================
+  // 狀態
+  // ============================================================
 
   const state = {
     status:
@@ -39,12 +45,82 @@ console.log(
       null,
 
     loadedAt:
-      ""
+      "",
+
+    isRefreshing:
+      false
   };
 
-  // ------------------------------------------------------------
-  // 更新狀態
-  // ------------------------------------------------------------
+  // ============================================================
+  // 捲動位置狀態
+  // ============================================================
+
+  const scrollState = {
+    scrollX:
+      0,
+
+    scrollY:
+      0,
+
+    anchorSelector:
+      "",
+
+    anchorOffset:
+      0,
+
+    shouldRestore:
+      false
+  };
+
+  // ============================================================
+  // 基礎工具
+  // ============================================================
+
+  function getText(value) {
+    return String(
+      value == null
+        ? ""
+        : value
+    ).trim();
+  }
+
+  function waitForFrames(count) {
+    const total =
+      Math.max(
+        Number(count || 1),
+        1
+      );
+
+    return new Promise(
+      function (resolve) {
+        let current = 0;
+
+        function nextFrame() {
+          current += 1;
+
+          if (
+            current >= total
+          ) {
+            resolve();
+
+            return;
+          }
+
+          window.requestAnimationFrame(
+            nextFrame
+          );
+        }
+
+        window.requestAnimationFrame(
+          nextFrame
+        );
+      }
+    );
+  }
+
+  // ============================================================
+  // Controller State
+  // ============================================================
 
   function setState(nextState) {
     Object.assign(
@@ -54,10 +130,6 @@ console.log(
 
     return getState();
   }
-
-  // ------------------------------------------------------------
-  // 取得狀態副本
-  // ------------------------------------------------------------
 
   function getState() {
     return {
@@ -72,32 +144,25 @@ console.log(
     };
   }
 
-  // ------------------------------------------------------------
-  // 取得目前資料
-  // ------------------------------------------------------------
-
   function getCurrentData() {
     return state.data;
   }
-
-  // ------------------------------------------------------------
-  // 取得目前車團
-  // ------------------------------------------------------------
 
   function getCurrentCar() {
     return (
       state.data &&
       state.data.car
         ? state.data.car
-        : null
+        : (
+            window.currentCarData ||
+            null
+          )
     );
   }
 
-  // ------------------------------------------------------------
-  // 將 Loader 結果同步到舊頁面全域狀態
-  //
-  // 拆分期間保留相容性。
-  // ------------------------------------------------------------
+  // ============================================================
+  // 舊全域狀態相容
+  // ============================================================
 
   function syncLegacyGlobals(
     data
@@ -117,9 +182,9 @@ console.log(
         : [];
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 載入資料
-  // ------------------------------------------------------------
+  // ============================================================
 
   async function load(carId) {
     const loader =
@@ -186,16 +251,14 @@ console.log(
     }
   }
 
-  // ------------------------------------------------------------
-  // 呼叫目前舊版 Render
-  //
-  // 下一階段會改成呼叫 Render V3。
-  // ------------------------------------------------------------
+  // ============================================================
+  // 舊 Render 流程
+  // ============================================================
 
   async function renderLegacy() {
     if (
       typeof window.renderCarDetail !==
-        "function"
+      "function"
     ) {
       throw new Error(
         "renderCarDetail 尚未載入"
@@ -205,9 +268,9 @@ console.log(
     return window.renderCarDetail();
   }
 
-  // ------------------------------------------------------------
-  // 重新載入目前頁面
-  // ------------------------------------------------------------
+  // ============================================================
+  // 重新載入資料
+  // ============================================================
 
   async function refresh() {
     const carId =
@@ -230,22 +293,385 @@ console.log(
     return load(carId);
   }
 
-  // ------------------------------------------------------------
-  // 使用目前舊流程重新整理畫面
+  // ============================================================
+  // 建立可還原的 Element Selector
   //
-  // 暫時維持功能穩定。
-  // ------------------------------------------------------------
+  // 優先使用：
+  // 1. id
+  // 2. data-slot-id
+  // 3. data-staff-id
+  // 4. data-player-id
+  // 5. data-car-field
+  // ============================================================
 
-  async function refreshPage() {
-    return renderLegacy();
+  function buildElementSelector(
+    element
+  ) {
+    if (
+      !element ||
+      !(element instanceof Element)
+    ) {
+      return "";
+    }
+
+    if (element.id) {
+      return (
+        "#" +
+        CSS.escape(
+          element.id
+        )
+      );
+    }
+
+    const attributes = [
+      "data-slot-id",
+      "data-staff-id",
+      "data-player-id",
+      "data-car-field",
+      "data-seat-section"
+    ];
+
+    for (
+      let index = 0;
+      index < attributes.length;
+      index += 1
+    ) {
+      const attribute =
+        attributes[index];
+
+      const value =
+        getText(
+          element.getAttribute(
+            attribute
+          )
+        );
+
+      if (value) {
+        return (
+          "[" +
+          attribute +
+          '="' +
+          CSS.escape(value) +
+          '"]'
+        );
+      }
+    }
+
+    return "";
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
+  // 記錄目前操作元素
+  // ============================================================
+
+  function findCurrentAnchorElement(
+    sourceElement
+  ) {
+    const source =
+      sourceElement &&
+      sourceElement instanceof Element
+        ? sourceElement
+        : (
+            document.activeElement &&
+            document.activeElement instanceof Element
+              ? document.activeElement
+              : null
+          );
+
+    if (!source) {
+      return null;
+    }
+
+    return (
+      source.closest(
+        [
+          "[data-slot-id]",
+          "[data-staff-id]",
+          "[data-player-id]",
+          "[data-car-field]",
+          ".seat-row",
+          ".staff-seat-row",
+          ".compact-player-row",
+          ".car-info-item"
+        ].join(",")
+      ) ||
+      source
+    );
+  }
+
+  // ============================================================
+  // 儲存捲動位置
+  // ============================================================
+
+  function captureScrollPosition(
+    options
+  ) {
+    const settings = {
+      sourceElement:
+        null,
+
+      anchorSelector:
+        "",
+
+      ...(
+        options || {}
+      )
+    };
+
+    scrollState.scrollX =
+      window.scrollX ||
+      window.pageXOffset ||
+      0;
+
+    scrollState.scrollY =
+      window.scrollY ||
+      window.pageYOffset ||
+      0;
+
+    scrollState.anchorSelector =
+      getText(
+        settings.anchorSelector
+      );
+
+    scrollState.anchorOffset =
+      0;
+
+    if (
+      !scrollState.anchorSelector
+    ) {
+      const anchorElement =
+        findCurrentAnchorElement(
+          settings.sourceElement
+        );
+
+      scrollState.anchorSelector =
+        buildElementSelector(
+          anchorElement
+        );
+
+      if (anchorElement) {
+        scrollState.anchorOffset =
+          anchorElement
+            .getBoundingClientRect()
+            .top;
+      }
+    } else {
+      const anchorElement =
+        document.querySelector(
+          scrollState.anchorSelector
+        );
+
+      if (anchorElement) {
+        scrollState.anchorOffset =
+          anchorElement
+            .getBoundingClientRect()
+            .top;
+      }
+    }
+
+    scrollState.shouldRestore =
+      true;
+
+    return {
+      ...scrollState
+    };
+  }
+
+  // ============================================================
+  // 還原捲動位置
+  // ============================================================
+
+  async function restoreScrollPosition() {
+    if (
+      !scrollState.shouldRestore
+    ) {
+      return;
+    }
+
+    await waitForFrames(2);
+
+    const selector =
+      getText(
+        scrollState.anchorSelector
+      );
+
+    if (selector) {
+      const anchorElement =
+        document.querySelector(
+          selector
+        );
+
+      if (anchorElement) {
+        const currentTop =
+          anchorElement
+            .getBoundingClientRect()
+            .top;
+
+        const difference =
+          currentTop -
+          scrollState.anchorOffset;
+
+        window.scrollTo({
+          left:
+            scrollState.scrollX,
+
+          top:
+            Math.max(
+              0,
+              (
+                window.scrollY ||
+                window.pageYOffset ||
+                0
+              ) +
+              difference
+            ),
+
+          behavior:
+            "auto"
+        });
+
+        scrollState.shouldRestore =
+          false;
+
+        return;
+      }
+    }
+
+    window.scrollTo({
+      left:
+        scrollState.scrollX,
+
+      top:
+        scrollState.scrollY,
+
+      behavior:
+        "auto"
+    });
+
+    scrollState.shouldRestore =
+      false;
+  }
+
+  // ============================================================
+  // 保留原位執行任務
+  // ============================================================
+
+  async function preservePosition(
+    task,
+    options
+  ) {
+    if (
+      typeof task !==
+      "function"
+    ) {
+      throw new Error(
+        "preservePosition 需要傳入函式"
+      );
+    }
+
+    captureScrollPosition(
+      options
+    );
+
+    try {
+      return await task();
+    } finally {
+      await restoreScrollPosition();
+    }
+  }
+
+  // ============================================================
+  // 重新 Render 並保留原位
+  // ============================================================
+
+  async function refreshPage(
+    options
+  ) {
+    const settings = {
+      preservePosition:
+        true,
+
+      sourceElement:
+        null,
+
+      anchorSelector:
+        "",
+
+      ...(
+        options || {}
+      )
+    };
+
+    if (state.isRefreshing) {
+      return;
+    }
+
+    state.isRefreshing =
+      true;
+
+    try {
+      if (
+        settings.preservePosition
+      ) {
+        captureScrollPosition({
+          sourceElement:
+            settings.sourceElement,
+
+          anchorSelector:
+            settings.anchorSelector
+        });
+      }
+
+      const result =
+        await renderLegacy();
+
+      if (
+        settings.preservePosition
+      ) {
+        await restoreScrollPosition();
+      }
+
+      return result;
+    } finally {
+      state.isRefreshing =
+        false;
+    }
+  }
+
+  // ============================================================
+  // 明確回到頁首
+  //
+  // 只有點擊上方劇本名稱時使用。
+  // ============================================================
+
+  function scrollToTop(
+    behavior
+  ) {
+    scrollState.shouldRestore =
+      false;
+
+    window.scrollTo({
+      top:
+        0,
+
+      left:
+        0,
+
+      behavior:
+        behavior === "auto"
+          ? "auto"
+          : "smooth"
+    });
+  }
+
+  // ============================================================
   // 對外公開
-  // ------------------------------------------------------------
+  // ============================================================
 
   window.JLYCarDetailController = {
     state,
+
+    scrollState,
 
     setState,
 
@@ -263,10 +689,43 @@ console.log(
 
     renderLegacy,
 
-    refreshPage
+    buildElementSelector,
+
+    findCurrentAnchorElement,
+
+    captureScrollPosition,
+
+    restoreScrollPosition,
+
+    preservePosition,
+
+    refreshPage,
+
+    scrollToTop
   };
 
+  /*
+   * 提供舊模組可以直接呼叫的共用方法。
+   */
+  window.refreshCarDetailPreservingPosition =
+    function (options) {
+      return window
+        .JLYCarDetailController
+        .refreshPage(
+          options
+        );
+    };
+
+  window.scrollCarDetailToTop =
+    function () {
+      return window
+        .JLYCarDetailController
+        .scrollToTop(
+          "smooth"
+        );
+    };
+
   console.log(
-    "✅ Car Detail Controller 已載入"
+    "✅ Car Detail Controller V2 已載入"
   );
 })();

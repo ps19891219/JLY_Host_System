@@ -161,15 +161,49 @@ console.log(
   }
 
   async function refreshPage() {
-    if (
-      typeof window
-        .renderCarDetail ===
-        "function"
-    ) {
-      await window
-        .renderCarDetail();
-    }
+
+  const controller =
+    window
+      .JLYCarDetailController;
+
+  const pending =
+    window
+      .JLYPendingCarDetailPosition;
+
+  if (
+    controller &&
+    typeof controller
+      .refreshPage ===
+      "function"
+  ) {
+
+    await controller.refreshPage({
+
+      preservePosition: true,
+
+      anchorSelector:
+        pending &&
+        pending.anchorSelector
+          ? pending.anchorSelector
+          : ""
+
+    });
+
+  } else if (
+    typeof window
+      .renderCarDetail ===
+      "function"
+  ) {
+
+    await window
+      .renderCarDetail();
+
   }
+
+  window.JLYPendingCarDetailPosition =
+    null;
+
+}
 
   // ------------------------------------------------------------
   // 建立 Modal 樣式
@@ -536,20 +570,26 @@ console.log(
     ensurePlayerModal();
 
     playerEditorState = {
-      mode:
-        safeConfig.mode ||
-        "add",
 
-      playerIndex:
-        typeof safeConfig.playerIndex ===
-          "number"
-          ? safeConfig.playerIndex
-          : null,
+  mode:
+    safeConfig.mode ||
+    "add",
 
-      selectedPlayer:
-        safeConfig.selectedPlayer ||
-        null
-    };
+  playerIndex:
+    typeof safeConfig.playerIndex ===
+    "number"
+      ? safeConfig.playerIndex
+      : null,
+
+  selectedPlayer:
+    safeConfig.selectedPlayer ||
+    null,
+
+  returnPosition:
+    safeConfig.returnPosition ||
+    null
+
+};
 
     const elements =
       getEditorElements();
@@ -1116,6 +1156,19 @@ console.log(
 
       window.currentAddingSeatId =
         "";
+
+        if (
+  playerEditorState &&
+  playerEditorState
+    .returnPosition
+) {
+
+  window.JLYPendingCarDetailPosition =
+
+    playerEditorState
+      .returnPosition;
+
+}
 
       closePlayerEditor();
 

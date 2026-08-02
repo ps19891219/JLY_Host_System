@@ -4,7 +4,7 @@
 JLY Host System V3
 
 Module：
-Car Detail Player Manual Add
+Car Detail Player Manual Add V2
 
 用途：
 1. 主揪手動搜尋玩家
@@ -12,6 +12,7 @@ Car Detail Player Manual Add
 3. 將尚未入座的既有玩家補入指定空位
 4. 開啟 Player Editor 新增本場玩家
 5. 處理彈性席位的男女位轉換
+6. 所有操作完成後保留原本位置
 
 規則：
 - 玩家搜尋交給 Player Search
@@ -19,26 +20,36 @@ Car Detail Player Manual Add
 - 玩家移除交給 Player Actions
 - 只處理「主揪手動新增」入口
 - 不處理玩家自行報名審核
+- 不主動將頁面捲到最上方
 
 依賴：
 - window.db
+- window.JLYCarDetailController
 - window.JLYCarDetailPlayerSearch
 - window.JLYCarDetailPlayerEditor
-- window.renderCarDetail
+- window.renderCarDetail（僅作舊版相容）
 
 ====================================================
 */
 
 console.log(
-  "player-manual-add.js 已成功載入！"
+  "player-manual-add.js V2 已成功載入！"
 );
 
 (function () {
   "use strict";
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 共用工具
-  // ------------------------------------------------------------
+  // ============================================================
+
+  function getText(value) {
+    return String(
+      value == null
+        ? ""
+        : value
+    ).trim();
+  }
 
   function getCarId() {
     if (
@@ -63,6 +74,13 @@ console.log(
 
     return new Date()
       .toISOString();
+  }
+
+  function getController() {
+    return (
+      window.JLYCarDetailController ||
+      null
+    );
   }
 
   function getSearchModule() {
@@ -91,18 +109,230 @@ console.log(
     return module;
   }
 
-  async function refreshPage() {
+  // ============================================================
+  // 席位 Selector
+  // ============================================================
+
+  function escapeCssValue(value) {
+    const text =
+      getText(value);
+
+    if (!text) {
+      return "";
+    }
+
+    if (
+      window.CSS &&
+      typeof window.CSS.escape ===
+        "function"
+    ) {
+      return window.CSS.escape(
+        text
+      );
+    }
+
+    return text.replace(
+      /["\\]/g,
+      "\\$&"
+    );
+  }
+
+  function buildSeatSelector(
+    seatId
+  ) {
+    const targetId =
+      getText(
+        seatId
+      );
+
+    if (!targetId) {
+      return "";
+    }
+
+    const escapedId =
+      escapeCssValue(
+        targetId
+      );
+
+    /*
+     * Seat Engine 現行主要使用 data-slot-id。
+     * 舊版席位可能使用 data-seat-id 或元素 id，
+     * 因此保留多組相容選擇器。
+     */
+    return [
+      `[data-slot-id="${escapedId}"]`,
+      `[data-seat-id="${escapedId}"]`,
+      `#${escapedId}`
+    ].join(",");
+  }
+
+  // ============================================================
+  // 保存目前操作位置
+  // ============================================================
+
+  function captureCurrentPosition(
+    seatId,
+    sourceElement
+  ) {
+    const controller =
+      getController();
+
+    const anchorSelector =
+      buildSeatSelector(
+        seatId
+      );
+
+    /*
+     * 保存給 Player Editor 使用。
+     * 新玩家要等編輯器按下儲存後才會重新 Render，
+     * 因此把此次操作的席位留在全域暫存。
+     */
+    window.JLYPendingCarDetailPosition = {
+      seatId:
+        getText(
+          seatId
+        ),
+
+      anchorSelector,
+
+      scrollX:
+        window.scrollX ||
+        window.pageXOffset ||
+        0,
+
+      scrollY:
+        window.scrollY ||
+        window.pageYOffset ||
+        0
+    };
+
+    if (
+      controller &&
+      typeof controller
+        .captureScrollPosition ===
+        "function"
+    ) {
+      controller
+        .captureScrollPosition({
+          sourceElement:
+            sourceElement || null,
+
+          anchorSelector
+        });
+    }
+
+    return {
+      ...window
+        .JLYPendingCarDetailPosition
+    };
+  }
+
+  function clearPendingPosition() {
+    window.JLYPendingCarDetailPosition =
+      null;
+  }
+
+  // ============================================================
+  // 保留原位重新整理
+  // ============================================================
+
+  async function refreshPage(
+    options
+  ) {
+    const settings = {
+      seatId:
+        "",
+
+      anchorSelector:
+        "",
+
+      ...(
+        options || {}
+      )
+    };
+
+    const controller =
+      getController();
+
+    const anchorSelector =
+      getText(
+        settings.anchorSelector
+      ) ||
+      buildSeatSelector(
+        settings.seatId
+      ) ||
+      getText(
+        window
+          .JLYPendingCarDetailPosition &&
+        window
+          .JLYPendingCarDetailPosition
+          .anchorSelector
+      );
+
+    if (
+      controller &&
+      typeof controller.refreshPage ===
+        "function"
+    ) {
+      return controller
+        .refreshPage({
+          preservePosition:
+            true,
+
+          anchorSelector
+        });
+    }
+
+    /*
+     * 舊版相容：
+     * Controller 尚未載入時，至少保存 scrollY。
+     */
+    const scrollX =
+      window.scrollX ||
+      window.pageXOffset ||
+      0;
+
+    const scrollY =
+      window.scrollY ||
+      window.pageYOffset ||
+      0;
+
     if (
       typeof window.renderCarDetail ===
         "function"
     ) {
       await window.renderCarDetail();
+
+      await new Promise(
+        function (resolve) {
+          window.requestAnimationFrame(
+            function () {
+              window.requestAnimationFrame(
+                resolve
+              );
+            }
+          );
+        }
+      );
+
+      window.scrollTo({
+        left:
+          scrollX,
+
+        top:
+          scrollY,
+
+        behavior:
+          "auto"
+      });
     }
   }
 
   function normalizePlayerName(name) {
     return getSearchModule()
-      .normalizePlayerName(name);
+      .normalizePlayerName(
+        name
+      );
   }
 
   function getPlayerDatabaseName(
@@ -114,9 +344,9 @@ console.log(
       );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 取得車團玩家穩定 ID
-  // ------------------------------------------------------------
+  // ============================================================
 
   function getCarPlayerId(player) {
     const source =
@@ -125,18 +355,17 @@ console.log(
         ? player
         : {};
 
-    return String(
+    return getText(
       source.playerId ||
       source.id ||
       source.profileId ||
-      source.applicationId ||
-      ""
-    ).trim();
+      source.applicationId
+    );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 取得資料庫玩家 ID
-  // ------------------------------------------------------------
+  // ============================================================
 
   function getDatabasePlayerId(
     player
@@ -147,16 +376,15 @@ console.log(
         ? player
         : {};
 
-    return String(
+    return getText(
       source.id ||
-      source.playerId ||
-      ""
-    ).trim();
+      source.playerId
+    );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 取得車團玩家名稱
-  // ------------------------------------------------------------
+  // ============================================================
 
   function getCarPlayerName(player) {
     const source =
@@ -165,18 +393,17 @@ console.log(
         ? player
         : {};
 
-    return (
+    return getText(
       source.hostAlias ||
       source.displayName ||
       source.playerName ||
-      source.name ||
-      ""
+      source.name
     );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 複製 Slots
-  // ------------------------------------------------------------
+  // ============================================================
 
   function cloneSlots(car) {
     const currentCar =
@@ -194,7 +421,9 @@ console.log(
         ? currentCar.slots
         : (
             car &&
-            Array.isArray(car.slots)
+            Array.isArray(
+              car.slots
+            )
               ? car.slots
               : []
           );
@@ -218,49 +447,54 @@ console.log(
     );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 搜尋指定 Seat
-  // ------------------------------------------------------------
+  // ============================================================
 
   function findSeat(
     slots,
     seatId
   ) {
     const targetId =
-      String(
-        seatId || ""
-      ).trim();
+      getText(
+        seatId
+      );
 
     if (!targetId) {
       return null;
     }
 
     return (
-      slots.find(
+      (
+        Array.isArray(slots)
+          ? slots
+          : []
+      ).find(
         function (seat) {
           if (!seat) {
             return false;
           }
 
           return (
-            String(
-              seat.id || ""
+            getText(
+              seat.id
             ) === targetId ||
-            String(
-              seat.slotId || ""
+            getText(
+              seat.slotId
             ) === targetId ||
-            String(
-              seat.order || ""
+            getText(
+              seat.order
             ) === targetId
           );
         }
-      ) || null
+      ) ||
+      null
     );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 判斷 Seat 是否已有玩家
-  // ------------------------------------------------------------
+  // ============================================================
 
   function isSeatOccupied(seat) {
     if (!seat) {
@@ -277,9 +511,9 @@ console.log(
     );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 找出玩家目前所在 Seat
-  // ------------------------------------------------------------
+  // ============================================================
 
   function findPlayerSeat(
     slots,
@@ -298,7 +532,11 @@ console.log(
       );
 
     return (
-      slots.find(
+      (
+        Array.isArray(slots)
+          ? slots
+          : []
+      ).find(
         function (seat) {
           if (!seat) {
             return false;
@@ -312,12 +550,11 @@ console.log(
               : {};
 
           const seatPlayerId =
-            String(
+            getText(
               seat.playerId ||
               seatPlayer.playerId ||
-              seatPlayer.id ||
-              ""
-            ).trim();
+              seatPlayer.id
+            );
 
           if (
             playerId &&
@@ -351,13 +588,14 @@ console.log(
 
           return false;
         }
-      ) || null
+      ) ||
+      null
     );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 找出資料庫玩家是否已在車上
-  // ------------------------------------------------------------
+  // ============================================================
 
   function findExistingCarPlayer(
     players,
@@ -376,7 +614,11 @@ console.log(
       );
 
     return (
-      players.find(
+      (
+        Array.isArray(players)
+          ? players
+          : []
+      ).find(
         function (player) {
           const carPlayerId =
             getCarPlayerId(
@@ -404,13 +646,14 @@ console.log(
               selectedName
           );
         }
-      ) || null
+      ) ||
+      null
     );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 彈性席位依玩家位置切換類型
-  // ------------------------------------------------------------
+  // ============================================================
 
   function applyFlexibleSeatType(
     seat,
@@ -425,11 +668,9 @@ console.log(
     }
 
     const position =
-      String(
+      getText(
         player &&
         player.position
-          ? player.position
-          : ""
       );
 
     if (
@@ -456,9 +697,9 @@ console.log(
       "flexible";
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 將既有玩家安排進指定 Seat
-  // ------------------------------------------------------------
+  // ============================================================
 
   async function assignExistingPlayerToSeat(
     carRef,
@@ -466,13 +707,20 @@ console.log(
     existingPlayer,
     seatId
   ) {
+    const targetSeatId =
+      getText(
+        seatId
+      );
+
     const slots =
-      cloneSlots(car);
+      cloneSlots(
+        car
+      );
 
     const targetSeat =
       findSeat(
         slots,
-        seatId
+        targetSeatId
       );
 
     if (!targetSeat) {
@@ -546,6 +794,18 @@ console.log(
         nowTime()
     });
 
+    /*
+     * 先更新本地資料，讓重新 Render 時立即使用新 Slots。
+     */
+    if (
+      window.currentCarData &&
+      typeof window.currentCarData ===
+        "object"
+    ) {
+      window.currentCarData.slots =
+        slots;
+    }
+
     window.currentAddingSeatId =
       "";
 
@@ -555,14 +815,19 @@ console.log(
       )} 已補入空位`
     );
 
-    await refreshPage();
+    await refreshPage({
+      seatId:
+        targetSeatId
+    });
+
+    clearPendingPosition();
 
     return true;
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 選擇或建立玩家
-  // ------------------------------------------------------------
+  // ============================================================
 
   async function choosePlayer(
     playerName
@@ -612,9 +877,9 @@ console.log(
       );
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 主揪手動新增玩家
-  // ------------------------------------------------------------
+  // ============================================================
 
   async function addPlayerManually(
     seatId
@@ -641,8 +906,23 @@ console.log(
       return;
     }
 
+    const targetSeatId =
+      getText(
+        seatId
+      );
+
+    /*
+     * prompt 出現之前就記住目前位置。
+     * 避免 prompt 關閉後 activeElement 改變，
+     * 導致抓不到原本點擊的席位。
+     */
+    captureCurrentPosition(
+      targetSeatId,
+      document.activeElement
+    );
+
     window.currentAddingSeatId =
-      seatId || "";
+      targetSeatId;
 
     const inputName =
       prompt(
@@ -656,6 +936,8 @@ console.log(
     ) {
       window.currentAddingSeatId =
         "";
+
+      clearPendingPosition();
 
       return;
     }
@@ -673,6 +955,8 @@ console.log(
         window.currentAddingSeatId =
           "";
 
+        clearPendingPosition();
+
         return;
       }
 
@@ -689,6 +973,11 @@ console.log(
           "找不到這台車"
         );
 
+        window.currentAddingSeatId =
+          "";
+
+        clearPendingPosition();
+
         return;
       }
 
@@ -696,11 +985,17 @@ console.log(
         carDoc.data() ||
         {};
 
+      car.id =
+        carDoc.id ||
+        carId;
+
       const players =
         Array.isArray(
           car.players
         )
-          ? [...car.players]
+          ? [
+              ...car.players
+            ]
           : [];
 
       const existingPlayer =
@@ -715,8 +1010,9 @@ console.log(
 
       if (existingPlayer) {
         const addingSeatId =
-          window.currentAddingSeatId ||
-          "";
+          getText(
+            window.currentAddingSeatId
+          );
 
         if (!addingSeatId) {
           alert(
@@ -724,6 +1020,8 @@ console.log(
               selectedPlayer
             )} 已經在這台車上`
           );
+
+          clearPendingPosition();
 
           return;
         }
@@ -751,7 +1049,31 @@ console.log(
           selectedPlayer,
 
           seatId:
-            seatId || ""
+            targetSeatId,
+
+          /*
+           * Player Editor 下一步可直接讀取，
+           * 儲存後精準回到原本席位。
+           */
+          returnPosition: {
+            seatId:
+              targetSeatId,
+
+            anchorSelector:
+              buildSeatSelector(
+                targetSeatId
+              ),
+
+            scrollX:
+              window.scrollX ||
+              window.pageXOffset ||
+              0,
+
+            scrollY:
+              window.scrollY ||
+              window.pageYOffset ||
+              0
+          }
         });
     } catch (error) {
       console.error(
@@ -771,14 +1093,38 @@ console.log(
 
       window.currentAddingSeatId =
         "";
+
+      clearPendingPosition();
     }
   }
 
-  // ------------------------------------------------------------
+  // ============================================================
   // 對外公開
-  // ------------------------------------------------------------
+  // ============================================================
 
   window.JLYCarDetailPlayerManualAdd = {
+    getText,
+
+    getCarId,
+
+    nowTime,
+
+    getController,
+
+    getSearchModule,
+
+    getEditorModule,
+
+    escapeCssValue,
+
+    buildSeatSelector,
+
+    captureCurrentPosition,
+
+    clearPendingPosition,
+
+    refreshPage,
+
     getCarPlayerId,
 
     getDatabasePlayerId,
@@ -805,6 +1151,6 @@ console.log(
   };
 
   console.log(
-    "✅ Car Detail Player Manual Add 已載入"
+    "✅ Car Detail Player Manual Add V2 已載入"
   );
 })();
