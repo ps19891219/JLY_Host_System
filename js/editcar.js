@@ -167,11 +167,6 @@ function toggleEditPeopleMode() {
   }
 }
 
-const isPlanning =
-  car.status === "規劃中" ||
-  car.planningStatus === "unscheduled" ||
-  !car.gameDate;
-
 function renderEditForm(car) {
   const editBox =
     document.getElementById(
@@ -182,6 +177,11 @@ function renderEditForm(car) {
     return;
   }
 
+  const isPlanning =
+  car.status === "規劃中" ||
+  car.planningStatus === "unscheduled" ||
+  !car.gameDate;
+  
   const peopleMode =
     getSavedPeopleMode(car);
 
