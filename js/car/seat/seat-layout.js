@@ -508,55 +508,134 @@ console.log("seat-layout.js 已成功載入！");
   // ------------------------------------------------------------
 
   function buildSlotViewModel(
-    slot
-  ) {
-    const SeatData = getSeatData();
+  slot
+) {
+  const SeatData =
+    getSeatData();
 
-    const normalizedSlot =
-      SeatData.normalizeSlot(
-        slot,
-        Number(
-          slot &&
-          slot.order
-            ? slot.order
-            : 1
-        ) - 1
-      );
+  const sourceSlot =
+    slot &&
+    typeof slot === "object"
+      ? slot
+      : {};
 
-    return {
-      ...normalizedSlot,
+  const sourcePlayer =
+    sourceSlot.player &&
+    typeof sourceSlot.player ===
+      "object"
+      ? sourceSlot.player
+      : null;
 
-      sectionType:
+  const normalizedSlot =
+    SeatData.normalizeSlot(
+      sourceSlot,
+      Number(
+        sourceSlot.order
+          ? sourceSlot.order
+          : 1
+      ) - 1
+    );
+
+  /*
+   * normalizeSlot 只負責座位欄位。
+   * 玩家完整資料由 Layout 明確補回，
+   * 避免 gender、isCrossPlay 等欄位在資料流中遺失。
+   *
+   * 未來搬家時，這一區可直接移至：
+   * player/player-hydration.js
+   */
+  const hydratedPlayer =
+    sourcePlayer
+      ? {
+          ...sourcePlayer,
+
+          playerId:
+            String(
+              sourcePlayer.playerId ||
+              sourcePlayer.id ||
+              sourceSlot.playerId ||
+              ""
+            ),
+
+          id:
+            String(
+              sourcePlayer.id ||
+              sourcePlayer.playerId ||
+              sourceSlot.playerId ||
+              ""
+            ),
+
+          name:
+            String(
+              sourcePlayer.hostAlias ||
+              sourcePlayer.displayName ||
+              sourcePlayer.playerName ||
+              sourcePlayer.name ||
+              sourcePlayer.nickname ||
+              "未命名玩家"
+            ),
+
+          displayName:
+            String(
+              sourcePlayer.hostAlias ||
+              sourcePlayer.displayName ||
+              sourcePlayer.playerName ||
+              sourcePlayer.name ||
+              sourcePlayer.nickname ||
+              "未命名玩家"
+            )
+        }
+      : null;
+
+  return {
+    ...normalizedSlot,
+
+    /*
+     * 明確保留玩家資料。
+     */
+    playerId:
+      normalizedSlot.playerId ||
+      sourceSlot.playerId ||
+      null,
+
+    player:
+      hydratedPlayer,
+
+    sectionType:
+      getSlotSectionType(
+        normalizedSlot
+      ),
+
+    sectionLabel:
+      getSectionLabel(
         getSlotSectionType(
           normalizedSlot
-        ),
+        )
+      ),
 
-      sectionLabel:
-        getSectionLabel(
-          getSlotSectionType(
-            normalizedSlot
-          )
-        ),
+    displayName:
+      getSlotDisplayName(
+        normalizedSlot
+      ),
 
-      displayName:
-        getSlotDisplayName(
-          normalizedSlot
-        ),
+    status:
+      getSlotStatus(
+        normalizedSlot
+      ),
 
-      status:
-        getSlotStatus(
-          normalizedSlot
-        ),
+    isOccupied:
+      Boolean(
+        normalizedSlot.playerId ||
+        sourceSlot.playerId
+      ),
 
-      isOccupied:
-        Boolean(
-          normalizedSlot.playerId
-        ),
-
-      isEmpty:
-        !normalizedSlot.playerId
-    };
-  }
+    isEmpty:
+      !(
+        normalizedSlot.playerId ||
+        sourceSlot.playerId
+      )
+  };
+}
 
   // ------------------------------------------------------------
   // 建立完整 Render View Model
