@@ -60,6 +60,13 @@
     hidden
   >
 
+  <button
+  type="button"
+  onclick="location.href='createcar.html'"
+>
+  ➕ 建立新車
+</button>
+
     <button
       type="button"
       onclick="startBatchMode()"
@@ -116,6 +123,14 @@
       >
         全部
       </button>
+
+      <button
+  class="tab"
+  data-tab="planning"
+  onclick="setMyCarTab('planning')"
+>
+  規劃中
+</button>
 
       <button
         class="tab"
@@ -213,9 +228,9 @@
 ></script>
 
 <script src="/firebase/firebase.js?v=38"></script>
-<script src="/js/carStatus.js?v=2"></script>
-<script src="/js/carCard.js?v=3"></script>
-<script src="/js/mycar.js?v=38"></script>
+<script src="/js/carStatus.js?v=3"></script>
+<script src="/js/carCard.js?v=4"></script>
+<script src="/js/mycar.js?v=39"></script>
 
 <script>
   function toggleMyCarMenu() {

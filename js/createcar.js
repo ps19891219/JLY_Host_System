@@ -361,20 +361,41 @@ async function createCar() {
     return;
   }
 
-  if (!gameDate) {
-    alert("請選擇日期");
-    return;
-  }
+  /*
+  日期留白時，代表這台車仍在規劃中。
+*/
+const isUnscheduled =
+  !gameDate;
 
-  if (!gameTime) {
-    alert("請選擇時間");
-    return;
-  }
+/*
+  尚未排日期時，不應單獨留下時間。
+*/
+if (
+  isUnscheduled &&
+  gameTime
+) {
+  alert(
+    "這台車尚未安排日期，請先清除時間，或補上日期。"
+  );
 
-  if (!locationName) {
-    alert("請輸入地點");
-    return;
-  }
+  return;
+}
+
+/*
+  有日期，就必須有開始時間。
+*/
+if (
+  !isUnscheduled &&
+  !gameTime
+) {
+  alert("請選擇時間");
+  return;
+}
+
+/*
+  地點改成選填，
+  規劃中的車可以之後再補。
+*/
 
   const peopleMode =
     getPeopleMode();
@@ -455,8 +476,26 @@ async function createCar() {
       "private"
     );
 
-  const calendarOptions =
-    getCalendarFormValues();
+  const calendarFormValues =
+  getCalendarFormValues();
+
+const calendarOptions =
+  isUnscheduled
+    ? {
+        ...calendarFormValues,
+
+        /*
+          尚未有日期時：
+          - 不檢查撞期
+          - 不同步 Google
+        */
+        scheduleCheckEnabled:
+          false,
+
+        syncEnabled:
+          false
+      }
+    : calendarFormValues;
 
   const now = nowTime();
 
@@ -512,7 +551,9 @@ async function createCar() {
       才開始查 Firestore。
     */
     const sameDayCars =
-      await findSameDayCars(
+  isUnscheduled
+    ? []
+    : await findSameDayCars(
         gameDate
       );
 
@@ -768,8 +809,20 @@ async function createCar() {
       calendarEventId:
         null,
 
-      status:
-        "招募中",
+      /*
+  流程狀態：
+  - 無日期：規劃中
+  - 有日期：招募中
+*/
+status:
+  isUnscheduled
+    ? "規劃中"
+    : "招募中",
+
+planningStatus:
+  isUnscheduled
+    ? "unscheduled"
+    : "scheduled",
 
       createdAt: now,
 
@@ -864,7 +917,11 @@ async function createCar() {
         "系統已保留同步失敗狀態，之後可以重新同步。"
       );
     } else {
-      alert("車團建立成功！");
+      alert(
+  isUnscheduled
+    ? "車團已建立，並加入規劃中。"
+    : "車團建立成功！"
+);
     }
 
     location.href =

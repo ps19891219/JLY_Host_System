@@ -102,23 +102,80 @@ function getTimeValue(car) {
   return getCarDateTime(car).getTime();
 }
 
-function sortCars(cars, keyword) {
+function sortCars(
+  cars,
+  keyword
+) {
   if (keyword) {
-    return cars.sort(function (a, b) {
-      return getTimeValue(a) - getTimeValue(b);
-    });
+    return cars.sort(
+      function (a, b) {
+        const aPlanning =
+          isCarPlanning(a);
+
+        const bPlanning =
+          isCarPlanning(b);
+
+        if (
+          aPlanning !==
+          bPlanning
+        ) {
+          return aPlanning
+            ? -1
+            : 1;
+        }
+
+        return (
+          getTimeValue(a) -
+          getTimeValue(b)
+        );
+      }
+    );
   }
 
-  return cars.sort(function (a, b) {
-    const aEnded = isCarEnded(a);
-    const bEnded = isCarEnded(b);
+  return cars.sort(
+    function (a, b) {
+      const aPlanning =
+        isCarPlanning(a);
 
-    if (aEnded !== bEnded) {
-      return aEnded ? 1 : -1;
+      const bPlanning =
+        isCarPlanning(b);
+
+      /*
+        規劃中的車優先。
+      */
+      if (
+        aPlanning !==
+        bPlanning
+      ) {
+        return aPlanning
+          ? -1
+          : 1;
+      }
+
+      const aEnded =
+        isCarEnded(a);
+
+      const bEnded =
+        isCarEnded(b);
+
+      /*
+        已結束放最後。
+      */
+      if (
+        aEnded !==
+        bEnded
+      ) {
+        return aEnded
+          ? 1
+          : -1;
+      }
+
+      return (
+        getTimeValue(a) -
+        getTimeValue(b)
+      );
     }
-
-    return getTimeValue(a) - getTimeValue(b);
-  });
+  );
 }
 
 /* =========================
@@ -285,17 +342,48 @@ async function renderMyCars(options) {
       .trim()
       .toLowerCase();
 
-    if (currentTab === "active") {
-      cars = cars.filter(function (car) {
-        return !isCarEnded(car);
-      });
-    }
+    if (
+  currentTab ===
+  "planning"
+) {
+  cars =
+    cars.filter(
+      function (car) {
+        return isCarPlanning(
+          car
+        );
+      }
+    );
+}
 
-    if (currentTab === "done") {
-      cars = cars.filter(function (car) {
-        return isCarEnded(car);
-      });
-    }
+if (
+  currentTab ===
+  "active"
+) {
+  cars =
+    cars.filter(
+      function (car) {
+        return (
+          !isCarEnded(car) &&
+          !isCarPlanning(car)
+        );
+      }
+    );
+}
+
+if (
+  currentTab ===
+  "done"
+) {
+  cars =
+    cars.filter(
+      function (car) {
+        return isCarEnded(
+          car
+        );
+      }
+    );
+}
 
     if (keyword) {
       cars = cars.filter(function (car) {

@@ -60,6 +60,29 @@ function buildCarCard(car, options) {
   const statusColor = getStatusColor(status);
   const needText = getNeedText(car);
 
+  const isPlanning =
+  typeof isCarPlanning ===
+    "function"
+    ? isCarPlanning(car)
+    : !car.gameDate;
+
+const dateLine =
+  isPlanning
+    ? "📅 日期待安排"
+    : (
+        "📅 " +
+        (
+          car.gameDate ||
+          "日期未定"
+        ) +
+        (
+          car.gameTime
+            ? " " +
+              car.gameTime
+            : ""
+        )
+      );
+
   const cardClass = [
     "mycar-card",
     isBatchMode ? "batch-selectable" : "",
@@ -105,8 +128,8 @@ function buildCarCard(car, options) {
         ${getTagLine(car)}
 
         <div class="car-line">
-          📅 ${car.gameDate || "日期未定"} ${car.gameTime || ""}
-        </div>
+  ${dateLine}
+</div>
 
         <div class="car-line">
           📍 ${getLocationText(car) || "地點未填"}
