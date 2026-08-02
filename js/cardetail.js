@@ -517,6 +517,13 @@ function buildCarNavigation(scriptName) {
     📝 退回規劃
 </button>
 
+<button
+  type="button"
+  onclick="openMatchingPage()"
+>
+  🗓️ 時間媒合
+</button>
+
           <button
             type="button"
             onclick="finishCurrentCar()"
@@ -590,6 +597,22 @@ function closeCarMenu() {
       "false"
     );
   }
+}
+
+function openMatchingPage() {
+  const carId =
+    getCarId();
+
+  if (!carId) {
+    alert("找不到車團 ID");
+    return;
+  }
+
+  closeCarMenu();
+
+  location.href =
+    "matching.html?id=" +
+    encodeURIComponent(carId);
 }
 
 function openEditCarPage() {

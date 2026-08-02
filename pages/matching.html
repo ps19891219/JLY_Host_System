@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>時間媒合</title>
+
+  <link
+    rel="stylesheet"
+    href="../css/style.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="../css/pages/matching.css?v=1"
+  >
+</head>
+
+<body>
+  <div class="container">
+
+    <header class="matching-header">
+      <button
+        type="button"
+        class="matching-back-button"
+        onclick="backToMatchingCar()"
+      >
+        ←
+      </button>
+
+      <div>
+        <div class="matching-page-label">
+          時間媒合
+        </div>
+
+        <h1 id="matchingScriptName">
+          載入中…
+        </h1>
+      </div>
+    </header>
+
+    <main id="matchingApp">
+      <div class="matching-loading-card">
+        正在讀取媒合資料……
+      </div>
+    </main>
+
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
+  ></script>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"
+  ></script>
+
+  <script src="/firebase/firebase.js?v=25"></script>
+
+  <script src="/js/matching/matching-data.js?v=1"></script>
+  <script src="/js/matching/matching-render.js?v=1"></script>
+  <script src="/js/matching/matching-actions.js?v=1"></script>
+  <script src="/js/matching/matching-controller.js?v=1"></script>
+</body>
+</html>
