@@ -167,6 +167,11 @@ function toggleEditPeopleMode() {
   }
 }
 
+const isPlanning =
+  car.status === "規劃中" ||
+  car.planningStatus === "unscheduled" ||
+  !car.gameDate;
+
 function renderEditForm(car) {
   const editBox =
     document.getElementById(
