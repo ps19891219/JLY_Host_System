@@ -115,12 +115,28 @@ function getNeed(car) {
 }
 
 function getAutoStatus(car) {
-  if (car.status === "已取消") {
+  if (
+    car.status ===
+    "已取消"
+  ) {
     return "已取消";
   }
 
-  if (car.status === "已結束") {
+  if (
+    car.status ===
+    "已結束"
+  ) {
     return "已結束";
+  }
+
+  if (
+    car.status ===
+      "規劃中" ||
+    car.planningStatus ===
+      "unscheduled" ||
+    !car.gameDate
+  ) {
+    return "規劃中";
   }
 
   return getNeed(car) <= 0
@@ -495,6 +511,13 @@ function buildCarNavigation(scriptName) {
           </button>
 
           <button
+    type="button"
+    onclick="returnToPlanning()"
+>
+    📝 退回規劃
+</button>
+
+          <button
             type="button"
             onclick="finishCurrentCar()"
           >
@@ -607,6 +630,379 @@ document.addEventListener(
 /* =========================
    車團狀態操作
 ========================= */
+
+async function returnToPlanning() {
+  const db =
+    window.db;
+
+  const carId =
+    getCarId();
+
+  if (!db) {
+    alert(
+      "Firebase 尚未載入"
+    );
+
+    return;
+  }
+
+  if (!carId) {
+    alert(
+      "找不到車團 ID"
+    );
+
+    return;
+  }
+
+  const currentCar =
+    window.currentCarData;
+
+  if (!currentCar) {
+    alert(
+      "車團資料尚未載入完成，請重新整理後再試。"
+    );
+
+    return;
+  }
+
+  if (
+    currentCar.status ===
+      "規劃中" ||
+    currentCar.planningStatus ===
+      "unscheduled"
+  ) {
+    alert(
+      "這台車已經在規劃中了。"
+    );
+
+    closeCarMenu();
+
+    return;
+  }
+
+  const originalDate =
+    currentCar.gameDate ||
+    "未設定";
+
+  const originalTime =
+    currentCar.gameTime ||
+    "未設定";
+
+  const confirmed =
+    confirm(
+      [
+        "確定將這台車退回規劃中嗎？",
+        "",
+        "原定：" +
+          originalDate +
+          " " +
+          originalTime,
+        "",
+        "退回後：",
+        "・Google Calendar 行程會刪除",
+        "・日期與時間會清空",
+        "・玩家、DM、工作人員與席位會保留",
+        "・之後可重新安排日期或進行時間媒合",
+        "",
+        "此操作不會刪除車團。"
+      ].join("\n")
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  closeCarMenu();
+
+  const calendar =
+    currentCar.calendar || {};
+
+  const hasGoogleEvent =
+    Boolean(
+      calendar.eventId
+    );
+
+  let googleAuthorized =
+    false;
+
+  let googleAuthError =
+    null;
+
+  /*
+    Google 授權必須緊接使用者點擊，
+    不能先等待 Firestore。
+  */
+  if (hasGoogleEvent) {
+    try {
+      if (
+        !window
+          .JLYCalendarDetailActions ||
+        typeof window
+          .JLYCalendarDetailActions
+          .authorizeForCar !==
+          "function"
+      ) {
+        throw new Error(
+          "Google Calendar 授權模組尚未載入"
+        );
+      }
+
+      await window
+        .JLYCalendarDetailActions
+        .authorizeForCar(
+          currentCar
+        );
+
+      googleAuthorized =
+        true;
+    } catch (error) {
+      googleAuthError =
+        error;
+
+      console.warn(
+        "Google Calendar 授權未完成：",
+        error
+      );
+    }
+  }
+
+  const carRef =
+    db
+      .collection("cars")
+      .doc(carId);
+
+  try {
+    const snapshot =
+      await carRef.get();
+
+    if (!snapshot.exists) {
+      alert(
+        "找不到這台車"
+      );
+
+      return;
+    }
+
+    const car = {
+      id:
+        snapshot.id,
+
+      ...snapshot.data()
+    };
+
+    const latestCalendar =
+      car.calendar || {};
+
+    let googleDeleted =
+      !latestCalendar.eventId;
+
+    /*
+      有 Google Event 時先刪除。
+    */
+    if (latestCalendar.eventId) {
+      if (!googleAuthorized) {
+        const continueWithoutGoogle =
+          confirm(
+            [
+              "⚠️ Google Calendar 授權未完成。",
+              "",
+              googleAuthError &&
+              googleAuthError.message
+                ? googleAuthError.message
+                : "無法取得 Google 授權",
+              "",
+              "是否仍將 JLY 車團退回規劃中？",
+              "",
+              "注意：Google Calendar 原行程可能會保留。"
+            ].join("\n")
+          );
+
+        if (!continueWithoutGoogle) {
+          return;
+        }
+      } else {
+        if (
+          !window.JLYCalendarSync ||
+          typeof window
+            .JLYCalendarSync
+            .removeSyncedEvent !==
+            "function"
+        ) {
+          throw new Error(
+            "Calendar Sync 模組尚未載入"
+          );
+        }
+
+        const calendarResult =
+          await window
+            .JLYCalendarSync
+            .removeSyncedEvent({
+              carId,
+              car
+            });
+
+        if (
+          calendarResult.ok ===
+          true
+        ) {
+          googleDeleted =
+            true;
+        } else {
+          const continueWithoutGoogle =
+            confirm(
+              [
+                "⚠️ Google Calendar 行程刪除失敗。",
+                "",
+                calendarResult.error &&
+                calendarResult.error.message
+                  ? calendarResult
+                      .error.message
+                  : "未知錯誤",
+                "",
+                "是否仍將 JLY 車團退回規劃中？",
+                "",
+                "注意：Google Calendar 原行程可能會保留。"
+              ].join("\n")
+            );
+
+          if (!continueWithoutGoogle) {
+            return;
+          }
+        }
+      }
+    }
+
+    const history =
+      addHistory(
+        car,
+        "退回規劃",
+        (
+          "原定 " +
+          originalDate +
+          " " +
+          originalTime +
+          "，已退回規劃中"
+        )
+      );
+
+    const nextCalendar = {
+      ...latestCalendar,
+
+      syncEnabled:
+        false,
+
+      syncStatus:
+        "not_synced",
+
+      eventId:
+        "",
+
+      eventUrl:
+        "",
+
+      lastSyncAt:
+        "",
+
+      lastError:
+        googleDeleted
+          ? ""
+          : "退回規劃時未能刪除原 Google Calendar 行程"
+    };
+
+    await carRef.update({
+      gameDate:
+        "",
+
+      gameTime:
+        "",
+
+      status:
+        "規劃中",
+
+      planningStatus:
+        "unscheduled",
+
+      calendar:
+        nextCalendar,
+
+      returnedToPlanningAt:
+        nowTime(),
+
+      previousSchedule: {
+        gameDate:
+          originalDate ===
+          "未設定"
+            ? ""
+            : originalDate,
+
+        gameTime:
+          originalTime ===
+          "未設定"
+            ? ""
+            : originalTime,
+
+        returnedAt:
+          nowTime()
+      },
+
+      history,
+
+      updatedAt:
+        firebase.firestore
+          .FieldValue
+          .serverTimestamp()
+    });
+
+    if (
+      window.currentCarData
+    ) {
+      window.currentCarData = {
+        ...window.currentCarData,
+
+        gameDate:
+          "",
+
+        gameTime:
+          "",
+
+        status:
+          "規劃中",
+
+        planningStatus:
+          "unscheduled",
+
+        calendar:
+          nextCalendar,
+
+        history
+      };
+    }
+
+    await renderCarDetail();
+
+    alert(
+      googleDeleted
+        ? "已退回規劃中，Google Calendar 行程也已刪除。"
+        : (
+            "已退回規劃中。\n\n" +
+            "⚠️ Google Calendar 原行程可能仍存在，請稍後確認。"
+          )
+    );
+  } catch (error) {
+    console.error(
+      "退回規劃失敗：",
+      error
+    );
+
+    alert(
+      "退回規劃失敗：" +
+      (
+        error.message ||
+        "未知錯誤"
+      )
+    );
+  }
+}
 
 async function finishCar() {
   if (
@@ -1735,13 +2131,28 @@ function buildCarSummaryHtml(config) {
   // 顯示文字
   // ----------------------------------------------------------
 
-  const dateText =
-    car.gameDate ||
-    "尚未設定";
+  const isPlanning =
+  car.status ===
+    "規劃中" ||
+  car.planningStatus ===
+    "unscheduled" ||
+  !car.gameDate;
 
-  const timeText =
-    car.gameTime ||
-    "尚未設定";
+const dateText =
+  isPlanning
+    ? "日期待安排"
+    : (
+        car.gameDate ||
+        "尚未設定"
+      );
+
+const timeText =
+  isPlanning
+    ? "—"
+    : (
+        car.gameTime ||
+        "尚未設定"
+      );
 
   const priceNumber =
     Number(car.price || 0);
@@ -1774,7 +2185,9 @@ function buildCarSummaryHtml(config) {
   // ----------------------------------------------------------
 
   const statusClass =
-    status === "招募中"
+  status === "規劃中"
+    ? "is-planning"
+    : status === "招募中"
       ? "is-recruiting"
       : status === "已滿"
         ? "is-full"
