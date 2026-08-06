@@ -554,3 +554,40 @@
   color: #d36b5d;
   text-decoration: underline;
 }
+
+.matching-step-three-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.matching-step-three-header > div {
+  min-width: 0;
+}
+
+.matching-back-to-dates-button {
+  width: auto;
+  min-width: max-content;
+  min-height: 0;
+
+  padding: 4px 0;
+  margin: 0;
+
+  border: 0;
+  border-radius: 0;
+
+  background: transparent;
+  color: #666666;
+
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+
+  cursor: pointer;
+}
+
+.matching-back-to-dates-button:hover {
+  color: #222222;
+  text-decoration: underline;
+}

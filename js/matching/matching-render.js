@@ -551,17 +551,14 @@
       </section>
     `;
   }
-
-    function renderStepThree(
+  function renderStepThree(
     matching
   ) {
     const selectedCount =
       Array.isArray(
         matching.selectedDates
       )
-        ? matching
-            .selectedDates
-            .length
+        ? matching.selectedDates.length
         : 0;
 
     return `
@@ -571,41 +568,43 @@
           確認中
         </div>
 
-        <h2 class="matching-section-title">
-          ③ 確認候選時段
-        </h2>
+        <div class="matching-step-three-header">
 
-        <p class="matching-section-description">
-          共選擇 ${selectedCount} 天。
-          每一筆都能獨立修改、停用、
-          刪除或新增時段。
-        </p>
+          <div>
+            <h2 class="matching-section-title">
+              ③ 確認候選時段
+            </h2>
+
+            <p class="matching-section-description">
+              共選擇 ${selectedCount} 天。
+              每一筆都能獨立修改、停用、
+              刪除或新增時段。
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="matching-back-to-dates-button"
+            onclick="backToDateStep()"
+          >
+            ← 修改日期
+          </button>
+
+        </div>
 
         <div
           id="matchingCandidatePreview"
           class="matching-candidate-preview"
         ></div>
 
-        <div class="matching-wizard-actions">
-
-          <button
-            type="button"
-            class="matching-secondary-button"
-            onclick="backToDateStep()"
-          >
-            ← 返回修改日期
-          </button>
-
-          <button
-            type="button"
-            class="matching-primary-button"
-            id="saveCandidateSlotsButton"
-            onclick="saveCandidateSlots()"
-          >
-            儲存候選時段
-          </button>
-
-        </div>
+        <button
+          type="button"
+          class="matching-primary-button"
+          id="saveCandidateSlotsButton"
+          onclick="saveCandidateSlots()"
+        >
+          儲存候選時段
+        </button>
 
       </section>
     `;
