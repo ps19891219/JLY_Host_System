@@ -27,7 +27,9 @@
     ) {
       window
         .JLYMatchingRender
-        .renderError(error);
+        .renderError(
+          error
+        );
     }
   }
 
@@ -58,22 +60,21 @@
       car;
 
     /*
-      首次載入時渲染整個媒合頁。
+      第一次讀取時，完整渲染整個媒合頁。
     */
     if (isFirstLoad) {
       window
         .JLYMatchingRender
-        .renderApp(car);
+        .renderApp(
+          car
+        );
 
       return;
     }
 
     /*
-      玩家提交回覆時，只更新 Step 4
-      的回覆統計，不重新渲染整頁。
-
-      這樣主揪正在編輯日期或候選時段時，
-      不會被即時更新打斷。
+      玩家提交或修改回覆時，
+      只更新 Step 4 的回覆統計。
     */
     const responseSummary =
       document.getElementById(
@@ -91,6 +92,24 @@
       window
         .JLYMatchingRender
         .renderResponseSummary(
+          car.matching
+        );
+    }
+
+    /*
+      Matrix 已展開時，同步更新勾選與合計。
+      Matrix 收起時 refresh 不會產生額外畫面。
+    */
+    if (
+      window.JLYMatchingMatrix &&
+      typeof window
+        .JLYMatchingMatrix
+        .refresh ===
+        "function"
+    ) {
+      window
+        .JLYMatchingMatrix
+        .refresh(
           car.matching
         );
     }
@@ -196,6 +215,6 @@
   }
 
   console.log(
-    "✅ Matching Controller V2 已載入"
+    "✅ Matching Controller V3 已載入"
   );
 })();
