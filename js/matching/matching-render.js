@@ -115,12 +115,29 @@
         matching
       );
 
-    container.textContent =
+        container.textContent =
       responseCount > 0
         ? "目前已有 " +
           responseCount +
-          " 人回覆。"
+          " 人回覆　›"
         : "目前尚未收到玩家回覆。";
+
+    container.disabled =
+      responseCount === 0;
+
+    if (
+      window.JLYMatchingMatrix &&
+      typeof window
+        .JLYMatchingMatrix
+        .refresh ===
+        "function"
+    ) {
+      window
+        .JLYMatchingMatrix
+        .refresh(
+          matching
+        );
+    }
   }
 
   function renderEmpty(car) {
@@ -756,9 +773,11 @@
 
         </div>
 
-                <div
+                        <button
+          type="button"
           id="matchingResponseSummary"
-          class="matching-waiting-note"
+          class="matching-waiting-note matching-response-detail-button"
+          onclick="toggleMatchingMatrix()"
         >
           ${
             getMatchingResponseCount(
@@ -768,10 +787,16 @@
                 getMatchingResponseCount(
                   matching
                 ) +
-                " 人回覆。"
+                " 人回覆　›"
               : "目前尚未收到玩家回覆。"
           }
-        </div>
+        </button>
+
+        <div
+          id="matchingMatrixContainer"
+          class="matching-matrix-container"
+          hidden
+        ></div>
 
       </section>
     `;
@@ -848,9 +873,23 @@
         matching
       );
 
-      if (currentStep === 4) {
-  return;
-}
+          if (currentStep === 4) {
+      if (
+        window.JLYMatchingMatrix &&
+        typeof window
+          .JLYMatchingMatrix
+          .render ===
+          "function"
+      ) {
+        window
+          .JLYMatchingMatrix
+          .render(
+            matching
+          );
+      }
+
+      return;
+    }
 
     if (currentStep === 2) {
       const calendar =

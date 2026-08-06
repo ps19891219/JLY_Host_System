@@ -696,3 +696,281 @@
   background: #f7f7f7;
   color: #222222;
 }
+
+/* ========================================
+   Matching Matrix Beta V1
+======================================== */
+
+.matching-response-detail-button {
+  display: block;
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+}
+
+.matching-response-detail-button:not(
+  :disabled
+):hover {
+  background: #fff1bc;
+}
+
+.matching-response-detail-button:disabled {
+  cursor: default;
+}
+
+.matching-matrix-container {
+  margin-top: 16px;
+  scroll-margin-top: 16px;
+}
+
+.matching-matrix-container[hidden] {
+  display: none;
+}
+
+.matching-matrix-panel {
+  overflow: hidden;
+  border: 1px solid #e8e8e8;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.matching-matrix-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.matching-matrix-heading h3 {
+  margin: 0 0 4px;
+  color: #333333;
+  font-size: 17px;
+}
+
+.matching-matrix-heading p {
+  margin: 0;
+  color: #888888;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.matching-matrix-close-button {
+  width: auto;
+  min-width: max-content;
+  min-height: 0;
+  padding: 4px 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #666666;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.matching-matrix-close-button:hover {
+  color: #222222;
+  text-decoration: underline;
+}
+
+/*
+  三區布局：
+  左側日期固定
+  中間玩家可滑
+  右側合計固定
+*/
+
+.matching-matrix-layout {
+  display: grid;
+  grid-template-columns:
+    112px
+    minmax(0, 1fr)
+    58px;
+
+  width: 100%;
+  min-width: 0;
+}
+
+.matching-matrix-fixed-left,
+.matching-matrix-fixed-right {
+  position: relative;
+  z-index: 2;
+  background: #ffffff;
+}
+
+.matching-matrix-fixed-left {
+  border-right: 1px solid #e8e8e8;
+}
+
+.matching-matrix-fixed-right {
+  border-left: 1px solid #e8e8e8;
+}
+
+.matching-matrix-scroll-middle {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.matching-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.matching-matrix-table th,
+.matching-matrix-table td {
+  height: 66px;
+  box-sizing: border-box;
+  padding: 6px;
+  border-bottom: 1px solid #eeeeee;
+  background: #ffffff;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.matching-matrix-table thead th {
+  height: 54px;
+  background: #fafafa;
+  color: #666666;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.matching-matrix-table tbody tr:last-child th,
+.matching-matrix-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* 左側日期時間 */
+
+.matching-matrix-left-table th {
+  width: 112px;
+}
+
+.matching-matrix-left-table tbody th {
+  text-align: left;
+}
+
+.matching-matrix-date,
+.matching-matrix-slot-label,
+.matching-matrix-slot-time {
+  display: block;
+}
+
+.matching-matrix-date {
+  margin-bottom: 3px;
+  color: #333333;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.matching-matrix-slot-label {
+  color: #555555;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.matching-matrix-slot-time {
+  margin-top: 2px;
+  color: #999999;
+  font-size: 11px;
+}
+
+/* 中間玩家欄 */
+
+.matching-matrix-center-table th,
+.matching-matrix-center-table td {
+  width: 68px;
+  min-width: 68px;
+}
+
+.matching-matrix-player-name {
+  display: block;
+  max-width: 58px;
+  margin: 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matching-matrix-center-table td {
+  color: #c3c3c3;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.matching-matrix-center-table td.is-available {
+  color: #4f9d76;
+  background: #f2faf6;
+}
+
+.matching-matrix-center-table td.is-unavailable {
+  background: #ffffff;
+}
+
+/* 右側合計 */
+
+.matching-matrix-right-table th,
+.matching-matrix-right-table td {
+  width: 58px;
+}
+
+.matching-matrix-right-table td strong {
+  color: #333333;
+  font-size: 16px;
+}
+
+.matching-matrix-right-table td span {
+  color: #999999;
+  font-size: 11px;
+}
+
+.matching-matrix-right-table td small {
+  display: block;
+  margin-top: 2px;
+  color: #4f9d76;
+  font-size: 12px;
+}
+
+.matching-matrix-right-table td.is-complete {
+  background: #f2faf6;
+}
+
+/* 空白狀態 */
+
+.matching-matrix-empty {
+  padding: 20px;
+  color: #888888;
+  text-align: center;
+  line-height: 1.6;
+}
+
+@media (max-width: 420px) {
+  .matching-matrix-layout {
+    grid-template-columns:
+      104px
+      minmax(0, 1fr)
+      54px;
+  }
+
+  .matching-matrix-left-table th {
+    width: 104px;
+  }
+
+  .matching-matrix-right-table th,
+  .matching-matrix-right-table td {
+    width: 54px;
+  }
+
+  .matching-matrix-table th,
+  .matching-matrix-table td {
+    height: 64px;
+  }
+}
