@@ -35,6 +35,46 @@
     return car.matching;
   }
 
+    function renderCurrentMatching() {
+    const car =
+      window.currentMatchingCar;
+
+    if (
+      !car ||
+      !window.JLYMatchingRender ||
+      typeof window
+        .JLYMatchingRender
+        .renderApp !==
+        "function"
+    ) {
+      return;
+    }
+
+    window
+      .JLYMatchingRender
+      .renderApp(car);
+  }
+
+  function goToStep(step) {
+    const matching =
+      getMatching();
+
+    if (!matching) {
+      return;
+    }
+
+    matching.currentStep =
+      Number(step) === 3
+        ? 3
+        : 2;
+
+    renderCurrentMatching();
+  }
+
+  function backToDateStep() {
+    goToStep(2);
+  }
+
   /*
     接受：
     9:00
@@ -738,6 +778,185 @@
     }
   }
 
+    async function continueToCandidateStep() {
+    const matching =
+      getMatching();
+
+    const carId =
+      getCarId();
+
+    const button =
+      document.getElementById(
+        "continueToCandidateButton"
+      );
+
+    if (
+      !matching ||
+      !carId
+    ) {
+      alert(
+        "媒合資料尚未載入"
+      );
+
+      return;
+    }
+
+    const commonSlots =
+      readCommonSlotsFromForm();
+
+    const normalizedCommonSlots =
+      commonSlots.map(
+        function (slot) {
+          const normalizedTime =
+            normalizeMatchingTime(
+              slot.time
+            );
+
+          return {
+            ...slot,
+
+            label:
+              String(
+                slot.label || ""
+              ).trim(),
+
+            time:
+              slot.enabled === false
+                ? String(
+                    slot.time || ""
+                  ).trim()
+                : normalizedTime
+          };
+        }
+      );
+
+    const invalidSlot =
+      normalizedCommonSlots.find(
+        function (slot) {
+          return (
+            slot.enabled !== false &&
+            (
+              !slot.label ||
+              !slot.time
+            )
+          );
+        }
+      );
+
+    if (invalidSlot) {
+      alert(
+        "啟用中的時段必須填寫名稱與正確時間。\n\n例如：09:00、14:30、19:00"
+      );
+
+      return;
+    }
+
+    const enabledSlots =
+      normalizedCommonSlots.filter(
+        function (slot) {
+          return (
+            slot.enabled !== false &&
+            slot.label &&
+            slot.time
+          );
+        }
+      );
+
+    if (
+      enabledSlots.length === 0
+    ) {
+      alert(
+        "請至少保留一個有效的媒合時段。"
+      );
+
+      return;
+    }
+
+    if (
+      !Array.isArray(
+        matching.selectedDates
+      ) ||
+      matching.selectedDates
+        .length === 0
+    ) {
+      alert(
+        "請至少選擇一個日期。"
+      );
+
+      return;
+    }
+
+    try {
+      if (button) {
+        button.disabled =
+          true;
+
+        button.textContent =
+          "正在建立候選時段…";
+      }
+
+      const commonResult =
+        await window
+          .JLYMatchingData
+          .saveCommonSlots(
+            carId,
+            normalizedCommonSlots
+          );
+
+      matching.commonSlots =
+        commonResult.commonSlots;
+
+      matching.updatedAt =
+        commonResult.updatedAt;
+
+      matching.candidateSlots =
+        buildCandidateSlots();
+
+      const candidateResult =
+        await window
+          .JLYMatchingData
+          .saveCandidateSlots(
+            carId,
+            matching.selectedDates,
+            matching.candidateSlots
+          );
+
+      matching.selectedDates =
+        candidateResult.selectedDates;
+
+      matching.candidateSlots =
+        candidateResult.candidateSlots;
+
+      matching.updatedAt =
+        candidateResult.updatedAt;
+
+      matching.currentStep = 3;
+
+      renderCurrentMatching();
+    } catch (error) {
+      console.error(
+        "建立候選時段失敗：",
+        error
+      );
+
+      alert(
+        "無法進入候選時段確認：" +
+        (
+          error.message ||
+          "未知錯誤"
+        )
+      );
+
+      if (button) {
+        button.disabled =
+          false;
+
+        button.textContent =
+          "下一步：確認候選時段";
+      }
+    }
+  }
+
     function refreshCandidatePreview() {
     const matching =
       getMatching();
@@ -1221,20 +1440,26 @@
   window.saveCandidateSlots =
     saveCandidateSlots;
 
+     window.saveCandidateSlots =
+    saveCandidateSlots;
+
   window.openConflictCar =
     openConflictCar;
 
   window.backToMatchingCar =
     backToMatchingCar;
 
-  window.JLYMatchingActions = {
+    window.JLYMatchingActions = {
     refreshCandidatePreview,
     refreshCandidateConflicts,
     normalizeMatchingTime,
-    openConflictCar
+    openConflictCar,
+    continueToCandidateStep,
+    backToDateStep,
+    goToStep
   };
 
-  console.log(
-    "✅ Matching Actions V5 已載入"
+    console.log(
+    "✅ Matching Actions V6 已載入"
   );
 })();
