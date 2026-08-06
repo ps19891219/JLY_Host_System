@@ -1440,8 +1440,14 @@
   window.saveCandidateSlots =
     saveCandidateSlots;
 
-     window.saveCandidateSlots =
-    saveCandidateSlots;
+    window.continueToCandidateStep =
+  continueToCandidateStep;
+
+window.backToDateStep =
+  backToDateStep;
+
+window.goToMatchingStep =
+  goToStep;
 
   window.openConflictCar =
     openConflictCar;
