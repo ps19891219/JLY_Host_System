@@ -372,15 +372,76 @@
   };
 }
 
-  window.JLYMatchingData = {
-  getCar,
-  getConflictCars,
-  createMatching,
-  saveCommonSlots,
-  saveCandidateSlots
-};
+  async function publishMatching(
+    carId
+  ) {
+    if (!carId) {
+      throw new Error(
+        "找不到車團 ID"
+      );
+    }
+
+    const publishedAt =
+      nowTime();
+
+    await getDb()
+      .collection("cars")
+      .doc(carId)
+      .update({
+        "matching.status":
+          "published",
+
+        "matching.visibility":
+          "link",
+
+        "matching.matchingType":
+          "host",
+
+        "matching.currentStep":
+          4,
+
+        "matching.publishedAt":
+          publishedAt,
+
+        "matching.updatedAt":
+          publishedAt,
+
+        updatedAt:
+          firebase.firestore
+            .FieldValue
+            .serverTimestamp()
+      });
+
+    return {
+      status:
+        "published",
+
+      visibility:
+        "link",
+
+      matchingType:
+        "host",
+
+      currentStep:
+        4,
+
+      publishedAt,
+
+      updatedAt:
+        publishedAt
+    };
+  }
+
+    window.JLYMatchingData = {
+    getCar,
+    getConflictCars,
+    createMatching,
+    saveCommonSlots,
+    saveCandidateSlots,
+    publishMatching
+  };
 
   console.log(
-    "✅ Matching Data V2 已載入"
+    "✅ Matching Data V3 已載入"
   );
 })();

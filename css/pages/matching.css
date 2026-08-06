@@ -591,3 +591,74 @@
   color: #222222;
   text-decoration: underline;
 }
+
+/* ========================================
+   Matching Step 4
+======================================== */
+
+.matching-complete-icon {
+  margin-bottom: 10px;
+  font-size: 42px;
+  text-align: center;
+}
+
+.matching-complete-title {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 22px;
+}
+
+.matching-complete-text {
+  margin: 0 auto 18px;
+  max-width: 280px;
+  color: #777777;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.matching-summary-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.matching-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fafafa;
+  text-align: center;
+}
+
+.matching-summary-item span {
+  color: #888888;
+  font-size: 13px;
+}
+
+.matching-summary-item strong {
+  color: #333333;
+  font-size: 20px;
+}
+
+.matching-share-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.matching-share-actions button {
+  margin: 0;
+}
+
+.matching-waiting-note {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff8df;
+  color: #806500;
+  font-size: 13px;
+  text-align: center;
+}

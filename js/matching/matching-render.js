@@ -53,7 +53,7 @@
     );
   }
 
-  function getCurrentStep(
+    function getCurrentStep(
     matching
   ) {
     const step =
@@ -62,9 +62,15 @@
         matching.currentStep
       );
 
-    return step === 3
-      ? 3
-      : 2;
+    if (step === 4) {
+      return 4;
+    }
+
+    if (step === 3) {
+      return 3;
+    }
+
+    return 2;
   }
 
   function renderEmpty(car) {
@@ -610,7 +616,105 @@
     `;
   }
 
-  function renderDraft(
+    function renderStepFour(
+    matching
+  ) {
+    const selectedDates =
+      Array.isArray(
+        matching.selectedDates
+      )
+        ? matching.selectedDates
+        : [];
+
+    const candidateSlots =
+      Array.isArray(
+        matching.candidateSlots
+      )
+        ? matching.candidateSlots
+        : [];
+
+    const enabledCount =
+      candidateSlots.filter(
+        function (slot) {
+          return (
+            slot.enabled !== false &&
+            slot.date &&
+            slot.time
+          );
+        }
+      ).length;
+
+    return `
+      <section class="matching-section">
+
+        <div class="matching-complete-icon">
+          🎉
+        </div>
+
+        <h2 class="matching-complete-title">
+          媒合已建立
+        </h2>
+
+        <p class="matching-complete-text">
+          接下來將連結分享給玩家，
+          就能開始收集可配合時間。
+        </p>
+
+        <div class="matching-summary-grid">
+
+          <div class="matching-summary-item">
+            <span>候選日期</span>
+            <strong>
+              ${selectedDates.length} 天
+            </strong>
+          </div>
+
+          <div class="matching-summary-item">
+            <span>候選時段</span>
+            <strong>
+              ${enabledCount} 個
+            </strong>
+          </div>
+
+        </div>
+
+        <div class="matching-share-actions">
+
+          <button
+            type="button"
+            class="matching-primary-button"
+            onclick="copyMatchingShareLink()"
+          >
+            📋 複製分享連結
+          </button>
+
+          <button
+            type="button"
+            class="matching-secondary-button"
+            onclick="previewMatchingVotePage()"
+          >
+            👀 預覽玩家畫面
+          </button>
+
+          <button
+            type="button"
+            class="matching-secondary-button"
+            onclick="editPublishedMatching()"
+          >
+            ✏️ 繼續編輯媒合
+          </button>
+
+        </div>
+
+        <div class="matching-waiting-note">
+          目前尚未收到玩家回覆。
+        </div>
+
+      </section>
+    `;
+  }
+
+    function renderDraft(
     matching
   ) {
     const currentStep =
@@ -618,13 +722,21 @@
         matching
       );
 
-    return currentStep === 3
-      ? renderStepThree(
-          matching
-        )
-      : renderStepTwo(
-          matching
-        );
+    if (currentStep === 4) {
+      return renderStepFour(
+        matching
+      );
+    }
+
+    if (currentStep === 3) {
+      return renderStepThree(
+        matching
+      );
+    }
+
+    return renderStepTwo(
+      matching
+    );
   }
 
   function renderApp(car) {
@@ -672,6 +784,10 @@
       getCurrentStep(
         matching
       );
+
+      if (currentStep === 4) {
+  return;
+}
 
     if (currentStep === 2) {
       const calendar =

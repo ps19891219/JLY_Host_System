@@ -55,7 +55,7 @@
       .renderApp(car);
   }
 
-  function goToStep(step) {
+    function goToStep(step) {
     const matching =
       getMatching();
 
@@ -63,8 +63,13 @@
       return;
     }
 
+    const nextStep =
+      Number(step);
+
     matching.currentStep =
-      Number(step) === 3
+      nextStep === 4
+        ? 4
+        : nextStep === 3
         ? 3
         : 2;
 
@@ -1307,6 +1312,79 @@
     refreshCandidateConflicts();
   }
 
+    function getMatchingShareUrl() {
+    const carId =
+      getCarId();
+
+    if (!carId) {
+      return "";
+    }
+
+    return (
+      location.origin +
+      "/pages/matching-vote.html?id=" +
+      encodeURIComponent(
+        carId
+      )
+    );
+  }
+
+  async function copyMatchingShareLink() {
+    const url =
+      getMatchingShareUrl();
+
+    if (!url) {
+      alert(
+        "找不到媒合連結"
+      );
+
+      return;
+    }
+
+    try {
+      await navigator
+        .clipboard
+        .writeText(url);
+
+      alert(
+        "分享連結已複製。"
+      );
+    } catch (error) {
+      console.error(
+        "複製媒合連結失敗：",
+        error
+      );
+
+      prompt(
+        "請手動複製連結：",
+        url
+      );
+    }
+  }
+
+  function previewMatchingVotePage() {
+    const url =
+      getMatchingShareUrl();
+
+    if (!url) {
+      alert(
+        "找不到媒合連結"
+      );
+
+      return;
+    }
+
+    window.open(
+      url,
+      "_blank",
+      "noopener"
+    );
+  }
+
+  function editPublishedMatching() {
+    goToStep(3);
+  }
+
   async function saveCandidateSlots() {
     const carId =
       getCarId();
@@ -1433,15 +1511,32 @@
       matching.updatedAt =
         result.updatedAt;
 
-      window
-        .JLYMatchingRender
-        .renderCandidatePreview(
-          matching
-        );
+            const publishResult =
+        await window
+          .JLYMatchingData
+          .publishMatching(
+            carId
+          );
 
-      alert(
-        "候選時段已儲存。"
-      );
+      matching.status =
+        publishResult.status;
+
+      matching.visibility =
+        publishResult.visibility;
+
+      matching.matchingType =
+        publishResult.matchingType;
+
+      matching.publishedAt =
+        publishResult.publishedAt;
+
+      matching.updatedAt =
+        publishResult.updatedAt;
+
+      matching.currentStep = 4;
+
+      renderCurrentMatching();
+
     } catch (error) {
       console.error(
         "儲存候選時段失敗：",
@@ -1547,6 +1642,15 @@ window.goToMatchingStep =
     window.clearAllMatchingDates =
   clearAllMatchingDates;
 
+    window.copyMatchingShareLink =
+    copyMatchingShareLink;
+
+  window.previewMatchingVotePage =
+    previewMatchingVotePage;
+
+  window.editPublishedMatching =
+    editPublishedMatching;
+
     window.JLYMatchingActions = {
     refreshCandidatePreview,
     refreshCandidateConflicts,
@@ -1555,6 +1659,9 @@ window.goToMatchingStep =
     continueToCandidateStep,
     backToDateStep,
     clearAllMatchingDates,
+        copyMatchingShareLink,
+    previewMatchingVotePage,
+    editPublishedMatching,
     goToStep
   };
 
