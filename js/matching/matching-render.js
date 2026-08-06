@@ -510,9 +510,25 @@
             ② 選擇日期
           </h2>
 
-          <span class="matching-selected-count">
-            已選 ${selectedCount} 天
-          </span>
+          <div class="matching-date-heading-actions">
+  <span class="matching-selected-count">
+    已選 ${selectedCount} 天
+  </span>
+
+  ${
+    selectedCount > 0
+      ? `
+        <button
+          type="button"
+          class="matching-clear-dates-button"
+          onclick="clearAllMatchingDates()"
+        >
+          清除全部
+        </button>
+      `
+      : ""
+  }
+</div>
 
         </div>
 

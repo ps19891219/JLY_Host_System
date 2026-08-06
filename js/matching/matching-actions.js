@@ -778,6 +778,95 @@
     }
   }
 
+  async function clearAllMatchingDates() {
+  const matching =
+    getMatching();
+
+  const carId =
+    getCarId();
+
+  if (
+    !matching ||
+    !carId
+  ) {
+    alert("媒合資料尚未載入");
+    return;
+  }
+
+  const hasSelectedDates =
+    Array.isArray(
+      matching.selectedDates
+    ) &&
+    matching.selectedDates.length > 0;
+
+  const hasCandidateSlots =
+    Array.isArray(
+      matching.candidateSlots
+    ) &&
+    matching.candidateSlots.length > 0;
+
+  if (
+    !hasSelectedDates &&
+    !hasCandidateSlots
+  ) {
+    return;
+  }
+
+  const confirmed =
+    confirm(
+      "確定要清除所有已選日期與候選時段嗎？\n\n本次媒合時段模板不會被清除。"
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result =
+      await window
+        .JLYMatchingData
+        .saveCandidateSlots(
+          carId,
+          [],
+          []
+        );
+
+    matching.selectedDates =
+      Array.isArray(
+        result.selectedDates
+      )
+        ? result.selectedDates
+        : [];
+
+    matching.candidateSlots =
+      Array.isArray(
+        result.candidateSlots
+      )
+        ? result.candidateSlots
+        : [];
+
+    matching.updatedAt =
+      result.updatedAt;
+
+    matching.currentStep = 2;
+
+    renderCurrentMatching();
+  } catch (error) {
+    console.error(
+      "清除媒合日期失敗：",
+      error
+    );
+
+    alert(
+      "清除失敗：" +
+      (
+        error.message ||
+        "未知錯誤"
+      )
+    );
+  }
+}
+
     async function continueToCandidateStep() {
     const matching =
       getMatching();
@@ -1455,6 +1544,9 @@ window.goToMatchingStep =
   window.backToMatchingCar =
     backToMatchingCar;
 
+    window.clearAllMatchingDates =
+  clearAllMatchingDates;
+
     window.JLYMatchingActions = {
     refreshCandidatePreview,
     refreshCandidateConflicts,
@@ -1462,6 +1554,7 @@ window.goToMatchingStep =
     openConflictCar,
     continueToCandidateStep,
     backToDateStep,
+    clearAllMatchingDates,
     goToStep
   };
 

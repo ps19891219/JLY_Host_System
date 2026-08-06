@@ -527,3 +527,30 @@
 
     font-size:12px;
 }
+
+.matching-date-heading-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.matching-clear-dates-button {
+  width: auto;
+  min-height: 0;
+  padding: 2px 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #888888;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.matching-clear-dates-button:hover {
+  color: #d36b5d;
+  text-decoration: underline;
+}
