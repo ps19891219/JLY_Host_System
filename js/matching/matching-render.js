@@ -15,12 +15,17 @@
   }
 
   function formatDate(dateKey) {
+    const calendar =
+      window.JLYMatchingCalendar;
+
     const date =
-      window
-        .JLYMatchingCalendar
-        .parseDateKey(
-          dateKey
-        );
+      calendar &&
+      typeof calendar.parseDateKey ===
+        "function"
+        ? calendar.parseDateKey(
+            dateKey
+          )
+        : null;
 
     if (!date) {
       return dateKey;
@@ -48,9 +53,24 @@
     );
   }
 
+  function getCurrentStep(
+    matching
+  ) {
+    const step =
+      Number(
+        matching &&
+        matching.currentStep
+      );
+
+    return step === 3
+      ? 3
+      : 2;
+  }
+
   function renderEmpty(car) {
     return `
       <section class="matching-empty-card">
+
         <div class="matching-empty-icon">
           🗓️
         </div>
@@ -80,6 +100,7 @@
             "規劃中"
           )}
         </div>
+
       </section>
     `;
   }
@@ -93,7 +114,9 @@
         class="matching-common-slot"
         data-slot-index="${index}"
       >
+
         <label class="matching-slot-toggle">
+
           <input
             type="checkbox"
             class="matching-slot-enabled"
@@ -110,6 +133,7 @@
               "🕒"
             )}
           </span>
+
         </label>
 
         <input
@@ -123,15 +147,15 @@
         >
 
         <input
-  type="text"
-  inputmode="numeric"
-  class="matching-slot-time"
-  value="${escapeHtml(
-    slot.time || ""
-  )}"
-  placeholder="HH:MM"
-  maxlength="5"
->
+          type="text"
+          inputmode="numeric"
+          class="matching-slot-time"
+          value="${escapeHtml(
+            slot.time || ""
+          )}"
+          placeholder="HH:MM"
+          maxlength="5"
+        >
 
         ${
           slot.isCustom === true
@@ -140,6 +164,7 @@
                 type="button"
                 class="matching-slot-delete"
                 onclick="removeCommonSlot(${index})"
+                aria-label="刪除自訂時段"
               >
                 ×
               </button>
@@ -150,130 +175,166 @@
               ></span>
             `
         }
+
       </div>
     `;
   }
 
-  function buildCandidateConflicts(slot) {
-    const conflicts = Array.isArray(slot.conflicts)
+    function buildCandidateConflicts(
+    slot
+  ) {
+    const conflicts =
+      Array.isArray(
+        slot.conflicts
+      )
         ? slot.conflicts
         : [];
 
-    if (conflicts.length === 0) {
-        return "";
+    if (
+      conflicts.length === 0
+    ) {
+      return "";
     }
 
     return `
-        <div class="matching-candidate-conflicts">
-            ${conflicts
-                .map(function (conflict) {
+      <div class="matching-candidate-conflicts">
+        ${
+          conflicts
+            .map(function (
+              conflict
+            ) {
+              const title =
+                conflict.title ||
+                "未命名行程";
 
-                    const title =
-                        conflict.title ||
-                        "未命名行程";
+              const time =
+                conflict.time ||
+                "";
 
-                    const time =
-                        conflict.time ||
-                        "";
+              const conflictId =
+                conflict.carId ||
+                conflict.id ||
+                "";
 
-                    const conflictId =
-                        conflict.carId ||
-                        conflict.id ||
-                        "";
-
-                    return `
-                        <div
-                            class="matching-conflict-note"
-                            onclick="openConflictCar('${escapeHtml(conflictId)}')"
-                            title="查看車團"
-                        >
-                            🚗 ${escapeHtml(time)}
-                            ${title ? "　" + escapeHtml(title) : ""}
-                        </div>
-                    `;
-                })
-                .join("")}
-        </div>
+              return `
+                <div
+                  class="matching-conflict-note"
+                  onclick="openConflictCar('${escapeHtml(
+                    conflictId
+                  )}')"
+                  title="查看車團"
+                  role="button"
+                  tabindex="0"
+                  onkeydown="
+                    if (
+                      event.key === 'Enter' ||
+                      event.key === ' '
+                    ) {
+                      event.preventDefault();
+                      openConflictCar('${escapeHtml(
+                        conflictId
+                      )}');
+                    }
+                  "
+                >
+                  🚗 ${escapeHtml(
+                    time
+                  )}${
+                    title
+                      ? "　" +
+                        escapeHtml(
+                          title
+                        )
+                      : ""
+                  }
+                </div>
+              `;
+            })
+            .join("")
+        }
+      </div>
     `;
-}
+  }
 
   function buildCandidateRow(
-  slot,
-  index
-) {
-  return `
-    <div class="matching-candidate-item">
+    slot,
+    index
+  ) {
+    return `
+      <div class="matching-candidate-item">
 
-      <div
-        class="
-          matching-candidate-row
-          ${
-            slot.enabled === false
-              ? "is-disabled"
-              : ""
-          }
-        "
-        data-candidate-index="${index}"
-      >
-        <label class="matching-candidate-toggle">
-          <input
-            type="checkbox"
-            class="matching-candidate-enabled"
+        <div
+          class="
+            matching-candidate-row
             ${
-              slot.enabled !== false
-                ? "checked"
+              slot.enabled === false
+                ? "is-disabled"
                 : ""
             }
-            onchange="toggleCandidateSlot(${index}, this.checked)"
+          "
+          data-candidate-index="${index}"
+        >
+
+          <label class="matching-candidate-toggle">
+            <input
+              type="checkbox"
+              class="matching-candidate-enabled"
+              ${
+                slot.enabled !== false
+                  ? "checked"
+                  : ""
+              }
+              onchange="toggleCandidateSlot(${index}, this.checked)"
+            >
+          </label>
+
+          <span class="matching-candidate-icon">
+            ${escapeHtml(
+              slot.icon ||
+              "🕒"
+            )}
+          </span>
+
+          <input
+            type="text"
+            class="matching-candidate-label"
+            value="${escapeHtml(
+              slot.label || ""
+            )}"
+            maxlength="10"
+            onchange="updateCandidateLabel(${index}, this.value)"
           >
-        </label>
 
-        <span class="matching-candidate-icon">
-          ${escapeHtml(
-            slot.icon ||
-            "🕒"
-          )}
-        </span>
+          <input
+            type="text"
+            inputmode="numeric"
+            class="matching-candidate-time"
+            value="${escapeHtml(
+              slot.time || ""
+            )}"
+            placeholder="HH:MM"
+            maxlength="5"
+            onchange="updateCandidateTime(${index}, this.value)"
+          >
 
-        <input
-          type="text"
-          class="matching-candidate-label"
-          value="${escapeHtml(
-            slot.label || ""
-          )}"
-          maxlength="10"
-          onchange="updateCandidateLabel(${index}, this.value)"
-        >
+          <button
+            type="button"
+            class="matching-candidate-remove"
+            onclick="removeCandidateSlot(${index})"
+            aria-label="移除候選時段"
+          >
+            ×
+          </button>
 
-        <input
-          type="text"
-          inputmode="numeric"
-          class="matching-candidate-time"
-          value="${escapeHtml(
-            slot.time || ""
-          )}"
-          placeholder="HH:MM"
-          maxlength="5"
-          onchange="updateCandidateTime(${index}, this.value)"
-        >
+        </div>
 
-        <button
-          type="button"
-          class="matching-candidate-remove"
-          onclick="removeCandidateSlot(${index})"
-          aria-label="移除候選時段"
-        >
-          ×
-        </button>
+        ${buildCandidateConflicts(
+          slot
+        )}
+
       </div>
-
-      ${buildCandidateConflicts(
-        slot
-      )}
-
-    </div>
-  `;
-}
+    `;
+  }
 
   function renderCandidatePreview(
     matching
@@ -299,7 +360,8 @@
     ) {
       container.innerHTML = `
         <div class="matching-inline-empty">
-          選取日期後，候選時段會顯示在這裡。
+          尚未建立候選時段。
+          請返回日期頁重新選擇。
         </div>
       `;
 
@@ -314,7 +376,8 @@
         index
       ) {
         if (!grouped[slot.date]) {
-          grouped[slot.date] = [];
+          grouped[slot.date] =
+            [];
         }
 
         grouped[slot.date].push({
@@ -324,7 +387,7 @@
       }
     );
 
-    container.innerHTML =
+        container.innerHTML =
       Object.keys(grouped)
         .sort()
         .map(function (
@@ -332,7 +395,9 @@
         ) {
           return `
             <section class="matching-candidate-day">
+
               <div class="matching-candidate-day-header">
+
                 <strong>
                   📅 ${formatDate(
                     dateKey
@@ -346,6 +411,7 @@
                 >
                   ＋新增
                 </button>
+
               </div>
 
               <div class="matching-candidate-list">
@@ -362,13 +428,14 @@
                     .join("")
                 }
               </div>
+
             </section>
           `;
         })
         .join("");
   }
 
-  function renderDraft(
+  function renderStepTwo(
     matching
   ) {
     const commonSlots =
@@ -378,8 +445,18 @@
         ? matching.commonSlots
         : [];
 
+    const selectedCount =
+      Array.isArray(
+        matching.selectedDates
+      )
+        ? matching
+            .selectedDates
+            .length
+        : 0;
+
     return `
       <section class="matching-section">
+
         <div class="matching-status-badge">
           建立中
         </div>
@@ -422,28 +499,70 @@
         >
           儲存本次媒合時段
         </button>
+
       </section>
 
       <section class="matching-section">
-        <h2 class="matching-section-title">
-          ② 選擇日期
-        </h2>
+
+        <div class="matching-section-heading">
+
+          <h2 class="matching-section-title">
+            ② 選擇日期
+          </h2>
+
+          <span class="matching-selected-count">
+            已選 ${selectedCount} 天
+          </span>
+
+        </div>
 
         <p class="matching-section-description">
-          可一次選擇多個日期，再到下一區
-          個別調整每一筆時間。
+          可一次選擇多個日期，
+          下一步再逐筆確認與修改時間。
         </p>
 
         <div id="matchingCalendar"></div>
-      </section>
 
+        <button
+          type="button"
+          class="matching-primary-button"
+          id="continueToCandidateButton"
+          onclick="continueToCandidateStep()"
+        >
+          下一步：確認候選時段
+        </button>
+
+      </section>
+    `;
+  }
+
+    function renderStepThree(
+    matching
+  ) {
+    const selectedCount =
+      Array.isArray(
+        matching.selectedDates
+      )
+        ? matching
+            .selectedDates
+            .length
+        : 0;
+
+    return `
       <section class="matching-section">
+
+        <div class="matching-status-badge">
+          確認中
+        </div>
+
         <h2 class="matching-section-title">
-          ③ 候選時段
+          ③ 確認候選時段
         </h2>
 
         <p class="matching-section-description">
-          每一筆時間都能獨立修改、停用或移除。
+          共選擇 ${selectedCount} 天。
+          每一筆都能獨立修改、停用、
+          刪除或新增時段。
         </p>
 
         <div
@@ -451,16 +570,46 @@
           class="matching-candidate-preview"
         ></div>
 
-        <button
-          type="button"
-          class="matching-primary-button"
-          id="saveCandidateSlotsButton"
-          onclick="saveCandidateSlots()"
-        >
-          儲存候選時段
-        </button>
+        <div class="matching-wizard-actions">
+
+          <button
+            type="button"
+            class="matching-secondary-button"
+            onclick="backToDateStep()"
+          >
+            ← 返回修改日期
+          </button>
+
+          <button
+            type="button"
+            class="matching-primary-button"
+            id="saveCandidateSlotsButton"
+            onclick="saveCandidateSlots()"
+          >
+            儲存候選時段
+          </button>
+
+        </div>
+
       </section>
     `;
+  }
+
+  function renderDraft(
+    matching
+  ) {
+    const currentStep =
+      getCurrentStep(
+        matching
+      );
+
+    return currentStep === 3
+      ? renderStepThree(
+          matching
+        )
+      : renderStepTwo(
+          matching
+        );
   }
 
   function renderApp(car) {
@@ -496,38 +645,66 @@
         ? renderDraft(
             matching
           )
-        : renderEmpty(car);
+        : renderEmpty(
+            car
+          );
 
-    if (matching) {
-      window
-        .JLYMatchingCalendar
-        .initializeFromDates(
-          matching.selectedDates
-        );
+    if (!matching) {
+      return;
+    }
 
-      window
-        .JLYMatchingCalendar
-        .renderCalendar();
-
-      renderCandidatePreview(
+    const currentStep =
+      getCurrentStep(
         matching
       );
 
+    if (currentStep === 2) {
+      const calendar =
+        window.JLYMatchingCalendar;
+
       if (
-  window.JLYMatchingActions &&
-  typeof window
-    .JLYMatchingActions
-    .refreshCandidateConflicts ===
-    "function"
-) {
-  window
-    .JLYMatchingActions
-    .refreshCandidateConflicts();
-}
+        calendar &&
+        typeof calendar
+          .initializeFromDates ===
+          "function"
+      ) {
+        calendar
+          .initializeFromDates(
+            matching.selectedDates
+          );
+      }
+
+      if (
+        calendar &&
+        typeof calendar
+          .renderCalendar ===
+          "function"
+      ) {
+        calendar
+          .renderCalendar();
+      }
+
+      return;
+    }
+
+    renderCandidatePreview(
+      matching
+    );
+
+    if (
+      window.JLYMatchingActions &&
+      typeof window
+        .JLYMatchingActions
+        .refreshCandidateConflicts ===
+        "function"
+    ) {
+      window
+        .JLYMatchingActions
+        .refreshCandidateConflicts();
     }
   }
 
-  function renderError(error) {
+    function renderError(error) {
     const app =
       document.getElementById(
         "matchingApp"
@@ -539,6 +716,7 @@
 
     app.innerHTML = `
       <section class="matching-empty-card">
+
         <h2 class="matching-empty-title">
           無法載入時間媒合
         </h2>
@@ -551,6 +729,7 @@
               : "未知錯誤"
           )}
         </p>
+
       </section>
     `;
   }
@@ -562,6 +741,6 @@
   };
 
   console.log(
-    "✅ Matching Render V3 已載入"
+    "✅ Matching Render V4 已載入"
   );
 })();
