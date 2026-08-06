@@ -73,6 +73,56 @@
     return 2;
   }
 
+    function getMatchingResponseCount(
+    matching
+  ) {
+    const responses =
+      matching &&
+      matching.responses &&
+      typeof matching.responses ===
+        "object"
+        ? matching.responses
+        : {};
+
+    return Object
+      .values(responses)
+      .filter(
+        function (response) {
+          return (
+            response &&
+            response.status !==
+              "deleted"
+          );
+        }
+      )
+      .length;
+  }
+
+  function renderResponseSummary(
+    matching
+  ) {
+    const container =
+      document.getElementById(
+        "matchingResponseSummary"
+      );
+
+    if (!container) {
+      return;
+    }
+
+    const responseCount =
+      getMatchingResponseCount(
+        matching
+      );
+
+    container.textContent =
+      responseCount > 0
+        ? "目前已有 " +
+          responseCount +
+          " 人回覆。"
+        : "目前尚未收到玩家回覆。";
+  }
+
   function renderEmpty(car) {
     return `
       <section class="matching-empty-card">
@@ -706,8 +756,21 @@
 
         </div>
 
-        <div class="matching-waiting-note">
-          目前尚未收到玩家回覆。
+                <div
+          id="matchingResponseSummary"
+          class="matching-waiting-note"
+        >
+          ${
+            getMatchingResponseCount(
+              matching
+            ) > 0
+              ? "目前已有 " +
+                getMatchingResponseCount(
+                  matching
+                ) +
+                " 人回覆。"
+              : "目前尚未收到玩家回覆。"
+          }
         </div>
 
       </section>
@@ -865,13 +928,14 @@
     `;
   }
 
-  window.JLYMatchingRender = {
+    window.JLYMatchingRender = {
     renderApp,
     renderError,
-    renderCandidatePreview
+    renderCandidatePreview,
+    renderResponseSummary
   };
 
   console.log(
-    "✅ Matching Render V4 已載入"
+    "✅ Matching Render V5 已載入"
   );
 })();
