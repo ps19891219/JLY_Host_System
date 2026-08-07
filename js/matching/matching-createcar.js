@@ -281,7 +281,7 @@
      : "確定此時間並開團";
   }
 
-  function renderSelectedSlotCard() {
+    function renderSelectedSlotCard() {
     const container =
       document.getElementById(
         "matchingCreateCarContainer"
@@ -294,8 +294,12 @@
     const matching =
       getMatching();
 
+    const sourceCar =
+      getSourceCar();
+
     if (
       !matching ||
+      !sourceCar ||
       !selectedSlotId
     ) {
       container.hidden =
@@ -318,10 +322,41 @@
       return;
     }
 
-    const availableResponses =
-      getAvailableResponses(
+    const confirmation =
+      buildMatchingConfirmation(
+        sourceCar,
         matching,
         selectedSlotId
+      );
+
+    const availablePlayers =
+      confirmation.players.filter(
+        function (item) {
+          return (
+            item.availability ===
+            "available"
+          );
+        }
+      );
+
+    const unavailablePlayers =
+      confirmation.players.filter(
+        function (item) {
+          return (
+            item.availability ===
+            "unavailable"
+          );
+        }
+      );
+
+    const noResponsePlayers =
+      confirmation.players.filter(
+        function (item) {
+          return (
+            item.availability ===
+            "no_response"
+          );
+        }
       );
 
     container.hidden =
@@ -334,7 +369,7 @@
 
           <div>
             <div class="matching-create-car-label">
-              已選擇候選時間
+              已選擇最終時間
             </div>
 
             <h3>
@@ -382,100 +417,74 @@
 
         </div>
 
-        <div class="matching-create-car-player-section">
+        <div class="matching-final-summary">
 
-          <div class="matching-create-car-player-title">
-            可參加回覆者
-
+          <div class="matching-final-summary-item">
             <strong>
-              ${availableResponses.length} 人
+              ${availablePlayers.length}
             </strong>
+            <span>可參加</span>
           </div>
 
-          ${
-            availableResponses.length > 0
-              ? `
-                <div class="matching-create-car-player-list">
+          <div class="matching-final-summary-item">
+            <strong>
+              ${unavailablePlayers.length}
+            </strong>
+            <span>未勾選</span>
+          </div>
 
-                  ${
-                    availableResponses
-                      .map(
-                        function (
-                          response,
-                          index
-                        ) {
-                          const name =
-                            response.name ||
-                            (
-                              "回覆者 " +
-                              (index + 1)
-                            );
-
-                          return `
-                            <label class="matching-create-car-player">
-
-                              <input
-                                type="checkbox"
-                                class="matching-create-player-checkbox"
-                                value="${escapeHtml(
-                                  response.id ||
-                                  ""
-                                )}"
-                                data-player-name="${escapeHtml(
-                                  name
-                                )}"
-                                checked
-                              >
-
-                              <span>
-                                ${escapeHtml(
-                                  name
-                                )}
-                              </span>
-
-                            </label>
-                          `;
-                        }
-                      )
-                      .join("")
-                  }
-
-                </div>
-              `
-              : `
-                <div class="matching-create-car-empty">
-                  目前沒有人勾選這個時段。
-                </div>
-              `
-          }
+          <div class="matching-final-summary-item">
+            <strong>
+              ${noResponsePlayers.length}
+            </strong>
+            <span>尚未回覆</span>
+          </div>
 
         </div>
+
+        ${
+          unavailablePlayers.length >
+            0 ||
+          noResponsePlayers.length >
+            0
+            ? `
+              <div class="matching-final-reminder">
+
+                <strong>
+                  ⚠️ 開團後有 ${
+                    unavailablePlayers.length +
+                    noResponsePlayers.length
+                  } 位玩家需要確認
+                </strong>
+
+                <p>
+                  系統會保留原本所有玩家，
+                  不會自動移除任何人。
+                </p>
+
+              </div>
+            `
+            : `
+              <div class="
+                matching-final-reminder
+                is-complete
+              ">
+                ✓ 原車玩家皆可參加此時段
+              </div>
+            `
+        }
 
         <button
           type="button"
           id="matchingCreateFormalCarButton"
           class="matching-primary-button matching-create-car-next"
           onclick="createFormalCarFromMatching()"
-          ${
-            availableResponses.length ===
-            0
-              ? "disabled"
-              : ""
-          }
         >
           確定此時間並開團
         </button>
 
       </section>
     `;
-
-    container.scrollIntoView({
-      behavior:
-        "smooth",
-
-      block:
-        "nearest"
-    });
   }
 
   function selectMatchingSlot(
@@ -1793,6 +1802,270 @@
     };
   }
 
+    function normalizeMatchingName(
+    value
+  ) {
+    return String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  }
+
+  function getFormalPlayerName(
+    player,
+    index
+  ) {
+    const name =
+      String(
+        player.hostAlias ||
+        player.displayName ||
+        player.playerName ||
+        player.name ||
+        ""
+      ).trim();
+
+    return (
+      name ||
+      "玩家 " +
+      (index + 1)
+    );
+  }
+
+  function getFormalPlayerId(
+    player,
+    index
+  ) {
+    const directId =
+      String(
+        player.playerId ||
+        player.id ||
+        ""
+      ).trim();
+
+    if (directId) {
+      return directId;
+    }
+
+    return (
+      "legacy-player-" +
+      (index + 1) +
+      "-" +
+      normalizeMatchingName(
+        getFormalPlayerName(
+          player,
+          index
+        )
+      )
+    );
+  }
+
+  function getMatchingResponses(
+    matching
+  ) {
+    const responseMap =
+      matching &&
+      matching.responses &&
+      typeof matching.responses ===
+        "object"
+        ? matching.responses
+        : {};
+
+    return Object
+      .values(responseMap)
+      .filter(
+        function (response) {
+          return (
+            response &&
+            response.status !==
+              "deleted"
+          );
+        }
+      );
+  }
+
+  function findPlayerResponse(
+    player,
+    index,
+    responses
+  ) {
+    const playerId =
+      getFormalPlayerId(
+        player,
+        index
+      );
+
+    const byId =
+      responses.find(
+        function (response) {
+          return (
+            String(
+              response.playerId ||
+              response.playerKey ||
+              ""
+            ) ===
+            String(playerId)
+          );
+        }
+      );
+
+    if (byId) {
+      return byId;
+    }
+
+    const playerName =
+      normalizeMatchingName(
+        getFormalPlayerName(
+          player,
+          index
+        )
+      );
+
+    return (
+      responses.find(
+        function (response) {
+          return (
+            normalizeMatchingName(
+              response.playerName ||
+              response.displayName ||
+              response.name ||
+              ""
+            ) ===
+            playerName
+          );
+        }
+      ) ||
+      null
+    );
+  }
+
+  function buildMatchingConfirmation(
+    sourceCar,
+    matching,
+    slotId
+  ) {
+    const players =
+      Array.isArray(
+        sourceCar.players
+      )
+        ? sourceCar.players
+        : [];
+
+    const responses =
+      getMatchingResponses(
+        matching
+      );
+
+    const confirmationPlayers =
+      players.map(
+        function (
+          player,
+          index
+        ) {
+          const response =
+            findPlayerResponse(
+              player,
+              index,
+              responses
+            );
+
+          let availability =
+            "no_response";
+
+          if (response) {
+            const selectedSlotIds =
+              Array.isArray(
+                response.slotIds
+              )
+                ? response.slotIds
+                : [];
+
+            availability =
+              selectedSlotIds.includes(
+                slotId
+              )
+                ? "available"
+                : "unavailable";
+          }
+
+          return {
+            playerId:
+              getFormalPlayerId(
+                player,
+                index
+              ),
+
+            playerName:
+              getFormalPlayerName(
+                player,
+                index
+              ),
+
+            availability,
+
+            responseId:
+              response
+                ? (
+                    response.id ||
+                    ""
+                  )
+                : "",
+
+            resolved:
+              availability ===
+              "available",
+
+            resolution:
+              availability ===
+              "available"
+                ? "keep"
+                : ""
+          };
+        }
+      );
+
+    const pendingPlayers =
+      confirmationPlayers.filter(
+        function (item) {
+          return (
+            item.availability !==
+            "available"
+          );
+        }
+      );
+
+    const timestamp =
+      nowTime();
+
+    return {
+      status:
+        pendingPlayers.length > 0
+          ? "pending"
+          : "completed",
+
+      selectedSlotId:
+        slotId,
+
+      createdAt:
+        timestamp,
+
+      updatedAt:
+        timestamp,
+
+      completedAt:
+        pendingPlayers.length === 0
+          ? timestamp
+          : "",
+
+      pendingCount:
+        pendingPlayers.length,
+
+      players:
+        confirmationPlayers
+    };
+  }
+
   async function findSameDayCars(
     gameDate,
     sourceCarId
@@ -1865,13 +2138,10 @@
     return lines.join("\n");
   }
 
-    async function createFormalCarFromMatching() {
+      async function createFormalCarFromMatching() {
     if (isCreatingCar) {
       return;
     }
-
-    const draft =
-      getSelectedMatchingCarDraft();
 
     const sourceCar =
       getSourceCar();
@@ -1880,9 +2150,9 @@
       getMatching();
 
     if (
-      !draft ||
       !sourceCar ||
-      !matching
+      !matching ||
+      !selectedSlotId
     ) {
       alert(
         "找不到已選擇的媒合資料。"
@@ -1891,19 +2161,33 @@
       return;
     }
 
-    const originalPlayers =
-      Array.isArray(
-        sourceCar.players
-      )
-        ? sourceCar.players
-        : [];
+    const slot =
+      findSlot(
+        matching,
+        selectedSlotId
+      );
+
+    if (!slot) {
+      alert(
+        "找不到已選擇的候選時段。"
+      );
+
+      return;
+    }
 
     const confirmation =
       buildMatchingConfirmation(
         sourceCar,
         matching,
-        draft.slotId
+        selectedSlotId
       );
+
+    const totalPlayers =
+      Array.isArray(
+        sourceCar.players
+      )
+        ? sourceCar.players.length
+        : 0;
 
     const pendingCount =
       Number(
@@ -1911,34 +2195,31 @@
         0
       );
 
-    let confirmText =
+    let message =
       "確定使用這個時間開團嗎？\n\n" +
       formatDate(
-        draft.gameDate
+        slot.date
       ) +
       "\n" +
-      draft.gameTime +
-      "\n\n" +
-      "原車玩家：" +
-      originalPlayers.length +
+      slot.time +
+      "\n\n原車玩家：" +
+      totalPlayers +
       " 人";
 
     if (
       pendingCount > 0
     ) {
-      confirmText +=
+      message +=
         "\n\n⚠️ 有 " +
         pendingCount +
         " 位玩家需要確認時間。";
     } else {
-      confirmText +=
-        "\n\n✓ 原車玩家皆可參加此時段。";
+      message +=
+        "\n\n✓ 所有玩家皆可參加。";
     }
 
     const confirmed =
-      confirm(
-        confirmText
-      );
+      confirm(message);
 
     if (!confirmed) {
       return;
@@ -1952,10 +2233,14 @@
     );
 
     try {
+      const carId =
+        sourceCar.id ||
+        getCarId();
+
       const sameDayCars =
         await findSameDayCars(
-          draft.gameDate,
-          draft.sourceCarId
+          slot.date,
+          carId
         );
 
       if (
@@ -1973,20 +2258,10 @@
         }
       }
 
-      const db =
-        getDb();
-
-      const sourceCarRef =
-        db
-          .collection("cars")
-          .doc(
-            draft.sourceCarId
-          );
-
-      const completedAt =
+      const timestamp =
         nowTime();
 
-      const sourceHistory =
+      const history =
         Array.isArray(
           sourceCar.history
         )
@@ -1995,25 +2270,25 @@
             ]
           : [];
 
-      sourceHistory.push({
+      history.push({
         type:
           "媒合選定時間",
 
         text:
           "媒合完成，選定 " +
-          draft.gameDate +
+          slot.date +
           " " +
-          draft.gameTime +
-          "，原車轉為招募中",
+          slot.time +
+          "，車團轉為招募中",
 
         time:
-          completedAt
+          timestamp
       });
 
       if (
         pendingCount > 0
       ) {
-        sourceHistory.push({
+        history.push({
           type:
             "媒合待確認",
 
@@ -2023,16 +2298,16 @@
             " 位玩家需要確認",
 
           time:
-            completedAt
+            timestamp
         });
       }
 
       const updateData = {
         gameDate:
-          draft.gameDate,
+          slot.date,
 
         gameTime:
-          draft.gameTime,
+          slot.time,
 
         status:
           "招募中",
@@ -2059,49 +2334,38 @@
           4,
 
         "matching.selectedSlotId":
-          draft.slotId,
+          slot.id,
 
         "matching.selectedDate":
-          draft.gameDate,
+          slot.date,
 
         "matching.selectedTime":
-          draft.gameTime,
+          slot.time,
 
         "matching.completedAt":
-          completedAt,
+          timestamp,
 
         "matching.updatedAt":
-          completedAt,
+          timestamp,
 
         matchingConfirmation:
           confirmation,
 
-        history:
-          sourceHistory,
+        history,
 
         updatedAt:
-          completedAt
+          timestamp
       };
 
-      /*
-        注意：
-        不更新 players。
-        不更新 slots。
-        不更新 DM。
-        不更新工作室。
-        不建立第二台 Car。
-
-        原車所有正式資料完整保留。
-      */
-
-      await sourceCarRef.update(
-        updateData
-      );
+      await getDb()
+        .collection("cars")
+        .doc(carId)
+        .update(updateData);
 
       location.href =
         "/pages/car-detail.html?id=" +
         encodeURIComponent(
-          draft.sourceCarId
+          carId
         );
     } catch (error) {
       console.error(

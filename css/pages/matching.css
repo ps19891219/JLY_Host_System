@@ -1124,3 +1124,61 @@
 .matching-create-car-next {
   margin: 0;
 }
+
+/* ========================================
+   Matching Final Summary
+======================================== */
+
+.matching-final-summary {
+  display: grid;
+  grid-template-columns:
+    repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.matching-final-summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 11px 6px;
+  border-radius: 12px;
+  background: #f7f7f7;
+}
+
+.matching-final-summary-item strong {
+  font-size: 20px;
+  color: #333333;
+}
+
+.matching-final-summary-item span {
+  font-size: 12px;
+  color: #777777;
+}
+
+.matching-final-reminder {
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: #fff7dd;
+  color: #7b5a00;
+  font-size: 13px;
+}
+
+.matching-final-reminder strong,
+.matching-final-reminder p {
+  display: block;
+  margin: 0;
+}
+
+.matching-final-reminder p {
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+.matching-final-reminder.is-complete {
+  background: #edf8f2;
+  color: #39795c;
+  text-align: center;
+}
