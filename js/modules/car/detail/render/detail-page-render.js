@@ -126,6 +126,194 @@ console.log(
       );
   }
 
+    // ------------------------------------------------------------
+  // Matching Confirmation Render
+  //
+  // 媒合完成後，若仍有玩家需要確認最終時間，
+  // 在一般車團詳情頁暫時顯示確認卡。
+  //
+  // 規則：
+  // - 只產生 HTML
+  // - 不修改 Firestore
+  // - 不直接移除玩家
+  // - 所有人處理完成後，自動不再顯示
+  // ------------------------------------------------------------
+
+  function buildMatchingConfirmationSectionHtml(
+    car
+  ) {
+    const confirmation =
+      car &&
+      car.matchingConfirmation &&
+      typeof car.matchingConfirmation ===
+        "object"
+        ? car.matchingConfirmation
+        : null;
+
+    if (
+      !confirmation ||
+      confirmation.status !==
+        "pending"
+    ) {
+      return "";
+    }
+
+    const players =
+      Array.isArray(
+        confirmation.players
+      )
+        ? confirmation.players
+        : [];
+
+    const pendingPlayers =
+      players.filter(
+        function (player) {
+          return (
+            player &&
+            player.resolved !== true
+          );
+        }
+      );
+
+        if (
+      pendingPlayers.length === 0
+    ) {
+      return `
+        <section
+          class="card matching-confirmation-card"
+        >
+          <div
+            class="matching-confirmation-complete"
+          >
+            <div>
+              <h3>
+                ✅ 玩家時間確認完成
+              </h3>
+
+              <p>
+                所有待確認玩家都已處理，
+                按下完成後將恢復一般車團畫面。
+              </p>
+            </div>
+
+            <button
+              type="button"
+              class="matching-confirmation-finish-button"
+              onclick="finalizeMatchingConfirmation()"
+            >
+              確認完成
+            </button>
+          </div>
+        </section>
+      `;
+    }
+
+    const playerCards =
+      pendingPlayers
+        .map(
+          function (player) {
+            const playerId =
+              escapeValue(
+                player.playerId ||
+                ""
+              );
+
+            const playerName =
+              escapeValue(
+                player.playerName ||
+                "未命名玩家"
+              );
+
+            const availability =
+              player.availability ===
+                "no_response"
+                ? "尚未回覆媒合"
+                : "未勾選這個時間";
+
+            return `
+              <div
+                class="matching-confirmation-player"
+              >
+                <div
+                  class="matching-confirmation-player-info"
+                >
+                  <strong>
+                    ${playerName}
+                  </strong>
+
+                  <span>
+                    ${availability}
+                  </span>
+                </div>
+
+                <div
+                  class="matching-confirmation-player-actions"
+                >
+                  <button
+                    type="button"
+                    class="matching-confirmation-keep-button"
+                    onclick="
+                      confirmMatchingPlayerKeep(
+                        '${playerId}'
+                      )
+                    "
+                  >
+                    確認保留
+                  </button>
+
+                  <button
+                    type="button"
+                    class="matching-confirmation-remove-button"
+                    onclick="
+                      removeMatchingPlayer(
+                        '${playerId}'
+                      )
+                    "
+                  >
+                    移出車團
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+        )
+        .join("");
+
+    return `
+      <section
+        class="card matching-confirmation-card"
+      >
+        <div
+          class="matching-confirmation-heading"
+        >
+          <div>
+            <h3>
+              ⚠️ 媒合時間待確認
+            </h3>
+
+            <p>
+              最終時間已確定，
+              還有 ${pendingPlayers.length}
+              位玩家需要確認。
+            </p>
+          </div>
+
+          <span
+            class="matching-confirmation-count"
+          >
+            ${pendingPlayers.length} 人
+          </span>
+        </div>
+
+        <div
+          class="matching-confirmation-list"
+        >
+          ${playerCards}
+        </div>
+      </section>
+    `;
+  }
+
   // ------------------------------------------------------------
   // Application Render
   //
@@ -261,8 +449,12 @@ console.log(
         safeConfig.scriptName
       )}
 
-      ${buildCarSummaryHtml(
+            ${buildCarSummaryHtml(
         safeConfig
+      )}
+
+      ${buildMatchingConfirmationSectionHtml(
+        car
       )}
 
       ${buildSeatSectionHtml(
@@ -291,6 +483,8 @@ console.log(
     buildStaffSectionHtml,
 
     buildSeatSectionHtml,
+
+    buildMatchingConfirmationSectionHtml,
 
     buildApplicationsSectionHtml,
 

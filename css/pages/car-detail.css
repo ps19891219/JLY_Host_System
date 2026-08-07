@@ -1541,3 +1541,126 @@ white-space:pre-wrap;
     align-items: center;
   }
 }
+
+/* ========================================
+   Matching Confirmation
+======================================== */
+
+.matching-confirmation-card {
+  margin-top: 14px;
+  border: 1px solid #f1d88b;
+  background: #fffdf5;
+}
+
+.matching-confirmation-heading,
+.matching-confirmation-complete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.matching-confirmation-heading h3,
+.matching-confirmation-complete h3 {
+  margin: 0;
+}
+
+.matching-confirmation-heading p,
+.matching-confirmation-complete p {
+  margin: 5px 0 0;
+  color: #777777;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.matching-confirmation-count {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff0bd;
+  color: #795c00;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.matching-confirmation-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.matching-confirmation-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.matching-confirmation-player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.matching-confirmation-player-info strong {
+  color: #333333;
+}
+
+.matching-confirmation-player-info span {
+  color: #8a6b17;
+  font-size: 12px;
+}
+
+.matching-confirmation-player-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.matching-confirmation-player-actions button,
+.matching-confirmation-finish-button {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 8px 11px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.matching-confirmation-keep-button {
+  border: 1px solid #86c7a4;
+  background: #edf8f2;
+  color: #317653;
+}
+
+.matching-confirmation-remove-button {
+  border: 1px solid #e6aaa5;
+  background: #fff1f0;
+  color: #a54038;
+}
+
+.matching-confirmation-finish-button {
+  border: 0;
+  background: #39795c;
+  color: #ffffff;
+}
+
+@media (max-width: 600px) {
+  .matching-confirmation-player,
+  .matching-confirmation-complete {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .matching-confirmation-player-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .matching-confirmation-player-actions button,
+  .matching-confirmation-finish-button {
+    width: 100%;
+  }
+}
