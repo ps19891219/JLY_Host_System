@@ -246,7 +246,7 @@
     );
   }
 
-  function getParticipantsFromCar(
+    function getParticipantsFromCar(
     car
   ) {
     const sourceCar =
@@ -255,6 +255,10 @@
         "object"
         ? car
         : {};
+
+    // ============================================================
+    // 玩家
+    // ============================================================
 
     const players =
       Array.isArray(
@@ -270,6 +274,18 @@
             player,
             index
           ) {
+            const playerKey =
+              getPlayerKey(
+                player,
+                index
+              );
+
+            const playerName =
+              getPlayerName(
+                player,
+                index
+              );
+
             return {
               raw:
                 player,
@@ -280,10 +296,7 @@
                 "player",
 
               participantKey:
-                getPlayerKey(
-                  player,
-                  index
-                ),
+                playerKey,
 
               participantId:
                 String(
@@ -293,20 +306,11 @@
                 ).trim(),
 
               participantName:
-                getPlayerName(
-                  player,
-                  index
-                ),
+                playerName,
 
-              /*
-                保留舊名稱，
-                讓現有 V2 程式繼續相容。
-              */
+              // 舊版 V2 相容
               playerKey:
-                getPlayerKey(
-                  player,
-                  index
-                ),
+                playerKey,
 
               playerId:
                 String(
@@ -316,10 +320,7 @@
                 ).trim(),
 
               playerName:
-                getPlayerName(
-                  player,
-                  index
-                ),
+                playerName,
 
               position:
                 String(
@@ -347,67 +348,68 @@
           }
         );
 
-    /*
-      ==============================
-      DM
-      ==============================
+    // ============================================================
+    // DM / 工作人員
+    //
+    // 新版正式資料來源：
+    // car.staffSlots
+    //
+    // 不再使用舊 dmName / dmList，
+    // 避免把已過期的 DM 抓回來。
+    // ============================================================
 
-      同時支援：
-      dmName: "小魚"
-
-      與：
-      dmList: [
-        "小魚",
-        { id, name },
-        { dmId, dmName }
-      ]
-    */
-
-    const rawDms = [];
-
-    if (
+    const staffSlots =
       Array.isArray(
-        sourceCar.dmList
+        sourceCar.staffSlots
       )
-    ) {
-      sourceCar.dmList
-        .forEach(
-          function (dm) {
-            rawDms.push(dm);
-          }
-        );
-    }
-
-    const singleDmName =
-      String(
-        sourceCar.dmName ||
-        ""
-      ).trim();
-
-    if (singleDmName) {
-      rawDms.push(
-        singleDmName
-      );
-    }
+        ? sourceCar.staffSlots
+        : [];
 
     const seenDmKeys =
       new Set();
 
     const dmParticipants =
-      rawDms
+      staffSlots
         .map(
           function (
-            dm,
+            staff,
             index
           ) {
+            if (
+              !staff ||
+              typeof staff !==
+                "object"
+            ) {
+              return null;
+            }
+
             const dmName =
-              getDmName(
-                dm,
-                index
-              );
+              String(
+                staff.displayName ||
+                (
+                  staff.memberSnapshot &&
+                  staff.memberSnapshot
+                    .displayName
+                ) ||
+                staff.name ||
+                ""
+              ).trim();
+
+            if (!dmName) {
+              return null;
+            }
 
             const dmId =
-              getDmId(dm);
+              String(
+                staff.memberId ||
+                (
+                  staff.memberSnapshot &&
+                  staff.memberSnapshot
+                    .memberId
+                ) ||
+                staff.id ||
+                ""
+              ).trim();
 
             const dedupeKey =
               dmId
@@ -435,14 +437,23 @@
             );
 
             const dmKey =
-              getDmKey(
-                dm,
-                index
-              );
+              dmId
+                ? (
+                    "dm:" +
+                    dmId
+                  )
+                : (
+                    "dm:staff:" +
+                    (index + 1) +
+                    ":" +
+                    normalizeText(
+                      dmName
+                    )
+                  );
 
             return {
               raw:
-                dm,
+                staff,
 
               index,
 
@@ -458,10 +469,7 @@
               participantName:
                 dmName,
 
-              /*
-                沿用現有 UI 變數名稱，
-                避免整支程式大搬家。
-              */
+              // 舊變數名稱相容
               playerKey:
                 dmKey,
 
@@ -472,31 +480,36 @@
                 dmName,
 
               position:
-                "DM"
+                "DM",
+
+              staffOrder:
+                Number(
+                  staff.order ||
+                  index + 1
+                ),
+
+              staffLabel:
+                String(
+                  staff.label ||
+                  ""
+                ).trim(),
+
+              source:
+                "staff_slot"
             };
           }
         )
         .filter(Boolean);
 
+    // ============================================================
+    // 合併媒合參與者
+    // DM 先、玩家後
+    // ============================================================
+
     return [
-      ...playerParticipants,
-      ...dmParticipants
+      ...dmParticipants,
+      ...playerParticipants
     ];
-  }
-
-  function getOriginalPlayers() {
-    return getParticipantsFromCar(
-      currentCar
-    );
-  }
-
-  function getPlayerStorageKey(
-    carId
-  ) {
-    return (
-      "jlyMatchingPlayerKey:" +
-      carId
-    );
   }
 
   function getSavedPlayerKey(
