@@ -184,8 +184,16 @@
             slots.map(
               function (slot) {
                 return `
-                  <tr>
-                    <th
+                  <tr
+  class="matching-matrix-row"
+  data-slot-id="${escapeHtml(
+    slot.id
+  )}"
+  onclick="selectMatchingSlot('${escapeHtml(
+    slot.id
+  )}')"
+>
+  <th
                       scope="row"
                       title="${escapeHtml(
                         formatDate(
@@ -285,9 +293,17 @@
         <tbody>
           ${
             slots.map(
-              function (slot) {
-                return `
-                  <tr>
+  function (slot) {
+    return `
+      <tr
+        class="matching-matrix-row"
+        data-slot-id="${escapeHtml(
+          slot.id
+        )}"
+        onclick="selectMatchingSlot('${escapeHtml(
+          slot.id
+        )}')"
+      >
                     ${
                       responses.map(
                         function (
@@ -365,8 +381,16 @@
                     totalResponses;
 
                 return `
-                  <tr>
-                    <td
+  <tr
+    class="matching-matrix-row"
+    data-slot-id="${escapeHtml(
+      slot.id
+    )}"
+    onclick="selectMatchingSlot('${escapeHtml(
+      slot.id
+    )}')"
+  >
+    <td
                       class="${
                         isEveryone
                           ? "is-complete"

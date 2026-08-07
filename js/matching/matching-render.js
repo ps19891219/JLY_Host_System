@@ -798,6 +798,12 @@
           hidden
         ></div>
 
+        <div
+  id="matchingCreateCarContainer"
+  class="matching-create-car-container"
+  hidden
+></div>
+
       </section>
     `;
   }

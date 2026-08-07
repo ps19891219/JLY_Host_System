@@ -974,3 +974,153 @@
     height: 64px;
   }
 }
+
+/* ========================================
+   Matching Create Formal Car V1
+======================================== */
+
+.matching-matrix-row {
+  cursor: pointer;
+}
+
+.matching-matrix-row:hover th,
+.matching-matrix-row:hover td {
+  background: #f7fbf9;
+}
+
+.matching-matrix-row.is-selected th,
+.matching-matrix-row.is-selected td {
+  background: #e8f7ef;
+}
+
+.matching-matrix-left-table
+.matching-matrix-row.is-selected th {
+  box-shadow:
+    inset 4px 0 0 #5faf88;
+}
+
+.matching-create-car-container {
+  margin-top: 16px;
+}
+
+.matching-create-car-container[hidden] {
+  display: none;
+}
+
+.matching-create-car-card {
+  padding: 16px;
+  border: 1px solid #dfeee6;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.matching-create-car-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.matching-create-car-label {
+  margin-bottom: 3px;
+  color: #888888;
+  font-size: 12px;
+}
+
+.matching-create-car-heading h3 {
+  margin: 0;
+  color: #333333;
+  font-size: 18px;
+}
+
+.matching-create-car-cancel {
+  width: auto;
+  min-width: max-content;
+  min-height: 0;
+  padding: 4px 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: #777777;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.matching-create-car-time {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px;
+  margin-bottom: 14px;
+  border-radius: 13px;
+  background: #f5faf7;
+}
+
+.matching-create-car-time > span {
+  font-size: 24px;
+}
+
+.matching-create-car-time strong,
+.matching-create-car-time small {
+  display: block;
+}
+
+.matching-create-car-time strong {
+  color: #333333;
+  font-size: 16px;
+}
+
+.matching-create-car-time small {
+  margin-top: 2px;
+  color: #777777;
+  font-size: 13px;
+}
+
+.matching-create-car-player-section {
+  margin-bottom: 15px;
+}
+
+.matching-create-car-player-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+  color: #555555;
+  font-size: 14px;
+}
+
+.matching-create-car-player-list {
+  display: grid;
+  gap: 8px;
+}
+
+.matching-create-car-player {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 9px 11px;
+  margin: 0;
+  border: 1px solid #eeeeee;
+  border-radius: 11px;
+  background: #fafafa;
+}
+
+.matching-create-car-player input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.matching-create-car-empty {
+  padding: 14px;
+  border-radius: 11px;
+  background: #fafafa;
+  color: #888888;
+  text-align: center;
+}
+
+.matching-create-car-next {
+  margin: 0;
+}
