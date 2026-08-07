@@ -253,3 +253,116 @@ body {
   line-height: 1.7;
   text-align: center;
 }
+
+/* ========================================
+   Matching Vote V2
+   原車玩家身分選擇
+======================================== */
+
+.matching-vote-player-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.matching-vote-player-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 58px;
+  padding: 12px 14px;
+
+  border: 1px solid #e7e7e7;
+  border-radius: 14px;
+
+  background: #ffffff;
+  color: #333333;
+
+  text-align: left;
+  cursor: pointer;
+}
+
+.matching-vote-player-button:hover {
+  border-color: #8fcdb0;
+  background: #f5fbf8;
+}
+
+.matching-vote-player-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.matching-vote-player-main strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.matching-vote-player-main small {
+  color: #888888;
+  font-size: 12px;
+}
+
+.matching-vote-player-state {
+  flex: 0 0 auto;
+
+  padding: 5px 9px;
+  border-radius: 999px;
+
+  background: #f2f2f2;
+  color: #777777;
+
+  font-size: 12px;
+}
+
+.matching-vote-player-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  padding: 12px 14px;
+  margin-bottom: 18px;
+
+  border-radius: 13px;
+  background: #f4faf7;
+}
+
+.matching-vote-player-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.matching-vote-player-summary small {
+  color: #888888;
+  font-size: 12px;
+}
+
+.matching-vote-player-summary strong {
+  color: #333333;
+  font-size: 16px;
+}
+
+.matching-vote-player-summary button {
+  width: auto;
+  min-height: 0;
+  padding: 7px 11px;
+  margin: 0;
+
+  border: 1px solid #dddddd;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: #666666;
+
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.matching-vote-change-player {
+  margin-top: 10px;
+}
