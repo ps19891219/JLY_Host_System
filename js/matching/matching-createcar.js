@@ -276,9 +276,9 @@
       isBusy;
 
     button.textContent =
-      isBusy
-        ? "建立中…"
-        : "建立正式車團";
+   isBusy
+     ? "確認中…"
+     : "確定此時間並開團";
   }
 
   function renderSelectedSlotCard() {
@@ -463,7 +463,7 @@
               : ""
           }
         >
-          建立正式車團
+          確定此時間並開團
         </button>
 
       </section>
@@ -1582,6 +1582,217 @@
     return car;
   }
 
+    function normalizeMatchingName(
+    value
+  ) {
+    return String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  }
+
+  function getFormalPlayerName(
+    player
+  ) {
+    return String(
+      player.hostAlias ||
+      player.displayName ||
+      player.playerName ||
+      player.name ||
+      ""
+    ).trim();
+  }
+
+  function findResponseForPlayer(
+    player,
+    responses
+  ) {
+    const playerId =
+      String(
+        player.playerId ||
+        player.id ||
+        ""
+      ).trim();
+
+    /*
+      未來會員正式綁定後，
+      優先使用 playerId / memberId。
+    */
+    if (playerId) {
+      const byId =
+        responses.find(
+          function (response) {
+            const responsePlayerId =
+              String(
+                response.playerId ||
+                response.memberId ||
+                response.userId ||
+                ""
+              ).trim();
+
+            return (
+              responsePlayerId &&
+              responsePlayerId ===
+                playerId
+            );
+          }
+        );
+
+      if (byId) {
+        return byId;
+      }
+    }
+
+    /*
+      現階段舊媒合資料可能還沒有會員 ID，
+      暫時以顯示名稱相容。
+    */
+    const playerName =
+      normalizeMatchingName(
+        getFormalPlayerName(
+          player
+        )
+      );
+
+    if (!playerName) {
+      return null;
+    }
+
+    return (
+      responses.find(
+        function (response) {
+          const responseName =
+            normalizeMatchingName(
+              response.name ||
+              response.playerName ||
+              response.displayName ||
+              ""
+            );
+
+          return (
+            responseName ===
+            playerName
+          );
+        }
+      ) ||
+      null
+    );
+  }
+
+  function buildMatchingConfirmation(
+    sourceCar,
+    matching,
+    selectedSlotId
+  ) {
+    const players =
+      Array.isArray(
+        sourceCar.players
+      )
+        ? sourceCar.players
+        : [];
+
+    const responses =
+      getResponses(
+        matching
+      );
+
+    const confirmationPlayers =
+      players.map(
+        function (player) {
+          const response =
+            findResponseForPlayer(
+              player,
+              responses
+            );
+
+          let availability =
+            "no_response";
+
+          if (response) {
+            const selected =
+              Array.isArray(
+                response.slotIds
+              ) &&
+              response.slotIds.includes(
+                selectedSlotId
+              );
+
+            availability =
+              selected
+                ? "available"
+                : "unavailable";
+          }
+
+          return {
+            playerId:
+              player.playerId ||
+              player.id ||
+              "",
+
+            playerName:
+              getFormalPlayerName(
+                player
+              ),
+
+            availability,
+
+            resolved:
+              availability ===
+              "available",
+
+            action:
+              availability ===
+              "available"
+                ? "keep"
+                : "",
+
+            responseId:
+              response
+                ? (
+                    response.id ||
+                    ""
+                  )
+                : ""
+          };
+        }
+      );
+
+    const pendingPlayers =
+      confirmationPlayers.filter(
+        function (item) {
+          return (
+            item.availability !==
+            "available"
+          );
+        }
+      );
+
+    return {
+      status:
+        pendingPlayers.length > 0
+          ? "pending"
+          : "completed",
+
+      selectedSlotId,
+
+      createdAt:
+        nowTime(),
+
+      completedAt:
+        pendingPlayers.length === 0
+          ? nowTime()
+          : "",
+
+      players:
+        confirmationPlayers,
+
+      pendingCount:
+        pendingPlayers.length
+    };
+  }
+
   async function findSameDayCars(
     gameDate,
     sourceCarId
@@ -1654,7 +1865,7 @@
     return lines.join("\n");
   }
 
-  async function createFormalCarFromMatching() {
+    async function createFormalCarFromMatching() {
     if (isCreatingCar) {
       return;
     }
@@ -1665,9 +1876,13 @@
     const sourceCar =
       getSourceCar();
 
+    const matching =
+      getMatching();
+
     if (
       !draft ||
-      !sourceCar
+      !sourceCar ||
+      !matching
     ) {
       alert(
         "找不到已選擇的媒合資料。"
@@ -1676,27 +1891,53 @@
       return;
     }
 
-    if (
-      draft.players.length === 0
-    ) {
-      alert(
-        "請至少保留一位玩家。"
+    const originalPlayers =
+      Array.isArray(
+        sourceCar.players
+      )
+        ? sourceCar.players
+        : [];
+
+    const confirmation =
+      buildMatchingConfirmation(
+        sourceCar,
+        matching,
+        draft.slotId
       );
 
-      return;
+    const pendingCount =
+      Number(
+        confirmation.pendingCount ||
+        0
+      );
+
+    let confirmText =
+      "確定使用這個時間開團嗎？\n\n" +
+      formatDate(
+        draft.gameDate
+      ) +
+      "\n" +
+      draft.gameTime +
+      "\n\n" +
+      "原車玩家：" +
+      originalPlayers.length +
+      " 人";
+
+    if (
+      pendingCount > 0
+    ) {
+      confirmText +=
+        "\n\n⚠️ 有 " +
+        pendingCount +
+        " 位玩家需要確認時間。";
+    } else {
+      confirmText +=
+        "\n\n✓ 原車玩家皆可參加此時段。";
     }
 
     const confirmed =
       confirm(
-        "確定建立正式車團嗎？\n\n" +
-        formatDate(
-          draft.gameDate
-        ) +
-        "\n" +
-        draft.gameTime +
-        "\n\n加入玩家：" +
-        draft.players.length +
-        " 人"
+        confirmText
       );
 
     if (!confirmed) {
@@ -1732,31 +1973,8 @@
         }
       }
 
-      const formalCar =
-        buildFormalCar(
-          draft,
-          sourceCar
-        );
-
-      formalCar.conflictStatus =
-        sameDayCars.length > 0
-          ? "pending"
-          : "none";
-
-      formalCar.conflictWithCarIds =
-        sameDayCars.map(
-          function (car) {
-            return car.id;
-          }
-        );
-
       const db =
         getDb();
-
-      const newCarRef =
-        db
-          .collection("cars")
-          .doc();
 
       const sourceCarRef =
         db
@@ -1779,79 +1997,120 @@
 
       sourceHistory.push({
         type:
-          "媒合完成",
+          "媒合選定時間",
 
         text:
-          "已建立正式車團：" +
+          "媒合完成，選定 " +
           draft.gameDate +
           " " +
-          draft.gameTime,
-
-        formalCarId:
-          newCarRef.id,
+          draft.gameTime +
+          "，原車轉為招募中",
 
         time:
           completedAt
       });
 
-      const batch =
-        db.batch();
+      if (
+        pendingCount > 0
+      ) {
+        sourceHistory.push({
+          type:
+            "媒合待確認",
 
-      batch.set(
-        newCarRef,
-        formalCar
-      );
+          text:
+            "選定時間後有 " +
+            pendingCount +
+            " 位玩家需要確認",
 
-      batch.update(
-        sourceCarRef,
-        {
-          "matching.status":
-            "completed",
-
-          "matching.currentStep":
-            4,
-
-          "matching.selectedSlotId":
-            draft.slotId,
-
-          "matching.selectedDate":
-            draft.gameDate,
-
-          "matching.selectedTime":
-            draft.gameTime,
-
-          "matching.formalCarId":
-            newCarRef.id,
-
-          "matching.completedAt":
-            completedAt,
-
-          "matching.updatedAt":
-            completedAt,
-
-          history:
-            sourceHistory,
-
-          updatedAt:
+          time:
             completedAt
-        }
-      );
+        });
+      }
 
-      await batch.commit();
+      const updateData = {
+        gameDate:
+          draft.gameDate,
+
+        gameTime:
+          draft.gameTime,
+
+        status:
+          "招募中",
+
+        planningStatus:
+          "scheduled",
+
+        conflictStatus:
+          sameDayCars.length > 0
+            ? "pending"
+            : "none",
+
+        conflictWithCarIds:
+          sameDayCars.map(
+            function (car) {
+              return car.id;
+            }
+          ),
+
+        "matching.status":
+          "completed",
+
+        "matching.currentStep":
+          4,
+
+        "matching.selectedSlotId":
+          draft.slotId,
+
+        "matching.selectedDate":
+          draft.gameDate,
+
+        "matching.selectedTime":
+          draft.gameTime,
+
+        "matching.completedAt":
+          completedAt,
+
+        "matching.updatedAt":
+          completedAt,
+
+        matchingConfirmation:
+          confirmation,
+
+        history:
+          sourceHistory,
+
+        updatedAt:
+          completedAt
+      };
+
+      /*
+        注意：
+        不更新 players。
+        不更新 slots。
+        不更新 DM。
+        不更新工作室。
+        不建立第二台 Car。
+
+        原車所有正式資料完整保留。
+      */
+
+      await sourceCarRef.update(
+        updateData
+      );
 
       location.href =
         "/pages/car-detail.html?id=" +
         encodeURIComponent(
-          newCarRef.id
+          draft.sourceCarId
         );
     } catch (error) {
       console.error(
-        "媒合建立正式車團失敗：",
+        "媒合確認開團失敗：",
         error
       );
 
       alert(
-        "建立失敗：" +
+        "確認失敗：" +
         (
           error &&
           error.message
