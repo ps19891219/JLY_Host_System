@@ -719,7 +719,7 @@ console.log(
     }
   }
 
-  async function finalizeMatchingConfirmation() {
+    async function finalizeMatchingConfirmation() {
     const db =
       window.db;
 
@@ -834,8 +834,99 @@ console.log(
             );
           }
 
+          /*
+            ==============================
+            取得媒合最終日期 / 時間
+            ==============================
+          */
+
+          const matching =
+            car.matching &&
+            typeof car.matching ===
+              "object"
+              ? car.matching
+              : {};
+
+          const selectedSlotId =
+            String(
+              matching.selectedSlotId ||
+              confirmation.selectedSlotId ||
+              ""
+            ).trim();
+
+          const candidateSlots =
+            Array.isArray(
+              matching.candidateSlots
+            )
+              ? matching.candidateSlots
+              : [];
+
+          /*
+            正常情況直接使用
+            matching.selectedDate /
+            matching.selectedTime。
+
+            selectedSlotId + candidateSlots
+            則作為保底資料。
+          */
+
+          const selectedSlot =
+            candidateSlots.find(
+              function (slot) {
+                return (
+                  slot &&
+                  String(slot.id) ===
+                    selectedSlotId
+                );
+              }
+            ) ||
+            null;
+
+          const selectedDate =
+            String(
+              matching.selectedDate ||
+              (
+                selectedSlot &&
+                selectedSlot.date
+              ) ||
+              ""
+            ).trim();
+
+          const selectedTime =
+            String(
+              matching.selectedTime ||
+              (
+                selectedSlot &&
+                selectedSlot.time
+              ) ||
+              ""
+            ).trim();
+
+          /*
+            不允許在日期或時間遺失時
+            把規劃車錯誤轉成正式車團。
+          */
+
+          if (!selectedDate) {
+            throw new Error(
+              "媒合資料缺少最終日期"
+            );
+          }
+
+          if (!selectedTime) {
+            throw new Error(
+              "媒合資料缺少最終時間"
+            );
+          }
+
           const timestamp =
             nowTime();
+
+          /*
+            ==============================
+            完成玩家確認
+            ==============================
+          */
 
           confirmation.status =
             "completed";
@@ -849,6 +940,12 @@ console.log(
           confirmation.updatedAt =
             timestamp;
 
+          /*
+            ==============================
+            History
+            ==============================
+          */
+
           const history =
             buildHistory(car);
 
@@ -857,15 +954,76 @@ console.log(
               "媒合確認完成",
 
             text:
-              "最終時段的玩家確認已全部完成",
+              "最終時段的玩家確認已全部完成，車團時間定案為 " +
+              selectedDate +
+              " " +
+              selectedTime,
 
             time:
               timestamp
           });
 
+          /*
+            ==============================
+            正式把「規劃車」
+            轉成「開團中」
+
+            重要：
+            不建立新車。
+            不重建玩家。
+            不重建席位。
+            原車直接轉正式車團。
+            ==============================
+          */
+
           transaction.update(
             carRef,
             {
+              gameDate:
+                selectedDate,
+
+              gameTime:
+                selectedTime,
+
+              status:
+                "開團中",
+
+              planningStatus:
+                "scheduled",
+
+              /*
+                保留完整 matching 歷史，
+                只將流程標記為完成。
+              */
+
+              "matching.status":
+                "completed",
+
+              "matching.currentStep":
+                4,
+
+              "matching.selectedDate":
+                selectedDate,
+
+              "matching.selectedTime":
+                selectedTime,
+
+              "matching.selectedSlotId":
+                selectedSlotId,
+
+              "matching.completedAt":
+                matching.completedAt ||
+                timestamp,
+
+              "matching.updatedAt":
+                timestamp,
+
+              /*
+                玩家確認資料也保留在 DB，
+                UI 因為 completed
+                不再顯示黃色提醒。
+              */
+
               matchingConfirmation:
                 confirmation,
 
@@ -880,7 +1038,15 @@ console.log(
         }
       );
 
+      /*
+        重新 render 原車詳細頁。
+
+        完成後應直接呈現成
+        一般「開團中」車團。
+      */
+
       await refreshPage();
+
     } catch (error) {
       console.error(
         "完成媒合確認失敗：",
