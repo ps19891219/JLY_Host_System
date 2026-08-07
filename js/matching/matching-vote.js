@@ -512,6 +512,21 @@
     ];
   }
 
+    function getOriginalPlayers() {
+    return getParticipantsFromCar(
+      currentCar
+    );
+  }
+
+  function getPlayerStorageKey(
+    carId
+  ) {
+    return (
+      "jlyMatchingPlayerKey:" +
+      carId
+    );
+  }
+
   function getSavedPlayerKey(
     carId
   ) {
