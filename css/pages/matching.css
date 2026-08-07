@@ -1182,3 +1182,88 @@
   color: #39795c;
   text-align: center;
 }
+
+/* ========================================
+   Matching Matrix V2
+   DM / Player Groups
+======================================== */
+
+.matching-matrix-group-row th {
+  height: 30px;
+  padding: 5px 8px;
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.matching-matrix-group-header.is-dm {
+  border-right: 2px solid #dddddd;
+}
+
+.matching-matrix-name-row th {
+  height: 48px;
+}
+
+.matching-matrix-person-header {
+  min-width: 68px;
+}
+
+.matching-matrix-person-header.is-dm:last-of-type,
+.matching-matrix-person-cell.is-dm:last-of-type {
+  border-right: 2px solid #dddddd;
+}
+
+.matching-matrix-person-role {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+}
+
+.matching-matrix-player-name {
+  display: block;
+  max-width: 66px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matching-matrix-person-cell.is-pending {
+  font-size: 20px;
+  opacity: 0.45;
+}
+
+.matching-matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 10px 0;
+  font-size: 12px;
+  color: #666666;
+}
+
+.matching-matrix-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.matching-matrix-total-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+}
+
+.matching-matrix-total-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.matching-matrix-right-v2 td {
+  min-width: 66px;
+}
