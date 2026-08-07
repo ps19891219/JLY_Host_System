@@ -366,3 +366,31 @@ body {
 .matching-vote-change-player {
   margin-top: 10px;
 }
+
+/* ========================================
+   Matching Participant Groups
+   Player + DM
+======================================== */
+
+.matching-vote-participant-section {
+  margin-top: 20px;
+}
+
+.matching-vote-participant-section +
+.matching-vote-participant-section {
+  padding-top: 18px;
+  border-top: 1px solid #eeeeee;
+}
+
+.matching-vote-participant-title {
+  margin-bottom: 9px;
+
+  color: #555555;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.matching-vote-participant-section
+.matching-vote-player-list {
+  margin-top: 0;
+}

@@ -152,71 +152,342 @@
     ].join("-");
   }
 
-  function getOriginalPlayers() {
+    function getDmName(
+    dm,
+    index
+  ) {
+    if (
+      typeof dm ===
+      "string"
+    ) {
+      const text =
+        dm.trim();
+
+      return (
+        text ||
+        "DM " + (index + 1)
+      );
+    }
+
+    if (
+      !dm ||
+      typeof dm !==
+        "object"
+    ) {
+      return (
+        "DM " + (index + 1)
+      );
+    }
+
+    const name =
+      String(
+        dm.dmName ||
+        dm.displayName ||
+        dm.name ||
+        dm.nickname ||
+        dm.title ||
+        ""
+      ).trim();
+
+    return (
+      name ||
+      "DM " + (index + 1)
+    );
+  }
+
+  function getDmId(
+    dm
+  ) {
+    if (
+      !dm ||
+      typeof dm !==
+        "object"
+    ) {
+      return "";
+    }
+
+    return String(
+      dm.dmId ||
+      dm.memberId ||
+      dm.userId ||
+      dm.playerId ||
+      dm.id ||
+      ""
+    ).trim();
+  }
+
+  function getDmKey(
+    dm,
+    index
+  ) {
+    const directId =
+      getDmId(dm);
+
+    if (directId) {
+      return (
+        "dm:" +
+        directId
+      );
+    }
+
+    return (
+      "dm:legacy:" +
+      (index + 1) +
+      ":" +
+      (
+        normalizeText(
+          getDmName(
+            dm,
+            index
+          )
+        ) ||
+        "dm"
+      )
+    );
+  }
+
+  function getParticipantsFromCar(
+    car
+  ) {
+    const sourceCar =
+      car &&
+      typeof car ===
+        "object"
+        ? car
+        : {};
+
     const players =
       Array.isArray(
-        currentCar &&
-        currentCar.players
+        sourceCar.players
       )
-        ? currentCar.players
+        ? sourceCar.players
         : [];
 
-    return players
-      .map(
-        function (
-          player,
-          index
-        ) {
-          return {
-            raw:
-              player,
-
-            index,
-
-            playerKey:
-              getPlayerKey(
+    const playerParticipants =
+      players
+        .map(
+          function (
+            player,
+            index
+          ) {
+            return {
+              raw:
                 player,
-                index
-              ),
 
-            playerId:
-              String(
-                player.playerId ||
-                player.id ||
-                ""
-              ).trim(),
+              index,
 
-            playerName:
-              getPlayerName(
-                player,
-                index
-              ),
+              participantType:
+                "player",
 
-            position:
-              String(
-                player.position ||
+              participantKey:
+                getPlayerKey(
+                  player,
+                  index
+                ),
+
+              participantId:
+                String(
+                  player.playerId ||
+                  player.id ||
+                  ""
+                ).trim(),
+
+              participantName:
+                getPlayerName(
+                  player,
+                  index
+                ),
+
+              /*
+                保留舊名稱，
+                讓現有 V2 程式繼續相容。
+              */
+              playerKey:
+                getPlayerKey(
+                  player,
+                  index
+                ),
+
+              playerId:
+                String(
+                  player.playerId ||
+                  player.id ||
+                  ""
+                ).trim(),
+
+              playerName:
+                getPlayerName(
+                  player,
+                  index
+                ),
+
+              position:
+                String(
+                  player.position ||
+                  "不限"
+                ).trim() ||
                 "不限"
-              ).trim() ||
-              "不限"
-          };
-        }
-      )
-      .filter(
-        function (item) {
-          const status =
-            String(
-              item.raw.status ||
-              ""
-            ).trim();
+            };
+          }
+        )
+        .filter(
+          function (item) {
+            const status =
+              String(
+                item.raw.status ||
+                ""
+              ).trim();
 
-          return ![
-            "已取消",
-            "取消",
-            "removed",
-            "deleted"
-          ].includes(status);
-        }
+            return ![
+              "已取消",
+              "取消",
+              "removed",
+              "deleted"
+            ].includes(status);
+          }
+        );
+
+    /*
+      ==============================
+      DM
+      ==============================
+
+      同時支援：
+      dmName: "小魚"
+
+      與：
+      dmList: [
+        "小魚",
+        { id, name },
+        { dmId, dmName }
+      ]
+    */
+
+    const rawDms = [];
+
+    if (
+      Array.isArray(
+        sourceCar.dmList
+      )
+    ) {
+      sourceCar.dmList
+        .forEach(
+          function (dm) {
+            rawDms.push(dm);
+          }
+        );
+    }
+
+    const singleDmName =
+      String(
+        sourceCar.dmName ||
+        ""
+      ).trim();
+
+    if (singleDmName) {
+      rawDms.push(
+        singleDmName
       );
+    }
+
+    const seenDmKeys =
+      new Set();
+
+    const dmParticipants =
+      rawDms
+        .map(
+          function (
+            dm,
+            index
+          ) {
+            const dmName =
+              getDmName(
+                dm,
+                index
+              );
+
+            const dmId =
+              getDmId(dm);
+
+            const dedupeKey =
+              dmId
+                ? (
+                    "id:" +
+                    dmId
+                  )
+                : (
+                    "name:" +
+                    normalizeText(
+                      dmName
+                    )
+                  );
+
+            if (
+              seenDmKeys.has(
+                dedupeKey
+              )
+            ) {
+              return null;
+            }
+
+            seenDmKeys.add(
+              dedupeKey
+            );
+
+            const dmKey =
+              getDmKey(
+                dm,
+                index
+              );
+
+            return {
+              raw:
+                dm,
+
+              index,
+
+              participantType:
+                "dm",
+
+              participantKey:
+                dmKey,
+
+              participantId:
+                dmId,
+
+              participantName:
+                dmName,
+
+              /*
+                沿用現有 UI 變數名稱，
+                避免整支程式大搬家。
+              */
+              playerKey:
+                dmKey,
+
+              playerId:
+                "",
+
+              playerName:
+                dmName,
+
+              position:
+                "DM"
+            };
+          }
+        )
+        .filter(Boolean);
+
+    return [
+      ...playerParticipants,
+      ...dmParticipants
+    ];
+  }
+
+  function getOriginalPlayers() {
+    return getParticipantsFromCar(
+      currentCar
+    );
   }
 
   function getPlayerStorageKey(
@@ -282,8 +553,9 @@
     );
   }
 
-  function makeResponseKey(
-    playerKey
+    function makeResponseKey(
+    playerKey,
+    participantType = "player"
   ) {
     const safeKey =
       String(playerKey || "")
@@ -294,8 +566,14 @@
         )
         .slice(0, 120);
 
+    const prefix =
+      participantType ===
+        "dm"
+        ? "dm-"
+        : "player-";
+
     return (
-      "player-" +
+      prefix +
       (
         safeKey ||
         "unknown"
@@ -317,7 +595,7 @@
     );
   }
 
-  function findExistingResponseForPlayer(
+    function findExistingResponseForPlayer(
     player
   ) {
     if (!player) {
@@ -332,7 +610,26 @@
         responses
       );
 
-    const byKey =
+    const participantType =
+      player.participantType ||
+      "player";
+
+    const participantKey =
+      player.participantKey ||
+      player.playerKey ||
+      "";
+
+    const participantId =
+      player.participantId ||
+      player.playerId ||
+      "";
+
+    /*
+      第一順位：
+      新版 participantKey
+    */
+
+    const byParticipantKey =
       entries.find(
         function (
           entry
@@ -343,28 +640,39 @@
           return (
             response &&
             String(
+              response.participantKey ||
               response.playerKey ||
               ""
             ) ===
             String(
-              player.playerKey
+              participantKey
+            ) &&
+            (
+              !response.participantType ||
+              response.participantType ===
+                participantType
             )
           );
         }
       );
 
-    if (byKey) {
+    if (byParticipantKey) {
       return {
         responseId:
-          byKey[0],
+          byParticipantKey[0],
 
         response:
-          byKey[1]
+          byParticipantKey[1]
       };
     }
 
-    if (player.playerId) {
-      const byPlayerId =
+    /*
+      第二順位：
+      participantId
+    */
+
+    if (participantId) {
+      const byParticipantId =
         entries.find(
           function (
             entry
@@ -375,30 +683,50 @@
             return (
               response &&
               String(
+                response.participantId ||
                 response.playerId ||
                 ""
               ) ===
               String(
-                player.playerId
+                participantId
+              ) &&
+              (
+                !response.participantType ||
+                response.participantType ===
+                  participantType
               )
             );
           }
         );
 
-      if (byPlayerId) {
+      if (byParticipantId) {
         return {
           responseId:
-            byPlayerId[0],
+            byParticipantId[0],
 
           response:
-            byPlayerId[1]
+            byParticipantId[1]
         };
       }
     }
 
     /*
-      相容舊版自由輸入名字的回覆。
+      舊版玩家資料相容。
+
+      只有 player 可以用舊版
+      姓名回覆做 fallback。
+
+      DM 不使用這個 fallback，
+      避免 DM 與玩家同名時撞資料。
     */
+
+    if (
+      participantType !==
+      "player"
+    ) {
+      return null;
+    }
+
     const normalizedName =
       normalizeText(
         player.playerName
@@ -411,6 +739,14 @@
         ) {
           const response =
             entry[1];
+
+          if (
+            response &&
+            response.participantType ===
+              "dm"
+          ) {
+            return false;
+          }
 
           return (
             response &&
@@ -524,6 +860,65 @@
     `;
   }
 
+    function renderParticipantButtons(
+    participants
+  ) {
+    return participants
+      .map(
+        function (
+          participant
+        ) {
+          const existing =
+            findExistingResponseForPlayer(
+              participant
+            );
+
+          const roleText =
+            participant.participantType ===
+              "dm"
+              ? "DM"
+              : participant.position;
+
+          return `
+            <button
+              type="button"
+              class="matching-vote-player-button"
+              onclick="selectMatchingVotePlayer('${escapeHtml(
+                participant.playerKey
+              )}')"
+            >
+
+              <span class="matching-vote-player-main">
+
+                <strong>
+                  ${escapeHtml(
+                    participant.playerName
+                  )}
+                </strong>
+
+                <small>
+                  ${escapeHtml(
+                    roleText
+                  )}
+                </small>
+
+              </span>
+
+              <span class="matching-vote-player-state">
+                ${
+                  existing
+                    ? "已回覆"
+                    : "尚未回覆"
+                }
+              </span>
+
+            </button>
+          `;
+        }
+      )
+      .join("");
+  }
+
   function renderPlayerPicker() {
     const app =
       document.getElementById(
@@ -549,14 +944,40 @@
       return;
     }
 
-        const players =
+    const participants =
       getOriginalPlayers();
 
+    const players =
+      participants.filter(
+        function (
+          participant
+        ) {
+          return (
+            participant
+              .participantType ===
+            "player"
+          );
+        }
+      );
+
+    const dms =
+      participants.filter(
+        function (
+          participant
+        ) {
+          return (
+            participant
+              .participantType ===
+            "dm"
+          );
+        }
+      );
+
     if (
-      players.length === 0
+      participants.length === 0
     ) {
       renderUnavailable(
-        "這台車目前沒有可以參與媒合的玩家。"
+        "這台車目前沒有可以參與媒合的人員。"
       );
 
       return;
@@ -575,61 +996,56 @@
 
         <p class="matching-vote-description">
           請點選你在這台車上的名字。
-          未來綁定 LINE 後，系統會自動辨認。
+          玩家與 DM 都可以填寫可配合時間。
         </p>
 
-        <div class="matching-vote-player-list">
+                ${
+          dms.length > 0
+            ? `
+              <section
+                class="matching-vote-participant-section"
+              >
+                <div
+                  class="matching-vote-participant-title"
+                >
+                  🎭 DM
+                </div>
 
-          ${
-            players
-              .map(
-                function (player) {
-                  const existing =
-                    findExistingResponseForPlayer(
-                      player
-                    );
+                <div
+                  class="matching-vote-player-list"
+                >
+                  ${renderParticipantButtons(
+                    dms
+                  )}
+                </div>
+              </section>
+            `
+            : ""
+        }
 
-                  return `
-                    <button
-                      type="button"
-                      class="matching-vote-player-button"
-                      onclick="selectMatchingVotePlayer('${escapeHtml(
-                        player.playerKey
-                      )}')"
-                    >
+        ${
+          players.length > 0
+            ? `
+              <section
+                class="matching-vote-participant-section"
+              >
+                <div
+                  class="matching-vote-participant-title"
+                >
+                  👥 玩家
+                </div>
 
-                      <span class="matching-vote-player-main">
-
-                        <strong>
-                          ${escapeHtml(
-                            player.playerName
-                          )}
-                        </strong>
-
-                        <small>
-                          ${escapeHtml(
-                            player.position
-                          )}
-                        </small>
-
-                      </span>
-
-                      <span class="matching-vote-player-state">
-                        ${
-                          existing
-                            ? "已回覆"
-                            : "尚未回覆"
-                        }
-                      </span>
-
-                    </button>
-                  `;
-                }
-              )
-              .join("")
-          }
-
-        </div>
+                <div
+                  class="matching-vote-player-list"
+                >
+                  ${renderParticipantButtons(
+                    players
+                  )}
+                </div>
+              </section>
+            `
+            : ""
+        }
 
       </section>
     `;
@@ -1030,8 +1446,9 @@
       const responseId =
         existingInfo
           ? existingInfo.responseId
-          : makeResponseKey(
-              player.playerKey
+                    : makeResponseKey(
+              player.playerKey,
+              player.participantType
             );
 
       await getDb()
@@ -1080,25 +1497,53 @@
                 ? car.players
                 : [];
 
+                        /*
+              確認這位參與者仍存在於原車。
+
+              player → car.players
+              dm     → car.dmName / car.dmList
+            */
+
+            const sourceParticipants =
+              getParticipantsFromCar(
+                car
+              );
+
             const stillExists =
-              sourcePlayers.some(
+              sourceParticipants.some(
                 function (
-                  sourcePlayer,
-                  index
+                  sourceParticipant
                 ) {
                   return (
-                    getPlayerKey(
-                      sourcePlayer,
-                      index
+                    String(
+                      sourceParticipant
+                        .participantKey ||
+                      sourceParticipant
+                        .playerKey ||
+                      ""
                     ) ===
-                    player.playerKey
+                    String(
+                      player
+                        .participantKey ||
+                      player.playerKey ||
+                      ""
+                    ) &&
+                    (
+                      sourceParticipant
+                        .participantType ===
+                      player
+                        .participantType
+                    )
                   );
                 }
               );
 
             if (!stillExists) {
               throw new Error(
-                "你已不在這台車的玩家名單中"
+                player.participantType ===
+                  "dm"
+                  ? "你已不在這台車的 DM 名單中"
+                  : "你已不在這台車的玩家名單中"
               );
             }
 
@@ -1119,33 +1564,98 @@
             const timestamp =
               nowTime();
 
+                        const participantType =
+              player.participantType ||
+              "player";
+
+            const participantKey =
+              player.participantKey ||
+              player.playerKey ||
+              "";
+
+            const participantId =
+              player.participantId ||
+              player.playerId ||
+              "";
+
+            const participantName =
+              player.participantName ||
+              player.playerName ||
+              "";
+
             responses[
               responseId
             ] = {
               id:
                 responseId,
 
-              playerKey:
-                player.playerKey,
+              /*
+                Matching Participant V1
+              */
 
-              playerId:
-                player.playerId,
+              participantType,
 
-              playerName:
-                player.playerName,
+              participantKey,
 
-              displayName:
-                player.playerName,
+              participantId,
+
+              participantName,
 
               /*
-                保留 name 欄位，
-                相容主揪端目前 Matrix。
+                玩家欄位保留，
+                舊 Matrix / 舊媒合資料仍可讀。
               */
+
+              playerKey:
+                participantType ===
+                  "player"
+                  ? player.playerKey
+                  : "",
+
+              playerId:
+                participantType ===
+                  "player"
+                  ? player.playerId
+                  : "",
+
+              playerName:
+                participantType ===
+                  "player"
+                  ? participantName
+                  : "",
+
+              /*
+                DM 專用欄位
+              */
+
+              dmId:
+                participantType ===
+                  "dm"
+                  ? participantId
+                  : "",
+
+              dmName:
+                participantType ===
+                  "dm"
+                  ? participantName
+                  : "",
+
+              /*
+                共用顯示名稱。
+                Matrix 現在仍可直接讀 name。
+              */
+
+              displayName:
+                participantName,
+
               name:
-                player.playerName,
+                participantName,
 
               position:
-                player.position,
+                participantType ===
+                  "dm"
+                  ? "DM"
+                  : player.position,
 
               slotIds,
 
@@ -1153,7 +1663,10 @@
                 "submitted",
 
               source:
-                "car_player",
+                participantType ===
+                  "dm"
+                  ? "car_dm"
+                  : "car_player",
 
               createdAt:
                 oldResponse &&

@@ -118,9 +118,9 @@
         container.textContent =
       responseCount > 0
         ? "目前已有 " +
-          responseCount +
-          " 人回覆　›"
-        : "目前尚未收到玩家回覆。";
+  responseCount +
+  " 位參與者回覆　›"
+: "目前尚未收到回覆。";
 
     container.disabled =
       responseCount === 0;
@@ -760,7 +760,7 @@
             class="matching-secondary-button"
             onclick="previewMatchingVotePage()"
           >
-            👀 預覽玩家畫面
+            👀 預覽填寫畫面
           </button>
 
           <button
@@ -787,8 +787,8 @@
                 getMatchingResponseCount(
                   matching
                 ) +
-                " 人回覆　›"
-              : "目前尚未收到玩家回覆。"
+                " 位參與者回覆　›"
+              : "目前尚未收到回覆。"
           }
         </button>
 
