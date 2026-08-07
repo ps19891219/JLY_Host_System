@@ -343,33 +343,38 @@
     nowTime();
 
   await getDb()
-    .collection("cars")
-    .doc(carId)
-    .update({
-      "matching.selectedDates":
-        normalizedDates,
-
-      "matching.candidateSlots":
-        normalizedSlots,
-
-      "matching.updatedAt":
-        updatedAt,
-
-      updatedAt:
-        firebase.firestore
-          .FieldValue
-          .serverTimestamp()
-    });
-
-  return {
-    selectedDates:
+  .collection("cars")
+  .doc(carId)
+  .update({
+    "matching.selectedDates":
       normalizedDates,
 
-    candidateSlots:
+    "matching.candidateSlots":
       normalizedSlots,
 
-    updatedAt
-  };
+    "matching.currentStep":
+      3,
+
+    "matching.updatedAt":
+      updatedAt,
+
+    updatedAt:
+      firebase.firestore
+        .FieldValue
+        .serverTimestamp()
+  });
+
+  return {
+  selectedDates:
+    normalizedDates,
+
+  candidateSlots:
+    normalizedSlots,
+
+  currentStep: 3,
+
+  updatedAt
+};
 }
 
   async function publishMatching(
