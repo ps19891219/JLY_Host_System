@@ -932,6 +932,62 @@ async function returnToPlanning() {
           : "退回規劃時未能刪除原 Google Calendar 行程"
     };
 
+        const previousMatching =
+      car.matching &&
+      typeof car.matching ===
+        "object"
+        ? car.matching
+        : null;
+
+    const nextMatching =
+      previousMatching
+        ? {
+            ...previousMatching,
+
+            /*
+              退回規劃後，
+              上一次媒合結果不得繼續算入新一輪。
+            */
+
+            status:
+              "draft",
+
+            visibility:
+              "private",
+
+            currentStep:
+              2,
+
+            currentRound:
+              Number(
+                previousMatching
+                  .currentRound ||
+                1
+              ) + 1,
+
+            responses:
+              {},
+
+            selectedSlotId:
+              "",
+
+            selectedDate:
+              "",
+
+            selectedTime:
+              "",
+
+            completedAt:
+              "",
+
+            publishedAt:
+              "",
+
+            updatedAt:
+              nowTime()
+          }
+        : null;
+
     await carRef.update({
       gameDate:
         "",
@@ -947,6 +1003,27 @@ async function returnToPlanning() {
 
       calendar:
         nextCalendar,
+
+      /*
+        開始新的媒合輪次。
+
+        selectedDates / candidateSlots
+        暫時保留，
+        讓主揪可以沿用上一次設定後再修改。
+
+        但所有人的舊回覆清空，
+        不會帶到新一輪。
+      */
+      matching:
+        nextMatching,
+
+      /*
+        上一輪玩家確認已失效。
+      */
+      matchingConfirmation:
+        firebase.firestore
+          .FieldValue
+          .delete(),
 
       returnedToPlanningAt:
         nowTime(),
