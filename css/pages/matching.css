@@ -1455,3 +1455,53 @@ tbody
     min-height: 64px;
   }
 }
+
+/* ========================================
+   Matching Matrix V2 Legend
+======================================== */
+
+.matching-matrix-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  margin: 0;
+  border-bottom: 1px solid #eeeeee;
+  background: #fafafa;
+}
+
+.matching-matrix-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  background: #ffffff;
+  color: #666666;
+
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.matching-matrix-legend
+> span.is-available
+> strong {
+  color: #4f9d76;
+}
+
+.matching-matrix-legend
+> span.is-pending
+> strong {
+  color: #aaaaaa;
+}
+
+.matching-matrix-legend
+> span.is-unavailable
+> strong {
+  color: #999999;
+}
