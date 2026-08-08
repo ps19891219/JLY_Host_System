@@ -1363,3 +1363,95 @@ td.is-unavailable {
 .matching-matrix-right-v2 td {
   min-width: 66px;
 }
+
+/* ========================================
+   Matching Matrix V2
+   Header Row Alignment Final Fix
+======================================== */
+
+/*
+  Matrix V2 三區統一兩層表頭：
+
+  第一層：
+  DM / 玩家群組
+  左右為空白 placeholder
+
+  第二層：
+  參與者名稱
+  左側日期時間
+  右側合計
+*/
+
+/* 第一層固定 30px */
+.matching-matrix-table
+thead
+tr.matching-matrix-group-row
+> th {
+  height: 30px !important;
+  min-height: 30px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  box-sizing: border-box;
+}
+
+/* 第二層固定 48px */
+.matching-matrix-table
+thead
+tr.matching-matrix-name-row
+> th {
+  height: 48px !important;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+/*
+  左右第一層只是拿來同步高度，
+  不顯示文字。
+*/
+.matching-matrix-side-group-row > th {
+  padding: 0 !important;
+  color: transparent;
+}
+
+/*
+  左右第二層文字置中。
+*/
+.matching-matrix-side-name-row > th {
+  vertical-align: middle;
+  text-align: center;
+}
+
+/*
+  三個 tbody 的每一個候選時段
+  統一使用完全相同高度。
+*/
+.matching-matrix-table
+tbody
+.matching-matrix-row
+> th,
+.matching-matrix-table
+tbody
+.matching-matrix-row
+> td {
+  height: 66px;
+  min-height: 66px;
+  box-sizing: border-box;
+}
+
+/*
+  手機尺寸仍同步縮小，
+  三區一起縮，不單獨改其中一區。
+*/
+@media (max-width: 420px) {
+  .matching-matrix-table
+  tbody
+  .matching-matrix-row
+  > th,
+  .matching-matrix-table
+  tbody
+  .matching-matrix-row
+  > td {
+    height: 64px;
+    min-height: 64px;
+  }
+}

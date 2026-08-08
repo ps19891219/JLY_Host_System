@@ -851,14 +851,32 @@ Matching Matrix V2
       >
 
         <thead>
-          <tr>
-            <th>
-              日期時間
-            </th>
-          </tr>
-        </thead>
 
-        <tbody>
+  <tr
+    class="
+      matching-matrix-group-row
+      matching-matrix-side-group-row
+    "
+  >
+    <th
+      aria-hidden="true"
+    ></th>
+  </tr>
+
+  <tr
+    class="
+      matching-matrix-name-row
+      matching-matrix-side-name-row
+    "
+  >
+    <th>
+      日期時間
+    </th>
+  </tr>
+
+</thead>
+
+      <tbody>
 
           ${
             slots
@@ -1256,12 +1274,30 @@ Matching Matrix V2
       >
 
         <thead>
-          <tr>
-            <th>
-              合計
-            </th>
-          </tr>
-        </thead>
+
+  <tr
+    class="
+      matching-matrix-group-row
+      matching-matrix-side-group-row
+    "
+  >
+    <th
+      aria-hidden="true"
+    ></th>
+  </tr>
+
+  <tr
+    class="
+      matching-matrix-name-row
+      matching-matrix-side-name-row
+    "
+  >
+    <th>
+      合計
+    </th>
+  </tr>
+
+</thead>
 
         <tbody>
 
