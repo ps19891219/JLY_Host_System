@@ -979,24 +979,120 @@
    Matching Create Formal Car V1
 ======================================== */
 
+/* ========================================
+   Matching Matrix V2
+   Row Alignment + Selected Slot
+======================================== */
+
+/*
+  Matrix V2 中央有兩層表頭：
+  30px 群組列 + 48px 名字列 = 78px
+
+  左側日期與右側合計只有一層表頭，
+  必須補成相同的 78px，
+  才能讓三區 tbody 每一列完全對齊。
+*/
+.matching-matrix-left-table thead th,
+.matching-matrix-right-table thead th {
+  height: 78px;
+}
+
+/* 每個候選時段仍可整列點擊 */
 .matching-matrix-row {
   cursor: pointer;
 }
 
-.matching-matrix-row:hover th,
-.matching-matrix-row:hover td {
-  background: #f7fbf9;
+/*
+  Hover 只用淡淡的疊色。
+  不直接覆蓋原本格子的 background-color，
+  避免蓋掉 ✓ 可參加的綠色。
+*/
+.matching-matrix-row:hover > th,
+.matching-matrix-row:hover > td {
+  background-image:
+    linear-gradient(
+      rgba(79, 157, 118, 0.05),
+      rgba(79, 157, 118, 0.05)
+    );
 }
 
-.matching-matrix-row.is-selected th,
-.matching-matrix-row.is-selected td {
-  background: #e8f7ef;
-}
+/*
+  主揪選定最終候選時段。
 
-.matching-matrix-left-table
-.matching-matrix-row.is-selected th {
+  左 / 中 / 右三張 table 的相同 slot row
+  都會由 highlightSelectedRows()
+  加上 is-selected。
+
+  使用 background-image 疊色，
+  保留：
+  ✓ is-available
+  · is-pending
+  空白 is-unavailable
+  原本各自的背景語意。
+*/
+.matching-matrix-row.is-selected > th,
+.matching-matrix-row.is-selected > td {
+  background-image:
+    linear-gradient(
+      rgba(95, 175, 136, 0.14),
+      rgba(95, 175, 136, 0.14)
+    ) !important;
+
   box-shadow:
-    inset 4px 0 0 #5faf88;
+    inset 0 2px 0 rgba(95, 175, 136, 0.48),
+    inset 0 -2px 0 rgba(95, 175, 136, 0.48);
+}
+
+/* 整條 selected row 最左側收邊 */
+.matching-matrix-fixed-left
+.matching-matrix-row.is-selected > th {
+  box-shadow:
+    inset 4px 0 0 #5faf88,
+    inset 0 2px 0 rgba(95, 175, 136, 0.48),
+    inset 0 -2px 0 rgba(95, 175, 136, 0.48);
+}
+
+/* 整條 selected row 最右側收邊 */
+.matching-matrix-fixed-right
+.matching-matrix-row.is-selected > td {
+  box-shadow:
+    inset -2px 0 0 rgba(95, 175, 136, 0.48),
+    inset 0 2px 0 rgba(95, 175, 136, 0.48),
+    inset 0 -2px 0 rgba(95, 175, 136, 0.48);
+}
+
+/*
+  ✓ 可參加仍維持原本的綠色。
+  selected 只是一層外部提示。
+*/
+.matching-matrix-center-table
+td.is-available {
+  background-color: #f2faf6;
+  color: #4f9d76;
+}
+
+/*
+  尚未回覆與已回覆未勾選
+  繼續保留原本語意。
+*/
+.matching-matrix-center-table
+td.is-pending {
+  background-color: #ffffff;
+}
+
+.matching-matrix-center-table
+td.is-unavailable {
+  background-color: #ffffff;
+}
+
+/*
+  手機橫向滑動中央 Matrix 時，
+  選取疊色跟著 cell 本身，
+  左右固定區仍維持自己的 selected。
+*/
+.matching-matrix-scroll-middle
+.matching-matrix-row.is-selected > td {
+  background-clip: padding-box;
 }
 
 .matching-create-car-container {
