@@ -1625,3 +1625,79 @@ tbody
     font-size: 12px;
   }
 }
+
+/* ========================================
+   Matching V3
+   Participant Availability Mode
+======================================== */
+
+.matching-vote-mode-section {
+  margin: 14px 0 18px;
+}
+
+.matching-vote-mode-label {
+  margin-bottom: 8px;
+
+  color: #555555;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.matching-vote-mode-buttons {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 8px;
+}
+
+.matching-vote-mode-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+
+  min-height: 68px;
+  padding: 10px 12px;
+
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+
+  background: #ffffff;
+  color: #555555;
+
+  font: inherit;
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.matching-vote-mode-button strong {
+  font-size: 13px;
+}
+
+.matching-vote-mode-button small {
+  color: #888888;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.matching-vote-mode-button.is-active {
+  border-color: #9acdb2;
+  background: #edf8f2;
+  color: #39795c;
+}
+
+.matching-vote-mode-button.is-active small {
+  color: #5e8d75;
+}
+
+@media (max-width: 420px) {
+  .matching-vote-mode-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .matching-vote-mode-button {
+    min-height: 60px;
+  }
+}

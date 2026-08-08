@@ -3,6 +3,7 @@
 
   let currentCar = null;
   let selectedPlayerKey = "";
+  let matchingVoteMode = "";
 
   function getCarId() {
     return new URLSearchParams(
@@ -1109,6 +1110,8 @@
     selectedPlayerKey =
       player.playerKey;
 
+      matchingVoteMode = "";
+
     savePlayerKey(
       getCarId(),
       selectedPlayerKey
@@ -1120,6 +1123,7 @@
   function changeMatchingVotePlayer() {
     selectedPlayerKey =
       "";
+      matchingVoteMode = "";
 
     clearSavedPlayerKey(
       getCarId()
@@ -1127,6 +1131,86 @@
 
     renderPlayerPicker();
   }
+
+  function setMatchingVoteMode(
+  mode
+) {
+  const nextMode =
+    mode === "exclude"
+      ? "exclude"
+      : "available";
+
+  if (
+    matchingVoteMode === nextMode
+  ) {
+    return;
+  }
+
+  /*
+    如果表單已經顯示，
+    切換模式時把目前勾選狀態反轉。
+
+    available：
+    勾選 = 我可以
+
+    exclude：
+    勾選 = 我不可以
+
+    這樣切換模式時，
+    實際的 availability 不會被改掉。
+  */
+matchingVoteMode =
+  nextMode;
+
+document
+  .querySelectorAll(
+    ".matching-vote-mode-button"
+  )
+  .forEach(
+    function (button) {
+      button.classList.remove(
+        "is-active"
+      );
+    }
+  );
+  
+  const activeButton =
+    document.querySelector(
+      '.matching-vote-mode-button[data-mode="' +
+        nextMode +
+      '"]'
+    );
+
+  if (activeButton) {
+    activeButton.classList.add(
+      "is-active"
+    );
+  }
+
+  const title =
+    document.getElementById(
+      "matchingVoteModeTitle"
+    );
+
+  const description =
+    document.getElementById(
+      "matchingVoteModeDescription"
+    );
+
+  if (title) {
+    title.textContent =
+      nextMode === "exclude"
+        ? "請勾選你不行的時間"
+        : "請勾選你可以的時間";
+  }
+
+  if (description) {
+    description.textContent =
+      nextMode === "exclude"
+        ? "沒有勾選的時段，系統會視為你可以配合。"
+        : "勾選你可以配合的時段即可。";
+  }
+}
 
   function renderVoteForm() {
     const app =
@@ -1187,17 +1271,26 @@
         : null;
 
     const selectedIds =
-      existing &&
-      Array.isArray(
-        existing.slotIds
-      )
-        ? existing.slotIds
-        : [];
+  existing &&
+  Array.isArray(
+    existing.slotIds
+  )
+    ? existing.slotIds
+    : [];
 
-    const grouped =
-      buildSlotGroups(
-        slots
-      );
+if (!matchingVoteMode) {
+  matchingVoteMode =
+    existing &&
+    existing.availabilityMode ===
+      "exclude"
+      ? "exclude"
+      : "available";
+}
+
+const grouped =
+  buildSlotGroups(
+    slots
+  );
 
     app.innerHTML = `
       <section class="matching-vote-card">
@@ -1233,14 +1326,93 @@
 
         </div>
 
-        <h2 class="matching-vote-title">
-          請勾選你可以的時間
-        </h2>
+        <div class="matching-vote-mode-section">
 
-        <p class="matching-vote-description">
-          可以複選多個時段。
-          主揪會依大家的回覆決定最後開團時間。
-        </p>
+  <div class="matching-vote-mode-label">
+    你想怎麼填時間？
+  </div>
+
+  <div class="matching-vote-mode-buttons">
+
+    <button
+      type="button"
+      class="
+        matching-vote-mode-button
+        ${
+          matchingVoteMode ===
+            "available"
+            ? "is-active"
+            : ""
+        }
+      "
+      data-mode="available"
+      onclick="
+        setMatchingVoteMode(
+          'available'
+        )
+      "
+    >
+      <strong>
+        🟢 標記我可以
+      </strong>
+
+      <small>
+        我只有少數時間可以
+      </small>
+    </button>
+
+    <button
+      type="button"
+      class="
+        matching-vote-mode-button
+        ${
+          matchingVoteMode ===
+            "exclude"
+            ? "is-active"
+            : ""
+        }
+      "
+      data-mode="exclude"
+      onclick="
+        setMatchingVoteMode(
+          'exclude'
+        )
+      "
+    >
+      <strong>
+        🔴 排除我不行
+      </strong>
+
+      <small>
+        我大部分時間都可以
+      </small>
+    </button>
+
+  </div>
+
+</div>
+
+<h2
+  id="matchingVoteModeTitle"
+  class="matching-vote-title"
+>
+  ${
+    matchingVoteMode === "exclude"
+      ? "請勾選你不行的時間"
+      : "請勾選你可以的時間"
+  }
+</h2>
+
+<p
+  id="matchingVoteModeDescription"
+  class="matching-vote-description"
+>
+  ${
+    matchingVoteMode === "exclude"
+      ? "沒有勾選的時段，系統會視為你可以配合。"
+      : "勾選你可以配合的時段即可。"
+  }
+</p>
 
         <div class="matching-vote-days">
 
@@ -1278,12 +1450,24 @@
                                         slot.id
                                       )}"
                                       ${
-                                        selectedIds.includes(
-                                          slot.id
-                                        )
-                                          ? "checked"
-                                          : ""
-                                      }
+  matchingVoteMode ===
+    "exclude"
+    ? (
+        existing &&
+        !selectedIds.includes(
+          slot.id
+        )
+          ? "checked"
+          : ""
+      )
+    : (
+        selectedIds.includes(
+          slot.id
+        )
+          ? "checked"
+          : ""
+      )
+}
                                     >
 
                                     <span class="matching-vote-slot-icon">
@@ -1421,17 +1605,42 @@
         "matchingVoteSubmitButton"
       );
 
-    const slotIds =
-      Array.from(
-        document.querySelectorAll(
-          ".matching-vote-slot-checkbox:checked"
-        )
+    const checkedSlotIds =
+  Array.from(
+    document.querySelectorAll(
+      ".matching-vote-slot-checkbox:checked"
+    )
+  )
+    .map(
+      function (checkbox) {
+        return checkbox.value;
+      }
+    );
+
+const allSlotIds =
+  getEnabledSlots()
+    .map(
+      function (slot) {
+        return slot.id;
+      }
+    );
+
+/*
+  最終永遠統一成：
+  slotIds = 這個人「可以」的時間
+
+  所以 Matrix 不需要知道
+  玩家當初使用哪一種填法。
+*/
+const slotIds =
+  matchingVoteMode === "exclude"
+    ? allSlotIds.filter(
+        function (slotId) {
+          return !checkedSlotIds
+            .includes(slotId);
+        }
       )
-        .map(
-          function (checkbox) {
-            return checkbox.value;
-          }
-        );
+    : checkedSlotIds;
 
     if (!player) {
       alert(
@@ -1439,16 +1648,6 @@
       );
 
       renderPlayerPicker();
-      return;
-    }
-
-    if (
-      slotIds.length === 0
-    ) {
-      alert(
-        "請至少勾選一個可以的時段。"
-      );
-
       return;
     }
 
@@ -1687,8 +1886,14 @@
 
               slotIds,
 
-              status:
-                "submitted",
+availabilityMode:
+  matchingVoteMode ===
+    "exclude"
+    ? "exclude"
+    : "available",
+
+status:
+  "submitted",
 
               source:
                 participantType ===
@@ -1914,6 +2119,9 @@
 
   window.submitMatchingVote =
     submitMatchingVote;
+
+    window.setMatchingVoteMode =
+  setMatchingVoteMode;
 
   window.renderMatchingVoteForm =
     renderVoteForm;
