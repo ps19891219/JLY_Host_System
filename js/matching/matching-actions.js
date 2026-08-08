@@ -80,6 +80,235 @@
     goToStep(2);
   }
 
+  // ============================================================
+// Matching V3
+// 日期選擇模式
+// manual = 手動挑日期
+// range  = 日期範圍
+// ============================================================
+
+function parseMatchingDateInput(
+  value
+) {
+  const text =
+    String(value || "")
+      .trim();
+
+  const match =
+    text.match(
+      /^(\d{4})-(\d{2})-(\d{2})$/
+    );
+
+  if (!match) {
+    return null;
+  }
+
+  const year =
+    Number(match[1]);
+
+  const month =
+    Number(match[2]);
+
+  const day =
+    Number(match[3]);
+
+  const date =
+    new Date(
+      year,
+      month - 1,
+      day
+    );
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !==
+      month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function formatMatchingDateKey(
+  date
+) {
+  return (
+    date.getFullYear() +
+    "-" +
+    String(
+      date.getMonth() + 1
+    ).padStart(2, "0") +
+    "-" +
+    String(
+      date.getDate()
+    ).padStart(2, "0")
+  );
+}
+
+function buildMatchingDateRange(
+  startValue,
+  endValue
+) {
+  const start =
+    parseMatchingDateInput(
+      startValue
+    );
+
+  const end =
+    parseMatchingDateInput(
+      endValue
+    );
+
+  if (
+    !start ||
+    !end
+  ) {
+    return [];
+  }
+
+  if (
+    start.getTime() >
+    end.getTime()
+  ) {
+    return [];
+  }
+
+  const dates = [];
+
+  const cursor =
+    new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate()
+    );
+
+  while (
+    cursor.getTime() <=
+    end.getTime()
+  ) {
+    dates.push(
+      formatMatchingDateKey(
+        cursor
+      )
+    );
+
+    cursor.setDate(
+      cursor.getDate() + 1
+    );
+  }
+
+  return dates;
+}
+
+function setMatchingDateMode(
+  mode
+) {
+  const matching =
+    getMatching();
+
+  if (!matching) {
+    return;
+  }
+
+  const nextMode =
+    mode === "range"
+      ? "range"
+      : "manual";
+
+  matching.dateSelectionMode =
+    nextMode;
+
+  /*
+    切換模式不直接刪除已選日期。
+    避免使用者誤按後整份日期消失。
+  */
+  renderCurrentMatching();
+}
+
+function applyMatchingDateRange() {
+  const matching =
+    getMatching();
+
+  if (!matching) {
+    alert(
+      "媒合資料尚未載入"
+    );
+
+    return;
+  }
+
+  const startInput =
+    document.getElementById(
+      "matchingRangeStart"
+    );
+
+  const endInput =
+    document.getElementById(
+      "matchingRangeEnd"
+    );
+
+  const startValue =
+    startInput
+      ? startInput.value
+      : "";
+
+  const endValue =
+    endInput
+      ? endInput.value
+      : "";
+
+  if (
+    !startValue ||
+    !endValue
+  ) {
+    alert(
+      "請選擇開始日期與結束日期。"
+    );
+
+    return;
+  }
+
+  const dates =
+    buildMatchingDateRange(
+      startValue,
+      endValue
+    );
+
+  if (
+    dates.length === 0
+  ) {
+    alert(
+      "日期範圍不正確。\n\n結束日期不能早於開始日期。"
+    );
+
+    return;
+  }
+
+  matching.dateSelectionMode =
+    "range";
+
+  matching.rangeStart =
+    startValue;
+
+  matching.rangeEnd =
+    endValue;
+
+  matching.selectedDates =
+    dates;
+
+  /*
+    日期變動後重新建立候選時段。
+    已存在且 date + sourceSlotId 相同的資料
+    buildCandidateSlots() 會自動保留。
+  */
+  matching.candidateSlots =
+    buildCandidateSlots();
+
+  renderCurrentMatching();
+}
+
   /*
     接受：
     9:00
@@ -895,6 +1124,61 @@
       return;
     }
 
+    /*
+  Range 模式下，
+  按下一步前再從畫面同步一次日期範圍，
+  避免使用者改了日期但忘記按套用。
+*/
+if (
+  matching.dateSelectionMode ===
+    "range"
+) {
+  const rangeStartInput =
+    document.getElementById(
+      "matchingRangeStart"
+    );
+
+  const rangeEndInput =
+    document.getElementById(
+      "matchingRangeEnd"
+    );
+
+  const rangeStart =
+    rangeStartInput
+      ? rangeStartInput.value
+      : matching.rangeStart || "";
+
+  const rangeEnd =
+    rangeEndInput
+      ? rangeEndInput.value
+      : matching.rangeEnd || "";
+
+  const rangeDates =
+    buildMatchingDateRange(
+      rangeStart,
+      rangeEnd
+    );
+
+  if (
+    rangeDates.length === 0
+  ) {
+    alert(
+      "請先設定正確的日期範圍。"
+    );
+
+    return;
+  }
+
+  matching.rangeStart =
+    rangeStart;
+
+  matching.rangeEnd =
+    rangeEnd;
+
+  matching.selectedDates =
+    rangeDates;
+}
+
     const commonSlots =
       readCommonSlotsFromForm();
 
@@ -1004,25 +1288,52 @@
         commonResult.updatedAt;
 
       matching.candidateSlots =
-        buildCandidateSlots();
+  buildCandidateSlots();
 
-      const candidateResult =
-        await window
-          .JLYMatchingData
-          .saveCandidateSlots(
-            carId,
-            matching.selectedDates,
-            matching.candidateSlots
-          );
+const candidateResult =
+  await window
+    .JLYMatchingData
+    .saveCandidateSlots(
+      carId,
+      matching.selectedDates,
+      matching.candidateSlots,
+      {
+        mode:
+          matching
+            .dateSelectionMode ||
+          "manual",
 
-      matching.selectedDates =
-        candidateResult.selectedDates;
+        rangeStart:
+          matching.rangeStart ||
+          "",
 
-      matching.candidateSlots =
-        candidateResult.candidateSlots;
+        rangeEnd:
+          matching.rangeEnd ||
+          ""
+      }
+    );
 
-      matching.updatedAt =
-        candidateResult.updatedAt;
+matching.selectedDates =
+  candidateResult.selectedDates;
+
+matching.dateSelectionMode =
+  candidateResult
+    .dateSelectionMode ||
+  "manual";
+
+matching.rangeStart =
+  candidateResult.rangeStart ||
+  "";
+
+matching.rangeEnd =
+  candidateResult.rangeEnd ||
+  "";
+
+matching.candidateSlots =
+  candidateResult.candidateSlots;
+
+matching.updatedAt =
+  candidateResult.updatedAt;
 
       matching.currentStep = 3;
 
@@ -1659,6 +1970,8 @@ window.goToMatchingStep =
     continueToCandidateStep,
     backToDateStep,
     clearAllMatchingDates,
+    setMatchingDateMode,
+applyMatchingDateRange,
         copyMatchingShareLink,
     previewMatchingVotePage,
     editPublishedMatching,

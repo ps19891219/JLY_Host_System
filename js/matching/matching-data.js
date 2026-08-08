@@ -123,9 +123,18 @@
 
       selectedDates: [],
 
-      candidateSlots: [],
+dateSelectionMode:
+  "manual",
 
-      responses: {},
+rangeStart:
+  "",
+
+rangeEnd:
+  "",
+
+candidateSlots: [],
+
+responses: {},
 
       selectedSlotId:
         "",
@@ -262,7 +271,8 @@
   async function saveCandidateSlots(
   carId,
   selectedDates,
-  candidateSlots
+  candidateSlots,
+  dateSelection = {}
 ) {
   if (!carId) {
     throw new Error(
@@ -339,6 +349,26 @@
       };
     });
 
+    const dateSelectionMode =
+  dateSelection &&
+  dateSelection.mode === "range"
+    ? "range"
+    : "manual";
+
+const rangeStart =
+  dateSelectionMode === "range"
+    ? String(
+        dateSelection.rangeStart || ""
+      )
+    : "";
+
+const rangeEnd =
+  dateSelectionMode === "range"
+    ? String(
+        dateSelection.rangeEnd || ""
+      )
+    : "";
+
   const updatedAt =
     nowTime();
 
@@ -347,10 +377,19 @@
   .doc(carId)
   .update({
     "matching.selectedDates":
-      normalizedDates,
+  normalizedDates,
 
-    "matching.candidateSlots":
-      normalizedSlots,
+"matching.dateSelectionMode":
+  dateSelectionMode,
+
+"matching.rangeStart":
+  rangeStart,
+
+"matching.rangeEnd":
+  rangeEnd,
+
+"matching.candidateSlots":
+  normalizedSlots,
 
     "matching.currentStep":
       3,
@@ -367,6 +406,12 @@
   return {
   selectedDates:
     normalizedDates,
+
+  dateSelectionMode,
+
+  rangeStart,
+
+  rangeEnd,
 
   candidateSlots:
     normalizedSlots,

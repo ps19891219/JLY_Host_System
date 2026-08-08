@@ -527,6 +527,22 @@
             .length
         : 0;
 
+        const dateSelectionMode =
+  matching.dateSelectionMode ===
+    "range"
+    ? "range"
+    : "manual";
+
+const rangeStart =
+  String(
+    matching.rangeStart || ""
+  );
+
+const rangeEnd =
+  String(
+    matching.rangeEnd || ""
+  );
+
     return `
       <section class="matching-section">
 
@@ -580,10 +596,11 @@
         <div class="matching-section-heading">
 
           <h2 class="matching-section-title">
-            ② 選擇日期
-          </h2>
+  ② 選擇日期
+</h2>
 
-          <div class="matching-date-heading-actions">
+<div class="matching-date-heading-actions">
+
   <span class="matching-selected-count">
     已選 ${selectedCount} 天
   </span>
@@ -601,16 +618,130 @@
       `
       : ""
   }
+
 </div>
+
+</div>
+
+<p class="matching-section-description">
+  可以手動挑選日期，
+  或直接開放一整段日期範圍。
+</p>
+
+<div class="matching-date-mode-switch">
+
+  <button
+    type="button"
+    class="
+      matching-date-mode-button
+      ${
+        dateSelectionMode ===
+          "manual"
+          ? "is-active"
+          : ""
+      }
+    "
+    onclick="
+      setMatchingDateMode('manual')
+    "
+  >
+    📌 指定日期
+  </button>
+
+  <button
+    type="button"
+    class="
+      matching-date-mode-button
+      ${
+        dateSelectionMode ===
+          "range"
+          ? "is-active"
+          : ""
+      }
+    "
+    onclick="
+      setMatchingDateMode('range')
+    "
+  >
+    📅 日期範圍
+  </button>
+
+</div>
+
+${
+  dateSelectionMode ===
+    "range"
+    ? `
+      <div class="matching-range-panel">
+
+        <div class="matching-range-fields">
+
+          <label class="matching-range-field">
+            <span>
+              開始日期
+            </span>
+
+            <input
+              id="matchingRangeStart"
+              type="date"
+              value="${escapeHtml(
+                rangeStart
+              )}"
+            >
+          </label>
+
+          <span class="matching-range-arrow">
+            →
+          </span>
+
+          <label class="matching-range-field">
+            <span>
+              結束日期
+            </span>
+
+            <input
+              id="matchingRangeEnd"
+              type="date"
+              value="${escapeHtml(
+                rangeEnd
+              )}"
+            >
+          </label>
 
         </div>
 
-        <p class="matching-section-description">
-          可一次選擇多個日期，
-          下一步再逐筆確認與修改時間。
-        </p>
+        <button
+          type="button"
+          class="matching-secondary-button matching-range-apply"
+          onclick="applyMatchingDateRange()"
+        >
+          套用日期範圍
+        </button>
 
-        <div id="matchingCalendar"></div>
+        ${
+          rangeStart &&
+          rangeEnd
+            ? `
+              <div class="matching-range-summary">
+                📅 ${escapeHtml(
+                  rangeStart
+                )}
+                ～ 
+                ${escapeHtml(
+                  rangeEnd
+                )}
+                ・共 ${selectedCount} 天
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+    `
+    : `
+      <div id="matchingCalendar"></div>
+    `
+}
 
         <button
           type="button"
