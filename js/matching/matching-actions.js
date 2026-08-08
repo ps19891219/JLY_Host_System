@@ -1950,11 +1950,17 @@ window.goToMatchingStep =
   window.backToMatchingCar =
     backToMatchingCar;
 
-    window.clearAllMatchingDates =
+  window.clearAllMatchingDates =
   clearAllMatchingDates;
 
-    window.copyMatchingShareLink =
-    copyMatchingShareLink;
+window.setMatchingDateMode =
+  setMatchingDateMode;
+
+window.applyMatchingDateRange =
+  applyMatchingDateRange;
+
+window.copyMatchingShareLink =
+  copyMatchingShareLink;
 
   window.previewMatchingVotePage =
     previewMatchingVotePage;
