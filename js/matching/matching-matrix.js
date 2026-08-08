@@ -1423,29 +1423,27 @@ Matching Matrix V2
   // ============================================================
 
   function buildLegendHtml() {
-    return `
-      <div
-        class="matching-matrix-legend"
-      >
+  return `
+    <div class="matching-matrix-legend">
 
-        <span>
-          <strong>✓</strong>
-          可參加
-        </span>
+      <span class="is-available">
+        <strong>✓</strong>
+        可以
+      </span>
 
-        <span>
-          <strong>·</strong>
-          尚未回覆
-        </span>
+      <span class="is-pending">
+        <strong>·</strong>
+        未回覆
+      </span>
 
-        <span>
-          <strong>空白</strong>
-          已回覆但未勾選
-        </span>
+      <span class="is-unavailable">
+        <strong>－</strong>
+        不可以
+      </span>
 
-      </div>
-    `;
-  }
+    </div>
+  `;
+}
 
   // ============================================================
   // Matrix HTML
