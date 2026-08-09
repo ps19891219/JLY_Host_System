@@ -1,7 +1,13 @@
-console.log("car-data.js 已成功載入！");
+console.log(
+  "car-data.js 已成功載入！"
+);
 
 (function () {
   "use strict";
+
+  // ============================================================
+  // Firebase
+  // ============================================================
 
   function getDb() {
     if (!window.db) {
@@ -13,9 +19,23 @@ console.log("car-data.js 已成功載入！");
     return window.db;
   }
 
-  async function getCarById(carId) {
+  function normalizeId(value) {
+    return String(
+      value == null
+        ? ""
+        : value
+    ).trim();
+  }
+
+  // ============================================================
+  // 單台 Car
+  // ============================================================
+
+  async function getCarById(
+    carId
+  ) {
     const normalizedCarId =
-      String(carId || "").trim();
+      normalizeId(carId);
 
     if (!normalizedCarId) {
       throw new Error(
@@ -23,12 +43,14 @@ console.log("car-data.js 已成功載入！");
       );
     }
 
-    const db = getDb();
+    const db =
+      getDb();
 
-    const snapshot = await db
-      .collection("cars")
-      .doc(normalizedCarId)
-      .get();
+    const snapshot =
+      await db
+        .collection("cars")
+        .doc(normalizedCarId)
+        .get();
 
     if (!snapshot.exists) {
       return null;
@@ -40,7 +62,54 @@ console.log("car-data.js 已成功載入！");
     };
   }
 
+  // ============================================================
+  // 我的車
+  //
+  // Ownership V1：
+  // 只取得 ownerId = 指定使用者的車。
+  // ============================================================
+
+  async function getCarsByOwner(
+    ownerId
+  ) {
+    const normalizedOwnerId =
+      normalizeId(ownerId);
+
+    if (!normalizedOwnerId) {
+      throw new Error(
+        "缺少 ownerId"
+      );
+    }
+
+    const db =
+      getDb();
+
+    const snapshot =
+      await db
+        .collection("cars")
+        .where(
+          "ownerId",
+          "==",
+          normalizedOwnerId
+        )
+        .get();
+
+    return snapshot.docs.map(
+      function (doc) {
+        return {
+          id: doc.id,
+          ...doc.data()
+        };
+      }
+    );
+  }
+
+  // ============================================================
+  // 對外公開
+  // ============================================================
+
   window.JLYCarData = {
-    getCarById
+    getCarById,
+    getCarsByOwner
   };
 })();

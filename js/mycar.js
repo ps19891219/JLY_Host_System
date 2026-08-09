@@ -324,28 +324,64 @@ async function renderMyCars(options) {
   }
 
   if (!db) {
-    list.innerHTML =
-      '<div class="card"><h3>Firebase 尚未載入</h3></div>';
-
-    return;
-  }
-
-  const scrollBeforeRender = window.scrollY;
-
   list.innerHTML =
-    '<div class="card">載入中...</div>';
+    '<div class="card"><h3>Firebase 尚未載入</h3></div>';
 
-  try {
-    const snapshot =
-      await db.collection("cars").get();
+  return;
+}
 
-    let cars = snapshot.docs.map(function (doc) {
-      return {
-        id: doc.id,
-        ...doc.data()
-      };
-    });
+if (
+  !window.JLYCarData ||
+  typeof window
+    .JLYCarData
+    .getCarsByOwner !==
+      "function"
+) {
+  list.innerHTML =
+    '<div class="card"><h3>Car Data 模組尚未載入</h3></div>';
 
+  return;
+}
+
+const ownerId =
+  window.JLYIdentity &&
+  typeof window
+    .JLYIdentity
+    .getCurrentPlayerId ===
+      "function"
+    ? window
+        .JLYIdentity
+        .getCurrentPlayerId()
+    : String(
+        localStorage.getItem(
+          "currentPlayerId"
+        ) || ""
+      ).trim();
+
+if (!ownerId) {
+  list.innerHTML =
+    '<div class="card">' +
+    '<h3>尚未建立使用者身分</h3>' +
+    '<p>請重新整理頁面後再試。</p>' +
+    '</div>';
+
+  return;
+}
+
+const scrollBeforeRender =
+  window.scrollY;
+
+list.innerHTML =
+  '<div class="card">載入中...</div>';
+
+try {
+  let cars =
+    await window
+      .JLYCarData
+      .getCarsByOwner(
+        ownerId
+      );
+      
     const keyword = (
       searchInput && searchInput.value
         ? searchInput.value
