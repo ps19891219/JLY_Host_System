@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="
+      width=device-width,
+      initial-scale=1.0
+    "
+  >
+
+  <title>
+    我的揪團
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="../css/pages/recruit.css"
+  >
+</head>
+
+<body>
+
+  <main class="recruit-page">
+
+    <header
+      class="recruit-header"
+    >
+      <div
+        class="recruit-eyebrow"
+      >
+        JLY Host System
+      </div>
+
+      <h1>
+        我的揪團
+      </h1>
+
+      <p>
+        目前正在招募中的車團
+      </p>
+    </header>
+
+    <section
+      id="recruitCarList"
+      class="recruit-car-list"
+      aria-live="polite"
+    >
+    </section>
+
+  </main>
+
+  <!-- Firebase -->
+  <script
+    src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"
+  ></script>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"
+  ></script>
+
+  <script
+    src="../js/firebase.js"
+  ></script>
+
+  <!-- Shared Car Data -->
+  <script
+    src="../js/car/car-data.js"
+  ></script>
+
+  <!-- Recruit -->
+  <script
+    src="../js/recruit/recruit-data.js"
+  ></script>
+
+  <script
+    src="../js/recruit/recruit-render.js"
+  ></script>
+
+  <script
+    src="../js/recruit/recruit-controller.js"
+  ></script>
+
+</body>
+</html>
