@@ -1,58 +1,447 @@
-console.log("line-callback.js 已成功載入！");
+/*
+JLY Host System
 
-const LINE_CHANNEL_ID = "請貼上你的 Channel ID";
-const REDIRECT_URI = "https://jly-host-system-eeso.vercel.app/pages/line-callback.html";
+Module:
+LINE Login Callback Client V2
+
+用途：
+1. 接收 LINE Login callback
+2. 驗證 state
+3. 將 authorization code POST 到 /api/line-login
+4. 接收後端驗證完成的 LINE User Identity
+5. 暫存 LINE Identity，交給 Account / Identity Bridge
+
+不負責：
+- Channel Secret
+- Token Exchange
+- Firebase Player Profile 查找
+- Player Profile 建立
+- linkedPlayerIds
+- 「我是玩家」判斷
+*/
+
+"use strict";
+
+console.log(
+  "line-callback.js V2 已成功載入！"
+);
+
+// ============================================================
+// DOM
+// ============================================================
 
 function setStatus(text) {
-  const statusText = document.getElementById("statusText");
-  if (statusText) statusText.innerText = text;
+  const statusText =
+    document.getElementById(
+      "statusText"
+    );
+
+  if (statusText) {
+    statusText.innerText =
+      String(
+        text || ""
+      );
+  }
 }
+
+// ============================================================
+// Query Params
+// ============================================================
 
 function getQueryParam(name) {
-  return new URLSearchParams(location.search).get(name);
+  return new URLSearchParams(
+    location.search
+  ).get(name);
 }
 
-async function handleLineCallback() {
-  const code = getQueryParam("code");
-  const state = getQueryParam("state");
+// ============================================================
+// 清理 LINE Login 暫存
+// ============================================================
 
-  if (!code) {
-    setStatus("沒有收到 LINE 登入授權碼，請重新登入。");
+function clearLineLoginTemporaryState() {
+  sessionStorage.removeItem(
+    "jly_line_login_state"
+  );
+
+  sessionStorage.removeItem(
+    "line_login_code"
+  );
+
+  sessionStorage.removeItem(
+    "line_login_state"
+  );
+}
+
+// ============================================================
+// 驗證 state
+// ============================================================
+
+function validateLineLoginState(
+  returnedState
+) {
+  const expectedState =
+    String(
+      sessionStorage.getItem(
+        "jly_line_login_state"
+      ) || ""
+    ).trim();
+
+  const actualState =
+    String(
+      returnedState || ""
+    ).trim();
+
+  if (
+    !expectedState ||
+    !actualState
+  ) {
+    return {
+      valid: false,
+      reason:
+        "登入驗證資料不存在"
+    };
+  }
+
+  if (
+    expectedState !==
+    actualState
+  ) {
+    return {
+      valid: false,
+      reason:
+        "LINE Login state 不一致"
+    };
+  }
+
+  return {
+    valid: true,
+    reason: ""
+  };
+}
+
+// ============================================================
+// 呼叫 Vercel Backend
+// ============================================================
+
+async function exchangeLineAuthorizationCode(
+  code
+) {
+  const response =
+    await fetch(
+      "/api/line-login",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify({
+            code:
+              String(
+                code || ""
+              ).trim()
+          })
+      }
+    );
+
+  let data = null;
+
+  try {
+    data =
+      await response.json();
+  } catch (error) {
+    throw new Error(
+      "LINE Login 後端回傳格式錯誤"
+    );
+  }
+
+  if (
+    !response.ok ||
+    !data ||
+    data.success !== true
+  ) {
+    const errorCode =
+      data &&
+      data.error
+        ? data.error
+        : "unknown_error";
+
+    throw new Error(
+      "LINE Login 驗證失敗：" +
+      errorCode
+    );
+  }
+
+  return data;
+}
+
+// ============================================================
+// 保存已驗證 LINE Identity
+// ============================================================
+
+function saveVerifiedLineIdentity(
+  lineUser
+) {
+  const source =
+    lineUser &&
+    typeof lineUser === "object"
+      ? lineUser
+      : {};
+
+  const lineUserId =
+    String(
+      source.userId || ""
+    ).trim();
+
+  if (!lineUserId) {
+    throw new Error(
+      "LINE User ID 不存在"
+    );
+  }
+
+  const identity = {
+    userId:
+      lineUserId,
+
+    displayName:
+      String(
+        source.displayName || ""
+      ).trim(),
+
+    pictureUrl:
+      String(
+        source.pictureUrl || ""
+      ).trim(),
+
+    verifiedAt:
+      new Date().toISOString()
+  };
+
+  sessionStorage.setItem(
+    "jly_verified_line_identity",
+    JSON.stringify(identity)
+  );
+
+  return identity;
+}
+
+// ============================================================
+// 取得登入後返回位置
+// ============================================================
+
+function getLineLoginReturnUrl() {
+  const saved =
+    String(
+      sessionStorage.getItem(
+        "jly_line_login_return_url"
+      ) || ""
+    ).trim();
+
+  return (
+    saved ||
+    "../index.html"
+  );
+}
+
+// ============================================================
+// 主流程
+// ============================================================
+
+async function handleLineCallback() {
+  const code =
+    getQueryParam(
+      "code"
+    );
+
+  const state =
+    getQueryParam(
+      "state"
+    );
+
+  const lineError =
+    getQueryParam(
+      "error"
+    );
+
+  const lineErrorDescription =
+    getQueryParam(
+      "error_description"
+    );
+
+  // ----------------------------------------------------------
+  // LINE 授權被取消／拒絕
+  // ----------------------------------------------------------
+
+  if (lineError) {
+    clearLineLoginTemporaryState();
+
+    console.error(
+      "LINE Login Error:",
+      lineError,
+      lineErrorDescription
+    );
+
+    setStatus(
+      "LINE 登入未完成，請重新登入。"
+    );
+
     return;
   }
 
-  setStatus("已收到 LINE 回傳，正在準備建立玩家資料...");
+  // ----------------------------------------------------------
+  // Authorization Code
+  // ----------------------------------------------------------
 
-  /*
-    ⚠️ 重要：
-    LINE Login 正式版需要用後端交換 token。
-    Channel Secret 不能放在前端 JS 裡。
+  if (!code) {
+    setStatus(
+      "沒有收到 LINE 登入授權碼，請重新登入。"
+    );
 
-    所以這一版先完成：
-    1. 接住 LINE callback
-    2. 保存 code/state
-    3. 回到報名頁繼續流程
-
-    下一步我們會加 Firebase Functions 或安全後端來換取 LINE 使用者資料。
-  */
-
-  sessionStorage.setItem("line_login_code", code);
-
-  if (state) {
-    sessionStorage.setItem("line_login_state", state);
+    return;
   }
 
-  setStatus("LINE 登入回傳成功，正在回到報名頁...");
+  // ----------------------------------------------------------
+  // State Validation
+  // ----------------------------------------------------------
 
-  setTimeout(() => {
-    const savedCarId = sessionStorage.getItem("join_car_id");
+  const stateResult =
+    validateLineLoginState(
+      state
+    );
 
-    if (savedCarId) {
-      location.href = "join.html?id=" + savedCarId + "&line=callback";
-    } else {
-      location.href = "../index.html";
-    }
-  }, 800);
+  if (!stateResult.valid) {
+    console.error(
+      stateResult.reason
+    );
+
+    clearLineLoginTemporaryState();
+
+    setStatus(
+      "LINE 登入驗證失敗，請重新登入。"
+    );
+
+    return;
+  }
+
+  try {
+    setStatus(
+      "LINE 身分驗證中..."
+    );
+
+    // --------------------------------------------------------
+    // Authorization Code → Backend
+    // --------------------------------------------------------
+
+    const result =
+      await exchangeLineAuthorizationCode(
+        code
+      );
+
+    // --------------------------------------------------------
+    // 保存可信任 LINE Identity
+    // --------------------------------------------------------
+
+    const lineIdentity =
+      saveVerifiedLineIdentity(
+        result.lineUser
+      );
+
+    console.log(
+      "LINE Identity 驗證完成：",
+      {
+        displayName:
+          lineIdentity.displayName,
+
+        hasUserId:
+          Boolean(
+            lineIdentity.userId
+          )
+      }
+    );
+
+    clearLineLoginTemporaryState();
+
+    setStatus(
+      "LINE 身分確認成功，正在連接 JLY 帳號..."
+    );
+
+    // --------------------------------------------------------
+    // Account V1 下一階段
+    //
+    // 目前先回原頁。
+    // 下一步將在這裡接：
+    //
+    // LINE Identity
+    // → Player Profile
+    // → JLYIdentity
+    // --------------------------------------------------------
+
+    const returnUrl =
+      getLineLoginReturnUrl();
+
+    setTimeout(
+      function () {
+        location.href =
+          returnUrl;
+      },
+      800
+    );
+  } catch (error) {
+    console.error(
+      "LINE Callback 處理失敗：",
+      error
+    );
+
+    setStatus(
+      error &&
+      error.message
+        ? error.message
+        : "LINE 登入失敗，請重新登入。"
+    );
+  }
 }
 
-document.addEventListener("DOMContentLoaded", handleLineCallback);
+// ============================================================
+// 初始化
+// ============================================================
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+    handleLineCallback()
+      .catch(
+        function (error) {
+          console.error(
+            "LINE Callback 初始化失敗：",
+            error
+          );
+
+          setStatus(
+            "LINE 登入發生錯誤，請重新登入。"
+          );
+        }
+      );
+  }
+);
+
+// ============================================================
+// 對外公開
+// ============================================================
+
+window.JLYLineCallback = {
+  getQueryParam,
+
+  validateLineLoginState,
+
+  exchangeLineAuthorizationCode,
+
+  saveVerifiedLineIdentity,
+
+  getLineLoginReturnUrl,
+
+  handle:
+    handleLineCallback
+};
