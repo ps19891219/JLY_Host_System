@@ -704,58 +704,73 @@ async function renderMyCars(
       // =========================
 
       if (
-        currentActiveRoleTab ===
-        "player"
-      ) {
-        cars =
-          cars.filter(
-            function (car) {
-              const players =
-                Array.isArray(
-                  car.players
-                )
-                  ? car.players
-                  : [];
+  currentActiveRoleTab ===
+  "player"
+) {
+  cars =
+    cars.filter(
+      function (car) {
 
-              return players.some(
-                function (player) {
-                  if (!player) {
-                    return false;
-                  }
+        // =========================
+        // 自己主揪的車
+        // 不放進「我是玩家」
+        // =========================
 
-                  const playerId =
-                    String(
-                      player.playerId ||
-                      player.id ||
-                      player.profileId ||
-                      ""
-                    ).trim();
+        if (
+          isMyHostCar(car)
+        ) {
+          return false;
+        }
 
-                  const status =
-                    String(
-                      player.status ||
-                      ""
-                    ).trim();
+        // =========================
+        // 車上的玩家
+        // =========================
 
-                  return (
-                    myPlayerIds.includes(
-                      playerId
-                    ) &&
-                    status !==
-                      "已取消" &&
-                    status !==
-                      "取消" &&
-                    status !==
-                      "cancelled" &&
-                    status !==
-                      "canceled"
-                  );
-                }
-              );
+        const players =
+          Array.isArray(
+            car.players
+          )
+            ? car.players
+            : [];
+
+        return players.some(
+          function (player) {
+            if (!player) {
+              return false;
             }
-          );
+
+            const playerId =
+              String(
+                player.playerId ||
+                player.id ||
+                player.profileId ||
+                ""
+              ).trim();
+
+            const status =
+              String(
+                player.status ||
+                ""
+              ).trim();
+
+            return (
+              myPlayerIds.includes(
+                playerId
+              ) &&
+              status !==
+                "已取消" &&
+              status !==
+                "取消" &&
+              status !==
+                "cancelled" &&
+              status !==
+                "canceled"
+            );
+          }
+        );
       }
-    }
+    );
+}
 
     // =========================
     // 已結束
@@ -1057,4 +1072,3 @@ window.saveMyCarViewState =
 window.setMyCarActiveRoleTab =
   setMyCarActiveRoleTab;
 
-  
