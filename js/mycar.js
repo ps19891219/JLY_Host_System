@@ -102,6 +102,21 @@ function restoreActiveRoleTabs() {
     );
 }
 
+function isMyHostCar(
+  car
+) {
+  if (!car) {
+    return false;
+  }
+
+  return (
+    car.isHost === true ||
+    String(
+      car.myRole || ""
+    ).trim() === "host"
+  );
+}
+
 function restoreScrollPosition() {
   const savedState = getSavedMyCarState();
 
@@ -541,21 +556,18 @@ if (
     );
 
   if (
-    currentActiveRoleTab ===
-    "host"
-  ) {
-    cars =
-      cars.filter(
-        function (car) {
-          return (
-            String(
-              car.ownerId || ""
-            ).trim() ===
-            ownerId
-          );
-        }
-      );
-  }
+  currentActiveRoleTab ===
+  "host"
+) {
+  cars =
+    cars.filter(
+      function (car) {
+        return isMyHostCar(
+          car
+        );
+      }
+    );
+}
 
   if (
     currentActiveRoleTab ===
@@ -571,13 +583,10 @@ if (
             不重複放進玩家分類。
           */
           if (
-            String(
-              car.ownerId || ""
-            ).trim() ===
-            ownerId
-          ) {
-            return false;
-          }
+  isMyHostCar(car)
+) {
+  return false;
+}
 
           const players =
             Array.isArray(
