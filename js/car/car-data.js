@@ -177,16 +177,29 @@ async function getCarsByPlayerId(
     );
   }
 
+  const linkedPlayerIds =
+    window.JLYIdentity &&
+    typeof window
+      .JLYIdentity
+      .getLinkedPlayerIds ===
+        "function"
+      ? window.JLYIdentity
+          .getLinkedPlayerIds()
+      : [];
+
+  const targetPlayerIds =
+    Array.from(
+      new Set([
+        normalizedPlayerId,
+        ...linkedPlayerIds
+          .map(normalizeId)
+          .filter(Boolean)
+      ])
+    );
+
   const db =
     getDb();
 
-  /*
-    Firestore V8 對陣列物件中的子欄位
-    不適合直接用 where 查 playerId。
-
-    V1 先讀取 cars，
-    再在前端安全判斷 players[]。
-  */
   const snapshot =
     await db
       .collection("cars")
@@ -224,8 +237,9 @@ async function getCarsByPlayerId(
               );
 
             if (
-              currentPlayerId !==
-              normalizedPlayerId
+              !targetPlayerIds.includes(
+                currentPlayerId
+              )
             ) {
               return false;
             }

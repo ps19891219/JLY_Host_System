@@ -60,6 +60,64 @@ function setCurrentPlayerProfileId(
   return true;
 }
 
+function getLinkedPlayerIds() {
+  const raw =
+    localStorage.getItem(
+      "linkedPlayerIds"
+    );
+
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const ids =
+      JSON.parse(raw);
+
+    return Array.isArray(ids)
+      ? ids
+          .map(normalizeText)
+          .filter(Boolean)
+      : [];
+  } catch (error) {
+    console.warn(
+      "讀取 linkedPlayerIds 失敗：",
+      error
+    );
+
+    return [];
+  }
+}
+
+function addLinkedPlayerId(
+  playerId
+) {
+  const normalizedId =
+    normalizeText(playerId);
+
+  if (!normalizedId) {
+    return false;
+  }
+
+  const currentIds =
+    getLinkedPlayerIds();
+
+  const nextIds =
+    Array.from(
+      new Set([
+        ...currentIds,
+        normalizedId
+      ])
+    );
+
+  localStorage.setItem(
+    "linkedPlayerIds",
+    JSON.stringify(nextIds)
+  );
+
+  return true;
+}
+
   function getCurrentPlayerName() {
     return normalizeText(
       localStorage.getItem(
@@ -158,9 +216,11 @@ function setCurrentPlayerProfileId(
   window.JLYIdentity = {
   getCurrentPlayerId,
   getCurrentPlayerProfileId,
+  getLinkedPlayerIds,
   getCurrentPlayerName,
   ensureCurrentPlayerId,
   setCurrentPlayerId,
-  setCurrentPlayerProfileId
+  setCurrentPlayerProfileId,
+  addLinkedPlayerId
 };
 })();
