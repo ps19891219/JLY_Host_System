@@ -692,9 +692,17 @@ const calendarOptions =
     }
 
     const ownerId =
-  localStorage.getItem(
-    "currentPlayerId"
-  );
+  window.JLYIdentity &&
+  typeof window
+    .JLYIdentity
+    .ensureCurrentPlayerId ===
+      "function"
+    ? window
+        .JLYIdentity
+        .ensureCurrentPlayerId()
+    : localStorage.getItem(
+        "currentPlayerId"
+      );
 
     const car = {
       ownerId: ownerId || "",
