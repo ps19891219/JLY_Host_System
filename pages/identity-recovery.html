@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>JLY 身分恢復</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/style.css"
+    >
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <h2>🔑 JLY 手機身分恢復</h2>
+
+        <p>
+            此頁只用於恢復目前手機的 JLY 使用者身分。
+        </p>
+
+        <label>
+            恢復碼
+        </label>
+
+        <input
+            id="recoveryCode"
+            type="password"
+            placeholder="請輸入恢復碼"
+            autocomplete="off"
+        >
+
+        <button
+            type="button"
+            onclick="restoreIdentity()"
+        >
+            恢復我的 JLY 身分
+        </button>
+
+        <p id="statusText"></p>
+
+    </div>
+
+</div>
+
+<!-- Firebase -->
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script src="../firebase/firebase.js?v=39"></script>
+
+<!-- JLY Identity -->
+
+<script src="../js/core/identity.js?v=1"></script>
+
+<script>
+"use strict";
+
+// ============================================================
+// 已確認的正式 Identity
+// ============================================================
+
+const RECOVERY_PLAYER_ID =
+    "86369a39-4fec-46ad-9afc-a60558dc8a9c";
+
+const RECOVERY_PROFILE_ID =
+    "f89pkJbkmFLu4ZOw2fXh";
+
+// ============================================================
+// 恢復碼 SHA-256
+// ============================================================
+
+const RECOVERY_CODE_HASH =
+    "8f318ba2a6092b51e2ef9c7bee8041dc5cb68989b4c93c97a8237fccb7d83c07";
+
+// ============================================================
+// 畫面
+// ============================================================
+
+function setStatus(
+    text
+) {
+    const element =
+        document.getElementById(
+            "statusText"
+        );
+
+    if (element) {
+        element.textContent =
+            String(
+                text || ""
+            );
+    }
+}
+
+// ============================================================
+// SHA-256
+// ============================================================
+
+async function sha256(
+    value
+) {
+    const data =
+        new TextEncoder()
+            .encode(
+                String(
+                    value || ""
+                )
+            );
+
+    const hashBuffer =
+        await crypto.subtle.digest(
+            "SHA-256",
+            data
+        );
+
+    return Array.from(
+        new Uint8Array(
+            hashBuffer
+        )
+    )
+        .map(
+            function (byte) {
+                return byte
+                    .toString(16)
+                    .padStart(
+                        2,
+                        "0"
+                    );
+            }
+        )
+        .join("");
+}
+
+// ============================================================
+// 恢復
+// ============================================================
+
+async function restoreIdentity() {
+
+    const db =
+        window.db;
+
+    if (!db) {
+        setStatus(
+            "Firebase 尚未載入，請重新整理。"
+        );
+
+        return;
+    }
+
+    if (
+        !window.JLYIdentity
+    ) {
+        setStatus(
+            "JLY Identity 尚未載入。"
+        );
+
+        return;
+    }
+
+    const input =
+        document.getElementById(
+            "recoveryCode"
+        );
+
+    const recoveryCode =
+        String(
+            input &&
+            input.value
+                ? input.value
+                : ""
+        ).trim();
+
+    if (!recoveryCode) {
+        setStatus(
+            "請輸入恢復碼。"
+        );
+
+        return;
+    }
+
+    try {
+
+        // ====================================================
+        // STEP 1
+        // 驗證恢復碼
+        // ====================================================
+
+        const inputHash =
+            await sha256(
+                recoveryCode
+            );
+
+        if (
+            inputHash !==
+            RECOVERY_CODE_HASH
+        ) {
+            setStatus(
+                "恢復碼不正確。"
+            );
+
+            return;
+        }
+
+        setStatus(
+            "正在確認玩家資料..."
+        );
+
+        // ====================================================
+        // STEP 2
+        // 確認 Firebase Profile 真實存在
+        // ====================================================
+
+        const snapshot =
+            await db
+                .collection(
+                    "players"
+                )
+                .doc(
+                    RECOVERY_PROFILE_ID
+                )
+                .get();
+
+        if (
+            !snapshot.exists
+        ) {
+            setStatus(
+                "找不到原本的玩家資料，已停止恢復。"
+            );
+
+            return;
+        }
+
+        // ====================================================
+        // STEP 3
+        // 恢復正式 Identity ID
+        // ====================================================
+
+        window.JLYIdentity
+            .setCurrentPlayerId(
+                RECOVERY_PLAYER_ID
+            );
+
+        window.JLYIdentity
+            .setCurrentPlayerProfileId(
+                RECOVERY_PROFILE_ID
+            );
+
+        // ====================================================
+        // STEP 4
+        // 從 Firebase 同步名稱與 linkedPlayerIds
+        // ====================================================
+
+        const profile =
+            await window
+                .JLYIdentity
+                .syncFromPlayerProfile(
+                    db,
+                    RECOVERY_PROFILE_ID
+                );
+
+        if (!profile) {
+            setStatus(
+                "玩家資料同步失敗。"
+            );
+
+            return;
+        }
+
+        // ====================================================
+        // STEP 5
+        // 再次確保 ownerId 正確
+        // ====================================================
+
+        window.JLYIdentity
+            .setCurrentPlayerId(
+                RECOVERY_PLAYER_ID
+            );
+
+        setStatus(
+            "身分恢復成功，正在前往我的車..."
+        );
+
+        setTimeout(
+            function () {
+                location.href =
+                    "mycar.html";
+            },
+            1000
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Identity Recovery 失敗：",
+            error
+        );
+
+        setStatus(
+            "恢復失敗，請稍後再試。"
+        );
+    }
+}
+
+window.restoreIdentity =
+    restoreIdentity;
+
+</script>
+
+</body>
+</html>
