@@ -177,7 +177,46 @@ async function getCarsByPlayerId(
     );
   }
 
-  const linkedPlayerIds =
+  const db =
+    getDb();
+
+  // ============================================================
+  // Identity Linked Players
+  //
+  // Firebase Profile = 正式來源
+  // localStorage = 本機備援
+  // ============================================================
+
+  let firebaseLinkedPlayerIds = [];
+
+  try {
+    const profileSnapshot =
+      await db
+        .collection("players")
+        .doc(normalizedPlayerId)
+        .get();
+
+    if (profileSnapshot.exists) {
+      const profileData =
+        profileSnapshot.data() || {};
+
+      firebaseLinkedPlayerIds =
+        Array.isArray(
+          profileData.linkedPlayerIds
+        )
+          ? profileData.linkedPlayerIds
+              .map(normalizeId)
+              .filter(Boolean)
+          : [];
+    }
+  } catch (error) {
+    console.warn(
+      "讀取 Firebase linkedPlayerIds 失敗：",
+      error
+    );
+  }
+
+  const localLinkedPlayerIds =
     window.JLYIdentity &&
     typeof window
       .JLYIdentity
@@ -191,14 +230,19 @@ async function getCarsByPlayerId(
     Array.from(
       new Set([
         normalizedPlayerId,
-        ...linkedPlayerIds
+
+        ...firebaseLinkedPlayerIds,
+
+        ...localLinkedPlayerIds
           .map(normalizeId)
           .filter(Boolean)
       ])
     );
 
-  const db =
-    getDb();
+  console.log(
+    "🎮 玩家身分 IDs：",
+    targetPlayerIds
+  );
 
   const snapshot =
     await db
