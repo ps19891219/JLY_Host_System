@@ -222,23 +222,87 @@ const assistCars =
 
   同一台如果重複，只保留一份。
 */
-const mergedCars =
-  mergeCars([
-    hostCars,
-    assistCars
-  ]);
-
-const cars =
+/*
+  三個分類都只留下
+  目前真正「招募中」的車。
+*/
+const filteredHostCars =
   sortRecruitCars(
     filterRecruitCars(
-      mergedCars
+      hostCars
     )
   );
 
-      render.renderPage(
-        container,
-        cars
-      );
+const filteredAssistCars =
+  sortRecruitCars(
+    filterRecruitCars(
+      assistCars
+    )
+  );
+
+const mergedCars =
+  mergeCars([
+    filteredHostCars,
+    filteredAssistCars
+  ]);
+
+const allCars =
+  sortRecruitCars(
+    mergedCars
+  );
+
+/*
+  如果 Tabs 模組存在，
+  將三組資料交給它管理。
+*/
+if (
+  window.JLYRecruitTabs &&
+  typeof window
+    .JLYRecruitTabs
+    .init === "function"
+) {
+  window.JLYRecruitTabs.init({
+    onChange:
+      function (cars) {
+        render.renderPage(
+          container,
+          cars
+        );
+      }
+  });
+
+  window.JLYRecruitTabs
+    .setCarGroups({
+      all:
+        allCars,
+
+      host:
+        filteredHostCars,
+
+      assist:
+        filteredAssistCars
+    });
+
+  /*
+    第一次進入頁面，
+    預設顯示「全部」。
+  */
+  window.JLYRecruitTabs
+    .setTab("all");
+
+  return;
+}
+
+/*
+  Tabs 如果沒有成功載入，
+  至少仍然顯示全部車團，
+  不讓整頁壞掉。
+*/
+render.renderPage(
+  container,
+  allCars
+);
+
     } catch (error) {
       console.error(
         "載入個人揪團頁失敗：",

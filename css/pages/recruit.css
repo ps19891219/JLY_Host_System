@@ -402,3 +402,97 @@ body {
 
   font-size: 13px;
 }
+
+/* ========================================
+   Recruit Tabs
+======================================== */
+
+.recruit-tabs {
+  display: grid;
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 8px;
+
+  margin-bottom: 16px;
+
+  padding: 4px;
+
+  border-radius: 14px;
+
+  background: #ece9e4;
+}
+
+.recruit-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  min-height: 42px;
+
+  padding:
+    8px
+    10px;
+
+  border: 0;
+  border-radius: 11px;
+
+  background: transparent;
+
+  color: #777777;
+
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.recruit-tab.active {
+  background: #ffffff;
+  color: #333333;
+
+  box-shadow:
+    0 2px 8px
+    rgba(0, 0, 0, 0.07);
+}
+
+.recruit-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 20px;
+  height: 20px;
+
+  padding:
+    0
+    6px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(0, 0, 0, 0.06);
+
+  font-size: 11px;
+}
+
+.recruit-tab.active
+.recruit-tab-count {
+  background: #e9f7ef;
+  color: #2f8658;
+}
+
+@media (
+  max-width: 420px
+) {
+  .recruit-tab {
+    padding:
+      8px
+      5px;
+
+    font-size: 12px;
+  }
+}
