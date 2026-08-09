@@ -2,38 +2,63 @@
 JLY Host System
 
 Module:
-LINE Account Backend V1
+LINE Account Backend V2
 
 用途：
-1. 接收已完成 LINE Login 的 LINE User Identity
-2. 查詢 JLY Account
-3. 回傳已綁定的 Player Profile ID
-4. 支援跨裝置恢復 JLY 身分
 
-目前 V1：
-- 支援 resolve
-- 不自動建立 Account
+1. 接收 LINE Login Backend 簽發的短效 Login Ticket
+2. 在 Server 驗證 Ticket
+3. 從 Ticket 取得可信任 LINE Identity
+4. Resolve JLY Account
+5. 第一次登入時建立「尚未綁 Player」Account
+6. 已綁定時回傳正式 Player Profile ID
+7. 使用完成後作廢一次性 Ticket
+
+安全規則：
+
+- 不相信前端傳入的 LINE User ID
+- 不使用玩家名稱猜測 Player
+- 不由前端直接指定 Account Identity
+- Ticket 只能使用一次
+- Ticket 必須未過期
 - 不自動建立 Player Profile
-- 不用玩家名稱猜測身分
+- V2 暫不開放通用 bind API
 
-Account Collection：
-accounts
+核心：
 
-Account Document ID：
-line_{LINE_USER_ID}
-
-核心關係：
-
-LINE User
-→ JLY Account
+LINE Login
+→ Login Ticket
+→ LINE Account
 → Player Profile
 */
 
 "use strict";
 
+const crypto =
+  require("crypto");
+
+const admin =
+  require("firebase-admin");
+
+const LOGIN_TICKET_COLLECTION =
+  "accountLoginTickets";
+
+const ACCOUNT_COLLECTION =
+  "accounts";
+
 // ============================================================
-// JSON Response
+// 基本工具
 // ============================================================
+
+function normalizeText(
+  value
+) {
+  return String(
+    value == null
+      ? ""
+      : value
+  ).trim();
+}
 
 function sendJson(
   res,
@@ -59,46 +84,10 @@ function sendJson(
 }
 
 // ============================================================
-// 基本工具
-// ============================================================
-
-function normalizeText(
-  value
-) {
-  return String(
-    value == null
-      ? ""
-      : value
-  ).trim();
-}
-
-// ============================================================
 // Firebase Admin
 // ============================================================
 
-function getFirebaseAdmin() {
-  try {
-    return require(
-      "firebase-admin"
-    );
-  } catch (error) {
-    console.error(
-      "firebase-admin 尚未安裝：",
-      error
-    );
-
-    return null;
-  }
-}
-
 function getAdminDatabase() {
-  const admin =
-    getFirebaseAdmin();
-
-  if (!admin) {
-    return null;
-  }
-
   if (
     !admin.apps ||
     admin.apps.length === 0
@@ -129,11 +118,9 @@ function getAdminDatabase() {
       !clientEmail ||
       !privateKey
     ) {
-      console.error(
+      throw new Error(
         "Firebase Admin 環境變數尚未設定"
       );
-
-      return null;
     }
 
     admin.initializeApp({
@@ -150,10 +137,33 @@ function getAdminDatabase() {
 }
 
 // ============================================================
-// Account Document ID
+// Login Ticket
 // ============================================================
 
-function createLineAccountDocumentId(
+function hashLoginTicket(
+  ticket
+) {
+  return crypto
+    .createHash(
+      "sha256"
+    )
+    .update(
+      String(
+        ticket || ""
+      )
+    )
+    .digest(
+      "hex"
+    );
+}
+
+// ============================================================
+// Account ID
+//
+// 不直接把 LINE User ID 當 Firestore Document ID。
+// ============================================================
+
+function createLineAccountId(
   lineUserId
 ) {
   const normalizedId =
@@ -165,9 +175,21 @@ function createLineAccountDocumentId(
     return "";
   }
 
+  const hash =
+    crypto
+      .createHash(
+        "sha256"
+      )
+      .update(
+        normalizedId
+      )
+      .digest(
+        "hex"
+      );
+
   return (
     "line_" +
-    normalizedId
+    hash
   );
 }
 
@@ -175,67 +197,439 @@ function createLineAccountDocumentId(
 // Resolve Account
 // ============================================================
 
-async function resolveLineAccount(
+async function resolveAccountByTicket(
   db,
-  lineUserId
+  loginTicket
 ) {
-  const accountDocumentId =
-    createLineAccountDocumentId(
-      lineUserId
+  const normalizedTicket =
+    normalizeText(
+      loginTicket
     );
 
-  if (!accountDocumentId) {
+  if (!normalizedTicket) {
     return {
-      found: false,
-      reason:
-        "line_user_id_missing"
+      success: false,
+      statusCode: 400,
+      error:
+        "login_ticket_missing"
     };
   }
 
-  const snapshot =
-    await db
+  const ticketHash =
+    hashLoginTicket(
+      normalizedTicket
+    );
+
+  const ticketRef =
+    db
       .collection(
-        "accounts"
+        LOGIN_TICKET_COLLECTION
       )
       .doc(
-        accountDocumentId
-      )
-      .get();
+        ticketHash
+      );
 
-  if (!snapshot.exists) {
-    return {
-      found: false,
-      reason:
-        "account_not_found"
-    };
-  }
+  return await db.runTransaction(
+    async function (
+      transaction
+    ) {
+      // ======================================================
+      // STEP 1
+      // 讀取 Ticket
+      // ======================================================
 
-  const account =
-    snapshot.data() || {};
+      const ticketSnapshot =
+        await transaction.get(
+          ticketRef
+        );
 
-  const playerProfileId =
-    normalizeText(
-      account.playerProfileId
-    );
+      if (
+        !ticketSnapshot.exists
+      ) {
+        return {
+          success: false,
+          statusCode: 401,
+          error:
+            "login_ticket_invalid"
+        };
+      }
 
-  if (!playerProfileId) {
-    return {
-      found: false,
-      reason:
-        "player_profile_not_linked"
-    };
-  }
+      const ticketData =
+        ticketSnapshot.data() ||
+        {};
 
-  return {
-    found: true,
+      const used =
+        ticketData.used === true;
 
-    accountId:
-      snapshot.id,
+      if (used) {
+        return {
+          success: false,
+          statusCode: 401,
+          error:
+            "login_ticket_used"
+        };
+      }
 
-    playerProfileId,
+      const expiresAtMs =
+        Number(
+          ticketData.expiresAtMs ||
+          0
+        );
 
-    account
-  };
+      if (
+        !expiresAtMs ||
+        Date.now() >=
+          expiresAtMs
+      ) {
+        transaction.update(
+          ticketRef,
+          {
+            used:
+              true,
+
+            expired:
+              true,
+
+            usedAtMs:
+              Date.now()
+          }
+        );
+
+        return {
+          success: false,
+          statusCode: 401,
+          error:
+            "login_ticket_expired"
+        };
+      }
+
+      const lineUserId =
+        normalizeText(
+          ticketData.lineUserId
+        );
+
+      if (!lineUserId) {
+        transaction.update(
+          ticketRef,
+          {
+            used:
+              true,
+
+            usedAtMs:
+              Date.now()
+          }
+        );
+
+        return {
+          success: false,
+          statusCode: 401,
+          error:
+            "login_identity_missing"
+        };
+      }
+
+      // ======================================================
+      // STEP 2
+      // 找 Account
+      // ======================================================
+
+      const accountId =
+        createLineAccountId(
+          lineUserId
+        );
+
+      const accountRef =
+        db
+          .collection(
+            ACCOUNT_COLLECTION
+          )
+          .doc(
+            accountId
+          );
+
+      const accountSnapshot =
+        await transaction.get(
+          accountRef
+        );
+
+      const nowMs =
+        Date.now();
+
+      // ======================================================
+      // STEP 3
+      // 第一次登入
+      //
+      // 建立 Account，但不亂綁 Player。
+      // ======================================================
+
+      if (
+        !accountSnapshot.exists
+      ) {
+        transaction.set(
+          accountRef,
+          {
+            provider:
+              "line",
+
+            providerIdentityHash:
+              accountId.replace(
+                /^line_/,
+                ""
+              ),
+
+            playerProfileId:
+              "",
+
+            status:
+              "unlinked",
+
+            lineDisplayName:
+              normalizeText(
+                ticketData.displayName
+              ),
+
+            linePictureUrl:
+              normalizeText(
+                ticketData.pictureUrl
+              ),
+
+            createdAtMs:
+              nowMs,
+
+            updatedAtMs:
+              nowMs,
+
+            lastLoginAtMs:
+              nowMs,
+
+            source:
+              "line-account-v2"
+          }
+        );
+
+        transaction.update(
+          ticketRef,
+          {
+            used:
+              true,
+
+            usedAtMs:
+              nowMs,
+
+            result:
+              "account_created_unlinked"
+          }
+        );
+
+        return {
+          success: false,
+
+          statusCode: 404,
+
+          found: false,
+
+          needsBinding: true,
+
+          error:
+            "account_not_linked",
+
+          accountId
+        };
+      }
+
+      const accountData =
+        accountSnapshot.data() ||
+        {};
+
+      const playerProfileId =
+        normalizeText(
+          accountData
+            .playerProfileId
+        );
+
+      // ======================================================
+      // STEP 4
+      // Account 已存在但尚未綁 Player
+      // ======================================================
+
+      if (!playerProfileId) {
+        transaction.update(
+          accountRef,
+          {
+            status:
+              "unlinked",
+
+            lineDisplayName:
+              normalizeText(
+                ticketData.displayName
+              ),
+
+            linePictureUrl:
+              normalizeText(
+                ticketData.pictureUrl
+              ),
+
+            updatedAtMs:
+              nowMs,
+
+            lastLoginAtMs:
+              nowMs
+          }
+        );
+
+        transaction.update(
+          ticketRef,
+          {
+            used:
+              true,
+
+            usedAtMs:
+              nowMs,
+
+            result:
+              "account_unlinked"
+          }
+        );
+
+        return {
+          success: false,
+
+          statusCode: 404,
+
+          found: false,
+
+          needsBinding: true,
+
+          error:
+            "account_not_linked",
+
+          accountId
+        };
+      }
+
+      // ======================================================
+      // STEP 5
+      // 確認 Player Profile 真實存在
+      // ======================================================
+
+      const playerRef =
+        db
+          .collection(
+            "players"
+          )
+          .doc(
+            playerProfileId
+          );
+
+      const playerSnapshot =
+        await transaction.get(
+          playerRef
+        );
+
+      if (
+        !playerSnapshot.exists
+      ) {
+        transaction.update(
+          accountRef,
+          {
+            status:
+              "broken_profile_link",
+
+            updatedAtMs:
+              nowMs,
+
+            lastLoginAtMs:
+              nowMs
+          }
+        );
+
+        transaction.update(
+          ticketRef,
+          {
+            used:
+              true,
+
+            usedAtMs:
+              nowMs,
+
+            result:
+              "player_profile_missing"
+          }
+        );
+
+        return {
+          success: false,
+
+          statusCode: 409,
+
+          error:
+            "player_profile_missing"
+        };
+      }
+
+      // ======================================================
+      // STEP 6
+      // Account 正常
+      // ======================================================
+
+      transaction.update(
+        accountRef,
+        {
+          status:
+            "active",
+
+          lineDisplayName:
+            normalizeText(
+              ticketData.displayName
+            ),
+
+          linePictureUrl:
+            normalizeText(
+              ticketData.pictureUrl
+            ),
+
+          updatedAtMs:
+            nowMs,
+
+          lastLoginAtMs:
+            nowMs
+        }
+      );
+
+      // ======================================================
+      // STEP 7
+      // Ticket 一次性作廢
+      // ======================================================
+
+      transaction.update(
+        ticketRef,
+        {
+          used:
+            true,
+
+          usedAtMs:
+            nowMs,
+
+          result:
+            "resolved"
+        }
+      );
+
+      return {
+        success: true,
+
+        statusCode: 200,
+
+        found: true,
+
+        account: {
+          accountId,
+
+          playerProfileId
+        }
+      };
+    }
+  );
 }
 
 // ============================================================
@@ -247,6 +641,10 @@ async function handler(
   req,
   res
 ) {
+  // ----------------------------------------------------------
+  // POST only
+  // ----------------------------------------------------------
+
   if (
     req.method !== "POST"
   ) {
@@ -278,10 +676,16 @@ async function handler(
       body.action
     );
 
-  const lineUserId =
+  const loginTicket =
     normalizeText(
-      body.lineUserId
+      body.loginTicket
     );
+
+  // ----------------------------------------------------------
+  // V2 只開放 resolve
+  //
+  // bind 先不開放，避免未驗證的 Player Profile 冒綁。
+  // ----------------------------------------------------------
 
   if (
     action !== "resolve"
@@ -297,75 +701,61 @@ async function handler(
     );
   }
 
-  if (!lineUserId) {
+  if (!loginTicket) {
     return sendJson(
       res,
       400,
       {
         success: false,
         error:
-          "line_user_id_missing"
-      }
-    );
-  }
-
-  const db =
-    getAdminDatabase();
-
-  if (!db) {
-    return sendJson(
-      res,
-      500,
-      {
-        success: false,
-        error:
-          "firebase_admin_unavailable"
+          "login_ticket_missing"
       }
     );
   }
 
   try {
+    const db =
+      getAdminDatabase();
+
     const result =
-      await resolveLineAccount(
+      await resolveAccountByTicket(
         db,
-        lineUserId
+        loginTicket
       );
-
-    if (!result.found) {
-      return sendJson(
-        res,
-        404,
-        {
-          success: false,
-
-          found: false,
-
-          error:
-            result.reason
-        }
-      );
-    }
 
     return sendJson(
       res,
-      200,
+      result.statusCode ||
+        (
+          result.success
+            ? 200
+            : 400
+        ),
       {
-        success: true,
+        success:
+          result.success === true,
 
-        found: true,
+        found:
+          result.found === true,
 
-        account: {
-          accountId:
-            result.accountId,
+        needsBinding:
+          result.needsBinding ===
+            true,
 
-          playerProfileId:
-            result.playerProfileId
-        }
+        error:
+          result.error || "",
+
+        accountId:
+          result.accountId || "",
+
+        account:
+          result.account ||
+          null
       }
     );
   } catch (error) {
     console.error(
-      "LINE Account Resolve 失敗：",
+      "LINE Account Backend V2 發生錯誤：",
       error
     );
 
