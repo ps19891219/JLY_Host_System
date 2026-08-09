@@ -545,3 +545,56 @@ button.gray:active {
     left: 11px;
   }
 }
+
+.mycar-role-tabs {
+  display: grid;
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 8px;
+
+  margin:
+    8px
+    0
+    14px;
+
+  padding: 4px;
+
+  border-radius: 14px;
+
+  background: #ece9e4;
+}
+
+.mycar-role-tabs[hidden] {
+  display: none;
+}
+
+.role-tab {
+  min-height: 40px;
+
+  padding:
+    8px
+    10px;
+
+  border: 0;
+  border-radius: 11px;
+
+  background: transparent;
+
+  color: #777777;
+
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.role-tab.active {
+  background: #ffffff;
+  color: #333333;
+
+  box-shadow:
+    0 2px 8px
+    rgba(0, 0, 0, 0.07);
+}

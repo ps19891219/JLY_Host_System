@@ -154,6 +154,99 @@ async function getCarsByIds(
   return cars.filter(Boolean);
 }
 
+// ============================================================
+// 取得指定玩家參與的車團
+//
+// 玩家身分來源：
+// car.players[].playerId
+//
+// 只保留：
+// - playerId 相符
+// - 該玩家紀錄不是已取消
+// ============================================================
+
+async function getCarsByPlayerId(
+  playerId
+) {
+  const normalizedPlayerId =
+    normalizeId(playerId);
+
+  if (!normalizedPlayerId) {
+    throw new Error(
+      "缺少 playerId"
+    );
+  }
+
+  const db =
+    getDb();
+
+  /*
+    Firestore V8 對陣列物件中的子欄位
+    不適合直接用 where 查 playerId。
+
+    V1 先讀取 cars，
+    再在前端安全判斷 players[]。
+  */
+  const snapshot =
+    await db
+      .collection("cars")
+      .get();
+
+  return snapshot.docs
+    .map(
+      function (doc) {
+        return {
+          id: doc.id,
+          ...doc.data()
+        };
+      }
+    )
+    .filter(
+      function (car) {
+        const players =
+          Array.isArray(
+            car.players
+          )
+            ? car.players
+            : [];
+
+        return players.some(
+          function (player) {
+            if (!player) {
+              return false;
+            }
+
+            const currentPlayerId =
+              normalizeId(
+                player.playerId ||
+                player.id ||
+                player.profileId
+              );
+
+            if (
+              currentPlayerId !==
+              normalizedPlayerId
+            ) {
+              return false;
+            }
+
+            const status =
+              String(
+                player.status || ""
+              ).trim();
+
+            return (
+              status !== "已取消" &&
+              status !== "取消" &&
+              status !== "cancelled" &&
+              status !== "canceled"
+            );
+          }
+        );
+      }
+    );
+}
+
   // ============================================================
   // 對外公開
   // ============================================================
@@ -161,6 +254,7 @@ async function getCarsByIds(
   window.JLYCarData = {
   getCarById,
   getCarsByOwner,
-  getCarsByIds
+  getCarsByIds,
+  getCarsByPlayerId
 };
 })();

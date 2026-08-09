@@ -126,6 +126,8 @@
   <!-- 分頁 -->
   <div class="sticky-tabs">
 
+    
+
     <div class="mycar-tabs">
 
       <button
@@ -161,6 +163,51 @@
       </button>
 
     </div>
+
+    <div
+  id="activeRoleTabs"
+  class="mycar-role-tabs"
+  hidden
+>
+  <button
+    type="button"
+    data-role-tab="all"
+    class="role-tab active"
+    onclick="
+      setMyCarActiveRoleTab(
+        'all'
+      )
+    "
+  >
+    全部
+  </button>
+
+  <button
+    type="button"
+    data-role-tab="host"
+    class="role-tab"
+    onclick="
+      setMyCarActiveRoleTab(
+        'host'
+      )
+    "
+  >
+    👑 我主揪的
+  </button>
+
+  <button
+    type="button"
+    data-role-tab="player"
+    class="role-tab"
+    onclick="
+      setMyCarActiveRoleTab(
+        'player'
+      )
+    "
+  >
+    🎮 我是玩家
+  </button>
+</div>
 
   </div>
 

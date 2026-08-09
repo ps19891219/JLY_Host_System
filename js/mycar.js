@@ -1,6 +1,8 @@
 console.log("mycar.js 已成功載入！");
 
 let currentTab = "all";
+let currentActiveRoleTab =
+  "all";
 let batchMode = false;
 let selectedCars = new Set();
 let visibleCarIds = [];
@@ -31,8 +33,15 @@ function saveMyCarViewState(scrollY) {
   const searchInput = document.getElementById("searchInput");
 
   const state = {
-    tab: currentTab,
-    keyword: searchInput ? searchInput.value : "",
+  tab: currentTab,
+
+  activeRoleTab:
+    currentActiveRoleTab,
+
+  keyword:
+    searchInput
+      ? searchInput.value
+      : "",
     scrollY:
       typeof scrollY === "number"
         ? scrollY
@@ -63,6 +72,36 @@ function restoreTabButtons() {
     });
 }
 
+function restoreActiveRoleTabs() {
+  const box =
+    document.getElementById(
+      "activeRoleTabs"
+    );
+
+  if (!box) {
+    return;
+  }
+
+  box.hidden =
+    currentTab !==
+    "active";
+
+  box
+    .querySelectorAll(
+      "[data-role-tab]"
+    )
+    .forEach(
+      function (button) {
+        button.classList.toggle(
+          "active",
+          button.dataset
+            .roleTab ===
+            currentActiveRoleTab
+        );
+      }
+    );
+}
+
 function restoreScrollPosition() {
   const savedState = getSavedMyCarState();
 
@@ -90,7 +129,40 @@ function restoreScrollPosition() {
 function setMyCarTab(tab) {
   currentTab = tab;
 
+  const activeRoleTabs =
+    document.getElementById("activeRoleTabs");
+
+  if (activeRoleTabs) {
+    activeRoleTabs.hidden =
+      tab !== "active";
+  }
+
+  if (tab !== "active") {
+    currentActiveRoleTab = "all";
+  }
+
   restoreTabButtons();
+  saveMyCarViewState();
+
+  renderMyCars({
+    restoreScroll: false
+  });
+}
+
+function setMyCarActiveRoleTab(
+  tab
+) {
+  currentActiveRoleTab =
+    [
+      "all",
+      "host",
+      "player"
+    ].includes(tab)
+      ? tab
+      : "all";
+
+  restoreActiveRoleTabs();
+
   saveMyCarViewState(0);
 
   renderMyCars({
@@ -375,13 +447,63 @@ list.innerHTML =
   '<div class="card">載入中...</div>';
 
 try {
-  let cars =
+  const hostCars =
     await window
       .JLYCarData
       .getCarsByOwner(
         ownerId
       );
-      
+
+  const playerCars =
+    typeof window
+      .JLYCarData
+      .getCarsByPlayerId ===
+        "function"
+      ? await window
+          .JLYCarData
+          .getCarsByPlayerId(
+            ownerId
+          )
+      : [];
+
+  /*
+    一般分頁先維持原本語意：
+    我的車 = 我擁有的車。
+
+    只有「開團中」時，
+    才把玩家參與的車一起納入。
+  */
+  let cars =
+    currentTab === "active"
+      ? [
+          ...hostCars,
+          ...playerCars
+        ]
+      : [
+          ...hostCars
+        ];
+
+  /*
+    同一台車可能同時：
+    - 我是主揪
+    - 我也有上場
+
+    全部清單只顯示一次。
+  */
+  cars =
+    Array.from(
+      new Map(
+        cars.map(
+          function (car) {
+            return [
+              car.id,
+              car
+            ];
+          }
+        )
+      ).values()
+    );
+
     const keyword = (
       searchInput && searchInput.value
         ? searchInput.value
@@ -417,6 +539,89 @@ if (
         );
       }
     );
+
+  if (
+    currentActiveRoleTab ===
+    "host"
+  ) {
+    cars =
+      cars.filter(
+        function (car) {
+          return (
+            String(
+              car.ownerId || ""
+            ).trim() ===
+            ownerId
+          );
+        }
+      );
+  }
+
+  if (
+    currentActiveRoleTab ===
+    "player"
+  ) {
+    cars =
+      cars.filter(
+        function (car) {
+          /*
+            如果同一台車我既是 owner
+            又有上場，
+            主要歸在「我主揪的」，
+            不重複放進玩家分類。
+          */
+          if (
+            String(
+              car.ownerId || ""
+            ).trim() ===
+            ownerId
+          ) {
+            return false;
+          }
+
+          const players =
+            Array.isArray(
+              car.players
+            )
+              ? car.players
+              : [];
+
+          return players.some(
+            function (player) {
+              if (!player) {
+                return false;
+              }
+
+              const playerId =
+                String(
+                  player.playerId ||
+                  player.id ||
+                  player.profileId ||
+                  ""
+                ).trim();
+
+              const status =
+                String(
+                  player.status || ""
+                ).trim();
+
+              return (
+                playerId ===
+                  ownerId &&
+                status !==
+                  "已取消" &&
+                status !==
+                  "取消" &&
+                status !==
+                  "cancelled" &&
+                status !==
+                  "canceled"
+              );
+            }
+          );
+        }
+      );
+  }
 }
 
 if (
@@ -523,12 +728,32 @@ document.addEventListener(
 
     if (
       savedState &&
-      ["all", "active", "done"].includes(
-        savedState.tab
-      )
+      [
+  "all",
+  "planning",
+  "active",
+  "done"
+].includes(
+  savedState.tab
+)
     ) {
       currentTab = savedState.tab;
     }
+
+    if (
+  [
+    "all",
+    "host",
+    "player"
+  ].includes(
+    savedState
+      .activeRoleTab
+  )
+) {
+  currentActiveRoleTab =
+    savedState
+      .activeRoleTab;
+}
 
     if (searchInput && savedState) {
       searchInput.value =
@@ -536,7 +761,8 @@ document.addEventListener(
     }
 
     restoreTabButtons();
-    updateBatchToolbar();
+restoreActiveRoleTabs();
+updateBatchToolbar();
 
     renderMyCars({
       restoreScroll: false
@@ -602,3 +828,5 @@ window.toggleCarSelection =
   toggleCarSelection;
 window.saveMyCarViewState =
   saveMyCarViewState;
+  window.setMyCarActiveRoleTab =
+  setMyCarActiveRoleTab;
