@@ -65,54 +65,82 @@ async function saveMyProfile() {
   }
 
   try {
-    const currentPlayerId =
-      localStorage.getItem(
-        "currentPlayerId"
-      );
+    const currentIdentityId =
+  window.JLYIdentity &&
+  typeof window
+    .JLYIdentity
+    .getCurrentPlayerId ===
+      "function"
+    ? window.JLYIdentity
+        .getCurrentPlayerId()
+    : String(
+        localStorage.getItem(
+          "currentPlayerId"
+        ) || ""
+      ).trim();
 
-    const currentPlayerName =
-      localStorage.getItem(
-        "currentPlayerName"
-      );
+const currentPlayerProfileId =
+  window.JLYIdentity &&
+  typeof window
+    .JLYIdentity
+    .getCurrentPlayerProfileId ===
+      "function"
+    ? window.JLYIdentity
+        .getCurrentPlayerProfileId()
+    : String(
+        localStorage.getItem(
+          "currentPlayerProfileId"
+        ) || ""
+      ).trim();
+
+const currentPlayerName =
+  localStorage.getItem(
+    "currentPlayerName"
+  );
 
     const data = {
-      displayName,
+  identityId:
+    currentIdentityId,
 
-      nickname:
-        displayName,
+  displayName,
 
-      defaultPosition,
+  nickname:
+    displayName,
 
-      defaultCrossPlay,
+  defaultPosition,
 
-      memberType:
-        "guest",
+  defaultCrossPlay,
 
-      isLineLinked:
-        false,
+  memberType:
+    "guest",
 
-      playCount:
-        0,
+  isLineLinked:
+    false,
 
-      updatedAt:
-        new Date().toISOString()
-    };
+  playCount:
+    0,
 
-    if (currentPlayerId) {
-      await db
-        .collection("players")
-        .doc(currentPlayerId)
-        .set(
-          data,
-          {
-            merge: true
-          }
-        );
+  updatedAt:
+    new Date().toISOString()
+};
 
-      alert(
-        "玩家資料已更新！"
-      );
-    } else {
+    if (currentPlayerProfileId) {
+  await db
+    .collection("players")
+    .doc(
+      currentPlayerProfileId
+    )
+    .set(
+      data,
+      {
+        merge: true
+      }
+    );
+
+  alert(
+    "玩家資料已更新！"
+  );
+} else {
       data.createdAt =
         new Date().toISOString();
 
@@ -133,10 +161,23 @@ async function saveMyProfile() {
           .collection("players")
           .add(data);
 
-      localStorage.setItem(
-        "currentPlayerId",
-        docRef.id
-      );
+      if (
+  window.JLYIdentity &&
+  typeof window
+    .JLYIdentity
+    .setCurrentPlayerProfileId ===
+      "function"
+) {
+  window.JLYIdentity
+    .setCurrentPlayerProfileId(
+      docRef.id
+    );
+} else {
+  localStorage.setItem(
+    "currentPlayerProfileId",
+    docRef.id
+  );
+}
 
       alert(
         "玩家資料建立成功！"

@@ -6,10 +6,13 @@ console.log(
   "use strict";
 
   const CURRENT_PLAYER_ID_KEY =
-    "currentPlayerId";
+  "currentPlayerId";
 
-  const CURRENT_PLAYER_NAME_KEY =
-    "currentPlayerName";
+const CURRENT_PLAYER_PROFILE_ID_KEY =
+  "currentPlayerProfileId";
+
+const CURRENT_PLAYER_NAME_KEY =
+  "currentPlayerName";
 
   // ============================================================
   // 基本工具
@@ -30,6 +33,32 @@ console.log(
       )
     );
   }
+
+  function getCurrentPlayerProfileId() {
+  return normalizeText(
+    localStorage.getItem(
+      CURRENT_PLAYER_PROFILE_ID_KEY
+    )
+  );
+}
+
+function setCurrentPlayerProfileId(
+  playerProfileId
+) {
+  const normalizedId =
+    normalizeText(playerProfileId);
+
+  if (!normalizedId) {
+    return false;
+  }
+
+  localStorage.setItem(
+    CURRENT_PLAYER_PROFILE_ID_KEY,
+    normalizedId
+  );
+
+  return true;
+}
 
   function getCurrentPlayerName() {
     return normalizeText(
@@ -127,9 +156,11 @@ console.log(
   // ============================================================
 
   window.JLYIdentity = {
-    getCurrentPlayerId,
-    getCurrentPlayerName,
-    ensureCurrentPlayerId,
-    setCurrentPlayerId
-  };
+  getCurrentPlayerId,
+  getCurrentPlayerProfileId,
+  getCurrentPlayerName,
+  ensureCurrentPlayerId,
+  setCurrentPlayerId,
+  setCurrentPlayerProfileId
+};
 })();
