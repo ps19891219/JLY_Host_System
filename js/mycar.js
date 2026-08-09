@@ -7,8 +7,11 @@ let batchMode = false;
 let selectedCars = new Set();
 let visibleCarIds = [];
 
-const MYCAR_VIEW_STATE_KEY = "mycarViewState";
-const MYCAR_NAVIGATION_IDS_KEY = "mycarNavigationIds";
+const MYCAR_VIEW_STATE_KEY =
+  "mycarViewState";
+
+const MYCAR_NAVIGATION_IDS_KEY =
+  "mycarNavigationIds";
 
 /* =========================
    清單狀態
@@ -16,24 +19,39 @@ const MYCAR_NAVIGATION_IDS_KEY = "mycarNavigationIds";
 
 function getSavedMyCarState() {
   try {
-    const rawState = sessionStorage.getItem(MYCAR_VIEW_STATE_KEY);
+    const rawState =
+      sessionStorage.getItem(
+        MYCAR_VIEW_STATE_KEY
+      );
 
     if (!rawState) {
       return null;
     }
 
-    return JSON.parse(rawState);
+    return JSON.parse(
+      rawState
+    );
   } catch (error) {
-    console.warn("讀取我的車狀態失敗：", error);
+    console.warn(
+      "讀取我的車狀態失敗：",
+      error
+    );
+
     return null;
   }
 }
 
-function saveMyCarViewState(scrollY) {
-  const searchInput = document.getElementById("searchInput");
+function saveMyCarViewState(
+  scrollY
+) {
+  const searchInput =
+    document.getElementById(
+      "searchInput"
+    );
 
   const state = {
-    tab: currentTab,
+    tab:
+      currentTab,
 
     activeRoleTab:
       currentActiveRoleTab,
@@ -44,33 +62,43 @@ function saveMyCarViewState(scrollY) {
         : "",
 
     scrollY:
-      typeof scrollY === "number"
+      typeof scrollY ===
+      "number"
         ? scrollY
         : window.scrollY
   };
 
   sessionStorage.setItem(
     MYCAR_VIEW_STATE_KEY,
-    JSON.stringify(state)
+    JSON.stringify(
+      state
+    )
   );
 }
 
 function saveMyCarNavigationIds() {
   sessionStorage.setItem(
     MYCAR_NAVIGATION_IDS_KEY,
-    JSON.stringify(visibleCarIds)
+    JSON.stringify(
+      visibleCarIds
+    )
   );
 }
 
 function restoreTabButtons() {
   document
-    .querySelectorAll(".mycar-tabs .tab")
-    .forEach(function (button) {
-      button.classList.toggle(
-        "active",
-        button.dataset.tab === currentTab
-      );
-    });
+    .querySelectorAll(
+      ".mycar-tabs .tab"
+    )
+    .forEach(
+      function (button) {
+        button.classList.toggle(
+          "active",
+          button.dataset.tab ===
+            currentTab
+        );
+      }
+    );
 }
 
 function restoreActiveRoleTabs() {
@@ -114,7 +142,8 @@ function isMyHostCar(
     car.isHost === true ||
     String(
       car.myRole || ""
-    ).trim() === "host"
+    ).trim() ===
+      "host"
   );
 }
 
@@ -128,7 +157,8 @@ function restoreScrollPosition() {
 
   const targetScrollY =
     Number(
-      savedState.scrollY || 0
+      savedState.scrollY ||
+      0
     );
 
   requestAnimationFrame(
@@ -136,9 +166,14 @@ function restoreScrollPosition() {
       requestAnimationFrame(
         function () {
           window.scrollTo({
-            top: targetScrollY,
-            left: 0,
-            behavior: "auto"
+            top:
+              targetScrollY,
+
+            left:
+              0,
+
+            behavior:
+              "auto"
           });
         }
       );
@@ -150,8 +185,11 @@ function restoreScrollPosition() {
    分頁與排序
 ========================= */
 
-function setMyCarTab(tab) {
-  currentTab = tab;
+function setMyCarTab(
+  tab
+) {
+  currentTab =
+    tab;
 
   const activeRoleTabs =
     document.getElementById(
@@ -160,19 +198,25 @@ function setMyCarTab(tab) {
 
   if (activeRoleTabs) {
     activeRoleTabs.hidden =
-      tab !== "active";
+      tab !==
+      "active";
   }
 
-  if (tab !== "active") {
+  if (
+    tab !==
+    "active"
+  ) {
     currentActiveRoleTab =
       "all";
   }
 
   restoreTabButtons();
+
   saveMyCarViewState();
 
   renderMyCars({
-    restoreScroll: false
+    restoreScroll:
+      false
   });
 }
 
@@ -190,14 +234,19 @@ function setMyCarActiveRoleTab(
 
   restoreActiveRoleTabs();
 
-  saveMyCarViewState(0);
+  saveMyCarViewState(
+    0
+  );
 
   renderMyCars({
-    restoreScroll: false
+    restoreScroll:
+      false
   });
 }
 
-function getTimeValue(car) {
+function getTimeValue(
+  car
+) {
   return getCarDateTime(
     car
   ).getTime();
@@ -208,7 +257,10 @@ function sortCars(
   keyword
 ) {
   return cars.sort(
-    function (a, b) {
+    function (
+      a,
+      b
+    ) {
       const aPlanning =
         isCarPlanning(a);
 
@@ -227,6 +279,7 @@ function sortCars(
         1 = 規劃中
         2 = 已結束
       */
+
       function getSortGroup(
         car
       ) {
@@ -237,7 +290,9 @@ function sortCars(
         }
 
         if (
-          isCarPlanning(car)
+          isCarPlanning(
+            car
+          )
         ) {
           return 1;
         }
@@ -246,29 +301,38 @@ function sortCars(
       }
 
       const aGroup =
-        getSortGroup(a);
+        getSortGroup(
+          a
+        );
 
       const bGroup =
-        getSortGroup(b);
+        getSortGroup(
+          b
+        );
 
       if (
-        aGroup !== bGroup
+        aGroup !==
+        bGroup
       ) {
         return (
-          aGroup - bGroup
+          aGroup -
+          bGroup
         );
       }
 
       /*
         同一群組內排序。
       */
+
       if (
-        aGroup === 1
+        aGroup ===
+        1
       ) {
         /*
           規劃中沒有日期，
           依建立或更新時間較新的排前面。
         */
+
         const aPlanningTime =
           new Date(
             a.updatedAt ||
@@ -293,6 +357,7 @@ function sortCars(
         開團中與已結束，
         依日期時間排序。
       */
+
       return (
         getTimeValue(a) -
         getTimeValue(b)
@@ -307,23 +372,27 @@ function sortCars(
 
 function startBatchMode() {
   batchMode = true;
+
   selectedCars.clear();
 
   updateBatchToolbar();
 
   renderMyCars({
-    restoreScroll: true
+    restoreScroll:
+      true
   });
 }
 
 function cancelBatchMode() {
   batchMode = false;
+
   selectedCars.clear();
 
   updateBatchToolbar();
 
   renderMyCars({
-    restoreScroll: true
+    restoreScroll:
+      true
   });
 }
 
@@ -386,7 +455,9 @@ function updateSelectedCarCount() {
   if (selectAll) {
     const selectedVisibleCount =
       visibleCarIds.filter(
-        function (carId) {
+        function (
+          carId
+        ) {
           return selectedCars.has(
             carId
           );
@@ -394,12 +465,14 @@ function updateSelectedCarCount() {
       ).length;
 
     selectAll.checked =
-      visibleCarIds.length > 0 &&
+      visibleCarIds.length >
+        0 &&
       selectedVisibleCount ===
         visibleCarIds.length;
 
     selectAll.indeterminate =
-      selectedVisibleCount > 0 &&
+      selectedVisibleCount >
+        0 &&
       selectedVisibleCount <
         visibleCarIds.length;
   }
@@ -409,7 +482,9 @@ function toggleSelectAllCars(
   checked
 ) {
   visibleCarIds.forEach(
-    function (carId) {
+    function (
+      carId
+    ) {
       if (checked) {
         selectedCars.add(
           carId
@@ -425,7 +500,8 @@ function toggleSelectAllCars(
   updateSelectedCarCount();
 
   renderMyCars({
-    restoreScroll: true
+    restoreScroll:
+      true
   });
 }
 
@@ -437,7 +513,9 @@ function toggleCarSelection(
   }
 
   if (
-    selectedCars.has(carId)
+    selectedCars.has(
+      carId
+    )
   ) {
     selectedCars.delete(
       carId
@@ -451,7 +529,8 @@ function toggleCarSelection(
   updateSelectedCarCount();
 
   renderMyCars({
-    restoreScroll: true
+    restoreScroll:
+      true
   });
 }
 
@@ -579,15 +658,45 @@ async function renderMyCars(
             )
         : [];
 
-            /*
+    // =========================
+    // 主揪車 ID 集合
+    //
+    // 以 getCarsByOwner() 的結果
+    // 作為真正 Ownership 判定。
+    // 不依賴舊資料是否有 isHost / myRole。
+    // =========================
+
+    const hostCarIds =
+      new Set(
+        hostCars
+          .map(
+            function (
+              car
+            ) {
+              return car &&
+                car.id
+                ? String(
+                    car.id
+                  ).trim()
+                : "";
+            }
+          )
+          .filter(
+            Boolean
+          )
+      );
+
+          /*
       一般分頁先維持原本語意：
       我的車 = 我擁有的車。
 
       只有「開團中」時，
       才把玩家參與的車一起納入。
     */
+
     let cars =
-      currentTab === "active"
+      currentTab ===
+      "active"
         ? [
             ...hostCars,
             ...playerCars
@@ -603,11 +712,14 @@ async function renderMyCars(
 
       全部清單只顯示一次。
     */
+
     cars =
       Array.from(
         new Map(
           cars.map(
-            function (car) {
+            function (
+              car
+            ) {
               return [
                 car.id,
                 car
@@ -636,7 +748,9 @@ async function renderMyCars(
     ) {
       cars =
         cars.filter(
-          function (car) {
+          function (
+            car
+          ) {
             return isCarPlanning(
               car
             );
@@ -654,16 +768,24 @@ async function renderMyCars(
     ) {
       cars =
         cars.filter(
-          function (car) {
+          function (
+            car
+          ) {
             return (
-              !isCarEnded(car) &&
-              !isCarPlanning(car)
+              !isCarEnded(
+                car
+              ) &&
+              !isCarPlanning(
+                car
+              )
             );
           }
         );
 
       // =========================
       // 我主揪的
+      //
+      // 正式以 owner 查詢結果判斷。
       // =========================
 
       if (
@@ -672,9 +794,22 @@ async function renderMyCars(
       ) {
         cars =
           cars.filter(
-            function (car) {
-              return isMyHostCar(
-                car
+            function (
+              car
+            ) {
+              const carId =
+                car &&
+                car.id
+                  ? String(
+                      car.id
+                    ).trim()
+                  : "";
+
+              return (
+                !!carId &&
+                hostCarIds.has(
+                  carId
+                )
               );
             }
           );
@@ -697,80 +832,97 @@ async function renderMyCars(
                 ownerId,
                 playerProfileId
               ])
-            ).filter(Boolean);
+            ).filter(
+              Boolean
+            );
 
       // =========================
       // 我是玩家
+      //
+      // 1. 必須有我的 Player ID
+      // 2. 不能同時屬於我的主揪車
       // =========================
 
       if (
-  currentActiveRoleTab ===
-  "player"
-) {
-  cars =
-    cars.filter(
-      function (car) {
+        currentActiveRoleTab ===
+        "player"
+      ) {
+        cars =
+          cars.filter(
+            function (
+              car
+            ) {
+              const carId =
+                car &&
+                car.id
+                  ? String(
+                      car.id
+                    ).trim()
+                  : "";
 
-        // =========================
-        // 自己主揪的車
-        // 不放進「我是玩家」
-        // =========================
+              // -------------------------
+              // 我擁有的車直接排除
+              // -------------------------
 
-        if (
-          isMyHostCar(car)
-        ) {
-          return false;
-        }
+              if (
+                carId &&
+                hostCarIds.has(
+                  carId
+                )
+              ) {
+                return false;
+              }
 
-        // =========================
-        // 車上的玩家
-        // =========================
+              const players =
+                Array.isArray(
+                  car.players
+                )
+                  ? car.players
+                  : [];
 
-        const players =
-          Array.isArray(
-            car.players
-          )
-            ? car.players
-            : [];
+              return players.some(
+                function (
+                  player
+                ) {
+                  if (
+                    !player
+                  ) {
+                    return false;
+                  }
 
-        return players.some(
-          function (player) {
-            if (!player) {
-              return false;
+                  const playerId =
+                    String(
+                      player.playerId ||
+                      player.id ||
+                      player.profileId ||
+                      ""
+                    ).trim();
+
+                  const status =
+                    String(
+                      player.status ||
+                      ""
+                    ).trim();
+
+                  return (
+                    myPlayerIds.includes(
+                      playerId
+                    ) &&
+                    status !==
+                      "已取消" &&
+                    status !==
+                      "取消" &&
+                    status !==
+                      "cancelled" &&
+                    status !==
+                      "canceled"
+                  );
+                }
+              );
             }
-
-            const playerId =
-              String(
-                player.playerId ||
-                player.id ||
-                player.profileId ||
-                ""
-              ).trim();
-
-            const status =
-              String(
-                player.status ||
-                ""
-              ).trim();
-
-            return (
-              myPlayerIds.includes(
-                playerId
-              ) &&
-              status !==
-                "已取消" &&
-              status !==
-                "取消" &&
-              status !==
-                "cancelled" &&
-              status !==
-                "canceled"
-            );
-          }
-        );
+          );
       }
-    );
-}
+    }
 
     // =========================
     // 已結束
@@ -782,7 +934,9 @@ async function renderMyCars(
     ) {
       cars =
         cars.filter(
-          function (car) {
+          function (
+            car
+          ) {
             return isCarEnded(
               car
             );
@@ -790,14 +944,16 @@ async function renderMyCars(
         );
     }
 
-    // =========================
+        // =========================
     // 搜尋
     // =========================
 
     if (keyword) {
       cars =
         cars.filter(
-          function (car) {
+          function (
+            car
+          ) {
             const tags =
               Array.isArray(
                 car.tags
@@ -812,22 +968,47 @@ async function renderMyCars(
                 car.scriptTags
               )
                 ? car.scriptTags
-                    .join(" ")
+                    .join(
+                      " "
+                    )
                 : "";
 
             const text = [
-              car.scriptName || "",
-              car.gameDate || "",
-              car.gameTime || "",
-              getLocationText(car),
-              getOrganizerText(car),
-              car.dmName || "",
+              car.scriptName ||
+                "",
+
+              car.gameDate ||
+                "",
+
+              car.gameTime ||
+                "",
+
+              getLocationText(
+                car
+              ),
+
+              getOrganizerText(
+                car
+              ),
+
+              car.dmName ||
+                "",
+
               tags,
+
               scriptTags,
-              getAutoStatus(car),
-              getNeedText(car)
+
+              getAutoStatus(
+                car
+              ),
+
+              getNeedText(
+                car
+              )
             ]
-              .join(" ")
+              .join(
+                " "
+              )
               .toLowerCase();
 
             return text.includes(
@@ -845,7 +1026,9 @@ async function renderMyCars(
 
     visibleCarIds =
       cars.map(
-        function (car) {
+        function (
+          car
+        ) {
           return car.id;
         }
       );
@@ -853,7 +1036,8 @@ async function renderMyCars(
     saveMyCarNavigationIds();
 
     if (
-      cars.length === 0
+      cars.length ===
+      0
     ) {
       list.innerHTML =
         '<div class="card">' +
@@ -868,11 +1052,14 @@ async function renderMyCars(
     list.innerHTML =
       cars
         .map(
-          function (car) {
+          function (
+            car
+          ) {
             return buildCarCard(
               car,
               {
                 batchMode,
+
                 selected:
                   selectedCars.has(
                     car.id
@@ -881,7 +1068,9 @@ async function renderMyCars(
             );
           }
         )
-        .join("");
+        .join(
+          ""
+        );
 
     updateSelectedCarCount();
 
@@ -893,8 +1082,12 @@ async function renderMyCars(
           window.scrollTo({
             top:
               scrollBeforeRender,
-            left: 0,
-            behavior: "auto"
+
+            left:
+              0,
+
+            behavior:
+              "auto"
           });
         }
       );
@@ -977,14 +1170,15 @@ document.addEventListener(
     updateBatchToolbar();
 
     renderMyCars({
-      restoreScroll: false
+      restoreScroll:
+        false
     }).then(
       function () {
         restoreScrollPosition();
       }
     );
 
-    if (searchInput) {
+        if (searchInput) {
       searchInput
         .addEventListener(
           "input",
@@ -1009,8 +1203,12 @@ document.addEventListener(
     if (carList) {
       carList.addEventListener(
         "click",
-        function (event) {
-          if (batchMode) {
+        function (
+          event
+        ) {
+          if (
+            batchMode
+          ) {
             return;
           }
 
@@ -1071,4 +1269,3 @@ window.saveMyCarViewState =
 
 window.setMyCarActiveRoleTab =
   setMyCarActiveRoleTab;
-
