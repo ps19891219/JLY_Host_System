@@ -48,27 +48,47 @@ console.log(
   }
 
   function filterRecruitCars(
-    cars
-  ) {
-    const render =
-      window.JLYRecruitRender;
+  cars
+) {
+  const render =
+    window.JLYRecruitRender;
 
-    return cars.filter(
-      function (car) {
-        /*
-          個人揪團頁：
-          public / private 都可以出現。
+  return cars.filter(
+    function (car) {
+      const status =
+        render.getStatus(car);
 
-          但第一版只顯示
-          真正仍在招募中的車。
-        */
-        return (
-          render.getStatus(car) ===
-          "招募中"
-        );
+      if (
+        status !==
+        "招募中"
+      ) {
+        return false;
       }
-    );
-  }
+
+      const isHost =
+        car.isHost === true ||
+        car.myRole === "host";
+
+      const assistRecruiting =
+        car.assistRecruiting ===
+        true;
+
+      /*
+        個人揪團頁顯示規則：
+
+        1. 我是主揪
+           → 自動顯示
+
+        2. 我不是主揪
+           → 只有勾選協助揪團才顯示
+      */
+      return (
+        isHost ||
+        assistRecruiting
+      );
+    }
+  );
+}
 
   async function initRecruitPage() {
     const container =
