@@ -445,6 +445,21 @@ const ownerId =
         ) || ""
       ).trim();
 
+      const playerProfileId =
+  window.JLYIdentity &&
+  typeof window
+    .JLYIdentity
+    .getCurrentPlayerProfileId ===
+      "function"
+    ? window
+        .JLYIdentity
+        .getCurrentPlayerProfileId()
+    : String(
+        localStorage.getItem(
+          "currentPlayerProfileId"
+        ) || ""
+      ).trim();
+
 if (!ownerId) {
   list.innerHTML =
     '<div class="card">' +
@@ -477,7 +492,7 @@ try {
       ? await window
           .JLYCarData
           .getCarsByPlayerId(
-            ownerId
+            playerProfileId
           )
       : [];
 
@@ -616,7 +631,7 @@ if (
 
               return (
                 playerId ===
-                  ownerId &&
+  playerProfileId &&
                 status !==
                   "已取消" &&
                 status !==
