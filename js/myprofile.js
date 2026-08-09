@@ -6,6 +6,127 @@ console.log(
   "saveMyProfile 函式準備載入"
 );
 
+// ============================================================
+// 基本工具
+// ============================================================
+
+function normalizeMyProfileText(
+  value
+) {
+  return String(
+    value == null
+      ? ""
+      : value
+  ).trim();
+}
+
+function normalizeMyProfileIds(
+  values
+) {
+  const source =
+    Array.isArray(values)
+      ? values
+      : [];
+
+  return Array.from(
+    new Set(
+      source
+        .map(
+          normalizeMyProfileText
+        )
+        .filter(Boolean)
+    )
+  );
+}
+
+// ============================================================
+// 取得 Identity 資料
+// ============================================================
+
+function getMyProfileIdentityId() {
+  return (
+    window.JLYIdentity &&
+    typeof window
+      .JLYIdentity
+      .getCurrentPlayerId ===
+        "function"
+      ? window.JLYIdentity
+          .getCurrentPlayerId()
+      : normalizeMyProfileText(
+          localStorage.getItem(
+            "currentPlayerId"
+          )
+        )
+  );
+}
+
+function getMyProfilePlayerId() {
+  return (
+    window.JLYIdentity &&
+    typeof window
+      .JLYIdentity
+      .getCurrentPlayerProfileId ===
+        "function"
+      ? window.JLYIdentity
+          .getCurrentPlayerProfileId()
+      : normalizeMyProfileText(
+          localStorage.getItem(
+            "currentPlayerProfileId"
+          )
+        )
+  );
+}
+
+function getMyProfileLinkedIds() {
+  return (
+    window.JLYIdentity &&
+    typeof window
+      .JLYIdentity
+      .getLinkedPlayerIds ===
+        "function"
+      ? window.JLYIdentity
+          .getLinkedPlayerIds()
+      : []
+  );
+}
+
+// ============================================================
+// 將 Firebase linkedPlayerIds 同步回本機快取
+// ============================================================
+
+function cacheLinkedPlayerIds(
+  linkedPlayerIds
+) {
+  const ids =
+    normalizeMyProfileIds(
+      linkedPlayerIds
+    );
+
+  if (
+    window.JLYIdentity &&
+    typeof window
+      .JLYIdentity
+      .setLinkedPlayerIds ===
+        "function"
+  ) {
+    window.JLYIdentity
+      .setLinkedPlayerIds(
+        ids
+      );
+
+    return;
+  }
+
+  localStorage.setItem(
+    "linkedPlayerIds",
+    JSON.stringify(ids)
+  );
+}
+
+// ============================================================
+// 儲存我的玩家資料
+// ============================================================
+
 async function saveMyProfile() {
   const db =
     window.db;
@@ -46,9 +167,9 @@ async function saveMyProfile() {
   }
 
   const displayName =
-    displayNameInput
-      .value
-      .trim();
+    normalizeMyProfileText(
+      displayNameInput.value
+    );
 
   const defaultPosition =
     defaultPositionInput.value;
@@ -66,127 +187,216 @@ async function saveMyProfile() {
 
   try {
     const currentIdentityId =
-  window.JLYIdentity &&
-  typeof window
-    .JLYIdentity
-    .getCurrentPlayerId ===
-      "function"
-    ? window.JLYIdentity
-        .getCurrentPlayerId()
-    : String(
-        localStorage.getItem(
-          "currentPlayerId"
-        ) || ""
-      ).trim();
+      getMyProfileIdentityId();
 
-const currentPlayerProfileId =
-  window.JLYIdentity &&
-  typeof window
-    .JLYIdentity
-    .getCurrentPlayerProfileId ===
-      "function"
-    ? window.JLYIdentity
-        .getCurrentPlayerProfileId()
-    : String(
-        localStorage.getItem(
-          "currentPlayerProfileId"
-        ) || ""
-      ).trim();
+    const currentPlayerProfileId =
+      getMyProfilePlayerId();
 
-const currentPlayerName =
-  localStorage.getItem(
-    "currentPlayerName"
-  );
+    const currentPlayerName =
+      normalizeMyProfileText(
+        localStorage.getItem(
+          "currentPlayerName"
+        )
+      );
+
+    const localLinkedPlayerIds =
+      getMyProfileLinkedIds();
+
+    const now =
+      new Date().toISOString();
 
     const data = {
-  identityId:
-    currentIdentityId,
+      identityId:
+        currentIdentityId,
 
-  displayName,
+      displayName,
 
-  nickname:
-    displayName,
+      nickname:
+        displayName,
 
-  defaultPosition,
+      defaultPosition,
 
-  defaultCrossPlay,
+      defaultCrossPlay,
 
-  memberType:
-    "guest",
+      memberType:
+        "guest",
 
-  isLineLinked:
-    false,
+      isLineLinked:
+        false,
 
-  playCount:
-    0,
+      playCount:
+        0,
 
-  updatedAt:
-    new Date().toISOString()
-};
+      updatedAt:
+        now
+    };
 
-    if (currentPlayerProfileId) {
-  await db
-    .collection("players")
-    .doc(
+    // ============================================================
+    // 已有 Player Profile ID
+    //
+    // 先確認文件真的存在。
+    // 不存在時絕對不能直接 .set() 建立錯誤 Profile。
+    // ============================================================
+
+    if (
       currentPlayerProfileId
-    )
-    .set(
-      data,
-      {
-        merge: true
-      }
-    );
-
-  alert(
-    "玩家資料已更新！"
-  );
-} else {
-      data.createdAt =
-        new Date().toISOString();
-
-      data.aliases =
-        currentPlayerName &&
-        currentPlayerName !==
-          displayName
-          ? [
-              currentPlayerName
-            ]
-          : [];
-
-      data.source =
-        "my_profile";
-
-      const docRef =
-        await db
+    ) {
+      const profileRef =
+        db
           .collection("players")
-          .add(data);
+          .doc(
+            currentPlayerProfileId
+          );
+
+      const profileSnapshot =
+        await profileRef.get();
 
       if (
-  window.JLYIdentity &&
-  typeof window
-    .JLYIdentity
-    .setCurrentPlayerProfileId ===
-      "function"
-) {
-  window.JLYIdentity
-    .setCurrentPlayerProfileId(
-      docRef.id
-    );
-} else {
-  localStorage.setItem(
-    "currentPlayerProfileId",
-    docRef.id
-  );
-}
+        !profileSnapshot.exists
+      ) {
+        console.error(
+          "目前 Player Profile ID 不存在：",
+          currentPlayerProfileId
+        );
+
+        alert(
+          "目前玩家資料連結失效，系統已停止儲存，避免建立錯誤玩家資料。"
+        );
+
+        return;
+      }
+
+      const existingData =
+        profileSnapshot.data() ||
+        {};
+
+      const cloudLinkedPlayerIds =
+        Array.isArray(
+          existingData
+            .linkedPlayerIds
+        )
+          ? existingData
+              .linkedPlayerIds
+          : [];
+
+      const mergedLinkedPlayerIds =
+        normalizeMyProfileIds([
+          ...cloudLinkedPlayerIds,
+          ...localLinkedPlayerIds
+        ]);
+
+      await profileRef.set(
+        {
+          ...data,
+
+          linkedPlayerIds:
+            mergedLinkedPlayerIds
+        },
+        {
+          merge: true
+        }
+      );
+
+      cacheLinkedPlayerIds(
+        mergedLinkedPlayerIds
+      );
+
+      if (
+        window.JLYIdentity &&
+        typeof window
+          .JLYIdentity
+          .setCurrentPlayerName ===
+            "function"
+      ) {
+        window.JLYIdentity
+          .setCurrentPlayerName(
+            displayName
+          );
+      } else {
+        localStorage.setItem(
+          "currentPlayerName",
+          displayName
+        );
+      }
 
       alert(
-        "玩家資料建立成功！"
+        "玩家資料已更新！"
+      );
+
+      return;
+    }
+
+        // ============================================================
+    // 尚未建立 Player Profile
+    // ============================================================
+
+    data.createdAt =
+      now;
+
+    data.aliases =
+      currentPlayerName &&
+      currentPlayerName !==
+        displayName
+        ? [
+            currentPlayerName
+          ]
+        : [];
+
+    data.source =
+      "my_profile";
+
+    data.linkedPlayerIds =
+      normalizeMyProfileIds(
+        localLinkedPlayerIds
+      );
+
+    const docRef =
+      await db
+        .collection("players")
+        .add(data);
+
+    if (
+      window.JLYIdentity &&
+      typeof window
+        .JLYIdentity
+        .setCurrentPlayerProfileId ===
+          "function"
+    ) {
+      window.JLYIdentity
+        .setCurrentPlayerProfileId(
+          docRef.id
+        );
+    } else {
+      localStorage.setItem(
+        "currentPlayerProfileId",
+        docRef.id
       );
     }
 
-    localStorage.setItem(
-      "currentPlayerName",
-      displayName
+    if (
+      window.JLYIdentity &&
+      typeof window
+        .JLYIdentity
+        .setCurrentPlayerName ===
+          "function"
+    ) {
+      window.JLYIdentity
+        .setCurrentPlayerName(
+          displayName
+        );
+    } else {
+      localStorage.setItem(
+        "currentPlayerName",
+        displayName
+      );
+    }
+
+    cacheLinkedPlayerIds(
+      data.linkedPlayerIds
+    );
+
+    alert(
+      "玩家資料建立成功！"
     );
   } catch (error) {
     console.error(
@@ -196,15 +406,81 @@ const currentPlayerName =
 
     alert(
       "儲存失敗：" +
-        (
-          error &&
-          error.message
-            ? error.message
-            : "未知錯誤"
-        )
+      (
+        error &&
+        error.message
+          ? error.message
+          : "未知錯誤"
+      )
     );
   }
 }
 
+// ============================================================
+// 頁面進入時同步 Firebase Profile → localStorage 快取
+//
+// 前提：這台裝置已經知道 currentPlayerProfileId。
+// 這不是跨裝置登入機制。
+// ============================================================
+
+async function syncMyProfileIdentityCache() {
+  const db =
+    window.db;
+
+  if (!db) {
+    return null;
+  }
+
+  const currentPlayerProfileId =
+    getMyProfilePlayerId();
+
+  if (!currentPlayerProfileId) {
+    return null;
+  }
+
+  if (
+    !window.JLYIdentity ||
+    typeof window
+      .JLYIdentity
+      .syncFromPlayerProfile !==
+        "function"
+  ) {
+    return null;
+  }
+
+  return await window
+    .JLYIdentity
+    .syncFromPlayerProfile(
+      db,
+      currentPlayerProfileId
+    );
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+    syncMyProfileIdentityCache()
+      .catch(
+        function (error) {
+          console.warn(
+            "Player Profile 快取同步失敗：",
+            error
+          );
+        }
+      );
+  }
+);
+
+// ============================================================
+// 對外公開
+// ============================================================
+
 window.saveMyProfile =
   saveMyProfile;
+
+window.syncMyProfileIdentityCache =
+  syncMyProfileIdentityCache;
