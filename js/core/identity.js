@@ -210,6 +210,38 @@ function addLinkedPlayerId(
   }
 
   // ============================================================
+// 取得目前使用者所有可能的 Player Identity IDs
+//
+// 用途：
+// - currentPlayerId
+// - currentPlayerProfileId
+// - linkedPlayerIds
+//
+// 統一交給這裡管理，避免每個頁面自己拼。
+// ============================================================
+
+function getAllPlayerIdentityIds() {
+  const currentPlayerId =
+    getCurrentPlayerId();
+
+  const currentPlayerProfileId =
+    getCurrentPlayerProfileId();
+
+  const linkedPlayerIds =
+    getLinkedPlayerIds();
+
+  return Array.from(
+    new Set([
+      currentPlayerId,
+      currentPlayerProfileId,
+      ...linkedPlayerIds
+    ])
+  )
+    .map(normalizeText)
+    .filter(Boolean);
+}
+
+  // ============================================================
   // 對外公開
   // ============================================================
 
@@ -217,6 +249,7 @@ function addLinkedPlayerId(
   getCurrentPlayerId,
   getCurrentPlayerProfileId,
   getLinkedPlayerIds,
+  getAllPlayerIdentityIds,
   getCurrentPlayerName,
   ensureCurrentPlayerId,
   setCurrentPlayerId,

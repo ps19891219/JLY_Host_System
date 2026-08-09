@@ -168,141 +168,197 @@ async function getCarsByIds(
 async function getCarsByPlayerId(
   playerId
 ) {
-  const normalizedPlayerId =
+  const db =
+    getDb();
+
+  // ============================================================
+  // 收集所有可能屬於目前使用者的 Player ID
+  // ============================================================
+
+  const identityIds =
+    window.JLYIdentity &&
+    typeof window
+      .JLYIdentity
+      .getAllPlayerIdentityIds ===
+        "function"
+      ? window.JLYIdentity
+          .getAllPlayerIdentityIds()
+      : [];
+
+  const inputPlayerId =
     normalizeId(playerId);
 
-  if (!normalizedPlayerId) {
+  const initialPlayerIds =
+    Array.from(
+      new Set([
+        inputPlayerId,
+        ...identityIds
+      ])
+    )
+      .map(normalizeId)
+      .filter(Boolean);
+
+  if (
+    initialPlayerIds.length === 0
+  ) {
     throw new Error(
       "缺少 playerId"
     );
   }
 
-  const db =
-    getDb();
-
   // ============================================================
-  // Identity Linked Players
+  // Firebase Player Profile 的 linkedPlayerIds
   //
-  // Firebase Profile = 正式來源
-  // localStorage = 本機備援
+  // 不只讀一個 Profile，
+  // 而是把目前已知的所有 Identity 都檢查一次。
   // ============================================================
 
-  let firebaseLinkedPlayerIds = [];
+  const firebaseLinkedPlayerIds = [];
 
-  try {
-    const profileSnapshot =
-      await db
-        .collection("players")
-        .doc(normalizedPlayerId)
-        .get();
+  for (
+    const identityId
+    of initialPlayerIds
+  ) {
+    try {
+      const profileSnapshot =
+        await db
+          .collection("players")
+          .doc(identityId)
+          .get();
 
-    if (profileSnapshot.exists) {
+      if (
+        !profileSnapshot.exists
+      ) {
+        continue;
+      }
+
       const profileData =
-        profileSnapshot.data() || {};
+        profileSnapshot.data() ||
+        {};
 
-      firebaseLinkedPlayerIds =
+      const linkedIds =
         Array.isArray(
-          profileData.linkedPlayerIds
+          profileData
+            .linkedPlayerIds
         )
-          ? profileData.linkedPlayerIds
+          ? profileData
+              .linkedPlayerIds
               .map(normalizeId)
               .filter(Boolean)
           : [];
+
+      firebaseLinkedPlayerIds.push(
+        ...linkedIds
+      );
+    } catch (error) {
+      console.warn(
+        "讀取 Firebase linkedPlayerIds 失敗：",
+        identityId,
+        error
+      );
     }
-  } catch (error) {
-    console.warn(
-      "讀取 Firebase linkedPlayerIds 失敗：",
-      error
-    );
   }
 
-  const localLinkedPlayerIds =
-    window.JLYIdentity &&
-    typeof window
-      .JLYIdentity
-      .getLinkedPlayerIds ===
-        "function"
-      ? window.JLYIdentity
-          .getLinkedPlayerIds()
-      : [];
+  // ============================================================
+  // 最終玩家 Identity 集合
+  // ============================================================
 
   const targetPlayerIds =
     Array.from(
       new Set([
-        normalizedPlayerId,
-
-        ...firebaseLinkedPlayerIds,
-
-        ...localLinkedPlayerIds
-          .map(normalizeId)
-          .filter(Boolean)
+        ...initialPlayerIds,
+        ...firebaseLinkedPlayerIds
       ])
-    );
+    )
+      .map(normalizeId)
+      .filter(Boolean);
 
   console.log(
     "🎮 玩家身分 IDs：",
     targetPlayerIds
   );
 
+  // ============================================================
+  // 讀取 Cars
+  //
+  // 舊資料不是所有車都有統一索引，
+  // 所以 V1 仍完整讀 cars 再比對。
+  // ============================================================
+
   const snapshot =
     await db
       .collection("cars")
       .get();
 
-  return snapshot.docs
-    .map(
-      function (doc) {
-        return {
-          id: doc.id,
-          ...doc.data()
-        };
-      }
-    )
-    .filter(
-      function (car) {
-        const players =
-          Array.isArray(
-            car.players
-          )
-            ? car.players
-            : [];
+  const matchedCars =
+    snapshot.docs
+      .map(
+        function (doc) {
+          return {
+            id: doc.id,
+            ...doc.data()
+          };
+        }
+      )
+      .filter(
+        function (car) {
+          const players =
+            Array.isArray(
+              car.players
+            )
+              ? car.players
+              : [];
 
-        return players.some(
-          function (player) {
-            if (!player) {
-              return false;
-            }
+          return players.some(
+            function (player) {
+              if (!player) {
+                return false;
+              }
 
-            const currentPlayerId =
-              normalizeId(
-                player.playerId ||
-                player.id ||
-                player.profileId
+              const currentPlayerId =
+                normalizeId(
+                  player.playerId ||
+                  player.id ||
+                  player.profileId
+                );
+
+              if (
+                !currentPlayerId ||
+                !targetPlayerIds
+                  .includes(
+                    currentPlayerId
+                  )
+              ) {
+                return false;
+              }
+
+              const status =
+                String(
+                  player.status ||
+                  ""
+                ).trim();
+
+              return (
+                status !==
+                  "已取消" &&
+                status !==
+                  "取消" &&
+                status !==
+                  "cancelled" &&
+                status !==
+                  "canceled"
               );
-
-            if (
-              !targetPlayerIds.includes(
-                currentPlayerId
-              )
-            ) {
-              return false;
             }
+          );
+        }
+      );
 
-            const status =
-              String(
-                player.status || ""
-              ).trim();
+  console.log(
+    "🎮 找到玩家車團：",
+    matchedCars.length
+  );
 
-            return (
-              status !== "已取消" &&
-              status !== "取消" &&
-              status !== "cancelled" &&
-              status !== "canceled"
-            );
-          }
-        );
-      }
-    );
+  return matchedCars;
 }
 
   // ============================================================
