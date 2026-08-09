@@ -124,7 +124,7 @@
 
 <script src="../js/identity.js?v=1"></script>
 
-<script src="../js/account/account-resolver.js?v=2"></script>
+<script src="../js/account/account-resolver.js?v=1"></script>
 
 <!-- ========================================================= -->
 <!-- Page Logic -->
@@ -158,7 +158,7 @@ function setMyAccountStatus(
 }
 
 // ============================================================
-// LINE Login Ticket → JLY Account
+// 呼叫 Server Account Resolve
 // ============================================================
 
 async function resolveMyLineAccount() {
@@ -173,16 +173,11 @@ async function resolveMyLineAccount() {
         return;
     }
 
-    // --------------------------------------------------------
-    // 只有剛完成 LINE Login，
-    // 手上真的有短效 Ticket 時才執行。
-    // --------------------------------------------------------
-
-    const pendingTicket =
+    const lineIdentity =
         window.JLYAccountResolver
-            .getPendingLoginTicket();
+            .getPendingLineIdentity();
 
-    if (!pendingTicket) {
+    if (!lineIdentity) {
         return;
     }
 
@@ -192,100 +187,89 @@ async function resolveMyLineAccount() {
 
     try {
 
-        const result =
-            await window
-                .JLYAccountResolver
-                .resolveAccount();
+        const response =
+            await fetch(
+                "/api/line-account",
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            action:
+                                "resolve",
+
+                            lineUserId:
+                                lineIdentity.userId
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
 
         // ====================================================
-        // 已存在 Account + 已綁 Player Profile
+        // 已綁定 Account
         // ====================================================
 
         if (
-            result &&
-            result.success === true &&
-            result.found === true &&
-            result.account
+            response.ok &&
+            data &&
+            data.success === true &&
+            data.account
         ) {
 
-            const applied =
+            const result =
                 await window
                     .JLYAccountResolver
                     .applyResolvedAccount(
-                        result.account
+                        data.account
                     );
 
             if (
-                applied &&
-                applied.success
+                result &&
+                result.success
             ) {
                 setMyAccountStatus(
                     "LINE 帳號已連接，玩家身分恢復完成。"
                 );
 
-                // --------------------------------------------
-                // Identity 已寫回本機。
-                // 重新載入，讓 myprofile.js 用正式 Profile
-                // 重新渲染。
-                // --------------------------------------------
-
-                setTimeout(
-                    function () {
-                        location.reload();
-                    },
-                    500
-                );
+                location.reload();
 
                 return;
             }
         }
 
         // ====================================================
-        // LINE Account 存在／剛建立，
-        // 但尚未連結 Player Profile
+        // 尚未建立 Account
         // ====================================================
 
         if (
-            result &&
-            result.needsBinding === true
+            data &&
+            data.error ===
+                "account_not_found"
         ) {
 
-            // Ticket 在 Server 已經使用完畢。
-            // 前端也一起清除。
-            window.JLYAccountResolver
-                .clearPendingLoginTicket();
-
             setMyAccountStatus(
-                "LINE 登入成功，但這個帳號尚未連結原本的玩家資料。"
+                "這個 LINE 尚未連結 JLY 玩家資料。"
             );
 
             console.log(
-                "Account 首次綁定尚未完成"
-            );
-
-            return;
-        }
-
-        // ====================================================
-        // Ticket 已失效
-        // ====================================================
-
-        if (
-            result &&
-            result.needsLogin === true
-        ) {
-
-            setMyAccountStatus(
-                "LINE 登入憑證已失效，請重新登入。"
+                "需要進入首次綁定流程"
             );
 
             return;
         }
 
         throw new Error(
-            result &&
-            result.error
-                ? result.error
+            data &&
+            data.error
+                ? data.error
                 : "account_resolve_failed"
         );
 
@@ -297,7 +281,7 @@ async function resolveMyLineAccount() {
         );
 
         setMyAccountStatus(
-            "JLY 帳號確認失敗，請重新 LINE 登入。"
+            "JLY 帳號確認失敗，請稍後再試。"
         );
     }
 }
@@ -313,14 +297,9 @@ document.addEventListener(
         resolveMyLineAccount()
             .catch(
                 function (error) {
-
                     console.error(
                         "Account 初始化失敗：",
                         error
-                    );
-
-                    setMyAccountStatus(
-                        "JLY 帳號初始化失敗。"
                     );
                 }
             );

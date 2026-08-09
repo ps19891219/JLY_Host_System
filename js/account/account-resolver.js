@@ -2,52 +2,42 @@
 JLY Host System
 
 Module:
-Account Resolver V2
+Account Resolver V1
 
 用途：
+1. 接收後端已驗證完成的 JLY Account 結果
+2. 取得正確 Player Profile ID
+3. 將 Account Identity 交給 JLYIdentity
+4. 從 Firebase Player Profile 恢復本機 Identity Cache
+5. 支援手機 / 新裝置恢復同一個 JLY 身分
 
-1. 取得 LINE Login Backend 簽發的短效 Login Ticket
-2. 將 Ticket 交給 Account Backend
-3. 接收正式 Account → Player Profile 關係
-4. 將正確 Player Profile 交給 JLYIdentity
-5. 支援手機 / 新裝置恢復原本 JLY 玩家身分
+不負責：
+- LINE OAuth
+- Channel Secret
+- LINE Token Exchange
+- 用名字猜 Player
+- 建立 Player Profile
+- Seat
+- Car
+- 「我是玩家」角色判斷
 
-安全規則：
+核心原則：
 
-- 不讀取 LINE User ID 作為 Account 憑證
-- 不用名字猜 Player
-- 不建立 Player Profile
-- 不直接建立 Account
-- Login Ticket 僅作短效登入流程使用
-- Account Backend 才能決定 Ticket 對應哪個 LINE 身分
+Account
+→ 找到 Player Profile
 
-核心：
+Identity
+→ 恢復這台裝置的 JLY Identity
 
-LINE Login
-→ Server Login Ticket
-→ Account Backend
-→ Player Profile
-→ JLYIdentity
+Player Profile
+→ 長期玩家資料來源
 */
 
 "use strict";
 
 console.log(
-  "account-resolver.js V2 已成功載入！"
+  "account-resolver.js V1 已成功載入！"
 );
-
-// ============================================================
-// Storage Keys
-// ============================================================
-
-const JLY_ACCOUNT_ID_KEY =
-  "currentJlyAccountId";
-
-const JLY_LINE_LOGIN_TICKET_KEY =
-  "jly_line_login_ticket";
-
-const JLY_LINE_LOGIN_TICKET_EXPIRES_KEY =
-  "jly_line_login_ticket_expires_at";
 
 // ============================================================
 // 基本工具
@@ -90,354 +80,91 @@ function getDatabase() {
 }
 
 // ============================================================
-// 取得 Login Ticket
-// ============================================================
-
-function getPendingLoginTicket() {
-  const ticket =
-    normalizeAccountText(
-      sessionStorage.getItem(
-        JLY_LINE_LOGIN_TICKET_KEY
-      )
-    );
-
-  if (!ticket) {
-    return null;
-  }
-
-  const expiresAtMs =
-    Number(
-      sessionStorage.getItem(
-        JLY_LINE_LOGIN_TICKET_EXPIRES_KEY
-      ) || 0
-    );
-
-  // ----------------------------------------------------------
-  // 本機先做基本逾時檢查
-  //
-  // 真正有效性仍由 Server 判定。
-  // ----------------------------------------------------------
-
-  if (
-    Number.isFinite(
-      expiresAtMs
-    ) &&
-    expiresAtMs > 0 &&
-    Date.now() >=
-      expiresAtMs
-  ) {
-    clearPendingLoginTicket();
-
-    return null;
-  }
-
-  return {
-    ticket,
-
-    expiresAtMs
-  };
-}
-
-// ============================================================
-// 清除 Login Ticket
-// ============================================================
-
-function clearPendingLoginTicket() {
-  sessionStorage.removeItem(
-    JLY_LINE_LOGIN_TICKET_KEY
-  );
-
-  sessionStorage.removeItem(
-    JLY_LINE_LOGIN_TICKET_EXPIRES_KEY
-  );
-}
-
-// ============================================================
-// 取得目前 Account ID
-// ============================================================
-
-function getCurrentAccountId() {
-  return normalizeAccountText(
-    localStorage.getItem(
-      JLY_ACCOUNT_ID_KEY
-    )
-  );
-}
-
-// ============================================================
-// 保存目前 Account ID
-// ============================================================
-
-function setCurrentAccountId(
-  accountId
-) {
-  const normalizedId =
-    normalizeAccountText(
-      accountId
-    );
-
-  if (!normalizedId) {
-    return false;
-  }
-
-  localStorage.setItem(
-    JLY_ACCOUNT_ID_KEY,
-    normalizedId
-  );
-
-  return true;
-}
-
-// ============================================================
-// 清除 Account Cache
+// 取得 Callback 暫存的 LINE Identity
 //
 // 注意：
-// 目前不清 Player Profile。
-// 正式 logout 之後交由 Account Controller 處理。
+// 這只是登入流程暫存資料。
+// 不把它本身當成 JLY Account 授權依據。
+// 真正 Account 對應仍必須由 Server 驗證。
 // ============================================================
 
-function clearCurrentAccountId() {
-  localStorage.removeItem(
-    JLY_ACCOUNT_ID_KEY
-  );
-}
-
-// ============================================================
-// 呼叫 Account Backend
-//
-// action:
-//
-// resolve
-// → 已綁定帳號直接恢復
-//
-// bind
-// → 首次綁定
-//   下一階段使用
-// ============================================================
-
-async function requestAccountBackend(
-  action,
-  options
-) {
-  const settings =
-    options || {};
-
-  const pendingTicket =
-    getPendingLoginTicket();
-
-  if (
-    !pendingTicket ||
-    !pendingTicket.ticket
-  ) {
-    throw new Error(
-      "LINE Login Ticket 不存在或已過期"
+function getPendingLineIdentity() {
+  const raw =
+    sessionStorage.getItem(
+      "jly_verified_line_identity"
     );
+
+  if (!raw) {
+    return null;
   }
-
-  const payload = {
-    action:
-      normalizeAccountText(
-        action
-      ),
-
-    loginTicket:
-      pendingTicket.ticket
-  };
-
-  // ----------------------------------------------------------
-  // 首次綁定時才可能需要 Player Profile ID
-  //
-  // 這個值不能單獨作為授權依據。
-  // Server 必須同時驗證 Login Ticket。
-  // ----------------------------------------------------------
-
-  const playerProfileId =
-    normalizeAccountText(
-      settings.playerProfileId
-    );
-
-  if (playerProfileId) {
-    payload.playerProfileId =
-      playerProfileId;
-  }
-
-  const response =
-    await fetch(
-      "/api/line-account",
-      {
-        method:
-          "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
-
-        body:
-          JSON.stringify(
-            payload
-          )
-      }
-    );
-
-  let data = null;
 
   try {
-    data =
-      await response.json();
+    const data =
+      JSON.parse(raw);
+
+    const userId =
+      normalizeAccountText(
+        data &&
+        data.userId
+      );
+
+    if (!userId) {
+      return null;
+    }
+
+    return {
+      userId,
+
+      displayName:
+        normalizeAccountText(
+          data.displayName
+        ),
+
+      pictureUrl:
+        normalizeAccountText(
+          data.pictureUrl
+        ),
+
+      verifiedAt:
+        normalizeAccountText(
+          data.verifiedAt
+        )
+    };
   } catch (error) {
-    throw new Error(
-      "Account Backend 回傳格式錯誤"
+    console.warn(
+      "讀取 LINE Identity 暫存失敗：",
+      error
     );
-  }
 
-  return {
-    response,
-    data
-  };
+    return null;
+  }
 }
 
 // ============================================================
-// Resolve 已綁定 Account
+// 清除 Callback 暫存
 // ============================================================
 
-async function resolveAccount() {
-  const result =
-    await requestAccountBackend(
-      "resolve"
-    );
-
-  const response =
-    result.response;
-
-  const data =
-    result.data;
-
-  if (
-    response.ok &&
-    data &&
-    data.success === true &&
-    data.account
-  ) {
-    return {
-      success: true,
-
-      found: true,
-
-      account:
-        data.account
-    };
-  }
-
-  if (
-    data &&
-    data.error ===
-      "account_not_found"
-  ) {
-    return {
-      success: false,
-
-      found: false,
-
-      needsBinding: true,
-
-      error:
-        "account_not_found"
-    };
-  }
-
-  if (
-    data &&
-    (
-      data.error ===
-        "login_ticket_expired" ||
-      data.error ===
-        "login_ticket_invalid" ||
-      data.error ===
-        "login_ticket_used"
-    )
-  ) {
-    clearPendingLoginTicket();
-
-    return {
-      success: false,
-
-      found: false,
-
-      needsLogin: true,
-
-      error:
-        data.error
-    };
-  }
-
-  throw new Error(
-    data &&
-    data.error
-      ? data.error
-      : "account_resolve_failed"
+function clearPendingLineIdentity() {
+  sessionStorage.removeItem(
+    "jly_verified_line_identity"
   );
 }
 
 // ============================================================
-// 首次綁定 Account
+// 套用後端 Account Resolve 結果
 //
-// 下一階段由 UI 決定何時呼叫。
-// ============================================================
-
-async function bindAccount(
-  playerProfileId
-) {
-  const normalizedProfileId =
-    normalizeAccountText(
-      playerProfileId
-    );
-
-  if (!normalizedProfileId) {
-    throw new Error(
-      "Player Profile ID 不存在"
-    );
-  }
-
-  const result =
-    await requestAccountBackend(
-      "bind",
-      {
-        playerProfileId:
-          normalizedProfileId
-      }
-    );
-
-  const response =
-    result.response;
-
-  const data =
-    result.data;
-
-  if (
-    response.ok &&
-    data &&
-    data.success === true &&
-    data.account
-  ) {
-    return {
-      success: true,
-
-      account:
-        data.account
-    };
-  }
-
-  throw new Error(
-    data &&
-    data.error
-      ? data.error
-      : "account_bind_failed"
-  );
-}
-
-// ============================================================
-// 套用正式 Account Resolve 結果
+// Server Result Example:
+//
+// {
+//   success: true,
+//   account: {
+//     accountId: "...",
+//     playerProfileId: "..."
+//   }
+// }
+//
+// 此函式不接受 LINE 名稱猜測。
+// 必須取得正式 playerProfileId。
 // ============================================================
 
 async function applyResolvedAccount(
@@ -472,10 +199,10 @@ async function applyResolvedAccount(
   const db =
     getDatabase();
 
-  // ==========================================================
+  // ----------------------------------------------------------
   // STEP 1
   // 設定正式 Player Profile
-  // ==========================================================
+  // ----------------------------------------------------------
 
   const profileIdSaved =
     Identity
@@ -489,11 +216,14 @@ async function applyResolvedAccount(
     );
   }
 
-  // ==========================================================
+  // ----------------------------------------------------------
   // STEP 2
-  // Firebase Player Profile
-  // → 本機 Identity Cache
-  // ==========================================================
+  // 從 Firebase 正式 Profile 恢復：
+  //
+  // displayName
+  // linkedPlayerIds
+  // currentPlayerProfileId
+  // ----------------------------------------------------------
 
   const profile =
     await Identity
@@ -508,10 +238,17 @@ async function applyResolvedAccount(
     );
   }
 
-  // ==========================================================
+  // ----------------------------------------------------------
   // STEP 3
-  // 恢復正式 Identity ID
-  // ==========================================================
+  // Current Player ID
+  //
+  // 如果 Profile 本身有正式 identityId，
+  // 優先恢復。
+  //
+  // 否則保留既有本機 Identity。
+  // 新裝置完全沒有 Identity 時，
+  // 才建立裝置端 Identity ID。
+  // ----------------------------------------------------------
 
   const profileIdentityId =
     normalizeAccountText(
@@ -531,23 +268,22 @@ async function applyResolvedAccount(
       .ensureCurrentPlayerId();
   }
 
-  // ==========================================================
+  // ----------------------------------------------------------
   // STEP 4
-  // 保存 Account Cache
-  // ==========================================================
+  // Account Cache
+  //
+  // accountId 只是本機方便辨識，
+  // 不作為 Player Identity 的替代品。
+  // ----------------------------------------------------------
 
   if (accountId) {
-    setCurrentAccountId(
+    localStorage.setItem(
+      "currentJlyAccountId",
       accountId
     );
   }
 
-  // ==========================================================
-  // STEP 5
-  // Account 成功後清除一次性 Ticket
-  // ==========================================================
-
-  clearPendingLoginTicket();
+  clearPendingLineIdentity();
 
   return {
     success: true,
@@ -561,29 +297,48 @@ async function applyResolvedAccount(
 }
 
 // ============================================================
+// 讀取目前 Account ID
+// ============================================================
+
+function getCurrentAccountId() {
+  return normalizeAccountText(
+    localStorage.getItem(
+      "currentJlyAccountId"
+    )
+  );
+}
+
+// ============================================================
+// 清除裝置 Account Cache
+//
+// 注意：
+// 目前只清 Account Cache。
+// 不直接刪除 Player Profile / linkedPlayerIds。
+// 完整登出流程未來由 Account Controller 處理。
+// ============================================================
+
+function clearCurrentAccountId() {
+  localStorage.removeItem(
+    "currentJlyAccountId"
+  );
+}
+
+// ============================================================
 // 對外公開
 // ============================================================
 
 window.JLYAccountResolver = {
-  getPendingLoginTicket,
+  getPendingLineIdentity,
 
-  clearPendingLoginTicket,
+  clearPendingLineIdentity,
+
+  applyResolvedAccount,
 
   getCurrentAccountId,
 
-  setCurrentAccountId,
-
-  clearCurrentAccountId,
-
-  requestAccountBackend,
-
-  resolveAccount,
-
-  bindAccount,
-
-  applyResolvedAccount
+  clearCurrentAccountId
 };
 
 console.log(
-  "✅ JLY Account Resolver V2 已載入"
+  "✅ JLY Account Resolver V1 已載入"
 );
