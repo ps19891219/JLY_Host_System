@@ -59,9 +59,9 @@ function getQueryParam(name) {
 // ============================================================
 
 function clearLineLoginTemporaryState() {
-  sessionStorage.removeItem(
-    "jly_line_login_state"
-  );
+  localStorage.removeItem(
+  "jly_line_login_state"
+);
 
   sessionStorage.removeItem(
     "line_login_code"
@@ -80,11 +80,11 @@ function validateLineLoginState(
   returnedState
 ) {
   const expectedState =
-    String(
-      sessionStorage.getItem(
-        "jly_line_login_state"
-      ) || ""
-    ).trim();
+  String(
+    localStorage.getItem(
+      "jly_line_login_state"
+    ) || ""
+  ).trim();
 
   const actualState =
     String(
@@ -234,11 +234,11 @@ function saveVerifiedLineIdentity(
 
 function getLineLoginReturnUrl() {
   const saved =
-    String(
-      sessionStorage.getItem(
-        "jly_line_login_return_url"
-      ) || ""
-    ).trim();
+  String(
+    localStorage.getItem(
+      "jly_line_login_return_url"
+    ) || ""
+  ).trim();
 
   return (
     saved ||

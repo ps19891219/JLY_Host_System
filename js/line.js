@@ -89,10 +89,10 @@ function saveLineLoginReturnUrl(
       "../index.html"
     ).trim();
 
-  sessionStorage.setItem(
-    "jly_line_login_return_url",
-    target
-  );
+  localStorage.setItem(
+  "jly_line_login_return_url",
+  target
+);
 }
 
 // ============================================================
@@ -110,10 +110,10 @@ function startLineLogin(
       24
     );
 
-  sessionStorage.setItem(
-    "jly_line_login_state",
-    state
-  );
+  localStorage.setItem(
+  "jly_line_login_state",
+  state
+);
 
   saveLineLoginReturnUrl(
     settings.returnUrl ||
