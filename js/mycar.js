@@ -584,6 +584,26 @@ if (
     );
 }
 
+
+const linkedPlayerIds =
+  window.JLYIdentity &&
+  typeof window
+    .JLYIdentity
+    .getLinkedPlayerIds ===
+      "function"
+    ? window.JLYIdentity
+        .getLinkedPlayerIds()
+    : [];
+
+const myPlayerIds =
+  Array.from(
+    new Set([
+      playerProfileId,
+      ...linkedPlayerIds
+    ])
+  ).filter(Boolean);
+
+
   if (
     currentActiveRoleTab ===
     "player"
@@ -630,17 +650,18 @@ if (
                 ).trim();
 
               return (
-                playerId ===
-  playerProfileId &&
-                status !==
-                  "已取消" &&
-                status !==
-                  "取消" &&
-                status !==
-                  "cancelled" &&
-                status !==
-                  "canceled"
-              );
+  myPlayerIds.includes(
+    playerId
+  ) &&
+  status !==
+    "已取消" &&
+  status !==
+    "取消" &&
+  status !==
+    "cancelled" &&
+  status !==
+    "canceled"
+);
             }
           );
         }
