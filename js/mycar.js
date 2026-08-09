@@ -141,9 +141,26 @@ function isMyHostCar(
   return (
     car.isHost === true ||
     String(
-      car.myRole || ""
+      car.role || ""
     ).trim() ===
-      "host"
+      "host" ||
+    String(
+      car.ownerType || ""
+    ).trim() ===
+      "self"
+  );
+}
+
+function isMyPlayerCar(
+  car
+) {
+  if (!car) {
+    return false;
+  }
+
+  return (
+    !isMyHostCar(car) &&
+    car.isPlayer === true
   );
 }
 
@@ -581,7 +598,8 @@ async function renderMyCars(
       .getCarsByOwner !==
         "function"
   ) {
-    list.innerHTML =
+
+        list.innerHTML =
       '<div class="card">' +
       '<h3>Car Data 模組尚未載入</h3>' +
       '</div>';
@@ -658,35 +676,7 @@ async function renderMyCars(
             )
         : [];
 
-    // =========================
-    // 主揪車 ID 集合
-    //
-    // 以 getCarsByOwner() 的結果
-    // 作為真正 Ownership 判定。
-    // 不依賴舊資料是否有 isHost / myRole。
-    // =========================
-
-    const hostCarIds =
-      new Set(
-        hostCars
-          .map(
-            function (
-              car
-            ) {
-              return car &&
-                car.id
-                ? String(
-                    car.id
-                  ).trim()
-                : "";
-            }
-          )
-          .filter(
-            Boolean
-          )
-      );
-
-          /*
+    /*
       一般分頁先維持原本語意：
       我的車 = 我擁有的車。
 
@@ -785,7 +775,7 @@ async function renderMyCars(
       // =========================
       // 我主揪的
       //
-      // 正式以 owner 查詢結果判斷。
+      // 與 carCard.js 綠燈規則一致
       // =========================
 
       if (
@@ -797,19 +787,8 @@ async function renderMyCars(
             function (
               car
             ) {
-              const carId =
-                car &&
-                car.id
-                  ? String(
-                      car.id
-                    ).trim()
-                  : "";
-
-              return (
-                !!carId &&
-                hostCarIds.has(
-                  carId
-                )
+              return isMyHostCar(
+                car
               );
             }
           );
@@ -817,6 +796,7 @@ async function renderMyCars(
 
       // =========================
       // 我的所有 Player Identity
+      // 保留供目前資料流程使用
       // =========================
 
       const myPlayerIds =
@@ -839,8 +819,8 @@ async function renderMyCars(
       // =========================
       // 我是玩家
       //
-      // 1. 必須有我的 Player ID
-      // 2. 不能同時屬於我的主揪車
+      // 與 carCard.js 藍燈規則一致
+      // 主揪優先，不重複進玩家
       // =========================
 
       if (
@@ -852,72 +832,8 @@ async function renderMyCars(
             function (
               car
             ) {
-              const carId =
-                car &&
-                car.id
-                  ? String(
-                      car.id
-                    ).trim()
-                  : "";
-
-              // -------------------------
-              // 我擁有的車直接排除
-              // -------------------------
-
-              if (
-                carId &&
-                hostCarIds.has(
-                  carId
-                )
-              ) {
-                return false;
-              }
-
-              const players =
-                Array.isArray(
-                  car.players
-                )
-                  ? car.players
-                  : [];
-
-              return players.some(
-                function (
-                  player
-                ) {
-                  if (
-                    !player
-                  ) {
-                    return false;
-                  }
-
-                  const playerId =
-                    String(
-                      player.playerId ||
-                      player.id ||
-                      player.profileId ||
-                      ""
-                    ).trim();
-
-                  const status =
-                    String(
-                      player.status ||
-                      ""
-                    ).trim();
-
-                  return (
-                    myPlayerIds.includes(
-                      playerId
-                    ) &&
-                    status !==
-                      "已取消" &&
-                    status !==
-                      "取消" &&
-                    status !==
-                      "cancelled" &&
-                    status !==
-                      "canceled"
-                  );
-                }
+              return isMyPlayerCar(
+                car
               );
             }
           );
