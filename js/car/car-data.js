@@ -105,11 +105,62 @@ console.log(
   }
 
   // ============================================================
+// 依多個 Car ID 取得車團
+// ============================================================
+
+async function getCarsByIds(
+  carIds
+) {
+  const ids = Array.from(
+    new Set(
+      (Array.isArray(carIds)
+        ? carIds
+        : []
+      )
+        .map(function (id) {
+          return String(
+            id || ""
+          ).trim();
+        })
+        .filter(Boolean)
+    )
+  );
+
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const cars =
+    await Promise.all(
+      ids.map(
+        async function (carId) {
+          try {
+            return await getCarById(
+              carId
+            );
+          } catch (error) {
+            console.warn(
+              "讀取車團失敗：",
+              carId,
+              error
+            );
+
+            return null;
+          }
+        }
+      )
+    );
+
+  return cars.filter(Boolean);
+}
+
+  // ============================================================
   // 對外公開
   // ============================================================
 
   window.JLYCarData = {
-    getCarById,
-    getCarsByOwner
-  };
+  getCarById,
+  getCarsByOwner,
+  getCarsByIds
+};
 })();

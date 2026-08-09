@@ -47,7 +47,17 @@ console.log(
     );
   }
 
-  function filterRecruitCars(
+  function isHostCar(car) {
+  return Boolean(
+    car &&
+    (
+      car.isHost === true ||
+      car.myRole === "host"
+    )
+  );
+}
+
+function filterRecruitCars(
   cars
 ) {
   const render =
@@ -55,38 +65,46 @@ console.log(
 
   return cars.filter(
     function (car) {
-      const status =
-        render.getStatus(car);
-
-      if (
-        status !==
-        "招募中"
-      ) {
-        return false;
-      }
-
-      const isHost =
-        car.isHost === true ||
-        car.myRole === "host";
-
-      const assistRecruiting =
-        car.assistRecruiting ===
-        true;
-
-      /*
-        個人揪團頁顯示規則：
-
-        1. 我是主揪
-           → 自動顯示
-
-        2. 我不是主揪
-           → 只有勾選協助揪團才顯示
-      */
       return (
-        isHost ||
-        assistRecruiting
+        render.getStatus(car) ===
+        "招募中"
       );
     }
+  );
+}
+
+function mergeCars(
+  carGroups
+) {
+  const map =
+    new Map();
+
+  carGroups.forEach(
+    function (cars) {
+      (
+        Array.isArray(cars)
+          ? cars
+          : []
+      ).forEach(
+        function (car) {
+          if (
+            !car ||
+            !car.id
+          ) {
+            return;
+          }
+
+          map.set(
+            car.id,
+            car
+          );
+        }
+      );
+    }
+  );
+
+  return Array.from(
+    map.values()
   );
 }
 
@@ -147,18 +165,75 @@ console.log(
         return;
       }
 
-      const allCars =
-        await data
-          .getRecruitCarsByOwner(
-            recruitPage.ownerId
-          );
+      const ownerCars =
+  await data
+    .getRecruitCarsByOwner(
+      recruitPage.ownerId
+    );
 
-      const cars =
-        sortRecruitCars(
-          filterRecruitCars(
-            allCars
-          )
-        );
+/*
+  ownerId 代表資料屬於這個人，
+  但個人揪團頁只自動顯示
+  他實際是主揪的車。
+*/
+const hostCars =
+  ownerCars.filter(
+    isHostCar
+  );
+
+/*
+  取得頁主個人設定中，
+  有勾「協助揪團」的 Car ID。
+*/
+const assistCarIds =
+  window.JLYCarRelations &&
+  typeof window
+    .JLYCarRelations
+    .getAssistRecruitingCarIds ===
+      "function"
+    ? await window
+        .JLYCarRelations
+        .getAssistRecruitingCarIds(
+          recruitPage.ownerId
+        )
+    : [];
+
+/*
+  協助揪團的車可能不是頁主擁有，
+  所以要依 Car ID 另外取得。
+*/
+const assistCars =
+  window.JLYCarData &&
+  typeof window
+    .JLYCarData
+    .getCarsByIds ===
+      "function"
+    ? await window
+        .JLYCarData
+        .getCarsByIds(
+          assistCarIds
+        )
+    : [];
+
+/*
+  合併：
+  1. 我主揪的車
+  2. 我協助揪團的車
+
+  同一台如果重複，只保留一份。
+*/
+const mergedCars =
+  mergeCars([
+    hostCars,
+    assistCars
+  ]);
+
+const cars =
+  sortRecruitCars(
+    filterRecruitCars(
+      mergedCars
+    )
+  );
 
       render.renderPage(
         container,
