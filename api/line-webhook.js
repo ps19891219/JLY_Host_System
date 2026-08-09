@@ -2,19 +2,21 @@
 JLY Host System
 
 Module:
-LINE Messaging Webhook V1
+LINE Messaging Webhook V1.1
 
 Responsibilities:
 
 1. Receive webhook events from LINE Messaging API
 2. Verify LINE webhook signature
-3. Return HTTP 200 after successful verification
+3. Parse webhook events
+4. Route verified events to services/line/event-router.js
+5. Return HTTP 200 after successful processing
 
-V1 does NOT:
+V1.1 does NOT:
 - Send LINE messages
 - Save groupId / userId
 - Write to Firebase
-- Handle commands
+- Bind Car / Group
 - Modify Player Profile
 
 Environment Variable:
@@ -24,6 +26,12 @@ LINE_MESSAGING_CHANNEL_SECRET
 "use strict";
 
 const crypto = require("crypto");
+
+const {
+  routeEvents
+} = require(
+  "../services/line/event-router"
+);
 
 // ============================================================
 // JSON Response
@@ -97,7 +105,9 @@ function verifyLineSignature(
     Buffer.from(signature);
 
   const expectedBuffer =
-    Buffer.from(expectedSignature);
+    Buffer.from(
+      expectedSignature
+    );
 
   if (
     receivedBuffer.length !==
@@ -122,7 +132,9 @@ async function handler(req, res) {
   // LINE webhook uses POST
   // ----------------------------------------------------------
 
-  if (req.method !== "POST") {
+  if (
+    req.method !== "POST"
+  ) {
     res.setHeader(
       "Allow",
       "POST"
@@ -242,7 +254,9 @@ async function handler(req, res) {
     try {
       body =
         JSON.parse(
-          rawBody.toString("utf8")
+          rawBody.toString(
+            "utf8"
+          )
         );
     } catch (error) {
       console.error(
@@ -262,29 +276,34 @@ async function handler(req, res) {
     }
 
     const events =
-      Array.isArray(body.events)
+      Array.isArray(
+        body.events
+      )
         ? body.events
         : [];
 
     // ========================================================
-    // V1
-    //
-    // We intentionally do nothing with the events yet.
-    //
-    // Later versions will handle:
-    // - follow
-    // - message
-    // - join
-    // - leave
-    // - groupId
-    // - userId
+    // STEP 5
+    // Route verified LINE events
     // ========================================================
+
+    const routeResults =
+      await routeEvents(
+        events
+      );
 
     console.log(
       "LINE webhook verified.",
       {
         eventCount:
-          events.length
+          events.length,
+
+        routes:
+          routeResults.map(
+            function (result) {
+              return result.route;
+            }
+          )
       }
     );
 
