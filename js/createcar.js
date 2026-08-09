@@ -691,7 +691,13 @@ const calendarOptions =
           : "Google 授權未完成";
     }
 
+    const ownerId =
+  localStorage.getItem(
+    "currentPlayerId"
+  );
+
     const car = {
+      ownerId: ownerId || "",
       activityType:
         "劇本",
 
