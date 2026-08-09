@@ -1,20 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的玩家資料</title>
 
-    <link
-        rel="stylesheet"
-        href="../css/style.css"
-    >
+    <link rel="stylesheet" href="../css/style.css">
 </head>
 
 <body>
@@ -23,40 +14,26 @@
 
     <h1>👤 我的玩家資料</h1>
 
-    <!-- ===================================================== -->
-    <!-- LINE Account -->
-    <!-- ===================================================== -->
-
     <div class="card">
+    <h3>📱 LINE 帳號</h3>
 
-        <h3>📱 LINE 帳號</h3>
+    <p>
+        使用 LINE 登入，可以在手機或其他裝置找回你的 JLY 玩家身分。
+    </p>
 
-        <p>
-            使用 LINE 登入，可以在手機或其他裝置找回你的 JLY 玩家身分。
-        </p>
-
-        <button
-            type="button"
-            onclick="startLineLogin()"
-        >
-            LINE 登入／恢復我的帳號
-        </button>
-
-        <p id="accountStatus"></p>
-
-    </div>
-
-    <!-- ===================================================== -->
-    <!-- Player Profile -->
-    <!-- ===================================================== -->
+    <button
+        type="button"
+        onclick="startLineLogin()"
+    >
+        LINE 登入／恢復我的帳號
+    </button>
+</div>
 
     <div id="profileBox">
 
         <div class="card">
 
-            <label>
-                玩家名稱
-            </label>
+            <label>玩家名稱</label>
 
             <input
                 id="displayName"
@@ -64,24 +41,12 @@
                 placeholder="請輸入玩家名稱"
             >
 
-            <label>
-                預設位置
-            </label>
+            <label>預設位置</label>
 
             <select id="defaultPosition">
-
-                <option>
-                    不限
-                </option>
-
-                <option>
-                    男位
-                </option>
-
-                <option>
-                    女位
-                </option>
-
+                <option>不限</option>
+                <option>男位</option>
+                <option>女位</option>
             </select>
 
             <label>
@@ -95,11 +60,10 @@
 
             </label>
 
-            <button
-                type="button"
-                onclick="saveMyProfile()"
-            >
+            <button onclick="saveMyProfile()">
+
                 💾 建立我的玩家資料
+
             </button>
 
         </div>
@@ -108,204 +72,16 @@
 
 </div>
 
-<!-- ========================================================= -->
-<!-- Firebase -->
-<!-- ========================================================= -->
+<button type="button" onclick="saveMyProfile()">
+  💾 儲存
+</button>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script src="../firebase/firebase.js?v=39"></script>
-
-<!-- ========================================================= -->
-<!-- Identity / Account -->
-<!-- ========================================================= -->
-
-<script src="../js/identity.js?v=1"></script>
-
-<script src="../js/account/account-resolver.js?v=1"></script>
-
-<!-- ========================================================= -->
-<!-- Page Logic -->
-<!-- ========================================================= -->
-
-<script src="../js/myprofile.js?v=3"></script>
-
-<script src="../js/line.js?v=2"></script>
-
-<script>
-"use strict";
-
-// ============================================================
-// Account Status
-// ============================================================
-
-function setMyAccountStatus(
-    text
-) {
-    const element =
-        document.getElementById(
-            "accountStatus"
-        );
-
-    if (element) {
-        element.textContent =
-            String(
-                text || ""
-            );
-    }
-}
-
-// ============================================================
-// 呼叫 Server Account Resolve
-// ============================================================
-
-async function resolveMyLineAccount() {
-
-    if (
-        !window.JLYAccountResolver
-    ) {
-        console.warn(
-            "JLYAccountResolver 尚未載入"
-        );
-
-        return;
-    }
-
-    const lineIdentity =
-        window.JLYAccountResolver
-            .getPendingLineIdentity();
-
-    if (!lineIdentity) {
-        return;
-    }
-
-    setMyAccountStatus(
-        "正在確認 JLY 玩家身分..."
-    );
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/line-account",
-                {
-                    method:
-                        "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify({
-                            action:
-                                "resolve",
-
-                            lineUserId:
-                                lineIdentity.userId
-                        })
-                }
-            );
-
-        const data =
-            await response.json();
-
-        // ====================================================
-        // 已綁定 Account
-        // ====================================================
-
-        if (
-            response.ok &&
-            data &&
-            data.success === true &&
-            data.account
-        ) {
-
-            const result =
-                await window
-                    .JLYAccountResolver
-                    .applyResolvedAccount(
-                        data.account
-                    );
-
-            if (
-                result &&
-                result.success
-            ) {
-                setMyAccountStatus(
-                    "LINE 帳號已連接，玩家身分恢復完成。"
-                );
-
-                location.reload();
-
-                return;
-            }
-        }
-
-        // ====================================================
-        // 尚未建立 Account
-        // ====================================================
-
-        if (
-            data &&
-            data.error ===
-                "account_not_found"
-        ) {
-
-            setMyAccountStatus(
-                "這個 LINE 尚未連結 JLY 玩家資料。"
-            );
-
-            console.log(
-                "需要進入首次綁定流程"
-            );
-
-            return;
-        }
-
-        throw new Error(
-            data &&
-            data.error
-                ? data.error
-                : "account_resolve_failed"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "JLY Account Resolve 失敗：",
-            error
-        );
-
-        setMyAccountStatus(
-            "JLY 帳號確認失敗，請稍後再試。"
-        );
-    }
-}
-
-// ============================================================
-// 初始化
-// ============================================================
-
-document.addEventListener(
-    "DOMContentLoaded",
-    function () {
-
-        resolveMyLineAccount()
-            .catch(
-                function (error) {
-                    console.error(
-                        "Account 初始化失敗：",
-                        error
-                    );
-                }
-            );
-    }
-);
-</script>
+<script src="../js/myprofile.js?v=2"></script>
+<script src="../js/line.js?v=3"></script>
 
 </body>
 </html>
