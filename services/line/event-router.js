@@ -2,7 +2,7 @@
 JLY Host System
 
 Module:
-LINE Event Router V1.1
+LINE Event Router V1.2
 
 Responsibilities:
 
@@ -10,9 +10,10 @@ Responsibilities:
 2. Identify event type
 3. Extract basic source information
 4. Route event to the correct handler
-5. Reply to text messages for connection testing
+5. Pass text messages to message-router
+6. Reply only when message-router requests a reply
 
-V1.1 does NOT:
+V1.2 does NOT:
 - Write Firebase
 - Modify Player Profile
 - Bind Car / Group
@@ -25,6 +26,12 @@ const {
   sendTextReply
 } = require(
   "./line-reply"
+);
+
+const {
+  routeTextMessage
+} = require(
+  "./message-router"
 );
 
 // ============================================================
@@ -182,16 +189,76 @@ function logEvent(context) {
 async function handleMessageEvent(
   context
 ) {
+  // ----------------------------------------------------------
+  // Non-text message
+  // ----------------------------------------------------------
+
   if (
     context.message.type !== "text"
   ) {
     return {
-      handled: true,
+      handled: false,
       route:
         "message_non_text",
       context
     };
   }
+
+  // ----------------------------------------------------------
+  // Ask Message Router
+  // ----------------------------------------------------------
+
+  const messageResult =
+    routeTextMessage(
+      context.message.text
+    );
+
+  // ----------------------------------------------------------
+  // Normal conversation
+  //
+  // JLY Assistant stays silent.
+  // ----------------------------------------------------------
+
+  if (
+    !messageResult.handled
+  ) {
+    console.log(
+      "LINE message ignored.",
+      {
+        action:
+          messageResult.action,
+
+        sourceType:
+          context.source.type
+      }
+    );
+
+    return {
+      handled: false,
+      route:
+        messageResult.action,
+      context
+    };
+  }
+
+  // ----------------------------------------------------------
+  // Reply requested
+  // ----------------------------------------------------------
+
+  if (
+    !messageResult.replyText
+  ) {
+    return {
+      handled: true,
+      route:
+        messageResult.action,
+      context
+    };
+  }
+
+  // ----------------------------------------------------------
+  // replyToken required
+  // ----------------------------------------------------------
 
   if (!context.replyToken) {
     console.warn(
@@ -206,14 +273,21 @@ async function handleMessageEvent(
     };
   }
 
+  // ----------------------------------------------------------
+  // Send LINE reply
+  // ----------------------------------------------------------
+
   await sendTextReply(
     context.replyToken,
-    "JLY 小助手收到囉 🤖"
+    messageResult.replyText
   );
 
   console.log(
-    "LINE reply sent.",
+    "LINE assistant reply sent.",
     {
+      action:
+        messageResult.action,
+
       sourceType:
         context.source.type,
 
@@ -225,7 +299,7 @@ async function handleMessageEvent(
   return {
     handled: true,
     route:
-      "message_reply_test",
+      messageResult.action,
     context
   };
 }
