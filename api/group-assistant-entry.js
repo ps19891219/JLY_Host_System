@@ -35,15 +35,19 @@ module.exports = async function handler(req, res) {
     const amount = Number(input.amount);
     const description = String(input.description || "").trim();
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000 || !description) return send(res, 400, { success: false, error: "invalid_entry" });
-    const selected = [...new Set(Array.isArray(input.shareMemberIds) ? input.shareMemberIds.map(String) : [])].filter(id => memberIds.has(id));
+    const requestedShares = Array.isArray(input.shares) ? input.shares : [];
     const payerId = String(input.payerMemberId || session.data.identityId || session.data.profileId);
     if (!memberIds.has(payerId) && !actorIds.has(payerId)) return send(res, 400, { success: false, error: "invalid_payer" });
     const splitNow = input.splitMode === "now";
-    if (type === "expense" && splitNow && !selected.length) return send(res, 400, { success: false, error: "share_members_required" });
-    const shares = type === "expense" && splitNow ? selected.map((id, index) => ({
-      memberId: id, displayName: playerMap.get(id) || "成員",
-      amount: index === selected.length - 1 ? amount - Math.floor(amount / selected.length) * (selected.length - 1) : Math.floor(amount / selected.length)
-    })) : [];
+    const seenShareMembers = new Set();
+    const shares = type === "expense" && splitNow ? requestedShares
+      .map(item => ({ memberId: String(item && item.memberId || ""), amount: Number(item && item.amount) }))
+      .filter(item => memberIds.has(item.memberId) && !seenShareMembers.has(item.memberId) && seenShareMembers.add(item.memberId))
+      .map(item => ({ ...item, displayName: playerMap.get(item.memberId) || "成員" })) : [];
+    if (type === "expense" && splitNow && !shares.length) return send(res, 400, { success: false, error: "share_members_required" });
+    if (type === "expense" && splitNow && (shares.some(item => !Number.isFinite(item.amount) || item.amount <= 0) || shares.reduce((sum, item) => sum + item.amount, 0) !== amount)) {
+      return send(res, 400, { success: false, error: "share_total_mismatch" });
+    }
 
     if (input.entryId) {
       const existing = (await listCarAccountingEntries(carId)).find(entry => entry.id === String(input.entryId));
