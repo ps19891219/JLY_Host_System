@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.18
+> Version: V2.19
 >
 > Last Updated: 2026-08-12
 >
@@ -838,3 +838,9 @@ matching
 - 新帳目稽核紀錄新增 `actorMemberId` 與操作當時的 `actorDisplayName`。
 - 查詢舊異動紀錄時，會以 `actorUserId` 補查目前綁定的 JLY Member 名稱。
 - LINE 畫面優先顯示操作者名稱；查不到名稱時才顯示縮短的 LINE ID，完整 ID 仍保留於後端。
+
+### V2.19｜2026-08-12
+
+- `JLY 異動紀錄` 顯示台北時間、操作類型、操作者名稱與帳目短編號。
+- 新增與刪除顯示收入／支出、金額及說明。
+- 修改紀錄同時顯示修改前與修改後內容，方便追蹤差異。

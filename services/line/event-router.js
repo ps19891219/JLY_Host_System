@@ -582,6 +582,13 @@ async function handleMessageEvent(
             log.actorDisplayName ||
             actorNames[log.actorUserId] ||
             shortenActorId(log.actorUserId);
+          lines.push("");
+          lines.push(...buildAuditDetailLines(
+            log,
+            actorLabel,
+            operationLabels
+          ));
+          continue;
           lines.push(
             `[${getEntryCode(log.entryId)}] ` +
             `${operationLabels[log.operation] || log.operation} ` +
@@ -832,6 +839,41 @@ function shortenActorId(value) {
     return id || "未知使用者";
   }
   return `${id.slice(0, 5)}…${id.slice(-4)}`;
+}
+
+function formatAuditTime(value) {
+  const date = new Date(value || 0);
+  if (Number.isNaN(date.getTime())) return "時間不明";
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(date);
+}
+
+function formatAuditEntry(entry) {
+  if (!entry || typeof entry !== "object") return "內容不明";
+  const typeLabel = entry.type === "income" ? "收入" : "支出";
+  const amount = Number(entry.amount || 0).toLocaleString("zh-TW");
+  const description = normalizeText(entry.description) || "未填說明";
+  return `${typeLabel} $${amount} ${description}`;
+}
+
+function buildAuditDetailLines(log, actorLabel, operationLabels) {
+  const lines = [
+    `${formatAuditTime(log.createdAt)}｜${operationLabels[log.operation] || log.operation}｜${actorLabel}`,
+    `帳目：${getEntryCode(log.entryId)}`
+  ];
+  if (log.operation === "update") {
+    lines.push(`原本：${formatAuditEntry(log.before)}`);
+    lines.push(`改為：${formatAuditEntry(log.after)}`);
+  } else {
+    lines.push(`內容：${formatAuditEntry(log.after || log.before)}`);
+  }
+  return lines;
 }
 
 // ============================================================
