@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.10
+> Version: V2.11
 >
 > Last Updated: 2026-08-12
 >
@@ -333,7 +333,7 @@ js/line-callback.js
 Identity / Player Profile
 ```
 
-目前專案中不存在舊文件曾列出的 `api/line-login.js`。前端登入是否依賴外部端點或不同部署設定，需另行確認。
+`api/line-login.js` 會在伺服器端向 LINE 交換授權碼、取得已驗證的 LINE Profile，並把 `lineUserId` 寫入目前的 JLY Member。連結時會確認 Member 存在、裝置身分相符，且同一 LINE 不得連結到另一位 Member。
 
 ### 6.2 LINE Messaging API Webhook
 
@@ -638,7 +638,7 @@ matching
 ### 10.3 已確認的待辦缺口
 
 - `pages/players.html` 引用 `/js/players.js`，但目前不存在該檔案；實際存在的是 `js/player.js`。
-- 舊地圖列出的 `api/line-login.js` 不存在。
+- LINE 登入後端已補齊；正式環境需設定 `LINE_CHANNEL_ID`、`LINE_CHANNEL_SECRET` 與 `LINE_REDIRECT_URI`。
 - `ROADMAP.md`、`VERSION_HISTORY.md`、`CODING_RULE.md`、`DATABASE_RULE.md` 目前是空檔。
 - 專案已有 LINE Event Router 基礎測試，但仍缺少完整整合測試與部署驗證指令。
 - LINE 群組可由已連結 LINE 身分的車團建立主揪，以 `JLY 綁定車團 <carId>` 安全綁定；既有群組帳目會一次性遷移至車團帳本，同一群組不可直接覆蓋綁定到另一車團。
@@ -787,3 +787,10 @@ matching
 - 新增主揪限定的 `JLY 綁定車團 <carId>` 指令，並防止既有群組綁定被直接覆蓋。
 - 群組首次綁定時會把舊 LINE 群組帳目一次性遷移到車團，保留來源與稽核紀錄。
 - 車團詳細頁新增「複製 LINE 群組綁定指令」按鈕，方便手機貼到 LINE 群組。
+
+### V2.11｜2026-08-12
+
+- 新增 `/api/line-login` 後端，完成 LINE OAuth 授權碼交換與 Profile 驗證。
+- LINE 驗證成功後，會正式把 `lineUserId` 寫入目前的 JLY Member。
+- 阻止同一個 LINE 帳號重複連結到不同 Member，並檢查目前裝置身分。
+- 回到「我的資料」後顯示身分連結成功提示，之後可進行 LINE 群組車團綁定。

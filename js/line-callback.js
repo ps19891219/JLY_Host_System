@@ -142,6 +142,16 @@ async function exchangeLineAuthorizationCode(
             code:
               String(
                 code || ""
+              ).trim(),
+
+            playerProfileId:
+              String(
+                localStorage.getItem("currentPlayerProfileId") || ""
+              ).trim(),
+
+            identityId:
+              String(
+                localStorage.getItem("currentPlayerId") || ""
               ).trim()
           })
       }
@@ -348,6 +358,15 @@ async function handleLineCallback() {
       saveVerifiedLineIdentity(
         result.lineUser
       );
+
+    sessionStorage.setItem(
+      "jly_line_member_link_result",
+      JSON.stringify({
+        linked: Boolean(result.memberLink && result.memberLink.linked),
+        profileId: result.memberLink && result.memberLink.profileId,
+        displayName: lineIdentity.displayName
+      })
+    );
 
     console.log(
       "LINE Identity 驗證完成：",

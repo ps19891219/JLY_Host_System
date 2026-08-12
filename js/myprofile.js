@@ -463,6 +463,23 @@ async function syncMyProfileIdentityCache() {
 document.addEventListener(
   "DOMContentLoaded",
   function () {
+    const lineLinkResult = sessionStorage.getItem(
+      "jly_line_member_link_result"
+    );
+    if (lineLinkResult) {
+      sessionStorage.removeItem("jly_line_member_link_result");
+      try {
+        const result = JSON.parse(lineLinkResult);
+        if (result.linked) {
+          window.setTimeout(function () {
+            alert("LINE 身分已成功連結到你的 JLY Member。現在可以回到群組綁定車團。");
+          }, 100);
+        }
+      } catch (_error) {
+        // Ignore invalid temporary callback data.
+      }
+    }
+
     syncMyProfileIdentityCache()
       .catch(
         function (error) {
