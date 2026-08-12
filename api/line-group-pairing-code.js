@@ -10,6 +10,16 @@ function send(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
+function getCarLabel(car) {
+  return String(
+    car && (car.scriptName || car.title || car.name) || "未命名車團"
+  )
+    .replace(/[《》\r\n]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -21,10 +31,12 @@ module.exports = async function handler(req, res) {
     const car = await getCarById(carId);
     if (!car) return send(res, 404, { success: false, error: "car_not_found" });
     const pairing = await createPairingCode(carId, 10);
+    const carLabel = getCarLabel(car);
     return send(res, 200, {
       success: true,
       code: pairing.code,
-      command: `JLY 綁定 ${pairing.code}`,
+      carLabel,
+      command: `JLY 綁定《${carLabel}》 ${pairing.code}`,
       expiresAt: pairing.expiresAt
     });
   } catch (error) {
@@ -32,3 +44,5 @@ module.exports = async function handler(req, res) {
     return send(res, 500, { success: false, error: "pairing_code_failed" });
   }
 };
+
+module.exports.getCarLabel = getCarLabel;

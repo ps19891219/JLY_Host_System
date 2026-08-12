@@ -147,7 +147,7 @@ function parseAccountingMutation(value) {
 function parseGroupBindingCommand(value) {
   const text = normalizeText(value);
   const pairingMatch = text.match(
-    /^jly\s*(綁定|確認綁定|取消綁定)\s+([a-z0-9]{6})$/i
+    /^jly\s*(綁定|確認綁定|取消綁定)(?:\s*《[^》]{1,80}》)?\s+([a-z0-9]{6})$/i
   );
   if (pairingMatch) {
     const action = pairingMatch[1] === "確認綁定"

@@ -644,7 +644,7 @@ test(
 test("one-time pairing shows confirm and cancel buttons before binding", async function () {
   let sentMessages = null;
   const result = await routeEvent(
-    createTextEvent({ text: "JLY 綁定 A7K9P2" }),
+    createTextEvent({ text: "JLY 綁定《測試劇本》 A7K9P2" }),
     {
       resolveGroupBinding: async function () {
         return { bound: false, reason: "binding_not_found", binding: null };

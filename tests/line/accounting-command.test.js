@@ -123,6 +123,10 @@ test("parses one-time pairing prepare and confirmation commands", function () {
     { pairingCode: "A7K9P2", action: "prepare" }
   );
   assert.deepEqual(
+    parseGroupBindingCommand("JLY 綁定《測試劇本》 A7K9P2"),
+    { pairingCode: "A7K9P2", action: "prepare" }
+  );
+  assert.deepEqual(
     parseGroupBindingCommand("JLY 確認綁定 A7K9P2"),
     { pairingCode: "A7K9P2", action: "confirm" }
   );
