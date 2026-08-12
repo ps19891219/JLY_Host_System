@@ -302,3 +302,143 @@ test(
     assert.equal(saveCalls, 0);
   }
 );
+
+test(
+  "today accounting query replies with summary and entries",
+  async function () {
+    let replyText = "";
+
+    const result = await routeEvent(
+      createTextEvent({
+        text: "JLY 今日帳目"
+      }),
+      {
+        resolveGroupBinding: async function () {
+          return {
+            bound: false,
+            reason: "binding_not_found",
+            binding: null
+          };
+        },
+        queryGroupAccounting: async function (
+          context,
+          scope
+        ) {
+          assert.equal(context.source.groupId, "group-1");
+          assert.equal(scope, "today");
+
+          return {
+            found: true,
+            entries: [
+              {
+                type: "income",
+                amount: 1000,
+                description: "成員繳費"
+              },
+              {
+                type: "expense",
+                amount: 350,
+                description: "聚餐飲料"
+              }
+            ],
+            summary: {
+              count: 2,
+              income: 1000,
+              expense: 350,
+              balance: 650
+            }
+          };
+        },
+        sendTextReply: async function (
+          replyToken,
+          text
+        ) {
+          replyText = text;
+        }
+      }
+    );
+
+    assert.equal(result.route, "accounting_query");
+    assert.ok(replyText.includes("今日帳目"));
+    assert.ok(replyText.includes("收入：$1,000"));
+    assert.ok(replyText.includes("結餘：$650"));
+    assert.ok(replyText.includes("+$1,000 成員繳費"));
+  }
+);
+
+test(
+  "empty month accounting query replies clearly",
+  async function () {
+    let replyText = "";
+
+    await routeEvent(
+      createTextEvent({
+        text: "JLY 本月帳目"
+      }),
+      {
+        resolveGroupBinding: async function () {
+          return {
+            bound: false,
+            reason: "binding_not_found",
+            binding: null
+          };
+        },
+        queryGroupAccounting: async function () {
+          return {
+            found: false,
+            entries: [],
+            summary: {
+              count: 0,
+              income: 0,
+              expense: 0,
+              balance: 0
+            }
+          };
+        },
+        sendTextReply: async function (
+          replyToken,
+          text
+        ) {
+          replyText = text;
+        }
+      }
+    );
+
+    assert.ok(replyText.includes("本月帳目"));
+    assert.ok(replyText.includes("目前沒有帳目"));
+  }
+);
+
+test(
+  "private chat cannot query a group account",
+  async function () {
+    let queryCalls = 0;
+    let replyText = "";
+
+    const result = await routeEvent(
+      createTextEvent({
+        sourceType: "user",
+        groupId: "",
+        text: "JLY 帳本餘額"
+      }),
+      {
+        queryGroupAccounting: async function () {
+          queryCalls += 1;
+        },
+        sendTextReply: async function (
+          replyToken,
+          text
+        ) {
+          replyText = text;
+        }
+      }
+    );
+
+    assert.equal(
+      result.route,
+      "accounting_group_required"
+    );
+    assert.equal(queryCalls, 0);
+    assert.ok(replyText.includes("只能在 LINE 群組"));
+  }
+);

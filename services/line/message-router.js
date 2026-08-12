@@ -36,7 +36,8 @@ V1 does NOT:
 "use strict";
 
 const {
-  parseAccountingCommand
+  parseAccountingCommand,
+  parseAccountingQuery
 } = require(
   "./accounting-command"
 );
@@ -129,8 +130,9 @@ function routeMenuCommand(text) {
           "assistant_accounting_menu",
         replyText:
           "💰 群組記帳\n" +
-          "下一步請輸入：JLY 支出 金額 說明\n" +
-          "例如：JLY 支出 350 聚餐飲料"
+          "新增：JLY 支出 350 聚餐飲料\n" +
+          "查詢：JLY 今日帳目／JLY 本月帳目\n" +
+          "餘額：JLY 帳本餘額"
       };
 
     case "jly提醒":
@@ -160,7 +162,8 @@ function routeMenuCommand(text) {
           "assistant_help_menu",
         replyText:
           "❓ JLY 小助手功能入口\n" +
-          "你可以使用下方選單進入記帳或車團資訊。"
+          "輸入 JLY 小助手可開啟群組功能選單。\n" +
+          "記帳支援新增、今日、本月與餘額查詢。"
       };
 
     default:
@@ -184,6 +187,20 @@ function routeTextMessage(text) {
       action:
         "ignore_empty",
       replyText: ""
+    };
+  }
+
+  const accountingQuery =
+    parseAccountingQuery(
+      normalizedText
+    );
+
+  if (accountingQuery) {
+    return {
+      handled: true,
+      action: "accounting_query",
+      replyText: "",
+      accountingQuery
     };
   }
 

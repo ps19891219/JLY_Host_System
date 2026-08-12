@@ -62,7 +62,35 @@ function parseAccountingCommand(value) {
   };
 }
 
+function parseAccountingQuery(value) {
+  const normalized =
+    normalizeText(value)
+      .toLowerCase()
+      .replace(/\s+/g, "");
+
+  switch (normalized) {
+    case "jly今日帳目":
+      return {
+        scope: "today"
+      };
+
+    case "jly本月帳目":
+      return {
+        scope: "month"
+      };
+
+    case "jly帳本餘額":
+      return {
+        scope: "all"
+      };
+
+    default:
+      return null;
+  }
+}
+
 module.exports = {
   MAX_AMOUNT,
-  parseAccountingCommand
+  parseAccountingCommand,
+  parseAccountingQuery
 };

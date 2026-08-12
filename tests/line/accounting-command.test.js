@@ -4,7 +4,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
-  parseAccountingCommand
+  parseAccountingCommand,
+  parseAccountingQuery
 } = require(
   "../../services/line/accounting-command"
 );
@@ -48,5 +49,20 @@ test("ignores text that is not an accounting command", function () {
   assert.equal(
     parseAccountingCommand("大家晚安"),
     null
+  );
+});
+
+test("parses accounting query commands", function () {
+  assert.deepEqual(
+    parseAccountingQuery("JLY 今日帳目"),
+    { scope: "today" }
+  );
+  assert.deepEqual(
+    parseAccountingQuery("JLY 本月帳目"),
+    { scope: "month" }
+  );
+  assert.deepEqual(
+    parseAccountingQuery("JLY 帳本餘額"),
+    { scope: "all" }
   );
 });

@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.6
+> Version: V2.7
 >
 > Last Updated: 2026-08-12
 >
@@ -431,6 +431,14 @@ Rich Menu 只顯示在 LINE Official Account 的一對一聊天室。群組內�
 - `JLY 支出 350 聚餐飲料`
 - `JLY 收入 1000 成員繳費`
 
+群組帳本查詢指令：
+
+- `JLY 今日帳目`：依台北時區查詢當日帳目、收支與結餘。
+- `JLY 本月帳目`：依台北時區查詢本月帳目、收支與結餘。
+- `JLY 帳本餘額`：查詢群組帳本建立至今的總收入、總支出與結餘。
+
+今日與本月查詢最多列出最近 10 筆明細，但合計涵蓋查詢期間內全部帳目；沒有資料時回覆空帳本提示。所有查詢都只使用目前 LINE 群組的 `groupId`，私人聊天室不可查詢群組帳本。
+
 資料路徑：
 
 ```text
@@ -443,7 +451,7 @@ lineGroupAccounts/{groupId}/entries/{LINE messageId}
 
 - `services/line/accounting-command.js`：解析與驗證群組記帳指令。
 - `services/line/group-accounting-service.js`：將 LINE Event Context 轉為帳目資料。
-- `services/firebase/line-group-accounting-repository.js`：寫入群組帳本 Firestore 路徑。
+- `services/firebase/line-group-accounting-repository.js`：寫入及按時間範圍查詢群組帳本 Firestore 路徑。
 - `services/line/event-router.js`：限制只有群組可寫入並回覆記帳結果。
 - `tests/line/accounting-command.test.js`：指令格式與金額測試。
 - `tests/line/group-accounting-service.test.js`：群組識別與寫入資料測試。
@@ -722,3 +730,11 @@ matching
 - 保存記帳者 LINE userId、金額、說明、類型及建立時間。
 - 私人聊天室不可寫入群組帳本；格式錯誤時提供正確輸入範例。
 - 新增群組記帳指令、服務與 Event Router 自動測試。
+
+### V2.7｜2026-08-12
+
+- 新增今日帳目、本月帳目與帳本餘額三個群組查詢指令。
+- 日與月的範圍依台北時區計算，不受 Vercel 執行區域影響。
+- 查詢回覆包含總收入、總支出、結餘及最近帳目。
+- 查詢僅限目前 LINE 群組，空帳本與私人聊天室有明確提示。
+- 補充記帳入口與使用說明中的查詢指令。

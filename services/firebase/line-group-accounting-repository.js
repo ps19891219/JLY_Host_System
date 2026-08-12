@@ -82,7 +82,56 @@ async function saveGroupAccountingEntry(entry) {
   return data;
 }
 
+async function listGroupAccountingEntries(
+  groupId,
+  options = {}
+) {
+  const normalizedGroupId =
+    normalizeText(groupId);
+
+  if (!normalizedGroupId) {
+    throw new Error("LINE groupId is required.");
+  }
+
+  let query = getFirestore()
+    .collection(COLLECTION_NAME)
+    .doc(normalizedGroupId)
+    .collection("entries")
+    .orderBy("createdAt", "desc");
+
+  const startAt = normalizeText(options.startAt);
+  const endBefore = normalizeText(options.endBefore);
+
+  if (startAt) {
+    query = query.where(
+      "createdAt",
+      ">=",
+      startAt
+    );
+  }
+
+  if (endBefore) {
+    query = query.where(
+      "createdAt",
+      "<",
+      endBefore
+    );
+  }
+
+  const snapshot = await query.get();
+
+  return snapshot.docs.map(
+    function (document) {
+      return {
+        id: document.id,
+        ...document.data()
+      };
+    }
+  );
+}
+
 module.exports = {
   COLLECTION_NAME,
-  saveGroupAccountingEntry
+  saveGroupAccountingEntry,
+  listGroupAccountingEntries
 };

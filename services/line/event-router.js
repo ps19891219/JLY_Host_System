@@ -50,7 +50,8 @@ const {
 );
 
 const {
-  recordGroupAccounting
+  recordGroupAccounting,
+  queryGroupAccounting
 } = require(
   "./group-accounting-service"
 );
@@ -227,6 +228,10 @@ async function handleMessageEvent(
     dependencies.recordGroupAccounting ||
     recordGroupAccounting;
 
+  const queryAccounting =
+    dependencies.queryGroupAccounting ||
+    queryGroupAccounting;
+
   // ----------------------------------------------------------
   // Non-text message
   // ----------------------------------------------------------
@@ -377,6 +382,97 @@ async function handleMessageEvent(
       context,
       groupBinding,
       accountingResult
+    };
+  }
+
+  if (messageResult.action === "accounting_query") {
+    if (!context.replyToken) {
+      return {
+        handled: false,
+        route: "message_missing_reply_token",
+        context,
+        groupBinding
+      };
+    }
+
+    if (
+      context.source.type !== "group" ||
+      !context.source.groupId
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "群組帳本只能在 LINE 群組內查詢。"
+      );
+
+      return {
+        handled: true,
+        route: "accounting_group_required",
+        context,
+        groupBinding
+      };
+    }
+
+    const queryResult = await queryAccounting(
+      context,
+      messageResult.accountingQuery.scope
+    );
+
+    const scopeLabels = {
+      today: "今日帳目",
+      month: "本月帳目",
+      all: "帳本餘額"
+    };
+
+    const label =
+      scopeLabels[
+        messageResult.accountingQuery.scope
+      ];
+
+    if (!queryResult.found) {
+      await replyWithText(
+        context.replyToken,
+        `📒 ${label}\n目前沒有帳目。`
+      );
+    } else {
+      const summary = queryResult.summary;
+      const lines = [
+        `📒 ${label}`,
+        `收入：$${summary.income.toLocaleString("zh-TW")}`,
+        `支出：$${summary.expense.toLocaleString("zh-TW")}`,
+        `結餘：$${summary.balance.toLocaleString("zh-TW")}`
+      ];
+
+      if (messageResult.accountingQuery.scope !== "all") {
+        lines.push("最近帳目：");
+
+        for (const entry of queryResult.entries.slice(0, 10)) {
+          const symbol =
+            entry.type === "income" ? "+" : "-";
+
+          lines.push(
+            `${symbol}$${Number(entry.amount).toLocaleString("zh-TW")} ${entry.description}`
+          );
+        }
+
+        if (queryResult.entries.length > 10) {
+          lines.push(
+            `⋯另有 ${queryResult.entries.length - 10} 筆`
+          );
+        }
+      }
+
+      await replyWithText(
+        context.replyToken,
+        lines.join("\n")
+      );
+    }
+
+    return {
+      handled: true,
+      route: "accounting_query",
+      context,
+      groupBinding,
+      accountingQueryResult: queryResult
     };
   }
 
