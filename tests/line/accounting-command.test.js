@@ -113,6 +113,21 @@ test("parses a secure group car binding command", function () {
     parseGroupBindingCommand(
       "JLY 綁定車團 car_ABC123"
     ),
-    { carId: "car_ABC123" }
+    { carId: "car_ABC123", action: "legacy" }
+  );
+});
+
+test("parses one-time pairing prepare and confirmation commands", function () {
+  assert.deepEqual(
+    parseGroupBindingCommand("JLY 綁定 A7K9P2"),
+    { pairingCode: "A7K9P2", action: "prepare" }
+  );
+  assert.deepEqual(
+    parseGroupBindingCommand("JLY 確認綁定 A7K9P2"),
+    { pairingCode: "A7K9P2", action: "confirm" }
+  );
+  assert.deepEqual(
+    parseGroupBindingCommand("JLY 取消綁定 A7K9P2"),
+    { pairingCode: "A7K9P2", action: "cancel" }
   );
 });

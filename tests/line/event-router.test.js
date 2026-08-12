@@ -640,3 +640,32 @@ test(
     assert.ok(replyText.includes("詩婕"));
   }
 );
+
+test("one-time pairing shows confirm and cancel buttons before binding", async function () {
+  let sentMessages = null;
+  const result = await routeEvent(
+    createTextEvent({ text: "JLY 綁定 A7K9P2" }),
+    {
+      resolveGroupBinding: async function () {
+        return { bound: false, reason: "binding_not_found", binding: null };
+      },
+      prepareGroupPairing: async function () {
+        return {
+          prepared: true,
+          code: "A7K9P2",
+          car: { id: "car-1", label: "測試劇本", date: "2026-08-20" }
+        };
+      },
+      sendReplyMessage: async function (_replyToken, messages) {
+        sentMessages = messages;
+      }
+    }
+  );
+
+  assert.equal(result.route, "group_car_pairing_prepared");
+  assert.ok(sentMessages[0].text.includes("測試劇本"));
+  assert.deepEqual(
+    sentMessages[0].quickReply.items.map(item => item.action.label),
+    ["確認綁定", "取消"]
+  );
+});

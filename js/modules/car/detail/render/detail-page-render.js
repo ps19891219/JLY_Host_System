@@ -421,14 +421,14 @@ console.log(
       <section class="card line-group-binding-card">
         <div>
           <h3>LINE 群組記帳</h3>
-          <p>由車團建立主揪複製指令，再貼到要使用記帳功能的 LINE 群組。</p>
+          <p>產生 10 分鐘內有效的一次性配對碼，貼到 LINE 群組後再確認車團資料。</p>
         </div>
         <button
           type="button"
           class="line-group-binding-button"
           onclick="copyLineGroupBindingCommand('${carId}', this)"
         >
-          複製 LINE 群組綁定指令
+          產生 LINE 群組配對碼
         </button>
       </section>
     `;

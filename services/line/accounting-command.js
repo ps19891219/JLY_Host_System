@@ -145,12 +145,22 @@ function parseAccountingMutation(value) {
 }
 
 function parseGroupBindingCommand(value) {
-  const match = normalizeText(value).match(
+  const text = normalizeText(value);
+  const pairingMatch = text.match(
+    /^jly\s*(綁定|確認綁定|取消綁定)\s+([a-z0-9]{6})$/i
+  );
+  if (pairingMatch) {
+    const action = pairingMatch[1] === "確認綁定"
+      ? "confirm"
+      : pairingMatch[1] === "取消綁定" ? "cancel" : "prepare";
+    return { pairingCode: pairingMatch[2].toUpperCase(), action };
+  }
+  const match = text.match(
     /^jly\s*綁定車團\s+([a-z0-9_-]{6,128})$/i
   );
 
   return match
-    ? { carId: match[1] }
+    ? { carId: match[1], action: "legacy" }
     : null;
 }
 

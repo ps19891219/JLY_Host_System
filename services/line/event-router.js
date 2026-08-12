@@ -88,6 +88,11 @@ const {
 } = require(
   "./group-car-binding-service"
 );
+const {
+  prepareGroupPairing,
+  confirmGroupPairing,
+  cancelGroupPairing
+} = require("./group-car-pairing-service");
 
 // ============================================================
 // Normalize Text
@@ -280,6 +285,9 @@ async function handleMessageEvent(
   const bindCarGroup =
     dependencies.bindGroupToCar ||
     bindGroupToCar;
+  const preparePairing = dependencies.prepareGroupPairing || prepareGroupPairing;
+  const confirmPairing = dependencies.confirmGroupPairing || confirmGroupPairing;
+  const cancelPairing = dependencies.cancelGroupPairing || cancelGroupPairing;
 
   // ----------------------------------------------------------
   // Non-text message
@@ -391,16 +399,52 @@ async function handleMessageEvent(
       };
     }
 
-    const bindResult = await bindCarGroup(
-      context,
-      messageResult.bindingCommand.carId
-    );
+    const command = messageResult.bindingCommand;
+    if (command.action === "prepare") {
+      const prepared = await preparePairing(context, command.pairingCode);
+      const failureMessages = {
+        group_required: "車團綁定只能在 LINE 群組內執行。",
+        pairing_not_found: "找不到這組配對碼，請回到車團頁面重新產生。",
+        pairing_expired: "這組配對碼已超過 10 分鐘，請重新產生。",
+        pairing_unavailable: "這組配對碼已使用或已取消，請重新產生。",
+        line_identity_unlinked: "請先完成 LINE 與 JLY Member 身分連結。",
+        car_not_found: "找不到這個 JLY 車團。",
+        owner_required: "只有這個車團的建立主揪可以綁定群組。"
+      };
+      if (!prepared.prepared) {
+        await replyWithText(context.replyToken, failureMessages[prepared.reason] || "車團配對失敗，請稍後再試。");
+        return { handled: true, route: "group_car_pairing_failed", context, pairingResult: prepared };
+      }
+      const dateLine = prepared.car.date ? `\n日期：${prepared.car.date}` : "";
+      await replyWithMessages(context.replyToken, [{
+        type: "text",
+        text: `準備綁定車團：\n《${prepared.car.label}》${dateLine}\n\n請由建立主揪確認是否綁定到目前群組。`,
+        quickReply: {
+          items: [
+            { type: "action", action: { type: "message", label: "確認綁定", text: `JLY 確認綁定 ${prepared.code}` } },
+            { type: "action", action: { type: "message", label: "取消", text: `JLY 取消綁定 ${prepared.code}` } }
+          ]
+        }
+      }]);
+      return { handled: true, route: "group_car_pairing_prepared", context, pairingResult: prepared };
+    }
+    if (command.action === "cancel") {
+      const cancelled = await cancelPairing(context, command.pairingCode);
+      await replyWithText(context.replyToken, cancelled.cancelled ? "已取消這次車團綁定。" : "無法取消：配對碼已失效或不屬於這個群組。" );
+      return { handled: true, route: cancelled.cancelled ? "group_car_pairing_cancelled" : "group_car_pairing_cancel_failed", context };
+    }
+    const bindResult = command.action === "confirm"
+      ? await confirmPairing(context, command.pairingCode)
+      : await bindCarGroup(context, command.carId);
     const failureMessages = {
       group_required: "車團綁定只能在 LINE 群組內執行。",
       line_identity_unlinked: "請先完成 LINE 與 JLY Member 身分連結。",
       car_not_found: "找不到這個 JLY 車團。",
       owner_required: "只有這個車團的建立主揪可以綁定群組。",
       binding_conflict: "這個 LINE 群組已綁定其他車團，為避免帳目混在一起，目前不會覆蓋。"
+      ,pairing_not_found: "找不到這組配對碼，請重新產生。"
+      ,pairing_expired: "這組配對碼已超過 10 分鐘，請重新產生。"
+      ,pairing_confirmation_mismatch: "只有在原群組提出配對的建立主揪可以確認。"
     };
 
     await replyWithText(
