@@ -359,10 +359,32 @@ async function handleLineCallback() {
         result.lineUser
       );
 
+    if (result.memberLink) {
+      if (result.memberLink.profileId) {
+        localStorage.setItem(
+          "currentPlayerProfileId",
+          result.memberLink.profileId
+        );
+      }
+      if (result.memberLink.identityId) {
+        localStorage.setItem(
+          "currentPlayerId",
+          result.memberLink.identityId
+        );
+      }
+      if (result.memberLink.displayName) {
+        localStorage.setItem(
+          "currentPlayerName",
+          result.memberLink.displayName
+        );
+      }
+    }
+
     sessionStorage.setItem(
       "jly_line_member_link_result",
       JSON.stringify({
         linked: Boolean(result.memberLink && result.memberLink.linked),
+        recovered: Boolean(result.memberLink && result.memberLink.recovered),
         profileId: result.memberLink && result.memberLink.profileId,
         displayName: lineIdentity.displayName
       })

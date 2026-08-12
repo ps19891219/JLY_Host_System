@@ -58,14 +58,28 @@ async function fetchLineProfile(accessToken) {
 
 async function linkPlayerProfile(profileId, identityId, lineProfile) {
   const db = getFirestore();
+  const duplicate = await db.collection("players")
+    .where("lineUserId", "==", lineProfile.userId)
+    .limit(1)
+    .get();
+  if (!profileId || !identityId) {
+    if (duplicate.empty) {
+      const error = new Error("first_link_requires_original_browser");
+      error.statusCode = 409;
+      throw error;
+    }
+    const existing = duplicate.docs[0];
+    const existingData = existing.data() || {};
+    return {
+      profileId: existing.id,
+      identityId: text(existingData.identityId),
+      displayName: text(existingData.displayName || existingData.nickname),
+      linked: true,
+      recovered: true
+    };
+  }
   const profileRef = db.collection("players").doc(profileId);
-  const [target, duplicate] = await Promise.all([
-    profileRef.get(),
-    db.collection("players")
-      .where("lineUserId", "==", lineProfile.userId)
-      .limit(1)
-      .get()
-  ]);
+  const target = await profileRef.get();
   if (!target.exists) {
     const error = new Error("member_not_found");
     error.statusCode = 404;
@@ -93,7 +107,13 @@ async function linkPlayerProfile(profileId, identityId, lineProfile) {
     lineLinkedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }, { merge: true });
-  return { profileId, linked: true };
+  return {
+    profileId,
+    identityId: text(targetData.identityId || identityId),
+    displayName: text(targetData.displayName || targetData.nickname),
+    linked: true,
+    recovered: false
+  };
 }
 
 function createHandler(dependencies = {}) {
@@ -110,8 +130,8 @@ function createHandler(dependencies = {}) {
     const code = text(body.code);
     const profileId = text(body.playerProfileId);
     const identityId = text(body.identityId);
-    if (!code || !profileId || !identityId) {
-      return sendJson(res, 400, { success: false, error: "member_link_data_missing" });
+    if (!code) {
+      return sendJson(res, 400, { success: false, error: "authorization_code_missing" });
     }
     if (
       !dependencies.exchangeAuthorizationCode &&

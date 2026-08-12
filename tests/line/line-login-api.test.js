@@ -43,15 +43,28 @@ test("LINE login verifies identity and links the current member", async function
   assert.equal(linked.lineUser.userId, "line-1");
 });
 
-test("LINE login refuses linking without an existing JLY identity", async function () {
+test("LINE login can recover an already-linked member in a new browser", async function () {
+  let received = null;
   const handler = createHandler({
-    exchangeAuthorizationCode: async () => "unused"
+    exchangeAuthorizationCode: async () => "access-token",
+    fetchLineProfile: async () => ({ userId: "line-1" }),
+    linkPlayerProfile: async (profileId, identityId) => {
+      received = { profileId, identityId };
+      return {
+        profileId: "player-1",
+        identityId: "identity-1",
+        linked: true,
+        recovered: true
+      };
+    }
   });
   const res = response();
   await handler({
     method: "POST",
     body: { code: "auth-code" }
   }, res);
-  assert.equal(res.statusCode, 400);
-  assert.equal(res.body.error, "member_link_data_missing");
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.memberLink.recovered, true);
+  assert.equal(received.profileId, "");
+  assert.equal(received.identityId, "");
 });

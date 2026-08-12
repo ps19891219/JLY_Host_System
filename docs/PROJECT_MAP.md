@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.11
+> Version: V2.12
 >
 > Last Updated: 2026-08-12
 >
@@ -794,3 +794,10 @@ matching
 - LINE 驗證成功後，會正式把 `lineUserId` 寫入目前的 JLY Member。
 - 阻止同一個 LINE 帳號重複連結到不同 Member，並檢查目前裝置身分。
 - 回到「我的資料」後顯示身分連結成功提示，之後可進行 LINE 群組車團綁定。
+
+### V2.12｜2026-08-12
+
+- 首頁新增「登入／找回我的身分」入口，手機可直接進入 LINE 身分流程。
+- 「我的車」缺少本機身分時顯示明確說明與登入按鈕，不再只顯示空白內容。
+- 已連結 LINE 的 JLY Member 可在 LINE 內建瀏覽器或新裝置重新登入並恢復 Member ID。
+- 第一次連結仍須由原本持有該 JLY Member 的瀏覽器確認，避免以名稱冒領他人身分。

@@ -640,6 +640,14 @@ async function renderMyCars(
   if (!ownerId) {
     list.innerHTML =
       '<div class="card">' +
+      '<h3>尚未登入 JLY 身分</h3>' +
+      '<p>請先登入或使用 LINE 找回你的 JLY Member，才能顯示「我的車」。</p>' +
+      '<button type="button" onclick="location.href=\'myprofile.html\'">登入／找回我的身分</button>' +
+      '</div>';
+    return;
+
+    list.innerHTML =
+      '<div class="card">' +
       '<h3>尚未建立使用者身分</h3>' +
       '<p>請重新整理頁面後再試。</p>' +
       '</div>';
