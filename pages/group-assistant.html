@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>JLY 車團小助手</title>
+  <link rel="stylesheet" href="/css/group-assistant.css?v=1">
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <span class="bear">🐻</span>
+      <div><p>JLY 車團小助手</p><h1 id="scriptName">正在載入車團…</h1><small id="carMeta"></small></div>
+    </header>
+    <nav class="tabs" aria-label="功能分頁">
+      <button data-tab="info">車團</button><button data-tab="accounting">帳務</button>
+      <button data-tab="members">成員</button><button data-tab="notices">通知</button>
+    </nav>
+    <section id="loading" class="panel">正在取得這台車的資料…</section>
+    <section id="error" class="panel hidden"></section>
+    <section id="info" class="panel tab-panel hidden"><h2>車團資訊</h2><div id="infoContent"></div></section>
+    <section id="accounting" class="panel tab-panel hidden">
+      <h2>車團帳務</h2>
+      <div class="totals"><article><span>收入</span><b id="income">$0</b></article><article><span>支出</span><b id="expense">$0</b></article><article><span>結餘</span><b id="balance">$0</b></article></div>
+      <button class="primary" id="createSplit">＋ 新增分帳</button>
+      <h3>成員結算</h3><div id="memberBalances" class="list empty">目前沒有分帳資料</div>
+    </section>
+    <section id="members" class="panel tab-panel hidden"><h2>成員與座位</h2><p>此功能將在下一階段加入。</p></section>
+    <section id="notices" class="panel tab-panel hidden"><h2>提醒與通知</h2><p>目前沒有新的車團通知。</p></section>
+  </main>
+  <script src="/js/group-assistant.js?v=1"></script>
+</body>
+</html>

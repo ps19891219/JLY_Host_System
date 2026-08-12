@@ -97,6 +97,8 @@ test(
             date: "2026-08-20"
           };
         },
+        createGroupAssistantToken: function () { return "signed-token"; },
+        getPublicBaseUrl: function () { return "https://example.com"; },
         sendReplyMessage: async function (
           replyToken,
           messages
@@ -120,21 +122,9 @@ test(
     assert.equal(calls[0][0], "binding");
     assert.equal(calls[1][0], "reply");
     assert.equal(calls[1][2][0].type, "flex");
-    assert.deepEqual(
-      calls[1][2][0].contents.body.contents.map(
-        function (item) {
-          return item.action.text;
-        }
-      ),
-      [
-        "JLY 車團帳務",
-        "JLY 車團資訊",
-        "JLY 成員座位",
-        "JLY 提醒",
-        "JLY 最新通知",
-        "JLY 使用說明"
-      ]
-    );
+    assert.ok(calls[1][2][0].contents.body.contents.every(
+      function (item) { return item.action.type === "uri"; }
+    ));
   }
 );
 

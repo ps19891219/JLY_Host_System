@@ -15,23 +15,20 @@ test("group assistant card shows car identity and six persistent entries", funct
   const card = buildGroupAssistantCard({
     scriptName: "測試劇本",
     date: "2026-08-20"
-  });
+  }, { baseUrl: "https://example.com", token: "signed-token" });
   assert.equal(card.type, "flex");
   assert.ok(card.altText.includes("測試劇本"));
   assert.ok(card.contents.header.contents[0].text.includes("測試劇本"));
   assert.ok(card.contents.header.contents[1].text.includes("2026-08-20"));
   assert.equal(buttons(card).length, 6);
   assert.deepEqual(
-    buttons(card).map(button => button.action.text),
+    buttons(card).map(button => button.action.type),
     [
-      "JLY 車團帳務",
-      "JLY 車團資訊",
-      "JLY 成員座位",
-      "JLY 提醒",
-      "JLY 最新通知",
-      "JLY 使用說明"
+      "uri", "uri", "uri", "uri", "uri", "uri"
     ]
   );
+  assert.ok(buttons(card)[0].action.uri.includes("tab=accounting"));
+  assert.ok(buttons(card)[0].action.uri.includes("signed-token"));
 });
 
 test("accounting card is a second-level persistent menu", function () {

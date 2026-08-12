@@ -36,6 +36,10 @@ const {
   buildAccountingMenuCard
 } = require("./group-assistant-card");
 const { getCarById } = require("../firebase/line-accounting-authorization-repository");
+const {
+  createGroupAssistantToken,
+  getPublicBaseUrl
+} = require("./group-assistant-link");
 
 const {
   routeTextMessage
@@ -289,6 +293,8 @@ async function handleMessageEvent(
   const confirmPairing = dependencies.confirmGroupPairing || confirmGroupPairing;
   const cancelPairing = dependencies.cancelGroupPairing || cancelGroupPairing;
   const readCar = dependencies.getCarById || getCarById;
+  const createAssistantToken = dependencies.createGroupAssistantToken || createGroupAssistantToken;
+  const readPublicBaseUrl = dependencies.getPublicBaseUrl || getPublicBaseUrl;
 
   // ----------------------------------------------------------
   // Non-text message
@@ -858,9 +864,15 @@ async function handleMessageEvent(
         console.error("LINE assistant car lookup failed.", error);
       }
     }
+    const token = context.accountingCarId
+      ? createAssistantToken({
+          groupId: context.source.groupId,
+          carId: context.accountingCarId
+        })
+      : "";
     await replyWithMessages(
       context.replyToken,
-      [buildGroupAssistantCard(car)]
+      [buildGroupAssistantCard(car, { token, baseUrl: readPublicBaseUrl() })]
     );
   } else if (
     messageResult.action === "assistant_accounting_card" &&

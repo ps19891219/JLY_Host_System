@@ -14,6 +14,16 @@ function messageButton(label, command, color = "#2F6B57") {
   };
 }
 
+function uriButton(label, uri, color = "#2F6B57") {
+  return {
+    type: "button",
+    style: "primary",
+    color,
+    height: "sm",
+    action: { type: "uri", label, uri }
+  };
+}
+
 function buildCard(title, subtitle, buttons) {
   return {
     type: "flex",
@@ -57,17 +67,20 @@ function getCarSubtitle(car) {
   return date ? `${date}｜車團小助手` : "車團小助手";
 }
 
-function buildGroupAssistantCard(car) {
+function buildGroupAssistantCard(car, options = {}) {
+  const baseUrl = String(options.baseUrl || "").replace(/\/$/, "");
+  const token = encodeURIComponent(String(options.token || ""));
+  const link = tab => `${baseUrl}/pages/group-assistant.html?token=${token}&tab=${tab}`;
   return buildCard(
     `🐻 ${getCarTitle(car)}`,
     getCarSubtitle(car),
     [
-      messageButton("💰 車團帳務", "JLY 車團帳務"),
-      messageButton("🚐 車團資訊", "JLY 車團資訊", "#487A91"),
-      messageButton("👥 成員與座位", "JLY 成員座位", "#806A9B"),
-      messageButton("⏰ 提醒功能", "JLY 提醒", "#B17B42"),
-      messageButton("📣 最新通知", "JLY 最新通知", "#9A5960"),
-      messageButton("❓ 使用說明", "JLY 使用說明", "#777777")
+      uriButton("💰 車團帳務", link("accounting")),
+      uriButton("🚐 車團資訊", link("info"), "#487A91"),
+      uriButton("👥 成員與座位", link("members"), "#806A9B"),
+      uriButton("⏰ 提醒功能", link("notices"), "#B17B42"),
+      uriButton("📣 最新通知", link("notices"), "#9A5960"),
+      uriButton("❓ 使用說明", link("info"), "#777777")
     ]
   );
 }
