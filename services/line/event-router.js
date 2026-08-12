@@ -537,10 +537,10 @@ async function handleMessageEvent(
         groupBinding
       );
 
-      if (!authority.canManageAll) {
+      if (!authority.canViewAudit) {
         await replyWithText(
           context.replyToken,
-          "只有已驗證的主揪或系統管理者可以查看帳目異動紀錄。"
+          "完整帳目異動紀錄僅供系統管理者查詢。如有帳務問題，請聯絡系統管理者協助調閱。"
         );
 
         return {

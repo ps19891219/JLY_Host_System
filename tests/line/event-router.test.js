@@ -470,7 +470,11 @@ test(
           };
         },
         resolveAccountingAuthority: async function () {
-          return { canManageAll: false, reason: "member" };
+          return {
+            canManageAll: false,
+            canViewAudit: false,
+            reason: "member"
+          };
         },
         mutateGroupAccounting: async function (
           context,
@@ -536,12 +540,53 @@ test(
 
     assert.equal(result.route, "accounting_audit_denied");
     assert.equal(auditCalls, 0);
-    assert.ok(replyText.includes("主揪或系統管理者"));
+    assert.ok(replyText.includes("僅供系統管理者"));
   }
 );
 
 test(
-  "verified host can view accounting audit logs",
+  "verified host cannot view accounting audit logs",
+  async function () {
+    let auditCalls = 0;
+    let replyText = "";
+
+    const result = await routeEvent(
+      createTextEvent({
+        text: "JLY 異動紀錄"
+      }),
+      {
+        resolveGroupBinding: async function () {
+          return {
+            bound: true,
+            reason: "binding_found",
+            binding: { carId: "car-1" }
+          };
+        },
+        resolveAccountingAuthority: async function () {
+          return {
+            canManageAll: true,
+            canViewAudit: false,
+            reason: "car_owner"
+          };
+        },
+        listCarAccountingAuditLogs: async function () {
+          auditCalls += 1;
+          return [];
+        },
+        sendTextReply: async function (replyToken, text) {
+          replyText = text;
+        }
+      }
+    );
+
+    assert.equal(result.route, "accounting_audit_denied");
+    assert.equal(auditCalls, 0);
+    assert.ok(replyText.includes("系統管理者"));
+  }
+);
+
+test(
+  "system admin can view accounting audit logs",
   async function () {
     let replyText = "";
 
@@ -560,7 +605,8 @@ test(
         resolveAccountingAuthority: async function () {
           return {
             canManageAll: true,
-            reason: "car_owner"
+            canViewAudit: true,
+            reason: "system_admin"
           };
         },
         listCarAccountingAuditLogs: async function () {

@@ -56,10 +56,11 @@ test("car owner can manage every group entry", async function () {
   );
 
   assert.equal(authority.canManageAll, true);
+  assert.equal(authority.canViewAudit, false);
   assert.equal(authority.reason, "car_owner");
 });
 
-test("legacy car owner identity can manage accounting and audit logs", async function () {
+test("legacy car owner identity can manage accounting without audit access", async function () {
   const authority = await resolveAccountingAuthority(
     { source: { userId: "line-owner" } },
     {
@@ -82,6 +83,7 @@ test("legacy car owner identity can manage accounting and audit logs", async fun
   );
 
   assert.equal(authority.canManageAll, true);
+  assert.equal(authority.canViewAudit, false);
   assert.equal(authority.reason, "car_owner");
 });
 
@@ -100,6 +102,7 @@ test("system admin can manage every entry", async function () {
   );
 
   assert.equal(authority.canManageAll, true);
+  assert.equal(authority.canViewAudit, true);
   assert.equal(authority.reason, "system_admin");
 });
 

@@ -110,6 +110,7 @@ async function resolveAccountingAuthority(
   ) {
     return {
       canManageAll: true,
+      canViewAudit: true,
       reason: "system_admin",
       playerId: player.id,
       playerDisplayName: getPlayerDisplayName(player)
@@ -143,6 +144,7 @@ async function resolveAccountingAuthority(
     if (car && matched) {
       return {
         canManageAll: true,
+        canViewAudit: false,
         reason:
           managerIds.has(String(car.ownerId || "")) &&
           identityIds.has(String(car.ownerId || ""))
@@ -156,6 +158,7 @@ async function resolveAccountingAuthority(
 
   return {
     canManageAll: false,
+    canViewAudit: false,
     reason: player ? "member" : "line_identity_unlinked",
     playerId: player ? player.id : "",
     playerDisplayName: getPlayerDisplayName(player)
