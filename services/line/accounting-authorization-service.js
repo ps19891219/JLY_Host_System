@@ -115,8 +115,9 @@ async function resolveAccountingAuthority(
     const car = await getCar(carId);
     const identityIds = new Set([
       player.id,
+      player.identityId,
       ...normalizeIdentityList(player.linkedPlayerIds)
-    ]);
+    ].map(String).map(v => v.trim()).filter(Boolean));
 
     const managerIds = new Set(
       getCarAccountingManagerIds(car)

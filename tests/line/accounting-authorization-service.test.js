@@ -59,6 +59,32 @@ test("car owner can manage every group entry", async function () {
   assert.equal(authority.reason, "car_owner");
 });
 
+test("legacy car owner identity can manage accounting and audit logs", async function () {
+  const authority = await resolveAccountingAuthority(
+    { source: { userId: "line-owner" } },
+    {
+      bound: true,
+      binding: { carId: "legacy-car" }
+    },
+    {
+      findPlayerByLineUserId: async function () {
+        return {
+          id: "member-document-id",
+          identityId: "legacy-owner-id",
+          linkedPlayerIds: [],
+          roles: []
+        };
+      },
+      getCarById: async function () {
+        return { ownerId: "legacy-owner-id" };
+      }
+    }
+  );
+
+  assert.equal(authority.canManageAll, true);
+  assert.equal(authority.reason, "car_owner");
+});
+
 test("system admin can manage every entry", async function () {
   const authority = await resolveAccountingAuthority(
     { source: { userId: "line-admin" } },

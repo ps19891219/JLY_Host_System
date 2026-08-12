@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.16
+> Version: V2.17
 >
 > Last Updated: 2026-08-12
 >
@@ -826,3 +826,9 @@ matching
 - LINE 群組綁定的建立主揪檢查新增 Member `identityId` 比對。
 - 相容較早建立、以 JLY Identity ID 寫入 `cars.ownerId` 的既有車團。
 - 不需改寫舊車團 ownerId，即可由已連結 LINE 的原建立主揪安全綁定。
+
+### V2.17｜2026-08-12
+
+- 帳務管理權限解析新增 Member `identityId` 比對，與群組綁定使用相同身分鏈。
+- 舊車團建立主揪可查看帳目異動紀錄，並管理車團內所有帳目。
+- 修改與刪除仍保留完整稽核紀錄，一般成員權限不變。
