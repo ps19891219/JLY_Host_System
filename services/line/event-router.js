@@ -487,12 +487,19 @@ async function handleMessageEvent(
       messageResult.accounting.type === "income"
         ? "收入"
         : "支出";
+    const entryCode = getEntryCode(
+      accountingResult.entry && (
+        accountingResult.entry.id ||
+        accountingResult.entry.messageId
+      )
+    );
 
     await replyWithText(
       context.replyToken,
       "✅ 記帳成功\n" +
       `${typeLabel}：$${messageResult.accounting.amount.toLocaleString("zh-TW")}\n` +
-      `說明：${messageResult.accounting.description}`
+      `說明：${messageResult.accounting.description}\n` +
+      `帳目編號：${entryCode}`
     );
 
     return {

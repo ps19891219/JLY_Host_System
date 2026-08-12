@@ -220,7 +220,10 @@ test(
 
           return {
             saved: true,
-            entry: command
+            entry: {
+              ...command,
+              messageId: "message-ABCD1234"
+            }
           };
         },
         sendTextReply: async function (
@@ -242,6 +245,7 @@ test(
     assert.equal(calls[0][2].amount, 350);
     assert.ok(calls[1][2].includes("記帳成功"));
     assert.ok(calls[1][2].includes("聚餐飲料"));
+    assert.ok(calls[1][2].includes("帳目編號：ABCD1234"));
   }
 );
 
