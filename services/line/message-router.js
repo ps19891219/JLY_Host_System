@@ -37,7 +37,8 @@ V1 does NOT:
 
 const {
   parseAccountingCommand,
-  parseAccountingQuery
+  parseAccountingQuery,
+  parseAccountingMutation
 } = require(
   "./accounting-command"
 );
@@ -132,7 +133,7 @@ function routeMenuCommand(text) {
           "💰 群組記帳\n" +
           "新增：JLY 支出 350 聚餐飲料\n" +
           "查詢：JLY 今日帳目／JLY 本月帳目\n" +
-          "餘額：JLY 帳本餘額"
+          "管理：JLY 最近帳目"
       };
 
     case "jly提醒":
@@ -187,6 +188,29 @@ function routeTextMessage(text) {
       action:
         "ignore_empty",
       replyText: ""
+    };
+  }
+
+  const accountingMutation =
+    parseAccountingMutation(normalizedText);
+
+  if (accountingMutation) {
+    if (!accountingMutation.valid) {
+      return {
+        handled: true,
+        action: "accounting_mutation_invalid",
+        replyText:
+          "帳目修改格式不正確。\n" +
+          "例如：JLY 修改帳目 ABCD1234 支出 400 新說明"
+      };
+    }
+
+    return {
+      handled: true,
+      action: "accounting_mutation",
+      replyText: "",
+      accountingMutation:
+        accountingMutation.mutation
     };
   }
 

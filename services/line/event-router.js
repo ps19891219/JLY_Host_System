@@ -51,9 +51,24 @@ const {
 
 const {
   recordGroupAccounting,
-  queryGroupAccounting
+  queryGroupAccounting,
+  mutateGroupAccounting
 } = require(
   "./group-accounting-service"
+);
+
+const {
+  resolveAccountingAuthority,
+  canMutateEntry
+} = require(
+  "./accounting-authorization-service"
+);
+
+const {
+  getEntryCode,
+  listGroupAccountingAuditLogs
+} = require(
+  "../firebase/line-group-accounting-repository"
 );
 
 // ============================================================
@@ -231,6 +246,18 @@ async function handleMessageEvent(
   const queryAccounting =
     dependencies.queryGroupAccounting ||
     queryGroupAccounting;
+
+  const mutateAccounting =
+    dependencies.mutateGroupAccounting ||
+    mutateGroupAccounting;
+
+  const resolveAuthority =
+    dependencies.resolveAccountingAuthority ||
+    resolveAccountingAuthority;
+
+  const listAuditLogs =
+    dependencies.listGroupAccountingAuditLogs ||
+    listGroupAccountingAuditLogs;
 
   // ----------------------------------------------------------
   // Non-text message
@@ -412,6 +439,65 @@ async function handleMessageEvent(
       };
     }
 
+    if (messageResult.accountingQuery.scope === "audit") {
+      const authority = await resolveAuthority(
+        context,
+        groupBinding
+      );
+
+      if (!authority.canManageAll) {
+        await replyWithText(
+          context.replyToken,
+          "只有已驗證的主揪或系統管理者可以查看帳目異動紀錄。"
+        );
+
+        return {
+          handled: true,
+          route: "accounting_audit_denied",
+          context,
+          groupBinding
+        };
+      }
+
+      const auditLogs = await listAuditLogs(
+        context.source.groupId,
+        10
+      );
+
+      const operationLabels = {
+        create: "新增",
+        update: "修改",
+        delete: "刪除"
+      };
+
+      const lines = ["🧾 最近帳目異動紀錄"];
+
+      if (auditLogs.length === 0) {
+        lines.push("目前沒有異動紀錄。");
+      } else {
+        for (const log of auditLogs) {
+          lines.push(
+            `[${getEntryCode(log.entryId)}] ` +
+            `${operationLabels[log.operation] || log.operation} ` +
+            `操作者：${log.actorUserId}`
+          );
+        }
+      }
+
+      await replyWithText(
+        context.replyToken,
+        lines.join("\n")
+      );
+
+      return {
+        handled: true,
+        route: "accounting_audit",
+        context,
+        groupBinding,
+        auditLogs
+      };
+    }
+
     const queryResult = await queryAccounting(
       context,
       messageResult.accountingQuery.scope
@@ -420,7 +506,8 @@ async function handleMessageEvent(
     const scopeLabels = {
       today: "今日帳目",
       month: "本月帳目",
-      all: "帳本餘額"
+      all: "帳本餘額",
+      recent: "最近帳目"
     };
 
     const label =
@@ -435,12 +522,15 @@ async function handleMessageEvent(
       );
     } else {
       const summary = queryResult.summary;
-      const lines = [
-        `📒 ${label}`,
-        `收入：$${summary.income.toLocaleString("zh-TW")}`,
-        `支出：$${summary.expense.toLocaleString("zh-TW")}`,
-        `結餘：$${summary.balance.toLocaleString("zh-TW")}`
-      ];
+      const lines = [`📒 ${label}`];
+
+      if (messageResult.accountingQuery.scope !== "recent") {
+        lines.push(
+          `收入：$${summary.income.toLocaleString("zh-TW")}`,
+          `支出：$${summary.expense.toLocaleString("zh-TW")}`,
+          `結餘：$${summary.balance.toLocaleString("zh-TW")}`
+        );
+      }
 
       if (messageResult.accountingQuery.scope !== "all") {
         lines.push("最近帳目：");
@@ -450,7 +540,7 @@ async function handleMessageEvent(
             entry.type === "income" ? "+" : "-";
 
           lines.push(
-            `${symbol}$${Number(entry.amount).toLocaleString("zh-TW")} ${entry.description}`
+            `[${getEntryCode(entry.id)}] ${symbol}$${Number(entry.amount).toLocaleString("zh-TW")} ${entry.description}`
           );
         }
 
@@ -473,6 +563,83 @@ async function handleMessageEvent(
       context,
       groupBinding,
       accountingQueryResult: queryResult
+    };
+  }
+
+  if (messageResult.action === "accounting_mutation") {
+    if (!context.replyToken) {
+      return {
+        handled: false,
+        route: "message_missing_reply_token",
+        context,
+        groupBinding
+      };
+    }
+
+    if (
+      context.source.type !== "group" ||
+      !context.source.groupId
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "群組帳目只能在原 LINE 群組內管理。"
+      );
+
+      return {
+        handled: true,
+        route: "accounting_group_required",
+        context,
+        groupBinding
+      };
+    }
+
+    const authority = await resolveAuthority(
+      context,
+      groupBinding
+    );
+
+    const mutationResult = await mutateAccounting(
+      context,
+      messageResult.accountingMutation,
+      authority,
+      { canMutateEntry }
+    );
+
+    const replyByReason = {
+      entry_not_found:
+        "找不到這筆帳目，請先輸入 JLY 最近帳目確認編號。",
+      permission_denied:
+        "你只能修改或刪除自己建立的帳目。主揪與管理者需先完成 LINE 身分連結。",
+      entry_unavailable:
+        "這筆帳目已刪除或無法修改。"
+    };
+
+    if (!mutationResult.changed) {
+      await replyWithText(
+        context.replyToken,
+        replyByReason[mutationResult.reason] ||
+          "帳目異動失敗，請稍後再試。"
+      );
+    } else {
+      const operationLabel =
+        messageResult.accountingMutation.operation === "delete"
+          ? "刪除"
+          : "修改";
+
+      await replyWithText(
+        context.replyToken,
+        `✅ 帳目已${operationLabel}\n` +
+        `編號：${mutationResult.entryCode}\n` +
+        "異動紀錄已保存。"
+      );
+    }
+
+    return {
+      handled: true,
+      route: "accounting_mutation",
+      context,
+      groupBinding,
+      accountingMutationResult: mutationResult
     };
   }
 

@@ -84,13 +84,69 @@ function parseAccountingQuery(value) {
         scope: "all"
       };
 
+    case "jly最近帳目":
+      return {
+        scope: "recent"
+      };
+
+    case "jly異動紀錄":
+      return {
+        scope: "audit"
+      };
+
     default:
       return null;
   }
 }
 
+function parseAccountingMutation(value) {
+  const text = normalizeText(value);
+  const deleteMatch = text.match(
+    /^jly\s*刪除帳目\s+([a-z0-9_-]{4,64})$/i
+  );
+
+  if (deleteMatch) {
+    return {
+      valid: true,
+      mutation: {
+        operation: "delete",
+        entryCode: deleteMatch[1]
+      }
+    };
+  }
+
+  const updateMatch = text.match(
+    /^jly\s*修改帳目\s+([a-z0-9_-]{4,64})\s+(支出|收入)\s+([\d,]+)(?:\s+(.+))?$/i
+  );
+
+  if (!updateMatch) {
+    return null;
+  }
+
+  const parsed = parseAccountingCommand(
+    `JLY ${updateMatch[2]} ${updateMatch[3]} ${updateMatch[4] || ""}`
+  );
+
+  if (!parsed || !parsed.valid) {
+    return {
+      valid: false,
+      error: parsed ? parsed.error : "invalid_format"
+    };
+  }
+
+  return {
+    valid: true,
+    mutation: {
+      operation: "update",
+      entryCode: updateMatch[1],
+      ...parsed.command
+    }
+  };
+}
+
 module.exports = {
   MAX_AMOUNT,
   parseAccountingCommand,
-  parseAccountingQuery
+  parseAccountingQuery,
+  parseAccountingMutation
 };

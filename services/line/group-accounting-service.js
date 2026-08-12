@@ -9,7 +9,10 @@ LINE Group Accounting Service V1
 
 const {
   saveGroupAccountingEntry,
-  listGroupAccountingEntries
+  listGroupAccountingEntries,
+  getEntryCode,
+  findGroupAccountingEntryByCode,
+  mutateGroupAccountingEntry
 } = require(
   "../firebase/line-group-accounting-repository"
 );
@@ -17,8 +20,14 @@ const {
 const TAIPEI_OFFSET_MS =
   8 * 60 * 60 * 1000;
 
+const {
+  canMutateEntry: defaultCanMutateEntry
+} = require(
+  "./accounting-authorization-service"
+);
+
 function getTaipeiPeriod(scope, timestamp) {
-  if (scope === "all") {
+  if (scope === "all" || scope === "recent") {
     return {
       startAt: "",
       endBefore: ""
@@ -172,9 +181,62 @@ async function queryGroupAccounting(
   };
 }
 
+async function mutateGroupAccounting(
+  context,
+  mutation,
+  authority,
+  dependencies = {}
+) {
+  const findEntry =
+    dependencies.findGroupAccountingEntryByCode ||
+    findGroupAccountingEntryByCode;
+  const mutateEntry =
+    dependencies.mutateGroupAccountingEntry ||
+    mutateGroupAccountingEntry;
+  const canMutate =
+    dependencies.canMutateEntry ||
+    defaultCanMutateEntry;
+  const entry = await findEntry(
+    context.source.groupId,
+    mutation.entryCode
+  );
+
+  if (!entry) {
+    return { changed: false, reason: "entry_not_found" };
+  }
+
+  const permission = canMutate(
+    entry,
+    context.source.userId,
+    authority
+  );
+
+  if (!permission.allowed) {
+    return { changed: false, reason: permission.reason };
+  }
+
+  const after = await mutateEntry({
+    groupId: context.source.groupId,
+    entryId: entry.id,
+    actorUserId: context.source.userId,
+    operation: mutation.operation,
+    authorityReason: permission.reason,
+    changes: mutation
+  });
+
+  return {
+    changed: Boolean(after),
+    reason: after ? "accounting_changed" : "entry_not_found",
+    entry: after,
+    entryCode: getEntryCode(entry.id),
+    authorityReason: permission.reason
+  };
+}
+
 module.exports = {
   recordGroupAccounting,
   queryGroupAccounting,
+  mutateGroupAccounting,
   getTaipeiPeriod,
   summarizeEntries,
   timestampToIso

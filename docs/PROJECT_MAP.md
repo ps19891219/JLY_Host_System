@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.7
+> Version: V2.9
 >
 > Last Updated: 2026-08-12
 >
@@ -436,6 +436,7 @@ Rich Menu 只顯示在 LINE Official Account 的一對一聊天室。群組內�
 - `JLY 今日帳目`：依台北時區查詢當日帳目、收支與結餘。
 - `JLY 本月帳目`：依台北時區查詢本月帳目、收支與結餘。
 - `JLY 帳本餘額`：查詢群組帳本建立至今的總收入、總支出與結餘。
+- `JLY 最近帳目`：列出最近 10 筆帳目及可用於修改／刪除的八碼帳目編號。
 
 今日與本月查詢最多列出最近 10 筆明細，但合計涵蓋查詢期間內全部帳目；沒有資料時回覆空帳本提示。所有查詢都只使用目前 LINE 群組的 `groupId`，私人聊天室不可查詢群組帳本。
 
@@ -455,6 +456,31 @@ lineGroupAccounts/{groupId}/entries/{LINE messageId}
 - `services/line/event-router.js`：限制只有群組可寫入並回覆記帳結果。
 - `tests/line/accounting-command.test.js`：指令格式與金額測試。
 - `tests/line/group-accounting-service.test.js`：群組識別與寫入資料測試。
+
+帳目管理指令：
+
+- `JLY 修改帳目 ABCD1234 支出 400 新說明`
+- `JLY 刪除帳目 ABCD1234`
+- `JLY 異動紀錄`：僅已驗證的主揪或系統管理者可查看最近 10 筆。
+
+權限規則：
+
+- 所有群組成員可新增及查詢帳目。
+- 原記帳者可修改或刪除自己建立的帳目。
+- 已完成 LINE 身分連結，且目前群組已綁定車團的車團 `ownerId`，可管理該群組全部帳目。
+- 車團 `staffSlots` 中，欄位標籤明確包含主揪、協辦、管理、財務或會計，且選取正式 `memberId` 的成員，可管理該群組全部帳目。
+- `players.roles` 含 `admin`、`administrator` 或 `system_admin` 的已連結使用者可管理全部帳目。
+- 身分無法驗證時一律不提供提升權限。
+
+權限只比對正式 Member／Player ID 與 LINE `lineUserId` 連結，不使用顯示名稱推測身分。一般 DM 或 Staff 不會因角色名稱以外的原因自動取得帳務管理權限。
+
+刪除採軟刪除：帳目保留於 `entries`，標記 `status=deleted`，一般查詢不顯示。每次新增、修改、刪除都以 Firestore Transaction 同步寫入：
+
+```text
+lineGroupAccounts/{groupId}/auditLogs/{auditId}
+```
+
+稽核紀錄包含操作類型、帳目 ID、操作者 LINE userId、權限依據、修改前資料、修改後資料與時間。一般成員無法由 LINE 指令查看，主揪與系統管理者可使用 `JLY 異動紀錄`。
 
 ---
 
@@ -738,3 +764,18 @@ matching
 - 查詢回覆包含總收入、總支出、結餘及最近帳目。
 - 查詢僅限目前 LINE 群組，空帳本與私人聊天室有明確提示。
 - 補充記帳入口與使用說明中的查詢指令。
+
+### V2.8｜2026-08-12
+
+- 新增最近帳目、修改帳目、刪除帳目及管理者異動紀錄指令。
+- 原記帳者可管理自己的帳目；已驗證主揪與系統管理者可管理群組全部帳目。
+- 刪除改採軟刪除，所有新增、修改與刪除以 Transaction 保存不可省略的異動快照。
+- 新增 LINE 身分、車團 ownerId 與系統角色的後端權限解析。
+- Webhook 重送不會重複建立帳目或新增稽核紀錄。
+
+### V2.9｜2026-08-12
+
+- 將帳務管理權限接入車團頁 `staffSlots` 的正式 Member 選擇結果。
+- 主揪、協辦、管理、財務及會計標籤可授予該車團群組帳務管理權限。
+- 一般 DM／Staff 不會自動取得帳務管理權限。
+- 權限僅比對 LINE `lineUserId`、Player／Member ID、車團 ownerId 與設定角色，不以顯示名稱猜測。

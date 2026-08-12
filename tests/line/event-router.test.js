@@ -442,3 +442,140 @@ test(
     assert.ok(replyText.includes("只能在 LINE 群組"));
   }
 );
+
+test(
+  "entry creator can update an accounting entry",
+  async function () {
+    let replyText = "";
+
+    const result = await routeEvent(
+      createTextEvent({
+        text:
+          "JLY 修改帳目 ABCD1234 支出 400 新說明"
+      }),
+      {
+        resolveGroupBinding: async function () {
+          return {
+            bound: false,
+            reason: "binding_not_found",
+            binding: null
+          };
+        },
+        resolveAccountingAuthority: async function () {
+          return { canManageAll: false, reason: "member" };
+        },
+        mutateGroupAccounting: async function (
+          context,
+          mutation
+        ) {
+          assert.equal(context.source.userId, "user-1");
+          assert.equal(mutation.amount, 400);
+
+          return {
+            changed: true,
+            reason: "accounting_changed",
+            entryCode: "ABCD1234"
+          };
+        },
+        sendTextReply: async function (
+          replyToken,
+          text
+        ) {
+          replyText = text;
+        }
+      }
+    );
+
+    assert.equal(result.route, "accounting_mutation");
+    assert.ok(replyText.includes("帳目已修改"));
+    assert.ok(replyText.includes("異動紀錄已保存"));
+  }
+);
+
+test(
+  "ordinary member cannot view accounting audit logs",
+  async function () {
+    let auditCalls = 0;
+    let replyText = "";
+
+    const result = await routeEvent(
+      createTextEvent({
+        text: "JLY 異動紀錄"
+      }),
+      {
+        resolveGroupBinding: async function () {
+          return {
+            bound: false,
+            reason: "binding_not_found",
+            binding: null
+          };
+        },
+        resolveAccountingAuthority: async function () {
+          return { canManageAll: false, reason: "member" };
+        },
+        listGroupAccountingAuditLogs: async function () {
+          auditCalls += 1;
+          return [];
+        },
+        sendTextReply: async function (
+          replyToken,
+          text
+        ) {
+          replyText = text;
+        }
+      }
+    );
+
+    assert.equal(result.route, "accounting_audit_denied");
+    assert.equal(auditCalls, 0);
+    assert.ok(replyText.includes("主揪或系統管理者"));
+  }
+);
+
+test(
+  "verified host can view accounting audit logs",
+  async function () {
+    let replyText = "";
+
+    const result = await routeEvent(
+      createTextEvent({
+        text: "JLY 異動紀錄"
+      }),
+      {
+        resolveGroupBinding: async function () {
+          return {
+            bound: true,
+            reason: "binding_found",
+            binding: { carId: "car-1" }
+          };
+        },
+        resolveAccountingAuthority: async function () {
+          return {
+            canManageAll: true,
+            reason: "car_owner"
+          };
+        },
+        listGroupAccountingAuditLogs: async function () {
+          return [
+            {
+              entryId: "message-ABCD1234",
+              operation: "delete",
+              actorUserId: "user-2"
+            }
+          ];
+        },
+        sendTextReply: async function (
+          replyToken,
+          text
+        ) {
+          replyText = text;
+        }
+      }
+    );
+
+    assert.equal(result.route, "accounting_audit");
+    assert.ok(replyText.includes("ABCD1234"));
+    assert.ok(replyText.includes("刪除"));
+    assert.ok(replyText.includes("user-2"));
+  }
+);

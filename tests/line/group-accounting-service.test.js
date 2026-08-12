@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
 const {
   recordGroupAccounting,
   queryGroupAccounting,
+  mutateGroupAccounting,
   getTaipeiPeriod,
   summarizeEntries
 } = require(
@@ -173,5 +174,49 @@ test(
     );
     assert.equal(result.found, true);
     assert.equal(result.summary.balance, -200);
+  }
+);
+
+test(
+  "mutates an entry only after permission approval",
+  async function () {
+    let mutationOptions = null;
+
+    const result = await mutateGroupAccounting(
+      {
+        source: {
+          type: "group",
+          groupId: "group-1",
+          userId: "user-1"
+        }
+      },
+      {
+        operation: "update",
+        entryCode: "ABCD1234",
+        type: "expense",
+        amount: 400,
+        description: "新說明"
+      },
+      { canManageAll: false },
+      {
+        findGroupAccountingEntryByCode: async function () {
+          return {
+            id: "message-ABCD1234",
+            userId: "user-1",
+            status: "active"
+          };
+        },
+        mutateGroupAccountingEntry: async function (options) {
+          mutationOptions = options;
+          return { id: options.entryId, ...options.changes };
+        }
+      }
+    );
+
+    assert.equal(result.changed, true);
+    assert.equal(result.authorityReason, "entry_creator");
+    assert.equal(mutationOptions.groupId, "group-1");
+    assert.equal(mutationOptions.amount, undefined);
+    assert.equal(mutationOptions.changes.amount, 400);
   }
 );
