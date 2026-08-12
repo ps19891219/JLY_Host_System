@@ -106,7 +106,22 @@ function saveLineLoginReturnUrl(
 // 開始 LINE Login
 // ============================================================
 
-async function requestServerLoginState() {
+function getRequestedReturnPath(explicitPath) {
+  const requested = String(
+    explicitPath ||
+    new URLSearchParams(location.search).get("return") ||
+    location.pathname + location.search
+  ).trim();
+
+  return (
+    requested.startsWith("/") &&
+    !requested.startsWith("//")
+  )
+    ? requested
+    : "/index.html";
+}
+
+async function requestServerLoginState(returnPath) {
   const response = await fetch(
     "/api/line-login-state",
     {
@@ -121,7 +136,7 @@ async function requestServerLoginState() {
         identityId: String(
           localStorage.getItem("currentPlayerId") || ""
         ).trim(),
-        returnPath: location.pathname + location.search
+        returnPath: getRequestedReturnPath(returnPath)
       })
     }
   );
@@ -139,7 +154,9 @@ async function startLineLogin(
     options || {};
 
   const state =
-    await requestServerLoginState();
+    await requestServerLoginState(
+      settings.returnPath
+    );
 
   localStorage.setItem(
     "jly_line_login_state",
@@ -211,6 +228,8 @@ window.JLYLineLogin = {
   saveLineLoginReturnUrl,
 
   requestServerLoginState,
+
+  getRequestedReturnPath,
 
   start:
     startLineLogin

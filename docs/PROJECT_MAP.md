@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.14
+> Version: V2.15
 >
 > Last Updated: 2026-08-12
 >
@@ -814,3 +814,9 @@ matching
 - 簽章內容包含 Member、JLY Identity 與安全返回路徑，手機端無法竄改。
 - `/api/line-login` 會在交換 LINE 授權碼前驗證簽章與期限。
 - 登入流程不再依賴 LINE 內建瀏覽器、Safari 或其他授權視窗之間共享儲存區或 Cookie。
+
+### V2.15｜2026-08-12
+
+- 「我的車」登入按鈕會帶入安全返回路徑 `/pages/mycar.html`。
+- LINE 登入前將原始目標頁寫入後端簽章，成功後直接返回「我的車」。
+- 返回路徑僅允許站內絕對路徑，避免被利用跳轉至外部網站。

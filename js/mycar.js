@@ -642,7 +642,7 @@ async function renderMyCars(
       '<div class="card">' +
       '<h3>尚未登入 JLY 身分</h3>' +
       '<p>請先登入或使用 LINE 找回你的 JLY Member，才能顯示「我的車」。</p>' +
-      '<button type="button" onclick="location.href=\'myprofile.html\'">登入／找回我的身分</button>' +
+      '<button type="button" onclick="location.href=\'myprofile.html?return=%2Fpages%2Fmycar.html\'">登入／找回我的身分</button>' +
       '</div>';
     return;
 
