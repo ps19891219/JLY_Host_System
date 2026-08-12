@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.3
+> Version: V2.4
 >
 > Last Updated: 2026-08-12
 >
@@ -395,12 +395,23 @@ Firestore
 相關檔案：
 
 - `assets/line/jly-assistant-rich-menu-v1.png`：2172 × 724 的三區選單圖片。
+- `assets/line/jly-assistant-rich-menu-v1.jpg`：實際上傳 LINE 的壓縮版本，必須維持在 1 MB 以下。
 - `scripts/setup-line-rich-menu.js`：建立、上傳並設為預設 Rich Menu 的設定程式。
+- `api/setup-line-rich-menu.js`：受管理密碼與啟用開關保護的 Vercel 套用端點。
+- `pages/setup-line-rich-menu.html`：手機可使用的一次性設定頁。
 - `services/line/message-router.js`：處理三個入口事件。
 - `tests/line/message-router.test.js`：入口路由測試。
 - `tests/line/rich-menu.test.js`：選單區域與事件設定測試。
+- `tests/line/setup-rich-menu-api.test.js`：部署端授權、停用與 Token 保護測試。
 
 `npm run line:rich-menu` 預設只執行 Dry Run，不呼叫 LINE API。只有在明確核准且具備 `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` 時，才可使用 `-- --apply` 將選單套用至 LINE Official Account。
+
+部署端套用流程需要：
+
+- `JLY_RICH_MENU_SETUP_SECRET`：由使用者自行設定的一次性管理密碼。
+- `JLY_RICH_MENU_SETUP_ENABLED=true`：短期啟用套用端點。
+
+手機設定頁只會把管理密碼放在 POST Body 送往同網域 API，不保存密碼，也不接觸或回傳 LINE Access Token。套用完成後必須將 `JLY_RICH_MENU_SETUP_ENABLED` 改為 `false` 並重新部署，停用管理端點。
 
 目前三個按鈕只有入口與提示回覆；記帳、車團資訊的實際資料操作將在後續階段加入。
 
@@ -656,3 +667,10 @@ matching
 - 新增記帳、車團資訊及使用說明三個可擴充入口。
 - 設定程式預設採 Dry Run，避免未授權修改 LINE Official Account。
 - 新增 Message Router 與 Rich Menu 自動測試。
+
+### V2.4｜2026-08-12
+
+- 新增 1 MB 以下的 LINE Rich Menu JPEG 上傳資產與大小測試。
+- 新增受管理密碼與啟用開關保護的 Vercel 套用 API。
+- 新增可從手機操作的一次性 LINE 選單設定頁。
+- 確保伺服器端 LINE Token 不會回傳至前端。

@@ -2,11 +2,35 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const {
   richMenu
 } = require(
   "../../scripts/setup-line-rich-menu"
+);
+
+test(
+  "Rich Menu upload image stays below LINE 1 MB limit",
+  function () {
+    const imagePath = path.resolve(
+      __dirname,
+      "../../assets/line/jly-assistant-rich-menu-v1.jpg"
+    );
+    const imageSize =
+      fs.statSync(
+        imagePath
+      ).size;
+
+    assert.ok(
+      imageSize > 0
+    );
+    assert.ok(
+      imageSize <= 1024 * 1024,
+      `Rich Menu image is ${imageSize} bytes`
+    );
+  }
 );
 
 test(

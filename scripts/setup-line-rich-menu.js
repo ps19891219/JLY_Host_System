@@ -26,7 +26,7 @@ const IMAGE_HEIGHT = 724;
 
 const imagePath = path.resolve(
   __dirname,
-  "../assets/line/jly-assistant-rich-menu-v1.png"
+  "../assets/line/jly-assistant-rich-menu-v1.jpg"
 );
 
 const richMenu = {
@@ -152,7 +152,7 @@ async function applyRichMenu(token) {
       method: "POST",
       headers: {
         "Content-Type":
-          "image/png"
+          "image/jpeg"
       },
       body:
         fs.readFileSync(
