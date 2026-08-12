@@ -2,7 +2,7 @@
 JLY Host System
 
 Module:
-LINE Event Router V1.2
+LINE Event Router V1.3
 
 Responsibilities:
 
@@ -12,8 +12,9 @@ Responsibilities:
 4. Route event to the correct handler
 5. Pass text messages to message-router
 6. Reply only when message-router requests a reply
+7. Resolve group binding when JLY Assistant is called in a group
 
-V1.2 does NOT:
+V1.3 does NOT:
 - Write Firebase
 - Modify Player Profile
 - Bind Car / Group
@@ -32,6 +33,12 @@ const {
   routeTextMessage
 } = require(
   "./message-router"
+);
+
+const {
+  resolveGroupBinding
+} = require(
+  "./group-binding-service"
 );
 
 // ============================================================
@@ -187,8 +194,17 @@ function logEvent(context) {
 // ============================================================
 
 async function handleMessageEvent(
-  context
+  context,
+  dependencies = {}
 ) {
+  const replyWithText =
+    dependencies.sendTextReply ||
+    sendTextReply;
+
+  const resolveBinding =
+    dependencies.resolveGroupBinding ||
+    resolveGroupBinding;
+
   // ----------------------------------------------------------
   // Non-text message
   // ----------------------------------------------------------
@@ -242,6 +258,49 @@ async function handleMessageEvent(
   }
 
   // ----------------------------------------------------------
+  // Resolve group binding only after the assistant is called.
+  // Normal group conversation must not read Firebase.
+  // ----------------------------------------------------------
+
+  let groupBinding = null;
+
+  if (
+    context.source.type === "group" &&
+    context.source.groupId
+  ) {
+    try {
+      groupBinding =
+        await resolveBinding(
+          context.source.groupId
+        );
+
+      console.log(
+        "LINE group binding resolved.",
+        {
+          bound:
+            groupBinding.bound === true,
+
+          reason:
+            groupBinding.reason ||
+            "unknown"
+        }
+      );
+    } catch (error) {
+      console.error(
+        "LINE group binding lookup failed.",
+        error
+      );
+
+      groupBinding = {
+        bound: false,
+        reason:
+          "binding_lookup_failed",
+        binding: null
+      };
+    }
+  }
+
+  // ----------------------------------------------------------
   // Reply requested
   // ----------------------------------------------------------
 
@@ -252,7 +311,8 @@ async function handleMessageEvent(
       handled: true,
       route:
         messageResult.action,
-      context
+      context,
+      groupBinding
     };
   }
 
@@ -277,7 +337,7 @@ async function handleMessageEvent(
   // Send LINE reply
   // ----------------------------------------------------------
 
-  await sendTextReply(
+  await replyWithText(
     context.replyToken,
     messageResult.replyText
   );
@@ -300,7 +360,8 @@ async function handleMessageEvent(
     handled: true,
     route:
       messageResult.action,
-    context
+    context,
+    groupBinding
   };
 }
 
@@ -308,7 +369,10 @@ async function handleMessageEvent(
 // Route Single Event
 // ============================================================
 
-async function routeEvent(event) {
+async function routeEvent(
+  event,
+  dependencies = {}
+) {
   const context =
     createEventContext(
       event
@@ -323,7 +387,8 @@ async function routeEvent(event) {
   ) {
     case "message":
       return handleMessageEvent(
-        context
+        context,
+        dependencies
       );
 
     case "join":
@@ -372,7 +437,10 @@ async function routeEvent(event) {
 // Route Event List
 // ============================================================
 
-async function routeEvents(events) {
+async function routeEvents(
+  events,
+  dependencies = {}
+) {
   const eventList =
     Array.isArray(events)
       ? events
@@ -386,7 +454,8 @@ async function routeEvents(events) {
   ) {
     const result =
       await routeEvent(
-        event
+        event,
+        dependencies
       );
 
     results.push(

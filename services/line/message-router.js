@@ -2,7 +2,7 @@
 JLY Host System
 
 Module:
-LINE Message Router V1
+LINE Message Router V1.1
 
 Responsibilities:
 
@@ -10,11 +10,17 @@ Responsibilities:
 2. Keep normal group conversation silent
 3. Respond only when the user explicitly calls JLY Assistant
 4. Return a normalized handling result
+5. Handle Rich Menu entry commands
 
 V1 triggers:
 - 小助手
 - JLY 小助手
 - jly 小助手
+
+V1.1 Rich Menu commands:
+- JLY 記帳
+- JLY 車團資訊
+- JLY 使用說明
 
 V1 does NOT:
 - Read Firebase
@@ -94,6 +100,55 @@ function buildAssistantReply(text) {
 }
 
 // ============================================================
+// Rich Menu Entry Commands
+// ============================================================
+
+function routeMenuCommand(text) {
+  const normalized =
+    normalizeForMatch(
+      text
+    ).replace(
+      /\s+/g,
+      ""
+    );
+
+  switch (normalized) {
+    case "jly記帳":
+      return {
+        handled: true,
+        action:
+          "assistant_accounting_menu",
+        replyText:
+          "💰 記帳入口已開啟。\n" +
+          "記帳內容與操作方式將在下一階段加入。"
+      };
+
+    case "jly車團資訊":
+      return {
+        handled: true,
+        action:
+          "assistant_car_info_menu",
+        replyText:
+          "🚐 車團資訊入口已開啟。\n" +
+          "車團查詢內容將在下一階段加入。"
+      };
+
+    case "jly使用說明":
+      return {
+        handled: true,
+        action:
+          "assistant_help_menu",
+        replyText:
+          "❓ JLY 小助手功能入口\n" +
+          "你可以使用下方選單進入記帳或車團資訊。"
+      };
+
+    default:
+      return null;
+  }
+}
+
+// ============================================================
 // Route Text Message
 // ============================================================
 
@@ -110,6 +165,15 @@ function routeTextMessage(text) {
         "ignore_empty",
       replyText: ""
     };
+  }
+
+  const menuResult =
+    routeMenuCommand(
+      normalizedText
+    );
+
+  if (menuResult) {
+    return menuResult;
   }
 
   if (
@@ -142,5 +206,6 @@ function routeTextMessage(text) {
 
 module.exports = {
   routeTextMessage,
-  isAssistantCalled
+  isAssistantCalled,
+  routeMenuCommand
 };

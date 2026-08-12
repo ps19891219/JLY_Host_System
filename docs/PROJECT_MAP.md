@@ -2,9 +2,9 @@
 
 > Status: Working Map
 >
-> Version: V2.0
+> Version: V2.3
 >
-> Rebuilt: 2026-08-12
+> Last Updated: 2026-08-12
 >
 > Source of truth: repository files and current HTML runtime references
 
@@ -67,7 +67,7 @@ JLY Host System 是提供劇本殺／活動主揪使用的車團管理系統，�
 - `firebase`
 - `firebase-admin`
 
-目前沒有正式的建置指令，也沒有可執行的自動測試套件；`npm test` 仍為預設失敗腳本。
+目前沒有正式的建置指令。`npm test` 使用 Node.js 內建 Test Runner 執行 `tests/**/*.test.js`；目前已建立 LINE Event Router 的基礎測試。
 
 ---
 
@@ -76,6 +76,7 @@ JLY Host System 是提供劇本殺／活動主揪使用的車團管理系統，�
 ```text
 JLY_Host_System/
 ├─ api/                 Vercel API 入口
+├─ assets/              正式圖像與靜態資產
 ├─ config/              常數、角色、權限與主題設定
 ├─ css/                 共用與頁面樣式
 ├─ docs/                工程文件
@@ -91,7 +92,7 @@ JLY_Host_System/
 └─ project-tree.txt     專案樹狀快照
 ```
 
-`assets/`、`images/` 與部分預留模組目錄目前沒有正式執行檔案，不應視為已完成模組。
+`images/` 與部分預留模組目錄目前沒有正式執行檔案，不應視為已完成模組。`assets/line/` 保存 LINE Rich Menu 正式圖像。
 
 ---
 
@@ -373,7 +374,7 @@ Firestore
 - `line-group-binding-repository.js`：Firestore 讀寫及停用綁定。
 - `services/firebase/admin.js`：Firebase Admin 初始化。
 
-`services/line/group-binding-service.js` 已通過語法與 CommonJS 模組載入檢查，可作為群組綁定查詢服務使用。目前尚未由 `event-router.js` 或 `message-router.js` 呼叫，因此屬於已完成但尚未接入 LINE Runtime 的基礎模組。
+`services/line/group-binding-service.js` 已通過語法與 CommonJS 模組載入檢查。`event-router.js` 會在群組內明確呼叫小助手後查詢群組綁定；普通聊天、私人訊息及非文字訊息不會觸發群組查詢。查詢失敗時會記錄錯誤但保留原有小助手回覆，避免整批 Webhook 事件失敗。
 
 伺服器環境變數：
 
@@ -382,6 +383,26 @@ Firestore
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY`
+
+### 6.4 LINE 小助手按鈕選單
+
+第一版 Rich Menu 提供三個可持續擴充的入口：
+
+- `記帳` → 傳送 `JLY 記帳`
+- `車團資訊` → 傳送 `JLY 車團資訊`
+- `使用說明` → 傳送 `JLY 使用說明`
+
+相關檔案：
+
+- `assets/line/jly-assistant-rich-menu-v1.png`：2172 × 724 的三區選單圖片。
+- `scripts/setup-line-rich-menu.js`：建立、上傳並設為預設 Rich Menu 的設定程式。
+- `services/line/message-router.js`：處理三個入口事件。
+- `tests/line/message-router.test.js`：入口路由測試。
+- `tests/line/rich-menu.test.js`：選單區域與事件設定測試。
+
+`npm run line:rich-menu` 預設只執行 Dry Run，不呼叫 LINE API。只有在明確核准且具備 `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` 時，才可使用 `-- --apply` 將選單套用至 LINE Official Account。
+
+目前三個按鈕只有入口與提示回覆；記帳、車團資訊的實際資料操作將在後續階段加入。
 
 ---
 
@@ -541,8 +562,8 @@ matching
 - `pages/players.html` 引用 `/js/players.js`，但目前不存在該檔案；實際存在的是 `js/player.js`。
 - 舊地圖列出的 `api/line-login.js` 不存在。
 - `ROADMAP.md`、`VERSION_HISTORY.md`、`CODING_RULE.md`、`DATABASE_RULE.md` 目前是空檔。
-- 專案缺少正式測試與部署驗證指令。
-- LINE 群組綁定查詢服務尚未接入 Event Router／Message Router。
+- 專案已有 LINE Event Router 基礎測試，但仍缺少完整整合測試與部署驗證指令。
+- LINE 群組綁定目前只完成查詢與 Context 回傳，尚未讀取車團資料或處理業務指令。
 
 ---
 
@@ -595,8 +616,10 @@ matching
 ## 14. 建議下一步
 
 1. 修正 `pages/players.html` 的 Script 入口並驗證玩家資料庫。
-2. 將 LINE Group Binding Service 接入 Event Router／Message Router。
-3. 為 LINE Webhook／Group Binding 增加自動測試。
+2. 經使用者核准後，將 JLY Rich Menu 套用至 LINE Official Account 並用手機驗證。
+3. 定義記帳資料模型、權限與第一版操作流程。
+4. 為 LINE Webhook／Group Binding 增加 Firebase Repository 與 Webhook Handler 整合測試。
+5. 定義已綁定車團後可執行的 LINE 業務指令與權限規則。
 4. 建立 Firestore Collection 與 Security Rules 的正式文件。
 5. 完成 Car Detail Transitional Runtime 依賴稽核。
 6. 補寫 Coding Rule、Database Rule、Roadmap 與 Version History。
@@ -619,3 +642,17 @@ matching
 
 - 確認 `services/line/group-binding-service.js` 通過語法與模組載入檢查。
 - 將 Group Binding Service 標示為已完成、尚未接入 LINE Runtime 的基礎模組。
+
+### V2.2｜2026-08-12
+
+- 將 Group Binding Service 接入 LINE Event Router。
+- 限制只有群組內明確呼叫小助手時才查詢群組綁定。
+- 查詢失敗時採降級處理，避免中斷既有小助手回覆。
+- 新增 Node.js Test Runner 與 LINE Event Router 基礎測試。
+
+### V2.3｜2026-08-12
+
+- 新增 JLY 小助手三按鈕 Rich Menu 圖像與安全設定程式。
+- 新增記帳、車團資訊及使用說明三個可擴充入口。
+- 設定程式預設採 Dry Run，避免未授權修改 LINE Official Account。
+- 新增 Message Router 與 Rich Menu 自動測試。
