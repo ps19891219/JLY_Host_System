@@ -70,6 +70,37 @@ function clearLineLoginTemporaryState() {
   sessionStorage.removeItem(
     "line_login_state"
   );
+
+  document.cookie =
+    "jly_line_login_state=; Path=/; Max-Age=0; SameSite=Lax; Secure";
+}
+
+function getLineLoginStateCookie() {
+  const prefix =
+    "jly_line_login_state=";
+
+  const item = String(
+    document.cookie || ""
+  )
+    .split(";")
+    .map(function (value) {
+      return value.trim();
+    })
+    .find(function (value) {
+      return value.indexOf(prefix) === 0;
+    });
+
+  if (!item) {
+    return "";
+  }
+
+  try {
+    return decodeURIComponent(
+      item.slice(prefix.length)
+    ).trim();
+  } catch (_error) {
+    return "";
+  }
 }
 
 // ============================================================
@@ -79,12 +110,15 @@ function clearLineLoginTemporaryState() {
 function validateLineLoginState(
   returnedState
 ) {
-  const expectedState =
-  String(
+  const storageState =
+    String(
     localStorage.getItem(
       "jly_line_login_state"
     ) || ""
   ).trim();
+
+  const cookieState =
+    getLineLoginStateCookie();
 
   const actualState =
     String(
@@ -92,7 +126,7 @@ function validateLineLoginState(
     ).trim();
 
   if (
-    !expectedState ||
+    (!storageState && !cookieState) ||
     !actualState
   ) {
     return {
@@ -103,8 +137,8 @@ function validateLineLoginState(
   }
 
   if (
-    expectedState !==
-    actualState
+    storageState !== actualState &&
+    cookieState !== actualState
   ) {
     return {
       valid: false,
@@ -476,6 +510,8 @@ window.JLYLineCallback = {
   getQueryParam,
 
   validateLineLoginState,
+
+  getLineLoginStateCookie,
 
   exchangeLineAuthorizationCode,
 

@@ -75,6 +75,13 @@ function createSecureRandomString(
   ).join("");
 }
 
+function saveLineLoginStateCookie(state) {
+  document.cookie =
+    "jly_line_login_state=" +
+    encodeURIComponent(String(state || "")) +
+    "; Path=/; Max-Age=600; SameSite=Lax; Secure";
+}
+
 // ============================================================
 // 保存登入前位置
 // ============================================================
@@ -111,9 +118,13 @@ function startLineLogin(
     );
 
   localStorage.setItem(
-  "jly_line_login_state",
-  state
-);
+    "jly_line_login_state",
+    state
+  );
+
+  saveLineLoginStateCookie(
+    state
+  );
 
   saveLineLoginReturnUrl(
     settings.returnUrl ||
@@ -170,6 +181,8 @@ window.JLYLineLogin = {
     JLY_LINE_LOGIN,
 
   createSecureRandomString,
+
+  saveLineLoginStateCookie,
 
   saveLineLoginReturnUrl,
 

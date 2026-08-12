@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.12
+> Version: V2.13
 >
 > Last Updated: 2026-08-12
 >
@@ -801,3 +801,9 @@ matching
 - 「我的車」缺少本機身分時顯示明確說明與登入按鈕，不再只顯示空白內容。
 - 已連結 LINE 的 JLY Member 可在 LINE 內建瀏覽器或新裝置重新登入並恢復 Member ID。
 - 第一次連結仍須由原本持有該 JLY Member 的瀏覽器確認，避免以名稱冒領他人身分。
+
+### V2.13｜2026-08-12
+
+- LINE OAuth state 除原本瀏覽器儲存區外，另寫入 10 分鐘短效 Secure Cookie。
+- LINE 內建瀏覽器完成授權跳轉後，可使用 Cookie 驗證原始登入請求。
+- state 驗證完成或失敗後立即清除 Cookie，保留防止登入冒用的安全檢查。
