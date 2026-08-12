@@ -67,6 +67,7 @@ test(
     const result = await recordGroupAccounting(
       {
         timestamp: 1723420800000,
+        accountingCarId: "car-1",
         source: {
           type: "group",
           groupId: "group-1",
@@ -90,10 +91,43 @@ test(
     );
 
     assert.equal(result.saved, true);
+    assert.equal(savedEntry.carId, "car-1");
     assert.equal(savedEntry.groupId, "group-1");
     assert.equal(savedEntry.messageId, "message-1");
     assert.equal(savedEntry.userId, "user-1");
     assert.equal(savedEntry.amount, 350);
+  }
+);
+
+test(
+  "does not create a formal entry before car binding",
+  async function () {
+    let saveCalls = 0;
+
+    const result = await recordGroupAccounting(
+      {
+        source: {
+          type: "group",
+          groupId: "group-1",
+          userId: "user-1"
+        },
+        message: { id: "message-1" }
+      },
+      {
+        type: "expense",
+        amount: 100,
+        description: "測試"
+      },
+      {
+        saveGroupAccountingEntry: async function () {
+          saveCalls += 1;
+        }
+      }
+    );
+
+    assert.equal(result.saved, false);
+    assert.equal(result.reason, "car_binding_required");
+    assert.equal(saveCalls, 0);
   }
 );
 

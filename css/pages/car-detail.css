@@ -1664,3 +1664,43 @@ white-space:pre-wrap;
     width: 100%;
   }
 }
+
+.line-group-binding-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.line-group-binding-card h3,
+.line-group-binding-card p {
+  margin: 0;
+}
+
+.line-group-binding-card p {
+  margin-top: 6px;
+  color: #666666;
+}
+
+.line-group-binding-button {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #39795c;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .line-group-binding-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .line-group-binding-button {
+    width: 100%;
+  }
+}

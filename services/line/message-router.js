@@ -38,7 +38,8 @@ V1 does NOT:
 const {
   parseAccountingCommand,
   parseAccountingQuery,
-  parseAccountingMutation
+  parseAccountingMutation,
+  parseGroupBindingCommand
 } = require(
   "./accounting-command"
 );
@@ -188,6 +189,18 @@ function routeTextMessage(text) {
       action:
         "ignore_empty",
       replyText: ""
+    };
+  }
+
+  const bindingCommand =
+    parseGroupBindingCommand(normalizedText);
+
+  if (bindingCommand) {
+    return {
+      handled: true,
+      action: "group_car_bind",
+      replyText: "",
+      bindingCommand
     };
   }
 

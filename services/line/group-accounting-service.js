@@ -17,6 +17,15 @@ const {
   "../firebase/line-group-accounting-repository"
 );
 
+const {
+  saveCarAccountingEntry,
+  listCarAccountingEntries,
+  findCarAccountingEntryByCode,
+  mutateCarAccountingEntry
+} = require(
+  "../firebase/car-accounting-repository"
+);
+
 const TAIPEI_OFFSET_MS =
   8 * 60 * 60 * 1000;
 
@@ -107,7 +116,11 @@ async function recordGroupAccounting(
 ) {
   const saveEntry =
     dependencies.saveGroupAccountingEntry ||
-    saveGroupAccountingEntry;
+    (
+      context && context.accountingCarId
+        ? saveCarAccountingEntry
+        : saveGroupAccountingEntry
+    );
 
   if (
     !context ||
@@ -120,7 +133,15 @@ async function recordGroupAccounting(
     };
   }
 
+  if (!context.accountingCarId) {
+    return {
+      saved: false,
+      reason: "car_binding_required"
+    };
+  }
+
   const entry = await saveEntry({
+    carId: context.accountingCarId,
     groupId: context.source.groupId,
     messageId: context.message.id,
     userId: context.source.userId,
@@ -144,7 +165,11 @@ async function queryGroupAccounting(
 ) {
   const listEntries =
     dependencies.listGroupAccountingEntries ||
-    listGroupAccountingEntries;
+    (
+      context && context.accountingCarId
+        ? listCarAccountingEntries
+        : listGroupAccountingEntries
+    );
 
   if (
     !context ||
@@ -165,7 +190,7 @@ async function queryGroupAccounting(
   );
 
   const entries = await listEntries(
-    context.source.groupId,
+    context.accountingCarId || context.source.groupId,
     period
   );
 
@@ -189,15 +214,23 @@ async function mutateGroupAccounting(
 ) {
   const findEntry =
     dependencies.findGroupAccountingEntryByCode ||
-    findGroupAccountingEntryByCode;
+    (
+      context && context.accountingCarId
+        ? findCarAccountingEntryByCode
+        : findGroupAccountingEntryByCode
+    );
   const mutateEntry =
     dependencies.mutateGroupAccountingEntry ||
-    mutateGroupAccountingEntry;
+    (
+      context && context.accountingCarId
+        ? mutateCarAccountingEntry
+        : mutateGroupAccountingEntry
+    );
   const canMutate =
     dependencies.canMutateEntry ||
     defaultCanMutateEntry;
   const entry = await findEntry(
-    context.source.groupId,
+    context.accountingCarId || context.source.groupId,
     mutation.entryCode
   );
 
@@ -216,6 +249,7 @@ async function mutateGroupAccounting(
   }
 
   const after = await mutateEntry({
+    carId: context.accountingCarId || "",
     groupId: context.source.groupId,
     entryId: entry.id,
     actorUserId: context.source.userId,

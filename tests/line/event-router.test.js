@@ -513,7 +513,7 @@ test(
         resolveAccountingAuthority: async function () {
           return { canManageAll: false, reason: "member" };
         },
-        listGroupAccountingAuditLogs: async function () {
+        listCarAccountingAuditLogs: async function () {
           auditCalls += 1;
           return [];
         },
@@ -555,7 +555,7 @@ test(
             reason: "car_owner"
           };
         },
-        listGroupAccountingAuditLogs: async function () {
+        listCarAccountingAuditLogs: async function () {
           return [
             {
               entryId: "message-ABCD1234",

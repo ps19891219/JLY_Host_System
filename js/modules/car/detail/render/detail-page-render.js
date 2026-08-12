@@ -411,6 +411,29 @@ console.log(
     );
   }
 
+  function buildLineGroupBindingHtml(car) {
+    const carId = escapeValue(car && (car.id || car.carId));
+    if (!carId) {
+      return "";
+    }
+
+    return `
+      <section class="card line-group-binding-card">
+        <div>
+          <h3>LINE 群組記帳</h3>
+          <p>由車團建立主揪複製指令，再貼到要使用記帳功能的 LINE 群組。</p>
+        </div>
+        <button
+          type="button"
+          class="line-group-binding-button"
+          onclick="copyLineGroupBindingCommand('${carId}', this)"
+        >
+          複製 LINE 群組綁定指令
+        </button>
+      </section>
+    `;
+  }
+
   // ------------------------------------------------------------
   // 完整頁面
   // ------------------------------------------------------------
@@ -453,6 +476,10 @@ console.log(
         safeConfig
       )}
 
+      ${buildLineGroupBindingHtml(
+        car
+      )}
+
       ${buildMatchingConfirmationSectionHtml(
         car
       )}
@@ -491,6 +518,8 @@ console.log(
     buildHistorySectionHtml,
 
     buildNavigationHtml,
+
+    buildLineGroupBindingHtml,
 
     buildPageHtml
   };

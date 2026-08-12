@@ -6,7 +6,8 @@ const assert = require("node:assert/strict");
 const {
   parseAccountingCommand,
   parseAccountingQuery,
-  parseAccountingMutation
+  parseAccountingMutation,
+  parseGroupBindingCommand
 } = require(
   "../../services/line/accounting-command"
 );
@@ -104,5 +105,14 @@ test("parses update and delete commands", function () {
         entryCode: "ABCD1234"
       }
     }
+  );
+});
+
+test("parses a secure group car binding command", function () {
+  assert.deepEqual(
+    parseGroupBindingCommand(
+      "JLY 綁定車團 car_ABC123"
+    ),
+    { carId: "car_ABC123" }
   );
 });

@@ -144,9 +144,20 @@ function parseAccountingMutation(value) {
   };
 }
 
+function parseGroupBindingCommand(value) {
+  const match = normalizeText(value).match(
+    /^jly\s*綁定車團\s+([a-z0-9_-]{6,128})$/i
+  );
+
+  return match
+    ? { carId: match[1] }
+    : null;
+}
+
 module.exports = {
   MAX_AMOUNT,
   parseAccountingCommand,
   parseAccountingQuery,
-  parseAccountingMutation
+  parseAccountingMutation,
+  parseGroupBindingCommand
 };

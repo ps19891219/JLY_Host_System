@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.9
+> Version: V2.10
 >
 > Last Updated: 2026-08-12
 >
@@ -443,10 +443,10 @@ Rich Menu 只顯示在 LINE Official Account 的一對一聊天室。群組內�
 資料路徑：
 
 ```text
-lineGroupAccounts/{groupId}/entries/{LINE messageId}
+cars/{carId}/accountingEntries/{LINE messageId}
 ```
 
-以 `groupId` 區分各群帳本，以 LINE `messageId` 作為帳目文件 ID，讓同一則 Webhook 重送時覆寫同一筆資料而不產生重複帳目。每筆資料包含收入／支出類型、正整數金額、說明、LINE 記帳者 userId、來源與建立時間。
+正式帳本以 JLY `carId` 歸屬車團，LINE `groupId` 只保留來源資訊；LINE `messageId` 作為帳目文件 ID，讓同一則 Webhook 重送時不產生重複帳目。未綁定車團的 LINE 群組不能建立正式帳目。舊的 `lineGroupAccounts/{groupId}` 僅作為綁定時的一次性遷移來源。
 
 相關檔案：
 
@@ -477,7 +477,7 @@ lineGroupAccounts/{groupId}/entries/{LINE messageId}
 刪除採軟刪除：帳目保留於 `entries`，標記 `status=deleted`，一般查詢不顯示。每次新增、修改、刪除都以 Firestore Transaction 同步寫入：
 
 ```text
-lineGroupAccounts/{groupId}/auditLogs/{auditId}
+cars/{carId}/accountingAuditLogs/{auditId}
 ```
 
 稽核紀錄包含操作類型、帳目 ID、操作者 LINE userId、權限依據、修改前資料、修改後資料與時間。一般成員無法由 LINE 指令查看，主揪與系統管理者可使用 `JLY 異動紀錄`。
@@ -641,7 +641,7 @@ matching
 - 舊地圖列出的 `api/line-login.js` 不存在。
 - `ROADMAP.md`、`VERSION_HISTORY.md`、`CODING_RULE.md`、`DATABASE_RULE.md` 目前是空檔。
 - 專案已有 LINE Event Router 基礎測試，但仍缺少完整整合測試與部署驗證指令。
-- LINE 群組綁定目前只完成查詢與 Context 回傳，尚未讀取車團資料或處理業務指令。
+- LINE 群組可由已連結 LINE 身分的車團建立主揪，以 `JLY 綁定車團 <carId>` 安全綁定；既有群組帳目會一次性遷移至車團帳本，同一群組不可直接覆蓋綁定到另一車團。
 
 ---
 
@@ -779,3 +779,11 @@ matching
 - 主揪、協辦、管理、財務及會計標籤可授予該車團群組帳務管理權限。
 - 一般 DM／Staff 不會自動取得帳務管理權限。
 - 權限僅比對 LINE `lineUserId`、Player／Member ID、車團 ownerId 與設定角色，不以顯示名稱猜測。
+
+### V2.10｜2026-08-12
+
+- JLY 車團成為正式帳務資料來源，LINE 僅作為記帳、查詢及管理入口。
+- 正式帳目與稽核紀錄改存於 `cars/{carId}` 的子集合。
+- 新增主揪限定的 `JLY 綁定車團 <carId>` 指令，並防止既有群組綁定被直接覆蓋。
+- 群組首次綁定時會把舊 LINE 群組帳目一次性遷移到車團，保留來源與稽核紀錄。
+- 車團詳細頁新增「複製 LINE 群組綁定指令」按鈕，方便手機貼到 LINE 群組。

@@ -71,6 +71,18 @@ const {
   "../firebase/line-group-accounting-repository"
 );
 
+const {
+  listCarAccountingAuditLogs
+} = require(
+  "../firebase/car-accounting-repository"
+);
+
+const {
+  bindGroupToCar
+} = require(
+  "./group-car-binding-service"
+);
+
 // ============================================================
 // Normalize Text
 // ============================================================
@@ -259,6 +271,10 @@ async function handleMessageEvent(
     dependencies.listGroupAccountingAuditLogs ||
     listGroupAccountingAuditLogs;
 
+  const bindCarGroup =
+    dependencies.bindGroupToCar ||
+    bindGroupToCar;
+
   // ----------------------------------------------------------
   // Non-text message
   // ----------------------------------------------------------
@@ -354,6 +370,53 @@ async function handleMessageEvent(
     }
   }
 
+  if (groupBinding && groupBinding.bound) {
+    context.accountingCarId =
+      groupBinding.binding.carId;
+  }
+
+  if (messageResult.action === "group_car_bind") {
+    if (!context.replyToken) {
+      return {
+        handled: false,
+        route: "message_missing_reply_token",
+        context,
+        groupBinding
+      };
+    }
+
+    const bindResult = await bindCarGroup(
+      context,
+      messageResult.bindingCommand.carId
+    );
+    const failureMessages = {
+      group_required: "車團綁定只能在 LINE 群組內執行。",
+      line_identity_unlinked: "請先完成 LINE 與 JLY Member 身分連結。",
+      car_not_found: "找不到這個 JLY 車團。",
+      owner_required: "只有這個車團的建立主揪可以綁定群組。",
+      binding_conflict: "這個 LINE 群組已綁定其他車團，為避免帳目混在一起，目前不會覆蓋。"
+    };
+
+    await replyWithText(
+      context.replyToken,
+      bindResult.bound
+        ? "✅ 已綁定 JLY 車團\n" +
+          `既有群組帳目已遷移 ${bindResult.migration.migrated} 筆。`
+        : failureMessages[bindResult.reason] ||
+          "車團綁定失敗，請稍後再試。"
+    );
+
+    return {
+      handled: true,
+      route: bindResult.bound
+        ? "group_car_bound"
+        : "group_car_bind_failed",
+      context,
+      groupBinding,
+      bindResult
+    };
+  }
+
   // ----------------------------------------------------------
   // Group accounting command
   // ----------------------------------------------------------
@@ -390,6 +453,21 @@ async function handleMessageEvent(
         context,
         messageResult.accounting
       );
+
+    if (!accountingResult.saved) {
+      await replyWithText(
+        context.replyToken,
+        "這個 LINE 群組尚未綁定 JLY 車團，暫時不能建立正式帳目。"
+      );
+
+      return {
+        handled: true,
+        route: "accounting_binding_required",
+        context,
+        groupBinding,
+        accountingResult
+      };
+    }
 
     const typeLabel =
       messageResult.accounting.type === "income"
@@ -459,8 +537,12 @@ async function handleMessageEvent(
         };
       }
 
-      const auditLogs = await listAuditLogs(
-        context.source.groupId,
+      const auditReader = context.accountingCarId
+        ? (dependencies.listCarAccountingAuditLogs ||
+          listCarAccountingAuditLogs)
+        : listAuditLogs;
+      const auditLogs = await auditReader(
+        context.accountingCarId || context.source.groupId,
         10
       );
 
