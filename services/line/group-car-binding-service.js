@@ -19,6 +19,7 @@ const { migrateLegacyGroupAccounting } = require(
 function getIdentityIds(player) {
   return new Set([
     player && player.id,
+    player && player.identityId,
     ...(
       player && Array.isArray(player.linkedPlayerIds)
         ? player.linkedPlayerIds

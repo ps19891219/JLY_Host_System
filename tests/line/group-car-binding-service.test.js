@@ -40,6 +40,31 @@ test("only the linked car owner can bind a group", async function () {
   assert.equal(result.reason, "owner_required");
 });
 
+test("a car owner can bind through the member JLY identity id", async function () {
+  const result = await bindGroupToCar(
+    context(),
+    "car-identity-owner",
+    {
+      findPlayerByLineUserId: async () => ({
+        id: "member-document-id",
+        identityId: "legacy-owner-id",
+        linkedPlayerIds: []
+      }),
+      getCarById: async () => ({
+        id: "car-identity-owner",
+        ownerId: "legacy-owner-id"
+      }),
+      getBindingByGroupId: async () => null,
+      saveBinding: async binding => binding,
+      listGroupAccountingEntries: async () => [],
+      migrateLegacyGroupAccounting: async () => ({ migrated: 0 })
+    }
+  );
+
+  assert.equal(result.bound, true);
+  assert.equal(result.binding.carId, "car-identity-owner");
+});
+
 test("binding migrates legacy group entries to the car", async function () {
   let savedBinding = null;
   let migrationInput = null;

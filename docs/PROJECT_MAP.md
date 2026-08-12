@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.15
+> Version: V2.16
 >
 > Last Updated: 2026-08-12
 >
@@ -820,3 +820,9 @@ matching
 - 「我的車」登入按鈕會帶入安全返回路徑 `/pages/mycar.html`。
 - LINE 登入前將原始目標頁寫入後端簽章，成功後直接返回「我的車」。
 - 返回路徑僅允許站內絕對路徑，避免被利用跳轉至外部網站。
+
+### V2.16｜2026-08-12
+
+- LINE 群組綁定的建立主揪檢查新增 Member `identityId` 比對。
+- 相容較早建立、以 JLY Identity ID 寫入 `cars.ownerId` 的既有車團。
+- 不需改寫舊車團 ownerId，即可由已連結 LINE 的原建立主揪安全綁定。
