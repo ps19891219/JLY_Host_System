@@ -2,7 +2,7 @@
 JLY Host System
 
 Module:
-LINE Message Router V1.1
+LINE Message Router V1.2
 
 Responsibilities:
 
@@ -10,7 +10,7 @@ Responsibilities:
 2. Keep normal group conversation silent
 3. Respond only when the user explicitly calls JLY Assistant
 4. Return a normalized handling result
-5. Handle Rich Menu entry commands
+5. Handle Rich Menu and group quick menu commands
 
 V1 triggers:
 - 小助手
@@ -21,6 +21,9 @@ V1.1 Rich Menu commands:
 - JLY 記帳
 - JLY 車團資訊
 - JLY 使用說明
+
+V1.2 group quick menu command:
+- JLY 提醒
 
 V1 does NOT:
 - Read Firebase
@@ -119,8 +122,19 @@ function routeMenuCommand(text) {
         action:
           "assistant_accounting_menu",
         replyText:
-          "💰 記帳入口已開啟。\n" +
-          "記帳內容與操作方式將在下一階段加入。"
+          "💰 群組記帳\n" +
+          "下一步請輸入：JLY 支出 金額 說明\n" +
+          "例如：JLY 支出 350 聚餐飲料"
+      };
+
+    case "jly提醒":
+      return {
+        handled: true,
+        action:
+          "assistant_reminder_menu",
+        replyText:
+          "⏰ 群組提醒入口已開啟。\n" +
+          "提醒內容與時間設定將在下一階段加入。"
       };
 
     case "jly車團資訊":

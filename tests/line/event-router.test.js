@@ -86,14 +86,14 @@ test(
             }
           };
         },
-        sendTextReply: async function (
+        sendReplyMessage: async function (
           replyToken,
-          replyText
+          messages
         ) {
           calls.push([
             "reply",
             replyToken,
-            replyText
+            messages
           ]);
         }
       }
@@ -108,6 +108,23 @@ test(
     );
     assert.equal(calls[0][0], "binding");
     assert.equal(calls[1][0], "reply");
+    assert.equal(
+      calls[1][2][0].quickReply.items.length,
+      4
+    );
+    assert.deepEqual(
+      calls[1][2][0].quickReply.items.map(
+        function (item) {
+          return item.action.text;
+        }
+      ),
+      [
+        "JLY 記帳",
+        "JLY 提醒",
+        "JLY 車團資訊",
+        "JLY 使用說明"
+      ]
+    );
   }
 );
 
@@ -122,7 +139,7 @@ test(
         resolveGroupBinding: async function () {
           throw new Error("firebase unavailable");
         },
-        sendTextReply: async function () {
+        sendReplyMessage: async function () {
           replyCalls += 1;
         }
       }

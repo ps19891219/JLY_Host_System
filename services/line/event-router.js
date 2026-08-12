@@ -2,7 +2,7 @@
 JLY Host System
 
 Module:
-LINE Event Router V1.3
+LINE Event Router V1.4
 
 Responsibilities:
 
@@ -13,6 +13,7 @@ Responsibilities:
 5. Pass text messages to message-router
 6. Reply only when message-router requests a reply
 7. Resolve group binding when JLY Assistant is called in a group
+8. Show a quick reply menu inside group conversations
 
 V1.3 does NOT:
 - Write Firebase
@@ -24,9 +25,16 @@ V1.3 does NOT:
 "use strict";
 
 const {
+  sendReplyMessage,
   sendTextReply
 } = require(
   "./line-reply"
+);
+
+const {
+  buildGroupQuickMenuMessage
+} = require(
+  "./group-quick-menu"
 );
 
 const {
@@ -201,6 +209,10 @@ async function handleMessageEvent(
     dependencies.sendTextReply ||
     sendTextReply;
 
+  const replyWithMessages =
+    dependencies.sendReplyMessage ||
+    sendReplyMessage;
+
   const resolveBinding =
     dependencies.resolveGroupBinding ||
     resolveGroupBinding;
@@ -337,10 +349,22 @@ async function handleMessageEvent(
   // Send LINE reply
   // ----------------------------------------------------------
 
-  await replyWithText(
-    context.replyToken,
-    messageResult.replyText
-  );
+  if (
+    messageResult.action === "assistant_called" &&
+    context.source.type === "group"
+  ) {
+    await replyWithMessages(
+      context.replyToken,
+      [
+        buildGroupQuickMenuMessage()
+      ]
+    );
+  } else {
+    await replyWithText(
+      context.replyToken,
+      messageResult.replyText
+    );
+  }
 
   console.log(
     "LINE assistant reply sent.",

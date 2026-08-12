@@ -7,3 +7,5 @@ node_modules/
 *serviceAccount*.json
 *service-account*.json
 *firebase-admin*.json
+.vercel
+.env*

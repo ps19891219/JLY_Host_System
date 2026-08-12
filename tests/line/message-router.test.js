@@ -15,6 +15,10 @@ const cases = [
     "assistant_accounting_menu"
   ],
   [
+    "JLY 提醒",
+    "assistant_reminder_menu"
+  ],
+  [
     "JLY 車團資訊",
     "assistant_car_info_menu"
   ],

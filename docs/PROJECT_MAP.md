@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.4
+> Version: V2.5
 >
 > Last Updated: 2026-08-12
 >
@@ -413,7 +413,16 @@ Firestore
 
 手機設定頁只會把管理密碼放在 POST Body 送往同網域 API，不保存密碼，也不接觸或回傳 LINE Access Token。套用完成後必須將 `JLY_RICH_MENU_SETUP_ENABLED` 改為 `false` 並重新部署，停用管理端點。
 
-目前三個按鈕只有入口與提示回覆；記帳、車團資訊的實際資料操作將在後續階段加入。
+Rich Menu 只顯示在 LINE Official Account 的一對一聊天室。群組內改用 LINE Quick Reply：使用者輸入 `JLY 小助手` 後，回覆 `記帳`、`提醒`、`車團資訊`、`使用說明` 四個按鈕，按鈕會在原群組送出對應的 `JLY ...` 指令，因此 Event Router 可保留該群組的 `groupId`。
+
+群組快速選單相關檔案：
+
+- `services/line/group-quick-menu.js`：建立四個 LINE Quick Reply message actions。
+- `services/line/event-router.js`：只在群組呼叫小助手時傳送快速選單；一對一回覆維持原行為。
+- `tests/line/group-quick-menu.test.js`：驗證四個按鈕的 LINE 訊息格式。
+- `tests/line/event-router.test.js`：驗證群組綁定查詢順序與實際回覆 payload。
+
+目前群組按鈕只有入口與提示回覆；記帳寫入 Firebase、提醒排程與車團查詢的實際資料操作將在後續階段加入。
 
 ---
 
@@ -674,3 +683,10 @@ matching
 - 新增受管理密碼與啟用開關保護的 Vercel 套用 API。
 - 新增可從手機操作的一次性 LINE 選單設定頁。
 - 確保伺服器端 LINE Token 不會回傳至前端。
+
+### V2.5｜2026-08-12
+
+- 新增群組專用的四按鈕 LINE Quick Reply 選單。
+- 使用者在群組呼叫 `JLY 小助手` 時，保留目前 `groupId` 並顯示記帳、提醒、車團資訊及使用說明入口。
+- 一對一聊天室維持原本回覆，正常群聊仍不查詢 Firebase、不觸發小助手。
+- 新增群組快速選單與 Event Router payload 自動測試。
