@@ -15,6 +15,7 @@ function response() {
 test("LINE login verifies identity and links the current member", async function () {
   let linked = null;
   const handler = createHandler({
+    stateSecret: "test-secret",
     verifyLoginState: () => ({
       valid: true,
       data: {
@@ -49,11 +50,13 @@ test("LINE login verifies identity and links the current member", async function
   assert.equal(res.body.success, true);
   assert.equal(linked.profileId, "player-1");
   assert.equal(linked.lineUser.userId, "line-1");
+  assert.ok(res.headers["Set-Cookie"].includes("HttpOnly"));
 });
 
 test("LINE login can recover an already-linked member in a new browser", async function () {
   let received = null;
   const handler = createHandler({
+    stateSecret: "test-secret",
     verifyLoginState: () => ({
       valid: true,
       data: { returnPath: "/index.html" }

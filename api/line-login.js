@@ -2,6 +2,7 @@
 
 const { getFirestore } = require("../services/firebase/admin");
 const { verifyLoginState } = require("../services/line/login-state");
+const { createMemberSession, cookieHeader } = require("../services/line/member-session");
 
 function text(value) {
   return String(value || "").trim();
@@ -162,6 +163,13 @@ function createHandler(dependencies = {}) {
       const accessToken = await exchange(code);
       const lineUser = await getProfile(accessToken);
       const linkResult = await link(profileId, identityId, lineUser);
+      const memberSession = createMemberSession({
+        profileId: linkResult.profileId,
+        identityId: linkResult.identityId,
+        lineUserId: lineUser.userId,
+        displayName: linkResult.displayName || lineUser.displayName
+      }, dependencies.stateSecret || process.env.LINE_CHANNEL_SECRET);
+      res.setHeader("Set-Cookie", cookieHeader(memberSession));
       return sendJson(res, 200, {
         success: true,
         lineUser: {

@@ -29,6 +29,8 @@ function compactEntry(entry) {
     payerMemberId: normalizeText(entry.payerMemberId),
     payerDisplayName: normalizeText(entry.payerDisplayName),
     shares: Array.isArray(entry.shares) ? entry.shares : [],
+    splitStatus: normalizeText(entry.splitStatus) ||
+      (Array.isArray(entry.shares) && entry.shares.length ? "completed" : "pending"),
     createdAt: normalizeText(entry.createdAt),
     updatedAt: normalizeText(entry.updatedAt)
   };
@@ -54,6 +56,7 @@ function buildMemberBalances(entries) {
     return item;
   }
   for (const entry of entries) {
+    if (entry && entry.splitStatus === "pending") continue;
     const payer = member(entry.payerMemberId, entry.payerDisplayName);
     if (payer) payer.paidAmount += Number(entry.amount) || 0;
     for (const share of (Array.isArray(entry.shares) ? entry.shares : [])) {
@@ -100,7 +103,14 @@ function applyEntryToMemberBalances(memberBalances, entry, factor = 1) {
     if (!item.displayName && name) item.displayName = normalizeText(name);
     return item;
   }
-  const payer = member(entry && entry.payerMemberId, entry && entry.payerDisplayName);
+  if (!entry || entry.splitStatus === "pending") {
+    return [...balances.values()].map(item => {
+      item.balance = item.paidAmount - item.shareAmount;
+      item.status = item.balance > 0 ? "receivable" : item.balance < 0 ? "payable" : "settled";
+      return item;
+    }).filter(item => item.paidAmount !== 0 || item.shareAmount !== 0);
+  }
+  const payer = member(entry.payerMemberId, entry.payerDisplayName);
   if (payer) payer.paidAmount += factor * (Number(entry.amount) || 0);
   for (const share of (entry && Array.isArray(entry.shares) ? entry.shares : [])) {
     const participant = member(share.memberId, share.displayName || share.memberName);
@@ -220,6 +230,8 @@ async function saveCarAccountingEntry(entry) {
     payerMemberId: normalizeText(entry.payerMemberId),
     payerDisplayName: normalizeText(entry.payerDisplayName),
     shares: Array.isArray(entry.shares) ? entry.shares : [],
+    splitStatus: normalizeText(entry.splitStatus) ||
+      (Array.isArray(entry.shares) && entry.shares.length ? "completed" : "pending"),
     type: normalizeText(entry.type),
     amount: Number(entry.amount),
     description: normalizeText(entry.description),
@@ -414,6 +426,62 @@ async function mutateCarAccountingEntry(options) {
   });
 }
 
+async function completeCarAccountingSplit(options) {
+  const db = getFirestore();
+  const carRef = getCarRef(db, normalizeText(options.carId));
+  const entryRef = carRef.collection("accountingEntries").doc(normalizeText(options.entryId));
+  const auditRef = carRef.collection("accountingAuditLogs").doc();
+  await ensureCarAccountingView(options.carId);
+
+  return db.runTransaction(async transaction => {
+    const viewRef = getViewRef(carRef);
+    const adminViewRef = getViewRef(carRef, "admin");
+    const [snapshot, viewSnapshot, adminViewSnapshot] = await Promise.all([
+      transaction.get(entryRef), transaction.get(viewRef), transaction.get(adminViewRef)
+    ]);
+    if (!snapshot.exists) return null;
+    const before = { id: snapshot.id, ...snapshot.data() };
+    if (before.status === "deleted" || before.splitStatus !== "pending") return null;
+    const now = new Date().toISOString();
+    const after = {
+      ...before,
+      payerMemberId: normalizeText(options.payerMemberId),
+      payerDisplayName: normalizeText(options.payerDisplayName),
+      shares: Array.isArray(options.shares) ? options.shares : [],
+      splitStatus: "completed",
+      updatedAt: now,
+      updatedBy: normalizeText(options.actorUserId)
+    };
+    const storedAfter = { ...after }; delete storedAfter.id;
+    const audit = {
+      id: auditRef.id, carId: options.carId, groupId: before.groupId || "",
+      entryId: options.entryId, operation: "split",
+      actorUserId: normalizeText(options.actorUserId),
+      actorMemberId: normalizeText(options.actorMemberId),
+      actorDisplayName: normalizeText(options.actorDisplayName),
+      authorityReason: normalizeText(options.authorityReason),
+      before, after, createdAt: now
+    };
+    const previousView = viewSnapshot.data() || {};
+    const recentEntries = (previousView.recentEntries || []).filter(item => item.id !== options.entryId);
+    recentEntries.unshift(after);
+    const view = {
+      ...previousView,
+      recentEntries: recentEntries.slice(0, 20).map(compactEntry),
+      memberBalances: applyEntryToMemberBalances(previousView.memberBalances, after, 1),
+      updatedAt: now
+    };
+    const adminView = buildAdminAccountingView(
+      [audit, ...((adminViewSnapshot.data() || {}).recentAuditLogs || [])], now
+    );
+    transaction.set(entryRef, storedAfter, { merge: false });
+    transaction.set(auditRef, audit);
+    transaction.set(viewRef, view, { merge: false });
+    transaction.set(adminViewRef, adminView, { merge: false });
+    return after;
+  });
+}
+
 async function listCarAccountingAuditLogs(carId, limit = 10) {
   const snapshot = await getFirestore()
     .collection("cars")
@@ -468,6 +536,7 @@ module.exports = {
   listCarAccountingEntries,
   findCarAccountingEntryByCode,
   mutateCarAccountingEntry,
+  completeCarAccountingSplit,
   listCarAccountingAuditLogs,
   migrateLegacyGroupAccounting,
   buildAccountingView,

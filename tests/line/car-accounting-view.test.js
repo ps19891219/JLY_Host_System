@@ -137,3 +137,23 @@ test("member view does not expose LINE internal user id", function () {
 
   assert.equal(Object.hasOwn(view.recentEntries[0], "userId"), false);
 });
+
+test("pending expense affects the total but not member balances until split", function () {
+  const pending = {
+    id: "expense-pending",
+    type: "expense",
+    amount: 600,
+    description: "晚餐",
+    status: "active",
+    splitStatus: "pending",
+    payerMemberId: "member-shijie",
+    payerDisplayName: "詩婕",
+    shares: []
+  };
+  const view = buildAccountingView([pending]);
+
+  assert.equal(view.totalExpense, 600);
+  assert.equal(view.recentEntries[0].splitStatus, "pending");
+  assert.deepEqual(view.memberBalances, []);
+  assert.deepEqual(applyEntryToMemberBalances([], pending), []);
+});
