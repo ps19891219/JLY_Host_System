@@ -211,6 +211,45 @@ test(
   }
 );
 
+test("car balance overview reads one accounting view instead of all entries", async function () {
+  let viewReads = 0;
+  let entryReads = 0;
+  const result = await queryGroupAccounting(
+    {
+      accountingCarId: "car-1",
+      source: { type: "group", groupId: "group-1" }
+    },
+    "all",
+    {
+      getCarAccountingView: async function (carId) {
+        viewReads += 1;
+        assert.equal(carId, "car-1");
+        return {
+          activeEntryCount: 25,
+          totalIncome: 1000,
+          totalExpense: 400,
+          balance: 600,
+          memberBalances: [{ memberId: "member-1", balance: 200 }]
+        };
+      },
+      listGroupAccountingEntries: async function () {
+        entryReads += 1;
+        return [];
+      }
+    }
+  );
+
+  assert.equal(viewReads, 1);
+  assert.equal(entryReads, 0);
+  assert.equal(result.source, "car_accounting_view");
+  assert.deepEqual(result.summary, {
+    count: 25,
+    income: 1000,
+    expense: 400,
+    balance: 600
+  });
+});
+
 test(
   "mutates an entry only after permission approval",
   async function () {

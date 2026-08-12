@@ -21,7 +21,8 @@ const {
   saveCarAccountingEntry,
   listCarAccountingEntries,
   findCarAccountingEntryByCode,
-  mutateCarAccountingEntry
+  mutateCarAccountingEntry,
+  getCarAccountingView
 } = require(
   "../firebase/car-accounting-repository"
 );
@@ -165,6 +166,9 @@ async function queryGroupAccounting(
   scope,
   dependencies = {}
 ) {
+  const readAccountingView =
+    dependencies.getCarAccountingView ||
+    getCarAccountingView;
   const listEntries =
     dependencies.listGroupAccountingEntries ||
     (
@@ -186,6 +190,27 @@ async function queryGroupAccounting(
     };
   }
 
+  if (scope === "all" && context.accountingCarId) {
+    const view = await readAccountingView(context.accountingCarId);
+    const count = Number(view && view.activeEntryCount) || 0;
+    return {
+      found: count > 0,
+      reason: count > 0 ? "accounting_found" : "accounting_empty",
+      entries: [],
+      summary: {
+        count,
+        income: Number(view && view.totalIncome) || 0,
+        expense: Number(view && view.totalExpense) || 0,
+        balance: Number(view && view.balance) || 0
+      },
+      memberBalances: Array.isArray(view && view.memberBalances)
+        ? view.memberBalances
+        : [],
+      source: "car_accounting_view",
+      period: { startAt: "", endBefore: "" }
+    };
+  }
+
   const period = getTaipeiPeriod(
     scope,
     context.timestamp
@@ -204,6 +229,7 @@ async function queryGroupAccounting(
         : "accounting_empty",
     entries,
     summary: summarizeEntries(entries),
+    source: "accounting_entries",
     period
   };
 }

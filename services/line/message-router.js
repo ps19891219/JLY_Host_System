@@ -205,9 +205,8 @@ function routeMenuCommand(text) {
         action:
           "assistant_help_menu",
         replyText:
-          "❓ JLY 小助手功能入口\n" +
-          "輸入 JLY 小助手可開啟群組功能選單。\n" +
-          "記帳支援新增、今日、本月與餘額查詢。"
+          "❓ 使用說明\n" +
+          "點選「車團帳務」，即可新增此劇本的帳目。"
       };
 
     default:
