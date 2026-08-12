@@ -106,16 +106,40 @@ function saveLineLoginReturnUrl(
 // 開始 LINE Login
 // ============================================================
 
-function startLineLogin(
+async function requestServerLoginState() {
+  const response = await fetch(
+    "/api/line-login-state",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        playerProfileId: String(
+          localStorage.getItem("currentPlayerProfileId") || ""
+        ).trim(),
+        identityId: String(
+          localStorage.getItem("currentPlayerId") || ""
+        ).trim(),
+        returnPath: location.pathname + location.search
+      })
+    }
+  );
+  const data = await response.json();
+  if (!response.ok || !data || !data.state) {
+    throw new Error("無法建立 LINE 登入驗證，請稍後再試。");
+  }
+  return data.state;
+}
+
+async function startLineLogin(
   options
 ) {
   const settings =
     options || {};
 
   const state =
-    createSecureRandomString(
-      24
-    );
+    await requestServerLoginState();
 
   localStorage.setItem(
     "jly_line_login_state",
@@ -185,6 +209,8 @@ window.JLYLineLogin = {
   saveLineLoginStateCookie,
 
   saveLineLoginReturnUrl,
+
+  requestServerLoginState,
 
   start:
     startLineLogin

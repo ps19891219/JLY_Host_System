@@ -1,6 +1,7 @@
 "use strict";
 
 const { getFirestore } = require("../services/firebase/admin");
+const { verifyLoginState } = require("../services/line/login-state");
 
 function text(value) {
   return String(value || "").trim();
@@ -128,10 +129,26 @@ function createHandler(dependencies = {}) {
     }
     const body = requestBody(req);
     const code = text(body.code);
-    const profileId = text(body.playerProfileId);
-    const identityId = text(body.identityId);
+    const stateResult = (
+      dependencies.verifyLoginState || verifyLoginState
+    )(
+      body.state,
+      dependencies.stateSecret || process.env.LINE_CHANNEL_SECRET
+    );
+    const profileId = stateResult.valid
+      ? text(stateResult.data.playerProfileId)
+      : "";
+    const identityId = stateResult.valid
+      ? text(stateResult.data.identityId)
+      : "";
     if (!code) {
       return sendJson(res, 400, { success: false, error: "authorization_code_missing" });
+    }
+    if (!stateResult.valid) {
+      return sendJson(res, 401, {
+        success: false,
+        error: stateResult.reason
+      });
     }
     if (
       !dependencies.exchangeAuthorizationCode &&
@@ -152,7 +169,8 @@ function createHandler(dependencies = {}) {
           displayName: text(lineUser.displayName),
           pictureUrl: text(lineUser.pictureUrl)
         },
-        memberLink: linkResult
+        memberLink: linkResult,
+        returnPath: stateResult.data.returnPath || "/index.html"
       });
     } catch (error) {
       console.error("LINE member link failed.", error);

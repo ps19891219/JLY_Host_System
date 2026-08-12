@@ -15,6 +15,14 @@ function response() {
 test("LINE login verifies identity and links the current member", async function () {
   let linked = null;
   const handler = createHandler({
+    verifyLoginState: () => ({
+      valid: true,
+      data: {
+        playerProfileId: "player-1",
+        identityId: "identity-1",
+        returnPath: "/pages/myprofile.html"
+      }
+    }),
     exchangeAuthorizationCode: async code => {
       assert.equal(code, "auth-code");
       return "access-token";
@@ -46,6 +54,10 @@ test("LINE login verifies identity and links the current member", async function
 test("LINE login can recover an already-linked member in a new browser", async function () {
   let received = null;
   const handler = createHandler({
+    verifyLoginState: () => ({
+      valid: true,
+      data: { returnPath: "/index.html" }
+    }),
     exchangeAuthorizationCode: async () => "access-token",
     fetchLineProfile: async () => ({ userId: "line-1" }),
     linkPlayerProfile: async (profileId, identityId) => {

@@ -126,7 +126,6 @@ function validateLineLoginState(
     ).trim();
 
   if (
-    (!storageState && !cookieState) ||
     !actualState
   ) {
     return {
@@ -137,6 +136,7 @@ function validateLineLoginState(
   }
 
   if (
+    false &&
     storageState !== actualState &&
     cookieState !== actualState
   ) {
@@ -176,6 +176,11 @@ async function exchangeLineAuthorizationCode(
             code:
               String(
                 code || ""
+              ).trim(),
+
+            state:
+              String(
+                getQueryParam("state") || ""
               ).trim(),
 
             playerProfileId:
@@ -455,6 +460,7 @@ async function handleLineCallback() {
     // --------------------------------------------------------
 
     const returnUrl =
+      result.returnPath ||
       getLineLoginReturnUrl();
 
     setTimeout(

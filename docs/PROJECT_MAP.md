@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.13
+> Version: V2.14
 >
 > Last Updated: 2026-08-12
 >
@@ -807,3 +807,10 @@ matching
 - LINE OAuth state 除原本瀏覽器儲存區外，另寫入 10 分鐘短效 Secure Cookie。
 - LINE 內建瀏覽器完成授權跳轉後，可使用 Cookie 驗證原始登入請求。
 - state 驗證完成或失敗後立即清除 Cookie，保留防止登入冒用的安全檢查。
+
+### V2.14｜2026-08-12
+
+- 新增 `/api/line-login-state`，登入前由 JLY 後端簽發 10 分鐘有效的 LINE OAuth state。
+- 簽章內容包含 Member、JLY Identity 與安全返回路徑，手機端無法竄改。
+- `/api/line-login` 會在交換 LINE 授權碼前驗證簽章與期限。
+- 登入流程不再依賴 LINE 內建瀏覽器、Safari 或其他授權視窗之間共享儲存區或 Cookie。
