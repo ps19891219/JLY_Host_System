@@ -13,8 +13,35 @@
   function renderPending(entries){const list=el("pendingEntries"),pending=entries.filter(entry=>entry.type==="expense"&&entry.splitStatus==="pending");list.innerHTML="";if(!pending.length){list.className="list empty";list.textContent="目前沒有待分帳項目";return;}list.className="list";pending.forEach(entry=>{const row=document.createElement("div"),text=document.createElement("span"),button=document.createElement("button");text.textContent=`${entry.description} ${money(entry.amount)}`;button.type="button";button.className="mini";button.textContent="分帳";button.addEventListener("click",()=>openForm(entry));row.append(text,button);list.appendChild(row);});}
   function render(data){context=data;el("scriptName").textContent=data.car.scriptName;el("carMeta").textContent=[data.car.date,data.car.location].filter(Boolean).join("・");el("infoContent").textContent=[data.car.date&&`日期：${data.car.date}`,data.car.location&&`地點：${data.car.location}`].filter(Boolean).join("\n")||"目前沒有其他車團資訊";el("income").textContent=money(data.accounting.totalIncome);el("expense").textContent=money(data.accounting.totalExpense);el("balance").textContent=money(data.accounting.balance);renderMembers();renderBalances(data.accounting.memberBalances||[]);renderPending(data.accounting.recentEntries||[]);}
   async function load(){try{const response=await fetch(`/api/group-assistant-context?token=${encodeURIComponent(token)}`);const data=await response.json();if(!response.ok||!data.success)throw new Error(data.error||"load_failed");render(data);el("loading").classList.add("hidden");showTab(query.get("tab")||"info");}catch(error){el("loading").classList.add("hidden");el("error").classList.remove("hidden");el("error").textContent=error.message==="binding_inactive"?"這個群組連結已失效，請重新呼喚 JLY 小助手。":"無法讀取資料，請稍後再試。";}}
+  async function startLineLogin() {
+    const button = el("lineLogin");
+    button.disabled = true;
+    button.textContent = "正在開啟 LINE 登入…";
+    try {
+      const returnPath = location.pathname + location.search;
+      const response = await fetch("/api/line-login-state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ returnPath })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.state) throw new Error("login_state_failed");
+      const params = new URLSearchParams({
+        response_type: "code",
+        client_id: "2010653666",
+        redirect_uri: `${location.origin}/pages/line-callback.html`,
+        state: data.state,
+        scope: "openid profile"
+      });
+      location.assign(`https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`);
+    } catch (_error) {
+      button.disabled = false;
+      button.textContent = "LINE 登入";
+      el("loginPrompt").firstChild.textContent = "無法開啟 LINE 登入，請重新整理後再試。";
+    }
+  }
   document.querySelectorAll("[data-tab]").forEach(button=>button.addEventListener("click",()=>showTab(button.dataset.tab)));
-  el("createSplit").addEventListener("click",()=>openForm(null));el("cancelSplit").addEventListener("click",closeForm);el("entryType").addEventListener("change",updateShareVisibility);el("splitMode").addEventListener("change",updateShareVisibility);el("lineLogin").addEventListener("click",()=>window.JLYLineLogin.startLineLogin({returnPath:location.pathname+location.search,returnUrl:location.href}));
+  el("createSplit").addEventListener("click",()=>openForm(null));el("cancelSplit").addEventListener("click",closeForm);el("entryType").addEventListener("change",updateShareVisibility);el("splitMode").addEventListener("change",updateShareVisibility);el("lineLogin").addEventListener("click",startLineLogin);
   el("splitForm").addEventListener("submit",async event=>{event.preventDefault();const status=el("formStatus");status.textContent="正在儲存…";const response=await fetch("/api/group-assistant-entry",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,entryId:pendingEntryId||undefined,type:el("entryType").value,amount:Number(el("entryAmount").value),description:el("entryDescription").value,splitMode:pendingEntryId?"now":el("splitMode").value,payerMemberId:el("payerMember").value,shareMemberIds:[...document.querySelectorAll("#shareMemberList input:checked")].map(input=>input.value)})});const result=await response.json();if(!response.ok){status.textContent=result.error==="line_login_required"?"請先使用 LINE 登入。":"儲存失敗，請確認資料後再試。";return;}await load();closeForm();showTab("accounting");});
   load();
 })();
