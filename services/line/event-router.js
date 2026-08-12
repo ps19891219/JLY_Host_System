@@ -448,14 +448,17 @@ async function handleMessageEvent(
       ,pairing_confirmation_mismatch: "只有在原群組提出配對的建立主揪可以確認。"
     };
 
-    await replyWithText(
-      context.replyToken,
-      bindResult.bound
-        ? "✅ 已綁定 JLY 車團\n" +
-          `既有群組帳目已遷移 ${bindResult.migration.migrated} 筆。`
-        : failureMessages[bindResult.reason] ||
-          "車團綁定失敗，請稍後再試。"
-    );
+    let bindingReply = failureMessages[bindResult.reason] ||
+      "車團綁定失敗，請稍後再試。";
+    if (bindResult.bound) {
+      const carLabel = normalizeText(bindResult.car && bindResult.car.label) || "JLY 車團";
+      bindingReply =
+        `✅ 已成功綁定《${carLabel}》\n\n` +
+        "在群組輸入「JLY 小助手」\n" +
+        "即可開啟這台車的專屬功能選單。";
+    }
+
+    await replyWithText(context.replyToken, bindingReply);
 
     return {
       handled: true,

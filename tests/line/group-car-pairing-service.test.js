@@ -61,7 +61,11 @@ test("confirmation is limited to the original group and owner", async function (
       requestedBy: "line-owner",
       expiresAt: new Date(Date.now() + 60000).toISOString()
     }),
-    bindGroupToCar: async () => ({ bound: true, migration: { migrated: 0 } }),
+    bindGroupToCar: async () => ({
+      bound: true,
+      migration: { migrated: 0 },
+      car: { id: "car-1", label: "測試劇本" }
+    }),
     updatePairingCode: async () => { updates += 1; }
   });
   assert.equal(result.bound, true);

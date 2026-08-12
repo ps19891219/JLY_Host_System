@@ -63,6 +63,7 @@ test("a car owner can bind through the member JLY identity id", async function (
 
   assert.equal(result.bound, true);
   assert.equal(result.binding.carId, "car-identity-owner");
+  assert.equal(result.car.label, "car-identity-owner");
 });
 
 test("binding migrates legacy group entries to the car", async function () {
@@ -104,6 +105,7 @@ test("binding migrates legacy group entries to the car", async function () {
   assert.equal(savedBinding.carId, "car-1");
   assert.equal(migrationInput.groupId, "group-1");
   assert.equal(result.migration.migrated, 1);
+  assert.equal(result.car.id, "car-1");
 });
 
 test("an active binding cannot be overwritten by another car", async function () {

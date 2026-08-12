@@ -28,6 +28,12 @@ function getIdentityIds(player) {
   ].filter(Boolean).map(String));
 }
 
+function getCarLabel(car) {
+  return String(
+    car && (car.scriptName || car.title || car.name || car.id) || "JLY 車團"
+  ).trim();
+}
+
 async function bindGroupToCar(
   context,
   carId,
@@ -94,11 +100,17 @@ async function bindGroupToCar(
     bound: true,
     reason: "binding_created",
     binding,
-    migration
+    migration,
+    car: {
+      id: car.id || carId,
+      label: getCarLabel(car),
+      date: car.date || car.startDate || ""
+    }
   };
 }
 
 module.exports = {
   bindGroupToCar,
-  getIdentityIds
+  getIdentityIds,
+  getCarLabel
 };
