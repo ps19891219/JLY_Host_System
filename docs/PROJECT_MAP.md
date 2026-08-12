@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.17
+> Version: V2.18
 >
 > Last Updated: 2026-08-12
 >
@@ -832,3 +832,9 @@ matching
 - 帳務管理權限解析新增 Member `identityId` 比對，與群組綁定使用相同身分鏈。
 - 舊車團建立主揪可查看帳目異動紀錄，並管理車團內所有帳目。
 - 修改與刪除仍保留完整稽核紀錄，一般成員權限不變。
+
+### V2.18｜2026-08-12
+
+- 新帳目稽核紀錄新增 `actorMemberId` 與操作當時的 `actorDisplayName`。
+- 查詢舊異動紀錄時，會以 `actorUserId` 補查目前綁定的 JLY Member 名稱。
+- LINE 畫面優先顯示操作者名稱；查不到名稱時才顯示縮短的 LINE ID，完整 ID 仍保留於後端。

@@ -78,6 +78,12 @@ const {
 );
 
 const {
+  getActorNamesByLineUserIds
+} = require(
+  "../firebase/line-accounting-authorization-repository"
+);
+
+const {
   bindGroupToCar
 } = require(
   "./group-car-binding-service"
@@ -448,6 +454,14 @@ async function handleMessageEvent(
       };
     }
 
+    const creatorAuthority = await resolveAuthority(
+      context,
+      groupBinding
+    );
+    context.accountingActorMemberId = creatorAuthority.playerId || "";
+    context.accountingActorDisplayName =
+      creatorAuthority.playerDisplayName || "";
+
     const accountingResult =
       await recordAccounting(
         context,
@@ -545,6 +559,12 @@ async function handleMessageEvent(
         context.accountingCarId || context.source.groupId,
         10
       );
+      const actorNameReader =
+        dependencies.getActorNamesByLineUserIds ||
+        getActorNamesByLineUserIds;
+      const actorNames = await actorNameReader(
+        auditLogs.map(log => log.actorUserId)
+      );
 
       const operationLabels = {
         create: "新增",
@@ -558,10 +578,14 @@ async function handleMessageEvent(
         lines.push("目前沒有異動紀錄。");
       } else {
         for (const log of auditLogs) {
+          const actorLabel =
+            log.actorDisplayName ||
+            actorNames[log.actorUserId] ||
+            shortenActorId(log.actorUserId);
           lines.push(
             `[${getEntryCode(log.entryId)}] ` +
             `${operationLabels[log.operation] || log.operation} ` +
-            `操作者：${log.actorUserId}`
+            `操作者：${actorLabel}`
           );
         }
       }
@@ -800,6 +824,14 @@ async function handleMessageEvent(
     context,
     groupBinding
   };
+}
+
+function shortenActorId(value) {
+  const id = normalizeText(value);
+  if (id.length <= 12) {
+    return id || "未知使用者";
+  }
+  return `${id.slice(0, 5)}…${id.slice(-4)}`;
 }
 
 // ============================================================

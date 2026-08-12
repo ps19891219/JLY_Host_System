@@ -145,6 +145,8 @@ async function recordGroupAccounting(
     groupId: context.source.groupId,
     messageId: context.message.id,
     userId: context.source.userId,
+    actorMemberId: context.accountingActorMemberId || "",
+    actorDisplayName: context.accountingActorDisplayName || "",
     type: command.type,
     amount: command.amount,
     description: command.description,
@@ -253,6 +255,8 @@ async function mutateGroupAccounting(
     groupId: context.source.groupId,
     entryId: entry.id,
     actorUserId: context.source.userId,
+    actorMemberId: authority && authority.playerId || "",
+    actorDisplayName: authority && authority.playerDisplayName || "",
     operation: mutation.operation,
     authorityReason: permission.reason,
     changes: mutation

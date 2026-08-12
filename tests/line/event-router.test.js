@@ -200,6 +200,14 @@ test(
             binding: null
           };
         },
+        resolveAccountingAuthority: async function () {
+          return {
+            canManageAll: false,
+            reason: "member",
+            playerId: "member-1",
+            playerDisplayName: "詩婕"
+          };
+        },
         recordGroupAccounting: async function (
           context,
           command
@@ -564,6 +572,9 @@ test(
             }
           ];
         },
+        getActorNamesByLineUserIds: async function () {
+          return { "user-2": "詩婕" };
+        },
         sendTextReply: async function (
           replyToken,
           text
@@ -576,6 +587,6 @@ test(
     assert.equal(result.route, "accounting_audit");
     assert.ok(replyText.includes("ABCD1234"));
     assert.ok(replyText.includes("刪除"));
-    assert.ok(replyText.includes("user-2"));
+    assert.ok(replyText.includes("詩婕"));
   }
 );

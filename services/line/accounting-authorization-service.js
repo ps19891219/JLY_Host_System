@@ -19,6 +19,16 @@ function normalizeIdentityList(value) {
     : [];
 }
 
+function getPlayerDisplayName(player) {
+  return String(
+    player && (
+      player.displayName ||
+      player.nickname ||
+      player.lineDisplayName
+    ) || ""
+  ).trim();
+}
+
 function isAccountingManagerLabel(value) {
   const label = String(value || "")
     .trim()
@@ -101,7 +111,8 @@ async function resolveAccountingAuthority(
     return {
       canManageAll: true,
       reason: "system_admin",
-      playerId: player.id
+      playerId: player.id,
+      playerDisplayName: getPlayerDisplayName(player)
     };
   }
 
@@ -137,7 +148,8 @@ async function resolveAccountingAuthority(
           identityIds.has(String(car.ownerId || ""))
             ? "car_owner"
             : "car_accounting_manager",
-        playerId: player.id
+        playerId: player.id,
+        playerDisplayName: getPlayerDisplayName(player)
       };
     }
   }
@@ -145,7 +157,8 @@ async function resolveAccountingAuthority(
   return {
     canManageAll: false,
     reason: player ? "member" : "line_identity_unlinked",
-    playerId: player ? player.id : ""
+    playerId: player ? player.id : "",
+    playerDisplayName: getPlayerDisplayName(player)
   };
 }
 
@@ -169,5 +182,6 @@ module.exports = {
   resolveAccountingAuthority,
   canMutateEntry,
   isAccountingManagerLabel,
-  getCarAccountingManagerIds
+  getCarAccountingManagerIds,
+  getPlayerDisplayName
 };
