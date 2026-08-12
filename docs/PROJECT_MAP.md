@@ -1,3111 +1,616 @@
 # JLY Host System｜Project Map
 
 > Status: Working Map
-> Version: V1.1
-> Established: 2026-08-09
-> Last Updated: 2026-08-10
-> Project: JLY Host System
+>
+> Version: V2.0
+>
+> Rebuilt: 2026-08-12
+>
+> Source of truth: repository files and current HTML runtime references
 
 ---
 
-# 0. 文件定位
+## 0. 文件用途
 
-`PROJECT_MAP.md` 是 JLY Host System 的正式專案導航文件。
+本文件是 JLY Host System 的專案導航地圖，用來回答：
 
-本文件負責維護：
+1. 專案目前有哪些頁面與模組。
+2. 每個模組負責什麼。
+3. 頁面實際載入哪些 JavaScript 與 CSS。
+4. Firebase、LINE 與 Google Calendar 如何接入。
+5. 哪些檔案屬於正式執行、過渡相容、舊版候選或備份。
+6. 修改功能時應從哪個檔案開始。
 
-1. Folder Structure
-2. Module Responsibility
-3. Official File List
-4. Dependency Map
-5. Firebase / Data Map
-6. Legacy / Duplicate Audit
-7. Development Entry Points
-8. Architecture Change Log
-
-本文件描述：
-
-> JLY Host System 目前實際存在的架構、責任與開發入口。
-
-架構設計原則與工程規範則由：
-
-- `PROJECT_STRUCTURE.md`
-- `ENGINEERING_STANDARD.md`
-
-負責。
+本文件不是執行程式，也不是自動測試結果。若文件與程式不一致，以 HTML 實際載入、JavaScript 呼叫關係及 Git 現況為準。
 
 ---
 
-# 1. Project Map Governance
+## 1. 專案摘要
 
-## 1.1 核心規則
+JLY Host System 是提供劇本殺／活動主揪使用的車團管理系統，主要功能包含：
 
-> 架構有變，地圖就一起變。
+- 建立、編輯、瀏覽及管理車團。
+- 玩家資料、別名、身分與歷史參團關係。
+- 車團報名、審核及個人招募分享頁。
+- 座位配置、角色／位置安排、拖曳換位與規則檢查。
+- 時間媒合、候選時段、成員投票及衝突分析。
+- DM／Staff 配置。
+- LINE 登入、Messaging API Webhook、群組綁定與文字回覆。
+- Google Calendar 授權、活動建立、同步及衝突檢查。
 
-未來只要發生：
-
-- 新增資料夾
-- 新增分類
-- 新增模組
-- 拆分模組
-- 合併模組
-- 搬移檔案
-- 修改模組責任
-- 新增正式入口
-- 更換正式入口
-- 淘汰／取代檔案
-- Firebase / Data Structure 架構變更
-
-都必須同步更新 Project Map。
-
-不能只修改實際程式，而沒有更新架構紀錄。
+目前架構為原生多頁式網站，前端使用 HTML、CSS、JavaScript 與 Firebase Compat SDK；伺服器端使用 Node.js CommonJS 模組。
 
 ---
 
-## 1.2 新增分類前檢查
+## 2. 技術與執行環境
 
-新增 Folder / Module / Category 前必須確認：
+### 2.1 前端
 
-1. 是否真的需要新的分類？
-2. 是否已有相同或高度重疊的責任？
-3. 新分類應放在哪一層？
-4. 與哪些既有模組相依？
-5. 哪些模組會依賴它？
-6. 是否造成資料或邏輯重複？
-7. Project Map 哪些區域需要同步更新？
+- HTML 多頁面架構。
+- 原生 JavaScript，以 `window.JLY*` 命名空間連接模組。
+- CSS 共用元件加頁面專用樣式。
+- Firebase Web Compat SDK `10.12.2`。
+- Firestore 作為主要資料庫。
 
----
+### 2.2 後端與整合
 
-## 1.3 Rolling Project Map
+- Node.js CommonJS。
+- `firebase-admin`：伺服器端 Firestore 存取。
+- Vercel API Handler：LINE Webhook 入口。
+- LINE Messaging API：Webhook 驗證及文字回覆。
+- Google Identity Services／Calendar API：行事曆授權與同步。
 
-Project Map 採 Rolling Update。
+### 2.3 套件與測試
 
-不要求為整理架構而停止所有功能開發。
+`package.json` 目前依賴：
 
-開發過程遇到：
+- `firebase`
+- `firebase-admin`
 
-- 尚未盤點的舊模組
-- 不確定用途的檔案
-- 新舊架構並存
-- 疑似 Duplicate
-- 疑似 Legacy
-- 過大的模組
-- 責任開始混雜的模組
-
-應在實際走到該區域時進行確認，並同步更新 Project Map。
+目前沒有正式的建置指令，也沒有可執行的自動測試套件；`npm test` 仍為預設失敗腳本。
 
 ---
 
-## 1.4 Stable Point Development
-
-2026-08-10 起新增正式開發原則：
-
-> 修復成本開始高於回退成本時，先回上一個穩定點。
-
-重要核心模組修改前：
-
-1. 確認目前版本正常
-2. 建立 Git Stable Point
-3. 一次只做一個可驗證的小階段
-4. Desktop 測試
-5. Mobile 測試
-6. Related Feature 測試
-7. 正常後再建立下一個 Stable Point
-
-若新修改造成既有核心功能失效：
+## 3. 根目錄
 
 ```text
-Stop
-↓
-Identify Last Stable Point
-↓
-Revert
-↓
-重新從差異範圍分析
-
-# JLY Host System｜Project Map
-
-> Status: Working Map
-> Version: V1.1
-> Established: 2026-08-09
-> Last Updated: 2026-08-10
-> Project: JLY Host System
-
----
-
-# 0. 文件定位
-
-`PROJECT_MAP.md` 是 JLY Host System 的正式專案導航文件。
-
-本文件負責維護：
-
-1. Folder Structure
-2. Module Responsibility
-3. Official File List
-4. Dependency Map
-5. Firebase / Data Map
-6. Legacy / Duplicate Audit
-7. Development Entry Points
-8. Architecture Change Log
-
-本文件描述：
-
-> JLY Host System 目前實際存在的架構、責任與開發入口。
-
-架構設計原則與工程規範則由：
-
-- `PROJECT_STRUCTURE.md`
-- `ENGINEERING_STANDARD.md`
-
-負責。
-
----
-
-# 1. Project Map Governance
-
-## 1.1 核心規則
-
-> 架構有變，地圖就一起變。
-
-未來只要發生：
-
-- 新增資料夾
-- 新增分類
-- 新增模組
-- 拆分模組
-- 合併模組
-- 搬移檔案
-- 修改模組責任
-- 新增正式入口
-- 更換正式入口
-- 淘汰／取代檔案
-- Firebase / Data Structure 架構變更
-
-都必須同步更新 Project Map。
-
-不能只修改實際程式，而沒有更新架構紀錄。
-
----
-
-## 1.2 新增分類前檢查
-
-新增 Folder / Module / Category 前必須確認：
-
-1. 是否真的需要新的分類？
-2. 是否已有相同或高度重疊的責任？
-3. 新分類應放在哪一層？
-4. 與哪些既有模組相依？
-5. 哪些模組會依賴它？
-6. 是否造成資料或邏輯重複？
-7. Project Map 哪些區域需要同步更新？
-
----
-
-## 1.3 Rolling Project Map
-
-Project Map 採 Rolling Update。
-
-不要求為整理架構而停止所有功能開發。
-
-開發過程遇到：
-
-- 尚未盤點的舊模組
-- 不確定用途的檔案
-- 新舊架構並存
-- 疑似 Duplicate
-- 疑似 Legacy
-- 過大的模組
-- 責任開始混雜的模組
-
-應在實際走到該區域時進行確認，並同步更新 Project Map。
-
----
-
-## 1.4 Stable Point Development
-
-2026-08-10 起新增正式開發原則：
-
-> 修復成本開始高於回退成本時，先回上一個穩定點。
-
-重要核心模組修改前：
-
-1. 確認目前版本正常
-2. 建立 Git Stable Point
-3. 一次只做一個可驗證的小階段
-4. Desktop 測試
-5. Mobile 測試
-6. Related Feature 測試
-7. 正常後再建立下一個 Stable Point
-
-若新修改造成既有核心功能失效：
-
-```text
-Stop
-↓
-Identify Last Stable Point
-↓
-Revert
-↓
-重新從差異範圍分析
-
-4.1 Root
 JLY_Host_System/
-│
-├─ api/
-├─ assets/                         🟡
-├─ config/
-├─ css/
-├─ docs/
-├─ firebase/
-├─ images/                         🟡
-├─ js/
-├─ node_modules/                   🔒
-├─ pages/
-├─ services/
-├─ shared/
-│
-├─ .gitignore
-├─ index.html
-├─ package.json
-└─ package-lock.json
-4.2 Config
-config/
-├─ constants.js                    🟡
-├─ permissions.js                  🟡
-├─ roles.js                        🟡
-└─ theme.js                        🟡
-4.3 Docs
-docs/
-├─ CODING_RULE.md                  🟡
-├─ DATABASE_RULE.md                🟡
-├─ ENGINEERING_STANDARD.md         ✅
-├─ PROJECT_STRUCTURE.md            ✅
-├─ PROJECT_MAP.md                  ✅
-├─ ROADMAP.md                      🟡
-└─ VERSION_HISTORY.md              🟡
-4.4 Firebase
-firebase/
-└─ firebase.js
-4.5 API
+├─ api/                 Vercel API 入口
+├─ config/              常數、角色、權限與主題設定
+├─ css/                 共用與頁面樣式
+├─ docs/                工程文件
+├─ firebase/            前端 Firebase 初始化
+├─ js/                  前端功能與模組
+├─ pages/               HTML 功能頁
+├─ services/            LINE 與 Firebase 伺服器服務
+├─ shared/              預留共用資源目錄
+├─ index.html           首頁儀表板
+├─ package.json         Node.js 套件資訊
+├─ package-lock.json    套件鎖定檔
+├─ project-files.txt    專案檔案快照
+└─ project-tree.txt     專案樹狀快照
+```
 
-目前已確認：
+`assets/`、`images/` 與部分預留模組目錄目前沒有正式執行檔案，不應視為已完成模組。
 
-api/
-└─ line-login.js                   ✅
-
-api/line-login.js
-
-目前定位：
-
-LINE Login Backend。
-
-2026-08-10 Revert 的是後續 Account / Secure Login Ticket 整合。
-
-不代表既有 LINE Login Backend 被淘汰。
-
-4.6 CSS
-css/
-│
-├─ cardetail.css
-├─ image.png
-├─ mycar.css
-├─ style.css
-├─ ui-system.css
-│
-├─ components/
-│  ├─ buttons.css                  🟡
-│  ├─ cards.css                    🟡
-│  ├─ forms.css                    🟡
-│  ├─ modal.css                    🟡
-│  ├─ navigation.css               🟡
-│  ├─ seat-engine.css              ✅
-│  └─ status-tags.css              🟡
-│
-└─ pages/
-   ├─ car-detail.css               ✅
-   ├─ car-view.css                 ✅
-   ├─ create-car.css               🟡
-   ├─ edit-car.css                 🟡
-   ├─ matching-vote.css            ✅
-   ├─ matching.css                 ✅
-   ├─ member-picker.css            ✅
-   ├─ mycar.css                    🟡
-   ├─ player-database.css          🟡
-   ├─ player-profile.css           🟡
-   ├─ recruit.css                  ✅
-   └─ studio.css                   🟡
-
-Duplicate / Transitional Candidate：
-
-css/cardetail.css
-css/pages/car-detail.css
-
-css/mycar.css
-css/pages/mycar.css
-4.7 Pages
-pages/
-├─ car-detail.html
-├─ car-view.html
-├─ createcar.html
-├─ database.html
-├─ editcar.html
-├─ join.html
-├─ line-callback.html
-├─ matching-vote.html
-├─ matching.html
-├─ mycar.html
-├─ myprofile.html
-├─ players.html
-└─ recruit.html
-
-index.html
-4.8 Root JS
-js/
-├─ app.js
-├─ carCard.js
-├─ cardetail-v2-backup-20260801.js.js    ⚠️
-├─ cardetail.js
-├─ cars.js
-├─ carStatus.js
-├─ createcar.js
-├─ dashboard.js
-├─ database.js
-├─ editcar.js
-├─ join.js
-├─ line-callback.js
-├─ line.js
-├─ mycar.js
-├─ myprofile.js
-├─ player.js
-├─ playerDatabase.js
-├─ seat.js
-├─ storage.js
-└─ utils.js
-4.9 Common
-js/common/
-├─ app.js
-├─ constants.js
-├─ navigation.js
-├─ permissions.js
-├─ storage.js
-└─ utils.js
-
-Potential Duplicate Audit:
-
-### App
-
-js/app.js  
-✅ Current Runtime  
-由 `index.html` 直接載入：
-
-`/js/app.js?v=24`
-
-js/common/app.js  
-⚠️ Legacy Candidate  
-目前未發現 HTML / JS Runtime 引用。  
-先保留，不刪除；完成 Dependency Audit 後再決定是否 Deprecated。
-
-### Storage
-
-js/storage.js  
-⚠️ Legacy Candidate  
-目前未發現 HTML / JS Runtime 引用。
-
-js/common/storage.js  
-⚠️ Legacy Candidate  
-目前未發現 HTML / JS Runtime 引用。
-
-Audit Result：
-
-No HTML Script Load  
-No JS Runtime Reference  
-No JLYStorage Reference
-
-目前兩者皆先保留，不刪除。  
-後續完成 Legacy Cleanup Audit 後，再決定是否 Deprecated。
-
-### Utils
-
-js/utils.js  
-⚠️ Legacy Candidate  
-目前未發現 HTML / JS Runtime 引用。
-
-js/common/utils.js  
-⚠️ Legacy Candidate  
-目前未發現 HTML / JS Runtime 引用。
-
-Audit Result：
-
-No HTML Script Load  
-No JS Runtime Reference  
-No JLYUtils Reference
-
-目前兩者皆先保留，不刪除。  
-後續完成 Legacy Cleanup Audit 後，再決定是否 Deprecated。
-
-4.10 Identity
-js/core/
-└─ identity.js                    ✅
-4.11 Migration
-js/migrations/
-└─ car-ownership-v1.js
-
-### 第 2 段／4
-
-```markdown
 ---
 
-## 4.12 Car
+## 4. 頁面入口
 
-```text
-js/car/
-│
-├─ car-actions.js
-├─ car-card.js
-├─ car-create.js
-├─ car-data.js
-├─ car-detail.js
-├─ car-edit.js
-├─ car-list.js
-├─ car-migration.js
-├─ car-relations.js
-├─ car-status.js
-├─ car-view.js
-├─ car-view-render.js
-│
-├─ application/
-│  ├─ application-actions.js
-│  ├─ application-data.js
-│  └─ application-render.js
-│
-├─ history/
-│  ├─ history-actions.js
-│  ├─ history-data.js
-│  └─ history-render.js
-│
-├─ player/
-│  ├─ car-player-actions.js
-│  ├─ car-player-data.js
-│  ├─ car-player-editor.js
-│  ├─ car-player-render.js
-│  └─ car-player-search.js
-│
-└─ seat/
-   ├─ drag.js
-   ├─ player-drag.js
-   ├─ player-move-executor.js
-   ├─ player-move-pipeline.js
-   ├─ seat-actions.js
-   ├─ seat-assignment.js
-   ├─ seat-board.js
-   ├─ seat-controller.js
-   ├─ seat-data.js
-   ├─ seat-layout.js
-   ├─ seat-render.js
-   └─ seat-rules.js
-4.13 Matching
-js/matching/
-├─ matching-actions.js
-├─ matching-calendar.js
-├─ matching-conflict.js
-├─ matching-controller.js
-├─ matching-createcar.js
-├─ matching-data.js
-├─ matching-matrix.js
-├─ matching-render.js
-└─ matching-vote.js
-4.14 Calendar
-js/modules/calendar/
-├─ calendar-auth.js
-├─ calendar-config.js
-├─ calendar-controller.js
-├─ calendar-data.js
-├─ calendar-detail-actions.js
-├─ calendar-provider-google.js
-├─ calendar-schedule-check.js
-└─ calendar-sync.js
-4.15 Car Detail V3
-js/modules/car/detail/
-│
-├─ application/
-│  └─ application-actions.js
-│
-├─ controller/
-│  ├─ detail-controller.js
-│  ├─ detail-events.js
-│  ├─ detail-init.js
-│  └─ detail-loader.js
-│
-├─ core/                           🟡
-├─ history/                        🟡
-│
-├─ matching/
-│  └─ matching-confirmation-actions.js
-│
-├─ player/
-│  ├─ player-actions.js
-│  ├─ player-editor.js
-│  ├─ player-manual-add.js
-│  └─ player-search.js
-│
-├─ render/
-│  ├─ application-render.js
-│  ├─ detail-page-render.js
-│  ├─ history-render.js
-│  ├─ seat-section-render.js
-│  └─ summary-render.js
-│
-├─ seat/                           🟡
-├─ shared/                         🟡
-├─ staff/                          🟡
-│
-└─ upgrade/
-   └─ detail-upgrade.js
-4.16 Upgrade
-js/modules/core/upgrade/
-├─ upgrade-car.js
-├─ upgrade-controller.js
-├─ upgrade-player.js
-└─ upgrade-seat.js
-4.17 Member
-js/modules/member/
-│
-├─ member-data.js
-├─ member-picker.js
-├─ member-schema.js
-│
-├─ picker/
-│  ├─ picker-controller.js
-│  ├─ picker-create.js
-│  ├─ picker-data.js
-│  ├─ picker-events.js
-│  ├─ picker-render.js
-│  ├─ picker-state.js
-│  └─ picker-storage.js
-│
-├─ profile/                        🟡
-└─ relation/                       🟡
-4.18 Staff
-js/modules/staff/
-├─ staff-actions.js
-├─ staff-controller.js
-├─ staff-data.js
-└─ staff-render.js
+| 頁面 | 用途 | 主要執行入口 |
+|---|---|---|
+| `index.html` | 首頁統計與導航 | `js/app.js` |
+| `pages/mycar.html` | 我的車團、篩選與招募分享 | `js/mycar.js` |
+| `pages/createcar.html` | 建立車團 | `js/createcar.js`、`js/core/identity.js` |
+| `pages/editcar.html` | 編輯車團 | `js/editcar.js`、`js/seat.js` |
+| `pages/car-detail.html` | 主揪車團詳情與管理 | Car Detail V3、Seat、Staff、Member Picker、Calendar、相容層 |
+| `pages/car-view.html` | 玩家端車團資訊 | `js/car/car-view.js`、`js/car/car-view-render.js` |
+| `pages/join.html` | 車團公開報名 | `js/join.js` |
+| `pages/matching.html` | 主揪時間媒合 | `js/matching/` |
+| `pages/matching-vote.html` | 參與者時段投票 | `js/matching/matching-vote.js` |
+| `pages/recruit.html` | 個人招募公開頁 | `js/recruit/` |
+| `pages/myprofile.html` | 我的玩家資料及 LINE | `js/myprofile.js`、`js/line.js` |
+| `pages/players.html` | 玩家資料庫 | 目前引用不存在的 `js/players.js`，待修正 |
+| `pages/database.html` | 舊資料庫頁面候選 | `js/database.js`，需再做 Runtime Audit |
+| `pages/line-callback.html` | LINE 登入回呼 | `js/line-callback.js` |
 
-主要資料來源：
-
-car.staffSlots
-4.19 Reserved Modules
-js/modules/
-├─ notification/                   🟡
-├─ report/                         🟡
-├─ seat/                           🟡
-├─ studio/                         🟡
-└─ timeline/                       🟡
-4.20 Notification
-js/notification/
-├─ line-message.js
-├─ notification-settings.js
-├─ recruitment-text.js
-└─ reminder.js
-4.21 Player
-js/player/
-├─ line-account.js
-├─ player-database.js
-├─ player-profile.js
-├─ player-relationships.js
-├─ player-search.js
-└─ player-stats.js
-
-注意：
-
-line-account.js
-
-需要重新 Audit。
-
-不得因檔名直接視為目前 Account V2 Official Runtime。
-
-4.22 Report
-js/report/
-├─ car-report.js
-├─ export.js
-├─ player-report.js
-└─ studio-report.js
-4.23 UI
-js/ui/
-├─ components/                     🟡
-└─ pages/                          🟡
-
-4.1 Root
-JLY_Host_System/
-│
-├─ api/
-├─ assets/                         🟡
-├─ config/
-├─ css/
-├─ docs/
-├─ firebase/
-├─ images/                         🟡
-├─ js/
-├─ node_modules/                   🔒
-├─ pages/
-├─ services/
-├─ shared/
-│
-├─ .gitignore
-├─ index.html
-├─ package.json
-└─ package-lock.json
-4.2 Config
-config/
-├─ constants.js                    🟡
-├─ permissions.js                  🟡
-├─ roles.js                        🟡
-└─ theme.js                        🟡
-4.3 Docs
-docs/
-├─ CODING_RULE.md                  🟡
-├─ DATABASE_RULE.md                🟡
-├─ ENGINEERING_STANDARD.md         ✅
-├─ PROJECT_STRUCTURE.md            ✅
-├─ PROJECT_MAP.md                  ✅
-├─ ROADMAP.md                      🟡
-└─ VERSION_HISTORY.md              🟡
-4.4 Firebase
-firebase/
-└─ firebase.js
-4.5 API
-
-目前已確認：
-
-api/
-└─ line-login.js                   ✅
-
-api/line-login.js
-
-目前定位：
-
-LINE Login Backend。
-
-2026-08-10 Revert 的是後續 Account / Secure Login Ticket 整合。
-
-不代表既有 LINE Login Backend 被淘汰。
-
-4.6 CSS
-css/
-│
-├─ cardetail.css
-├─ image.png
-├─ mycar.css
-├─ style.css
-├─ ui-system.css
-│
-├─ components/
-│  ├─ buttons.css                  🟡
-│  ├─ cards.css                    🟡
-│  ├─ forms.css                    🟡
-│  ├─ modal.css                    🟡
-│  ├─ navigation.css               🟡
-│  ├─ seat-engine.css              ✅
-│  └─ status-tags.css              🟡
-│
-└─ pages/
-   ├─ car-detail.css               ✅
-   ├─ car-view.css                 ✅
-   ├─ create-car.css               🟡
-   ├─ edit-car.css                 🟡
-   ├─ matching-vote.css            ✅
-   ├─ matching.css                 ✅
-   ├─ member-picker.css            ✅
-   ├─ mycar.css                    🟡
-   ├─ player-database.css          🟡
-   ├─ player-profile.css           🟡
-   ├─ recruit.css                  ✅
-   └─ studio.css                   🟡
-
-Duplicate / Transitional Candidate：
-
-css/cardetail.css
-css/pages/car-detail.css
-
-css/mycar.css
-css/pages/mycar.css
-4.7 Pages
-pages/
-├─ car-detail.html
-├─ car-view.html
-├─ createcar.html
-├─ database.html
-├─ editcar.html
-├─ join.html
-├─ line-callback.html
-├─ matching-vote.html
-├─ matching.html
-├─ mycar.html
-├─ myprofile.html
-├─ players.html
-└─ recruit.html
-
-index.html
-4.8 Root JS
-js/
-├─ app.js
-├─ carCard.js
-├─ cardetail-v2-backup-20260801.js.js    ⚠️
-├─ cardetail.js
-├─ cars.js
-├─ carStatus.js
-├─ createcar.js
-├─ dashboard.js
-├─ database.js
-├─ editcar.js
-├─ join.js
-├─ line-callback.js
-├─ line.js
-├─ mycar.js
-├─ myprofile.js
-├─ player.js
-├─ playerDatabase.js
-├─ seat.js
-├─ storage.js
-└─ utils.js
-4.9 Common
-js/common/
-├─ app.js
-├─ constants.js
-├─ navigation.js
-├─ permissions.js
-├─ storage.js
-└─ utils.js
-
-Potential Duplicate Audit：
-
-js/app.js
-js/common/app.js
-
-js/storage.js
-js/common/storage.js
-
-js/utils.js
-js/common/utils.js
-4.10 Identity
-js/core/
-└─ identity.js                    ✅
-4.11 Migration
-js/migrations/
-└─ car-ownership-v1.js
-
-### 第 2 段／4
-
-```markdown
 ---
 
-## 4.12 Car
+## 5. 前端模組地圖
+
+### 5.1 身分與個人資料
 
 ```text
-js/car/
-│
-├─ car-actions.js
-├─ car-card.js
-├─ car-create.js
-├─ car-data.js
-├─ car-detail.js
-├─ car-edit.js
-├─ car-list.js
-├─ car-migration.js
-├─ car-relations.js
-├─ car-status.js
-├─ car-view.js
-├─ car-view-render.js
-│
-├─ application/
-│  ├─ application-actions.js
-│  ├─ application-data.js
-│  └─ application-render.js
-│
-├─ history/
-│  ├─ history-actions.js
-│  ├─ history-data.js
-│  └─ history-render.js
-│
-├─ player/
-│  ├─ car-player-actions.js
-│  ├─ car-player-data.js
-│  ├─ car-player-editor.js
-│  ├─ car-player-render.js
-│  └─ car-player-search.js
-│
-└─ seat/
-   ├─ drag.js
-   ├─ player-drag.js
-   ├─ player-move-executor.js
-   ├─ player-move-pipeline.js
-   ├─ seat-actions.js
-   ├─ seat-assignment.js
-   ├─ seat-board.js
-   ├─ seat-controller.js
-   ├─ seat-data.js
-   ├─ seat-layout.js
-   ├─ seat-render.js
-   └─ seat-rules.js
-4.13 Matching
-js/matching/
-├─ matching-actions.js
-├─ matching-calendar.js
-├─ matching-conflict.js
-├─ matching-controller.js
-├─ matching-createcar.js
-├─ matching-data.js
-├─ matching-matrix.js
-├─ matching-render.js
-└─ matching-vote.js
-4.14 Calendar
-js/modules/calendar/
-├─ calendar-auth.js
-├─ calendar-config.js
-├─ calendar-controller.js
-├─ calendar-data.js
-├─ calendar-detail-actions.js
-├─ calendar-provider-google.js
-├─ calendar-schedule-check.js
-└─ calendar-sync.js
-4.15 Car Detail V3
-js/modules/car/detail/
-│
-├─ application/
-│  └─ application-actions.js
-│
-├─ controller/
-│  ├─ detail-controller.js
-│  ├─ detail-events.js
-│  ├─ detail-init.js
-│  └─ detail-loader.js
-│
-├─ core/                           🟡
-├─ history/                        🟡
-│
-├─ matching/
-│  └─ matching-confirmation-actions.js
-│
-├─ player/
-│  ├─ player-actions.js
-│  ├─ player-editor.js
-│  ├─ player-manual-add.js
-│  └─ player-search.js
-│
-├─ render/
-│  ├─ application-render.js
-│  ├─ detail-page-render.js
-│  ├─ history-render.js
-│  ├─ seat-section-render.js
-│  └─ summary-render.js
-│
-├─ seat/                           🟡
-├─ shared/                         🟡
-├─ staff/                          🟡
-│
-└─ upgrade/
-   └─ detail-upgrade.js
-4.16 Upgrade
-js/modules/core/upgrade/
-├─ upgrade-car.js
-├─ upgrade-controller.js
-├─ upgrade-player.js
-└─ upgrade-seat.js
-4.17 Member
-js/modules/member/
-│
-├─ member-data.js
-├─ member-picker.js
-├─ member-schema.js
-│
-├─ picker/
-│  ├─ picker-controller.js
-│  ├─ picker-create.js
-│  ├─ picker-data.js
-│  ├─ picker-events.js
-│  ├─ picker-render.js
-│  ├─ picker-state.js
-│  └─ picker-storage.js
-│
-├─ profile/                        🟡
-└─ relation/                       🟡
-4.18 Staff
-js/modules/staff/
-├─ staff-actions.js
-├─ staff-controller.js
-├─ staff-data.js
-└─ staff-render.js
-
-主要資料來源：
-
-car.staffSlots
-4.19 Reserved Modules
-js/modules/
-├─ notification/                   🟡
-├─ report/                         🟡
-├─ seat/                           🟡
-├─ studio/                         🟡
-└─ timeline/                       🟡
-4.20 Notification
-js/notification/
-├─ line-message.js
-├─ notification-settings.js
-├─ recruitment-text.js
-└─ reminder.js
-4.21 Player
-js/player/
-├─ line-account.js
-├─ player-database.js
-├─ player-profile.js
-├─ player-relationships.js
-├─ player-search.js
-└─ player-stats.js
-
-注意：
-
-line-account.js
-
-需要重新 Audit。
-
-不得因檔名直接視為目前 Account V2 Official Runtime。
-
-4.22 Report
-js/report/
-├─ car-report.js
-├─ export.js
-├─ player-report.js
-└─ studio-report.js
-4.23 UI
-js/ui/
-├─ components/                     🟡
-└─ pages/                          🟡
-
-4.24 Services
-services/
-├─ cloud/                          🟡
-├─ firebase/                       🟡
-├─ line/                           🟡
-└─ vercel/                         🟡
-4.25 Shared
-shared/
-├─ dialog/                         🟡
-├─ emoji/                          🟡
-├─ icons/                          🟡
-└─ templates/                      🟡
-5. Module Responsibility
-
-Responsibility 分成「已確認」與「待確認」。
-
-尚未讀取實際程式內容的模組，不因檔名看起來合理就直接寫成正式責任。
-
-5.1 LINE Login
-
-目前正式入口：
-
-pages/line-callback.html
-js/line.js
-js/line-callback.js
-api/line-login.js
-
-責任：
-
-pages/line-callback.html
-→ LINE Callback Page
-
-js/line.js
-→ LINE Login Client Entry
-
-js/line-callback.js
-→ Callback
-→ State Validation
-→ Authorization Code Exchange
-→ Login Return
-
-api/line-login.js
-→ LINE Login Backend
-
-目前：
-
-Mobile LINE Login
-→ Stable
-
-Account / Secure Login Ticket V2
-→ Reverted
-
-backup-line-account-v2
-→ Backup Only
-
-LINE Login 與未來 LINE Assistant 必須分開。
-
-LINE Login
-≠
-LINE Assistant
-5.2 Identity
-
-正式核心：
-
 js/core/identity.js
-
-責任：
-
-Current Player ID
-Current Player Profile ID
-Current Player Name
-linkedPlayerIds
-Historical Identity Linking
-Profile Sync
-Local Identity Cache
-
-核心關係：
-
-Current Identity
-↓
-Player Profile
-↓
-linkedPlayerIds
-↓
-Historical Player IDs
-5.3 Seat Engine
-
-位置：
-
-js/car/seat/
-
-責任：
-
-seat-data.js
-→ Seat Data
-
-seat-layout.js
-→ Seat Layout
-
-seat-rules.js
-→ Seat Rules
-
-seat-assignment.js
-→ Seat Assignment
-
-seat-actions.js
-→ Seat Actions
-
-seat-render.js
-→ Seat Render
-
-seat-board.js
-→ Seat Board
-
-seat-controller.js
-→ Seat 流程協調
-
-drag.js
-→ Seat / Row Drag
-
-player-drag.js
-→ Player Drag
-
-player-move-pipeline.js
-→ Player Move Pipeline
-
-player-move-executor.js
-→ Player Move Execution
-
-玩家與工作人員共用 Seat 規格。
-
-5.4 Matching
-js/matching/
-
-責任：
-
-matching-controller.js
-→ Flow
-
-matching-data.js
-→ Data
-
-matching-actions.js
-→ Actions
-
-matching-calendar.js
-→ Calendar
-
-matching-conflict.js
-→ Conflict
-
-matching-matrix.js
-→ Matrix
-
-matching-render.js
-→ Render
-
-matching-vote.js
-→ Vote
-
-matching-createcar.js
-→ Matching → Create Car
-5.5 Calendar
-js/modules/calendar/
-
-責任：
-
-calendar-auth.js
-→ Calendar Authentication
-
-calendar-config.js
-→ Calendar Configuration
-
-calendar-controller.js
-→ Calendar Flow
-
-calendar-data.js
-→ Calendar Data
-
-calendar-detail-actions.js
-→ Car Detail Calendar Actions
-
-calendar-provider-google.js
-→ Google Calendar Provider
-
-calendar-schedule-check.js
-→ Schedule Check
-
-calendar-sync.js
-→ Calendar Sync
-
-Google Calendar：
-
-Default = OFF
-
-2026-08-10 已確認：
-
-Google 授權本身可正常進行。
-
-目前需要另外確認：
-
-建立車團後自動同步
-
-因此：
-
-Google Authorization
-≠
-Car Auto Sync
-
-不得把兩種問題混為同一故障。
-
-5.6 Car Detail
-
-相關：
-
-js/cardetail.js
-js/car/car-detail.js
-js/modules/car/detail/
-
-目前：
-
-🔄 Transitional
-
-需要持續 Dependency Audit。
-
-5.7 Member
-js/modules/member/
-
-負責：
-
-Member Data
-Picker
-Schema
-Member Selection
-
-5.8 Staff
-js/modules/staff/
-
-正式資料：
-
-car.staffSlots
-
-Staff 不只代表 DM。
-
-未來可支援：
-
-DM
-GM
-Assistant DM
-櫃檯
-客服
-店家人員
-其他自訂職稱
-5.9 Player
-js/player/
-
-Player Profile 與 Car Player 必須分離。
-
-5.10 Notification
-js/notification/
-
-未來 LINE Assistant 不能全部塞入此舊結構。
-
-若責任開始擴大：
-
-應獨立拆分 Automation / LINE Assistant Layer。
-
-5.11 Report
-js/report/
-5.12 Studio
-
-目前相關：
-
-js/studio/
-js/modules/studio/
-
-狀態：
-
-Working / Reserved / Audit Required
-6. Identity / Role / Permission Architecture
-
-2026-08-10 正式確立：
-
-Account
-Person / Player Profile
-Role
-Permission
-
-必須分離。
-
-6.1 Account
-
-Account 代表：
-
-登入者
-驗證身份
-登入方式
-
-LINE 是 Authentication / Verified Identity Link。
-
-LINE 本身不是：
-
-Player
-Host
-DM
-GM
-Admin
-6.2 Person / Player Profile
-
-Profile 代表：
-
-這個人是誰。
-
-例如：
-
-燕餃 Profile
-↕
-Verified JLY Account / LINE
-
-完成正式認領後：
-
-身份關係長期保存。
-
-6.3 Role
-
-Role 代表：
-
-此人在某個 Scope 中扮演什麼角色。
-
-例如：
-
-A 車 → Player
-B 車 → DM
-C 車 → GM
-D 車 → Host
-
-歷史角色不能產生目前車團權限。
-
-6.4 Player / Host
-
-Player 是基礎使用者身份。
-
-Host 不是另一種永久帳號。
-
-任何 Player 建立一台車：
-
-Player
-↓
-Create Car
-↓
-Host of Current Car
-
-Host 為：
-
-Car-scoped Role
-6.5 Admin
-
-Admin 是：
-
-Platform-level Permission
-
-同一 Account 可同時：
-
-Player
-Host
-Admin
-
-Admin 功能不應污染一般 Player / Host 使用畫面。
-
-未來可有：
-
-🛡️ 管理中心 5
-
-一般畫面只顯示待處理數量。
-
-詳細內容只有進 Admin Center 才展開。
-
-6.6 Workspace Principle
-
-使用者不需要一直「切換身份」。
-
-系統依 Scope 自動判斷：
-
-進自己的空間
-→ Player
-
-進自己建立的車
-→ Host Tools
-
-進自己擔任 DM 的車
-→ DM Tools
-
-有 JLY Admin Permission
-→ Admin Center Entry
-
-核心：
-
-Role 是系統依資料判定，不要求使用者每次重新選擇身份。
-
-7. DM / GM Identity & Authorization
-
-核心原則：
-
-Identity Claim
-≠
-Role Authorization
-
-「我是燕餃」
-
-不等於：
-
-「我是這台車的 DM」。
-
-7.1 已完成永久身份串聯
-
-例如：
-
-燕餃 Profile
-↕
-Verified JLY Account / LINE
-
-Host 在某車指定：
-
-DM：燕餃
-
-Host 的 Assignment 本身就是：
-
-Current Car DM Role Authorization
-
-系統：
-
-Resolve 燕餃 Profile
-↓
-Resolve Verified Account
-↓
-Create Current Car DM Role Grant
-
-不需要再次申請。
-
-7.2 已綁定 Person 被指定為 Player
-
-若 Host 只把燕餃放在：
-
-Player
-
-燕餃在本車：
-
-只有 Player Role。
-
-即使過去曾經是 DM：
-
-也不能取得本車 DM 權限。
-
-7.3 DM / GM Claim Search
-
-DM / GM 認領：
-
-不能搜尋整個 Player Database。
-
-只能搜尋：
-
-Current Car
-↓
-staffSlots
-↓
-Unclaimed DM / GM Records
-
-歷史 DM 身份：
-
-不能作為 Current Car 候選來源。
-
-7.4 Host 已先輸入未綁定 DM
-
-例如：
-
-DM：燕餃
-
-燕餃尚未串聯 JLY Account / LINE。
-
-本人登入後：
-
-點「我是燕餃」
-↓
-Pending Role Claim
-
-此時：
-
-DM Permission = 0
-
-Host 收到：
-
-請確認此人是否為本車 DM：燕餃
-
-Host Approve 後：
-
-Account / LINE
-↕
-燕餃 Profile
-
-+
-
-Current Car
-↕
-DM Role Grant
-
-同時完成：
-
-身份確認與本車 Role Authorization。
-
-7.5 空白 DM / GM Slot Claim
-
-如果：
-
-DM：[空白]
-
-只要本車有可認領空白職位：
-
-使用者可以：
-
-點空白 DM
-↓
-我是這台車的 DM
-
-建立：
-
-Pending Role Claim
-
-Host 收到：
-
-請確認此人是否為本車 DM / GM
-
-Approve 後：
-
-1. 填入 staffSlots
-2. 建立 Current Car Role Grant
-3. 開啟 Current Car DM / GM Permission
-4. 若尚未永久綁定，同時建立 Person/Profile ↔ Account/LINE 身份關係
-
-Reject：
-
-不建立 Role
-不建立 Permission
-不污染 Identity
-7.6 DM / GM 權限合法取得路徑
-Path A
-已綁定 Person
-↓
-Host 指定為本車 DM / GM
-↓
-自動建立本車 Role Grant
-Path B
-未綁定 / 空白 Slot
-↓
-User Claim
-↓
-Pending
-↓
-Host Approval
-↓
-必要時建立 Identity Binding
-↓
-Current Car Role Grant
-
-禁止：
-
-User 點「我是 DM」
-↓
-立即開放 DM Data
-
-Pending 狀態：
-
-Sensitive Permission = 0
-7.7 Identity Binding
-
-人物身份一旦正確認領：
-
-預設長期有效。
-
-例如：
-
-Account ABC
-↕
-燕餃 Profile
-
-不因：
-
-離開某車
-某車結束
-某次 DM Role 結束
-離開 LINE 群
-
-而解除 Person Identity。
-
-13.1 Final Casting Authority
-
-測驗只供：
-
-Host / DM
-
-分角參考。
-
-不能：
-
-Quiz Result
-↓
-Automatically Lock Character
-
-正式分角：
-
-仍由 Authorized Host / DM 決定。
-
-13.2 Casting Quiz Template
-
-支援：
-
-Shared Script Quiz Template
-+
-Per-Car Override
-
-DM / Studio 可提供：
-
-題目
-適配規則
-說明
-校正建議
-13.3 LINE Assistant Integration
-Car Ready
-↓
-Assistant 發送心測
-↓
-Player Fill
-↓
-Completion Tracking
-↓
-Reminder
-↓
-DM View Result
-↓
-Final Casting
-
-目前：
-
-LONG-TERM
-NOT CURRENT PRIORITY
-
-### 第 4 段／4
-
-```markdown
----
-
-# 14. Personal Recruit Page
-
-Personal Recruit Page：
-
-主要顯示使用者主揪的車。
-
-「我是玩家」目前不作主要招募頁內容。
-
-例外：
-
-某車勾選：
+├─ 管理目前使用者身分
+├─ 連結 Player Profile
+├─ 維護 linkedPlayerIds
+└─ 對外提供 window.JLYIdentity
+```
+
+相關檔案：
+
+- `js/myprofile.js`
+- `js/mycar.js`
+- `js/car/car-relations.js`
+- `js/player/line-account.js`
+- `js/migrations/car-ownership-v1.js`
+
+### 5.2 車團核心
+
+`js/car/` 按責任拆分：
+
+- `car-data.js`：車團 Firestore 讀寫。
+- `car-actions.js`：車團操作。
+- `car-create.js`：建立車團領域邏輯。
+- `car-edit.js`：編輯車團領域邏輯。
+- `car-list.js`：車團清單。
+- `car-card.js`：車團卡片。
+- `car-status.js`：車團狀態。
+- `car-relations.js`：玩家與車團關係。
+- `car-migration.js`：資料遷移／相容。
+- `car-view.js`：玩家端頁面控制。
+- `car-view-render.js`：玩家端頁面渲染。
+
+子模組：
+
+- `js/car/application/`：報名資料、操作與渲染。
+- `js/car/history/`：車團歷史紀錄。
+- `js/car/player/`：車團內玩家搜尋、編輯與渲染。
+- `js/car/seat/`：新版座位引擎。
+
+### 5.3 座位引擎
 
 ```text
-協助揪團
+Car / Players
+    ↓
+seat-data + seat-rules + seat-layout
+    ↓
+seat-assignment + seat-actions
+    ↓
+seat-board + seat-render + seat-controller
+    ↓
+drag / player-drag
+    ↓
+player-move-pipeline → player-move-executor
+```
 
-即可出現在個人揪團頁。
+正式模組位於 `js/car/seat/`：
 
-14.1 Visibility
+- `seat-data.js`
+- `seat-rules.js`
+- `seat-layout.js`
+- `seat-assignment.js`
+- `seat-actions.js`
+- `seat-render.js`
+- `seat-board.js`
+- `seat-controller.js`
+- `drag.js`
+- `player-drag.js`
+- `player-move-pipeline.js`
+- `player-move-executor.js`
 
-車團支援：
+`js/seat.js` 仍由車團詳情、編輯及媒合頁載入，定位為 Compatibility Runtime，完成依賴稽核前不可刪除。
 
-Public
-Private
+### 5.4 Car Detail V3
 
-Public：
+實際頁面入口：`pages/car-detail.html`。
 
-Personal Recruit Page
-+
-Public Recruitment Area
+新版模組位於 `js/modules/car/detail/`：
 
-Private：
+- `controller/`：載入、初始化、事件與頁面控制。
+- `render/`：摘要、座位、歷史及整頁渲染。
+- `player/`：搜尋、手動新增、編輯與玩家操作。
+- `application/`：報名審核操作。
+- `matching/`：媒合確認操作。
+- `upgrade/`：舊資料升級與修復。
 
-Personal Page
-或
-Single Car Link
+目前執行關係：
 
-不需要第三種公開狀態。
+```text
+pages/car-detail.html
+├─ js/car/seat/*                         正式座位模組
+├─ js/modules/core/upgrade/*             資料升級
+├─ js/modules/member/picker/*            Member Picker
+├─ js/modules/staff/*                    Staff
+├─ js/seat.js                            相容層
+├─ js/cardetail.js                       過渡 Runtime
+└─ js/modules/car/detail/*               新版 Car Detail Runtime
+```
 
-14.2 Link Safety
+狀態分類：
 
-未來支援：
+- `js/modules/car/detail/`：Current Runtime。
+- `js/cardetail.js`：Transitional Runtime，仍在載入。
+- `js/seat.js`：Compatibility Runtime，仍在載入。
+- `js/car/car-detail.js`：Legacy Candidate，目前未見 HTML 載入。
+- `js/cardetail-v2-backup-20260801.js.js`：Backup Only。
 
-Rotatable Random Link
+### 5.5 Member Picker
 
-避免私人連結永久流傳。
+`js/modules/member/` 提供 Member 結構與選擇器：
 
-15. Plan / Feature Permission Layer
+- `member-schema.js`
+- `member-data.js`
+- `member-picker.js`
+- `picker/picker-state.js`
+- `picker/picker-storage.js`
+- `picker/picker-data.js`
+- `picker/picker-create.js`
+- `picker/picker-render.js`
+- `picker/picker-events.js`
+- `picker/picker-controller.js`
 
-JLY 所有新功能：
+目前主要由 Car Detail 的 Staff 與 Player 操作使用。
 
-從現在起預留：
+### 5.6 Staff
 
-Feature Permission Layer
+`js/modules/staff/`：
 
-可能方案：
+- `staff-data.js`
+- `staff-render.js`
+- `staff-actions.js`
+- `staff-controller.js`
 
-Free
-JLY+
-Business / Studio
+主要資料來源為 `car.staffSlots`，並與車團詳情、玩家視圖及時間媒合相連。
 
-目前：
+### 5.7 時間媒合
 
-不急著決定收費項目。
+`js/matching/`：
 
-核心：
+- `matching-controller.js`：頁面控制與載入。
+- `matching-data.js`：Firestore 讀寫。
+- `matching-calendar.js`：日期選擇。
+- `matching-conflict.js`：衝突分析。
+- `matching-matrix.js`：成員與時段矩陣。
+- `matching-render.js`：頁面渲染。
+- `matching-actions.js`：互動操作。
+- `matching-createcar.js`：由媒合結果建立正式車團。
+- `matching-vote.js`：參與者投票頁。
 
-Feature Module
-≠
-Plan Permission
-15.1 Feature Classification
+核心資料流：
 
-每個新功能規劃時：
+```text
+car.players + car.staffSlots
+        +
+matching.candidateSlots + matching.responses
+        ↓
+Matching Matrix / Conflict
+        ↓
+selectedSlotId / create formal car
+```
 
-同步標記：
+### 5.8 Google Calendar
 
-所屬 Village
-是否共用 Module
-Role Permission
-Plan Permission
-是否可能 Free
-是否可能 Upgrade
+`js/modules/calendar/`：
 
-核心資料與 Engine：
+- `calendar-config.js`：Client ID、Scope、Calendar ID 與開關。
+- `calendar-auth.js`：Google OAuth。
+- `calendar-provider-google.js`：Calendar API 呼叫。
+- `calendar-data.js`：車團 calendar 欄位。
+- `calendar-sync.js`：建立、更新、刪除同步。
+- `calendar-schedule-check.js`：行程衝突檢查。
+- `calendar-detail-actions.js`：車團詳情操作。
+- `calendar-controller.js`：功能設定與控制。
 
-不得因方案不同重複建立。
+主要整合點為建立車團與車團詳情。同步功能應由設定開關控制，未授權時不可假設可用。
 
-16. Firebase / Data Map
+### 5.9 個人招募頁
 
-本區目前仍為 Working Data Map。
+`js/recruit/`：
 
-未完成完整 Collection / Document / Read / Write Audit 的部分不得自行推測。
+- `recruit-controller.js`
+- `recruit-data.js`
+- `recruit-render.js`
+- `recruit-tabs.js`
+- `recruit-share-data.js`
+- `recruit-share.js`
 
-16.1 Firebase Entry
-firebase/firebase.js
-16.2 Identity Relationship
+`pages/mycar.html` 管理分享連結；`pages/recruit.html` 透過 Token 顯示公開招募內容。
 
-目前：
+### 5.10 通知、報表與 Studio
 
-Current Identity
-↓
-Player Profile
-↓
-linkedPlayerIds[]
-↓
-Historical Player IDs
-↓
-Car Player Relationship
+- `js/notification/`：LINE 訊息、提醒、招募文字與通知設定。
+- `js/report/`：車團、玩家、Studio 報表及匯出。
+- `js/studio/`：Studio 資料、權限、車團、DM 行程與個人資料。
 
-未來 Account 正確方向：
+這三組已有實作檔案，但目前未全面確認 HTML Runtime 入口；修改前應先做依賴稽核。
 
-Account
-↓
-Identity Core
-↓
-Player Profile
-↓
-linkedPlayerIds[]
-↓
-Historical Player Data
+---
 
-禁止：
+## 6. LINE 架構
 
-Account
-↓
-Independent New Player Identity
-16.3 Future Role Relationship
-Account
-↓
-Person / Profile
-↓
-Car Participation
-↓
-Role Grant
-↓
-Permission
+### 6.1 前端 LINE 登入
 
-Account：
+```text
+js/line.js
+    ↓ LINE Login
+pages/line-callback.html
+    ↓
+js/line-callback.js
+    ↓
+Identity / Player Profile
+```
 
-登入與驗證。
+目前專案中不存在舊文件曾列出的 `api/line-login.js`。前端登入是否依賴外部端點或不同部署設定，需另行確認。
 
-Profile：
+### 6.2 LINE Messaging API Webhook
 
-這個人是誰。
+```text
+LINE Platform
+    ↓ POST webhook
+api/line-webhook.js
+    ↓ 驗證 LINE_MESSAGING_CHANNEL_SECRET
+services/line/event-router.js
+    ↓
+services/line/message-router.js
+    ↓ 需要回覆時
+services/line/line-reply.js
+    ↓ LINE_MESSAGING_CHANNEL_ACCESS_TOKEN
+LINE Reply API
+```
 
-Participation：
+目前訊息路由只在使用者明確呼叫「小助手／JLY 小助手」時回應，普通群組訊息保持安靜。
 
-這個人在某車的參與紀錄。
+### 6.3 LINE 群組綁定
 
-Role：
+```text
+LINE groupId
+    ↓
+services/line/group-binding-service.js
+    ↓
+services/line/group-binding.js
+    ↓
+services/firebase/line-group-binding-repository.js
+    ↓
+Firestore
+```
 
-本車角色。
+職責：
 
-Permission：
+- `group-binding.js`：結構、正規化與驗證。
+- `group-binding-service.js`：查詢綁定並回傳群組 Context。
+- `line-group-binding-repository.js`：Firestore 讀寫及停用綁定。
+- `services/firebase/admin.js`：Firebase Admin 初始化。
 
-本 Scope 可操作能力。
+目前 `services/line/group-binding-service.js` 是 Git 未追蹤檔案；提交前須完成檢查。
 
-16.4 Car
+伺服器環境變數：
+
+- `LINE_MESSAGING_CHANNEL_SECRET`
+- `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+
+---
+
+## 7. Firebase 與資料地圖
+
+### 7.1 前端入口
+
+`firebase/firebase.js`：
+
+- 初始化 Firebase Web App。
+- 建立 `window.db` Firestore 實例。
+- 提供 `saveCarToFirebase()`。
+- 自動維護 `scripts`、`studios`、`dms` 主資料。
+
+### 7.2 目前可確認的集合
+
+- `cars`：車團核心資料。
+- `players`：玩家與身分資料。
+- `scripts`：劇本主資料。
+- `studios`：工作室主資料。
+- `dms`：DM 主資料。
+- 玩家下的車團關係子集合。
+- 個人招募分享 Token／Owner 資料。
+- LINE 群組綁定資料。
+
+部分集合名稱由常數或 Repository 動態提供，部署前應再與 Firestore Rules 及正式資料庫核對。
+
+### 7.3 Car 概念模型
+
+```text
 Car
 ├─ scriptName
-├─ gameDate
-├─ gameTime
+├─ gameDate / gameTime
 ├─ location
-├─ organizer
+├─ organizer / owner identity
 ├─ capacity / position configuration
 ├─ allowCrossPlay
 ├─ note
 ├─ status
 ├─ players[]
 ├─ applications[]
-├─ staffSlots
+├─ staffSlots[]
 ├─ matching
+├─ calendar
 ├─ history[]
 ├─ createdAt
 └─ updatedAt
-16.5 Player In Car
-playerId
-playerName
-displayName
-hostAlias
-hostNote
-position
-roleChoice
-isCrossPlay
-status
-joinedAt
-source
-16.6 Player Profile
+```
 
-目前概念：
-
-id
-displayName
-nickname
-aliases[]
-isLineLinked
-lineDisplayName
-linkedPlayerIds[]
-createdAt
-16.7 Application
-playerName
-position
-isCrossPlay
-createdAt
-status
-hostAlias
-16.8 Staff
-
-Current：
-
-Car
-└─ staffSlots
-
-Legacy：
-
-dmName
-dmList
-
-dmName / dmList
-
-不再作 Matrix V2 正式來源。
-
-16.9 Matching
-matching
-├─ candidateSlots
-├─ responses
-├─ selectedDates
-├─ commonSlots
-└─ selectedSlotId
-
-Participant：
-
-participant
-├─ participantType
-├─ participantKey
-├─ participantId
-└─ participantName
-
-DM：
-
-participantType = dm
-dmId
-dmName
-
-Player：
-
-participantType = player
-playerId
-playerName
-16.10 History
-History
-├─ type
-├─ text
-└─ time
-16.11 LINE Account Data Note
-
-2026-08-10：
-
-Secure Account Login Ticket V2 整合已 Revert。
-
-因此：
-
-accountLoginTickets
-
-目前不得視為：
-
-Current Official Runtime Dependency
-
-直到未來：
-
-Account Layer Reintroduction
-↓
-Desktop Test
-↓
-Mobile Test
-↓
-Identity Test
-↓
-Firebase Audit
-↓
-Project Map Update
-
-完成後才重新升級狀態。
-
-17. Dependency Map
-17.1 Identity / My Car
-Current Identity
-↓
-Player Profile
-↓
-linkedPlayerIds
-↓
-Historical Player IDs
-↓
-Car Player Relationship
-↓
-「我是玩家」
-pages/mycar.html
-↓
-js/mycar.js
-↓
-Identity / Car Relationship
-↓
-我主揪的 / 我是玩家
-17.2 Seat
-Car
-↓
-Players
-↓
-Seat Engine
-├─ Data
-├─ Rules
-├─ Layout
-├─ Assignment
-├─ Actions
-├─ Render
-└─ Player Move
-Player Drag
-↓
-Move Pipeline
-↓
-Rules / Validation
-↓
-Move Executor
-↓
-Seat / Player State
-17.3 Car Detail
-pages/car-detail.html
-↓
-Transitional Runtime
-├─ js/cardetail.js              ❓
-├─ js/car/car-detail.js         ❓
-└─ js/modules/car/detail/
-   ├─ controller/
-   ├─ player/
-   ├─ application/
-   ├─ matching/
-   ├─ render/
-   └─ upgrade/
-17.4 Player Car View
-pages/car-view.html
-↓
-js/car/car-view.js
-↓
-Car Data
-↓
-js/car/car-view-render.js
-↓
-Player-facing View
-
-CSS：
-
-css/pages/car-view.css
-17.5 Matching
-Car
-├─ players
-├─ staffSlots
-└─ matching
-↓
-js/matching/
-↓
-Matrix / Calendar / Conflict / Vote
-car.players
-+
-car.staffSlots
-+
-matching.responses
-+
-matching.candidateSlots
-↓
-Matching Matrix
-17.6 Calendar
-JLY Calendar
-↓
-Calendar Controller
-├─ Config
-├─ Auth
-├─ Data
-├─ Schedule Check
-└─ Sync
-↓
-Google Provider
-↓
-Google Calendar
-
-Default：
-
-OFF
-17.7 Staff
-Car
-↓
-staffSlots
-↓
-Staff Module
-↓
-Car Detail / Player View / Matching
-17.8 Application
-Application
-↓
-Approve
-↓
-Player
-↓
-Seat Assignment
-↓
-Seat Engine
-17.9 Future Account
-Account
-↓
-Identity Core
-↓
-Player Profile
-↓
-linkedPlayerIds
-↓
-Historical Player Data
-18. Legacy / Duplicate Audit
-
-疑似舊檔不等於可以刪除。
-
-目前 Audit：
-
-js/cardetail-v2-backup-20260801.js.js
-
-js/cardetail.js
-js/car/car-detail.js
-js/modules/car/detail/
-
-js/app.js
-js/common/app.js
-
-js/storage.js
-js/common/storage.js
-
-js/utils.js
-js/common/utils.js
-
-js/database.js
-js/playerDatabase.js
-js/player/player-database.js
-js/player/player-search.js
-
-pages/database.html
-pages/players.html
-
-css/cardetail.css
-css/pages/car-detail.css
-
-css/mycar.css
-css/pages/mycar.css
-
-js/seat.js
-js/car/seat/
-
-js/car/application/
-js/modules/car/detail/application/
-
-js/modules/notification/
-js/notification/
-
-js/modules/report/
-js/report/
-
-js/modules/seat/
-js/car/seat/
-
-js/modules/studio/
-js/studio/
-18.1 Reverted Account Audit
-
-Account / Secure Login Ticket V2 已 Revert。
-
-相關檔案：
-
-若目前 Main Runtime 已不再載入：
-
-應標示為：
-
-📦 Backup Only
-⚠️ Legacy Candidate
-或
-🗑 Deprecated
-
-但必須實際完成 Dependency Audit 後才能定案。
-
-19. Development Entry Points
-
-修改功能前先查本區。
-
-Entry Point 表示從哪裡開始追，不代表只修改一支檔案。
-
-19.1 Identity
-js/core/identity.js
-19.2 LINE Login
-pages/line-callback.html
-js/line.js
-js/line-callback.js
-api/line-login.js
-
-目前：
-
-Mobile Login = Stable
-
-Account / Secure Login Ticket V2：
-
-REVERTED
-
-Git：
-
-backup-line-account-v2
-19.3 My Car
-pages/mycar.html
-js/mycar.js
-js/core/identity.js
-js/car/car-relations.js
-js/myprofile.js
-19.4 Seat Engine
-js/car/seat/
-├─ seat-data.js
-├─ seat-rules.js
-├─ seat-layout.js
-├─ seat-assignment.js
-├─ seat-actions.js
-├─ seat-render.js
-├─ seat-board.js
-├─ seat-controller.js
-├─ drag.js
-├─ player-drag.js
-├─ player-move-pipeline.js
-└─ player-move-executor.js
-
-css/components/seat-engine.css
-19.5 Matching
-pages/matching.html
-js/matching/
-css/pages/matching.css
-
-主要：
-
-matching-controller.js
-matching-data.js
-matching-matrix.js
-matching-render.js
-matching-calendar.js
-matching-conflict.js
-matching-actions.js
-matching-createcar.js
-
-Vote：
-
-pages/matching-vote.html
-js/matching/matching-vote.js
-css/pages/matching-vote.css
-19.6 Car View
-pages/car-view.html
-js/car/car-view.js
-js/car/car-view-render.js
-css/pages/car-view.css
-
-## 19.7 Car Detail
+### 7.4 Player / Member 概念模型
 
 ```text
-pages/car-detail.html
-js/modules/car/detail/
-js/cardetail.js
-js/seat.js
-js/car/car-detail.js
-js/cardetail-v2-backup-20260801.js.js
-
-19.8 Calendar
-js/modules/calendar/
-
-Auth：
-
-calendar-auth.js
-
-Provider：
-
-calendar-provider-google.js
-
-Sync：
-
-calendar-sync.js
-
-Data：
-
-calendar-data.js
-
-Config：
-
-calendar-config.js
-
-Schedule：
-
-calendar-schedule-check.js
-
-Controller：
-
-calendar-controller.js
-19.9 Create Car
-pages/createcar.html
-js/createcar.js
-
-Related：
-
-js/car/car-create.js
-js/car/seat/
-js/modules/calendar/
-19.10 Edit Car
-pages/editcar.html
-js/editcar.js
-
-Related：
-
-js/car/car-edit.js
-19.11 Personal Recruit Page
-pages/recruit.html
-js/recruit/
-css/pages/recruit.css
-js/car/car-relations.js
-19.12 Player Profile
-pages/myprofile.html
-js/myprofile.js
-js/core/identity.js
-
-Related Candidate：
-
-js/player/player-profile.js
-
-必須保護：
-
 Player Profile
-linkedPlayerIds
-Historical Identity
+├─ id / memberId
+├─ displayName
+├─ nickname
+├─ aliases[]
+├─ LINE linking fields
+├─ linkedPlayerIds[]
+└─ createdAt / updatedAt
+```
 
-13.1 Final Casting Authority
+工程方向是逐步以 `memberId` 作為人員唯一識別，將玩家、主揪、DM 與 Staff 視為共用 Member，再以參與關係、角色及權限區分；現有資料尚未保證全部完成統一。
 
-測驗只供：
+### 7.5 Matching 概念模型
 
-Host / DM
+```text
+matching
+├─ candidateSlots[]
+├─ responses
+├─ selectedDates[]
+├─ commonSlots[]
+└─ selectedSlotId
+```
 
-分角參考。
+參與者可能是 Player 或 DM／Staff，需保留 participant type、id、key 與顯示名稱。
 
-不能：
-
-Quiz Result
-↓
-Automatically Lock Character
-
-正式分角：
-
-仍由 Authorized Host / DM 決定。
-
-13.2 Casting Quiz Template
-
-支援：
-
-Shared Script Quiz Template
-+
-Per-Car Override
-
-DM / Studio 可提供：
-
-題目
-適配規則
-說明
-校正建議
-13.3 LINE Assistant Integration
-Car Ready
-↓
-Assistant 發送心測
-↓
-Player Fill
-↓
-Completion Tracking
-↓
-Reminder
-↓
-DM View Result
-↓
-Final Casting
-
-目前：
-
-LONG-TERM
-NOT CURRENT PRIORITY
-
-### 第 4 段／4
-
-```markdown
 ---
 
-# 14. Personal Recruit Page
+## 8. CSS 地圖
 
-Personal Recruit Page：
+### 8.1 全域
 
-主要顯示使用者主揪的車。
+- `css/style.css`：主要全域樣式。
+- `css/ui-system.css`：UI 系統。
 
-「我是玩家」目前不作主要招募頁內容。
+### 8.2 共用元件
 
-例外：
+`css/components/`：
 
-某車勾選：
+- `buttons.css`
+- `cards.css`
+- `forms.css`
+- `modal.css`
+- `navigation.css`
+- `seat-engine.css`
+- `status-tags.css`
 
-```text
-協助揪團
+### 8.3 頁面樣式
 
-即可出現在個人揪團頁。
+`css/pages/` 包含 Car Detail、Car View、Create Car、Edit Car、Matching、Matching Vote、Member Picker、My Car、Player、Recruit 與 Studio 等頁面樣式。
 
-14.1 Visibility
+重複／過渡候選：
 
-車團支援：
+- `css/cardetail.css` 與 `css/pages/car-detail.css` 目前同時由 Car Detail 載入。
+- `css/mycar.css` 與 `css/pages/mycar.css` 需確認實際入口後再整併。
 
-Public
-Private
+---
 
-Public：
+## 9. Config
 
-Personal Recruit Page
-+
-Public Recruitment Area
+`config/`：
 
-Private：
+- `constants.js`：共用常數。
+- `roles.js`：角色定義。
+- `permissions.js`：權限定義。
+- `theme.js`：主題設定。
 
-Personal Page
-或
-Single Car Link
+目前部分前端頁面未直接載入這些 Config；它們可能是架構預備或由其他檔案內嵌相同概念，使用前需確認 Runtime Dependency。
 
-不需要第三種公開狀態。
+---
 
-14.2 Link Safety
+## 10. Legacy、重複與風險清單
 
-未來支援：
+### 10.1 不可直接刪除
 
-Rotatable Random Link
+- `js/cardetail.js`：Car Detail 過渡 Runtime。
+- `js/seat.js`：多頁共用的相容 Runtime。
+- `css/cardetail.css`：Car Detail 仍有載入。
 
-避免私人連結永久流傳。
+### 10.2 Legacy／Duplicate Audit 候選
 
-15. Plan / Feature Permission Layer
+- `js/cardetail-v2-backup-20260801.js.js`
+- `js/car/car-detail.js`
+- `js/app.js` 與 `js/common/app.js`
+- `js/storage.js` 與 `js/common/storage.js`
+- `js/utils.js` 與 `js/common/utils.js`
+- `js/database.js`、`js/playerDatabase.js`、`js/player/player-database.js`
+- `pages/database.html` 與 `pages/players.html`
+- `css/cardetail.css` 與 `css/pages/car-detail.css`
+- `css/mycar.css` 與 `css/pages/mycar.css`
+- `js/car/application/` 與 `js/modules/car/detail/application/`
+- `js/notification/` 與空的 `js/modules/notification/`
+- `js/report/` 與空的 `js/modules/report/`
+- `js/studio/` 與空的 `js/modules/studio/`
 
-JLY 所有新功能：
+只有在完成以下檢查後才能標示 Deprecated 或刪除：
 
-從現在起預留：
+1. HTML `<script>`／`<link>` 載入。
+2. JavaScript 全域函式與 `window.JLY*` 呼叫。
+3. Firebase 資料讀寫依賴。
+4. 桌面與手機主要流程測試。
+5. Git Stable Point／可回復提交。
 
-Feature Permission Layer
+### 10.3 已確認的待辦缺口
 
-可能方案：
+- `pages/players.html` 引用 `/js/players.js`，但目前不存在該檔案；實際存在的是 `js/player.js`。
+- 舊地圖列出的 `api/line-login.js` 不存在。
+- `ROADMAP.md`、`VERSION_HISTORY.md`、`CODING_RULE.md`、`DATABASE_RULE.md` 目前是空檔。
+- 專案缺少正式測試與部署驗證指令。
+- LINE 群組綁定服務尚有未追蹤檔案。
 
-Free
-JLY+
-Business / Studio
+---
 
-目前：
+## 11. 功能修改入口
 
-不急著決定收費項目。
-
-核心：
-
-Feature Module
-≠
-Plan Permission
-15.1 Feature Classification
-
-每個新功能規劃時：
-
-同步標記：
-
-所屬 Village
-是否共用 Module
-Role Permission
-Plan Permission
-是否可能 Free
-是否可能 Upgrade
-
-核心資料與 Engine：
-
-不得因方案不同重複建立。
-
-16. Firebase / Data Map
-
-本區目前仍為 Working Data Map。
-
-未完成完整 Collection / Document / Read / Write Audit 的部分不得自行推測。
-
-16.1 Firebase Entry
-firebase/firebase.js
-16.2 Identity Relationship
-
-目前：
-
-Current Identity
-↓
-Player Profile
-↓
-linkedPlayerIds[]
-↓
-Historical Player IDs
-↓
-Car Player Relationship
-
-未來 Account 正確方向：
-
-Account
-↓
-Identity Core
-↓
-Player Profile
-↓
-linkedPlayerIds[]
-↓
-Historical Player Data
-
-禁止：
-
-Account
-↓
-Independent New Player Identity
-16.3 Future Role Relationship
-Account
-↓
-Person / Profile
-↓
-Car Participation
-↓
-Role Grant
-↓
-Permission
-
-Account：
-
-登入與驗證。
-
-Profile：
-
-這個人是誰。
-
-Participation：
-
-這個人在某車的參與紀錄。
-
-Role：
-
-本車角色。
-
-Permission：
-
-本 Scope 可操作能力。
-
-16.4 Car
-Car
-├─ scriptName
-├─ gameDate
-├─ gameTime
-├─ location
-├─ organizer
-├─ capacity / position configuration
-├─ allowCrossPlay
-├─ note
-├─ status
-├─ players[]
-├─ applications[]
-├─ staffSlots
-├─ matching
-├─ history[]
-├─ createdAt
-└─ updatedAt
-16.5 Player In Car
-playerId
-playerName
-displayName
-hostAlias
-hostNote
-position
-roleChoice
-isCrossPlay
-status
-joinedAt
-source
-16.6 Player Profile
-
-目前概念：
-
-id
-displayName
-nickname
-aliases[]
-isLineLinked
-lineDisplayName
-linkedPlayerIds[]
-createdAt
-16.7 Application
-playerName
-position
-isCrossPlay
-createdAt
-status
-hostAlias
-16.8 Staff
-
-Current：
-
-Car
-└─ staffSlots
-
-Legacy：
-
-dmName
-dmList
-
-dmName / dmList
-
-不再作 Matrix V2 正式來源。
-
-16.9 Matching
-matching
-├─ candidateSlots
-├─ responses
-├─ selectedDates
-├─ commonSlots
-└─ selectedSlotId
-
-Participant：
-
-participant
-├─ participantType
-├─ participantKey
-├─ participantId
-└─ participantName
-
-DM：
-
-participantType = dm
-dmId
-dmName
-
-Player：
-
-participantType = player
-playerId
-playerName
-16.10 History
-History
-├─ type
-├─ text
-└─ time
-16.11 LINE Account Data Note
-
-2026-08-10：
-
-Secure Account Login Ticket V2 整合已 Revert。
-
-因此：
-
-accountLoginTickets
-
-目前不得視為：
-
-Current Official Runtime Dependency
-
-直到未來：
-
-Account Layer Reintroduction
-↓
-Desktop Test
-↓
-Mobile Test
-↓
-Identity Test
-↓
-Firebase Audit
-↓
-Project Map Update
-
-完成後才重新升級狀態。
-
-17. Dependency Map
-17.1 Identity / My Car
-Current Identity
-↓
-Player Profile
-↓
-linkedPlayerIds
-↓
-Historical Player IDs
-↓
-Car Player Relationship
-↓
-「我是玩家」
-pages/mycar.html
-↓
-js/mycar.js
-↓
-Identity / Car Relationship
-↓
-我主揪的 / 我是玩家
-17.2 Seat
-Car
-↓
-Players
-↓
-Seat Engine
-├─ Data
-├─ Rules
-├─ Layout
-├─ Assignment
-├─ Actions
-├─ Render
-└─ Player Move
-Player Drag
-↓
-Move Pipeline
-↓
-Rules / Validation
-↓
-Move Executor
-↓
-Seat / Player State
-17.3 Car Detail
-pages/car-detail.html
-↓
-Transitional Runtime
-├─ js/cardetail.js              ❓
-├─ js/car/car-detail.js         ❓
-└─ js/modules/car/detail/
-   ├─ controller/
-   ├─ player/
-   ├─ application/
-   ├─ matching/
-   ├─ render/
-   └─ upgrade/
-17.4 Player Car View
-pages/car-view.html
-↓
-js/car/car-view.js
-↓
-Car Data
-↓
-js/car/car-view-render.js
-↓
-Player-facing View
-
-CSS：
-
-css/pages/car-view.css
-17.5 Matching
-Car
-├─ players
-├─ staffSlots
-└─ matching
-↓
-js/matching/
-↓
-Matrix / Calendar / Conflict / Vote
-car.players
-+
-car.staffSlots
-+
-matching.responses
-+
-matching.candidateSlots
-↓
-Matching Matrix
-17.6 Calendar
-JLY Calendar
-↓
-Calendar Controller
-├─ Config
-├─ Auth
-├─ Data
-├─ Schedule Check
-└─ Sync
-↓
-Google Provider
-↓
-Google Calendar
-
-Default：
-
-OFF
-17.7 Staff
-Car
-↓
-staffSlots
-↓
-Staff Module
-↓
-Car Detail / Player View / Matching
-17.8 Application
-Application
-↓
-Approve
-↓
-Player
-↓
-Seat Assignment
-↓
-Seat Engine
-17.9 Future Account
-Account
-↓
-Identity Core
-↓
-Player Profile
-↓
-linkedPlayerIds
-↓
-Historical Player Data
-18. Legacy / Duplicate Audit
-
-疑似舊檔不等於可以刪除。
-
-目前 Audit：
-
-js/cardetail-v2-backup-20260801.js.js
-
-js/cardetail.js
-js/car/car-detail.js
-js/modules/car/detail/
-
-js/app.js
-js/common/app.js
-
-js/storage.js
-js/common/storage.js
-
-js/utils.js
-js/common/utils.js
-
-js/database.js
-js/playerDatabase.js
-js/player/player-database.js
-js/player/player-search.js
-
-pages/database.html
-pages/players.html
-
-css/cardetail.css
-css/pages/car-detail.css
-
-css/mycar.css
-css/pages/mycar.css
-
-js/seat.js
-js/car/seat/
-
-js/car/application/
-js/modules/car/detail/application/
-
-js/modules/notification/
-js/notification/
-
-js/modules/report/
-js/report/
-
-js/modules/seat/
-js/car/seat/
-
-js/modules/studio/
-js/studio/
-18.1 Reverted Account Audit
-
-Account / Secure Login Ticket V2 已 Revert。
-
-相關檔案：
-
-若目前 Main Runtime 已不再載入：
-
-應標示為：
-
-📦 Backup Only
-⚠️ Legacy Candidate
-或
-🗑 Deprecated
-
-但必須實際完成 Dependency Audit 後才能定案。
-
-19. Development Entry Points
-
-修改功能前先查本區。
-
-Entry Point 表示從哪裡開始追，不代表只修改一支檔案。
-
-19.1 Identity
-js/core/identity.js
-19.2 LINE Login
-pages/line-callback.html
-js/line.js
-js/line-callback.js
-api/line-login.js
-
-目前：
-
-Mobile Login = Stable
-
-Account / Secure Login Ticket V2：
-
-REVERTED
-
-Git：
-
-backup-line-account-v2
-19.3 My Car
-pages/mycar.html
-js/mycar.js
-js/core/identity.js
-js/car/car-relations.js
-js/myprofile.js
-19.4 Seat Engine
-js/car/seat/
-├─ seat-data.js
-├─ seat-rules.js
-├─ seat-layout.js
-├─ seat-assignment.js
-├─ seat-actions.js
-├─ seat-render.js
-├─ seat-board.js
-├─ seat-controller.js
-├─ drag.js
-├─ player-drag.js
-├─ player-move-pipeline.js
-└─ player-move-executor.js
-
-css/components/seat-engine.css
-19.5 Matching
-pages/matching.html
-js/matching/
-css/pages/matching.css
-
-主要：
-
-matching-controller.js
-matching-data.js
-matching-matrix.js
-matching-render.js
-matching-calendar.js
-matching-conflict.js
-matching-actions.js
-matching-createcar.js
-
-Vote：
-
-pages/matching-vote.html
-js/matching/matching-vote.js
-css/pages/matching-vote.css
-19.6 Car View
-pages/car-view.html
-js/car/car-view.js
-js/car/car-view-render.js
-css/pages/car-view.css
-19.7 Car Detail
-pages/car-detail.html
-js/cardetail.js
-js/car/car-detail.js
-js/modules/car/detail/
-js/car/seat/
-
-狀態：
-
-🔄 Transitional
-
-修改前先做 Dependency Audit。
-
-19.8 Calendar
-js/modules/calendar/
-
-Auth：
-
-calendar-auth.js
-
-Provider：
-
-calendar-provider-google.js
-
-Sync：
-
-calendar-sync.js
-
-Data：
-
-calendar-data.js
-
-Config：
-
-calendar-config.js
-
-Schedule：
-
-calendar-schedule-check.js
-
-Controller：
-
-calendar-controller.js
-19.9 Create Car
-pages/createcar.html
-js/createcar.js
-
-Related：
-
-js/car/car-create.js
-js/car/seat/
-js/modules/calendar/
-19.10 Edit Car
-pages/editcar.html
-js/editcar.js
-
-Related：
-
-js/car/car-edit.js
-19.11 Personal Recruit Page
-pages/recruit.html
-js/recruit/
-css/pages/recruit.css
-js/car/car-relations.js
-19.12 Player Profile
-pages/myprofile.html
-js/myprofile.js
-js/core/identity.js
-
-Related Candidate：
-
-js/player/player-profile.js
-
-必須保護：
-
-Player Profile
-linkedPlayerIds
-Historical Identity
-
-Current Runtime：
-
-pages/car-detail.html
-↓
-js/modules/car/detail/            ✅ Current Runtime
-├─ application/
-├─ controller/
-├─ matching/
-├─ player/
-├─ render/
-└─ upgrade/
-
-目前已確認 pages/car-detail.html 直接載入：
-
-js/modules/car/detail/application/
-js/modules/car/detail/controller/
-js/modules/car/detail/matching/
-js/modules/car/detail/player/
-js/modules/car/detail/render/
-js/modules/car/detail/upgrade/
-
-狀態：
-
-✅ Confirmed Current Runtime
-Transitional Runtime
-js/cardetail.js
-
-狀態：
-
-🔄 Transitional Runtime
-
-原因：
-
-目前仍有 Runtime Responsibility。
-
-已確認：
-
-detail-init.js
-→ 暫時不重複啟動舊 cardetail.js
-
-detail-page-render.js
-→ 目前部分申請卡內容仍由 cardetail.js 處理
-
-detail-upgrade.js
-→ 仍保留 cardetail.js 相容邏輯
-
-因此：
-
-js/cardetail.js
-
-目前不可刪除、不可標示 Legacy。
-
-Compatibility Runtime
-js/seat.js
-
-狀態：
-
-🔄 Compatibility Runtime
-
-原因：
-
-目前仍明確保留給：
-
-cardetail.js
-editcar.js
-
-等舊 Runtime 使用。
-
-因此：
-
-不得先行移除。
-
-Legacy Candidate
-js/car/car-detail.js
-
-狀態：
-
-⚠️ Legacy Candidate
-
-目前 Audit 結果：
-
-未發現 HTML Runtime 引用
-未發現 JS Runtime 引用
-
-目前先保留。
-
-禁止直接刪除。
-
-後續若確認：
-
-No Import
-No Script Load
-No Runtime Call
-No Data Dependency
-
-才可升級為：
-
-🗑 Deprecated
-Backup
-js/cardetail-v2-backup-20260801.js.js
-
-狀態：
-
-📦 Backup Only
-
-用途：
-
-Historical Reference
-Rollback Reference
-Code Comparison
-
-不作 Current Runtime。
-
-Car Detail Current Architecture
-pages/car-detail.html
-│
-├─ js/modules/car/detail/        ✅ Current Runtime
-│
-├─ js/cardetail.js               🔄 Transitional Runtime
-│
-├─ js/seat.js                    🔄 Compatibility Runtime
-│
-├─ js/car/car-detail.js          ⚠️ Legacy Candidate
-│
-└─ cardetail-v2-backup...        📦 Backup Only
-
-核心：
-
-Car Detail
-目前仍處於 Transitional Migration。
-
-新模組已正式進入 Runtime，
-
-但舊 cardetail.js 尚未完全退場。
-
-因此：
-
-Do Not Delete Transitional Files
-Before Dependency Audit Is Complete
-19.8 Calendar
-
-貼好、存檔後，**Car Detail 這組就正式完成第一輪 Audit**。
-
-下一組我建議處理最容易混淆的：
-
-```text
-js/app.js
-vs
-js/common/app.js
-
-因為這組通常可以很快判斷誰是真入口。
+| 要修改的功能 | 建議先看 |
+|---|---|
+| 首頁統計 | `index.html`、`js/app.js` |
+| 我的車團 | `pages/mycar.html`、`js/mycar.js`、`js/car/car-data.js` |
+| 建立車團 | `pages/createcar.html`、`js/createcar.js`、Calendar 模組 |
+| 編輯車團 | `pages/editcar.html`、`js/editcar.js`、`js/seat.js` |
+| 車團詳情 | `pages/car-detail.html`、`js/modules/car/detail/`、`js/cardetail.js` |
+| 座位與拖曳 | `js/car/seat/`、`js/seat.js` |
+| 玩家端車團頁 | `pages/car-view.html`、`js/car/car-view*.js` |
+| 報名 | `pages/join.html`、`js/join.js`、Car Detail application |
+| 時間媒合 | `pages/matching*.html`、`js/matching/` |
+| Staff／DM | `js/modules/staff/`、Member Picker |
+| 玩家身分 | `js/core/identity.js`、`js/myprofile.js` |
+| 個人招募 | `pages/recruit.html`、`js/recruit/` |
+| Google Calendar | `js/modules/calendar/` |
+| LINE 登入 | `js/line.js`、`js/line-callback.js` |
+| LINE Bot | `api/line-webhook.js`、`services/line/` |
+| Firebase Admin | `services/firebase/admin.js` |
+
+---
+
+## 12. 文件地圖
+
+- `docs/PROJECT_MAP.md`：目前專案、Runtime、資料與風險總覽。
+- `docs/PROJECT_STRUCTURE.md`：目錄分類與模組化原則。
+- `docs/ENGINEERING_STANDARD.md`：工程方向與 Member 身分原則。
+- `docs/CODING_RULE.md`：預留，尚未撰寫。
+- `docs/DATABASE_RULE.md`：預留，尚未撰寫。
+- `docs/ROADMAP.md`：預留，尚未撰寫。
+- `docs/VERSION_HISTORY.md`：預留，尚未撰寫。
+
+---
+
+## 13. Git 與維護規則
+
+- 儲存庫使用 Git，主要分支為 `main`。
+- 遠端為 GitHub `PS19891219/JLY_Host_System`。
+- 每次架構、檔案或 Runtime 入口改動後，應同步更新本文件。
+- 每次清理 Legacy 前，先建立可回復的 Git Stable Point。
+- 不應把「資料夾存在」視為「功能已完成」。
+- 不應把「文件標為 Legacy」視為可安全刪除，必須以依賴稽核與流程測試確認。
+
+---
+
+## 14. 建議下一步
+
+1. 修正 `pages/players.html` 的 Script 入口並驗證玩家資料庫。
+2. 檢查及提交 `services/line/group-binding-service.js`。
+3. 為 LINE Webhook／Group Binding 增加自動測試。
+4. 建立 Firestore Collection 與 Security Rules 的正式文件。
+5. 完成 Car Detail Transitional Runtime 依賴稽核。
+6. 補寫 Coding Rule、Database Rule、Roadmap 與 Version History。
+
+---
+
+## 15. 更新紀錄
+
+### V2.0｜2026-08-12
+
+- 依照實際專案檔案與 HTML Runtime 重新建立。
+- 移除舊版文件中的重複段落。
+- 補入 LINE Webhook、Reply、Message Router 與 Group Binding 架構。
+- 補入 Firebase Admin 與伺服器環境變數。
+- 修正不存在的 `api/line-login.js` 描述。
+- 明確區分 Current、Transitional、Compatibility、Legacy Candidate 與 Backup。
+- 記錄玩家資料庫入口缺檔、空文件及未追蹤檔案。
