@@ -32,10 +32,10 @@ const {
 );
 
 const {
-  buildGroupQuickMenuMessage
-} = require(
-  "./group-quick-menu"
-);
+  buildGroupAssistantCard,
+  buildAccountingMenuCard
+} = require("./group-assistant-card");
+const { getCarById } = require("../firebase/line-accounting-authorization-repository");
 
 const {
   routeTextMessage
@@ -288,6 +288,7 @@ async function handleMessageEvent(
   const preparePairing = dependencies.prepareGroupPairing || prepareGroupPairing;
   const confirmPairing = dependencies.confirmGroupPairing || confirmGroupPairing;
   const cancelPairing = dependencies.cancelGroupPairing || cancelGroupPairing;
+  const readCar = dependencies.getCarById || getCarById;
 
   // ----------------------------------------------------------
   // Non-text message
@@ -848,12 +849,27 @@ async function handleMessageEvent(
     messageResult.action === "assistant_called" &&
     context.source.type === "group"
   ) {
+    let car = null;
+    if (context.accountingCarId) {
+      try { car = await readCar(context.accountingCarId); } catch (error) {
+        console.error("LINE assistant car lookup failed.", error);
+      }
+    }
     await replyWithMessages(
       context.replyToken,
-      [
-        buildGroupQuickMenuMessage()
-      ]
+      [buildGroupAssistantCard(car)]
     );
+  } else if (
+    messageResult.action === "assistant_accounting_card" &&
+    context.source.type === "group"
+  ) {
+    let car = null;
+    if (context.accountingCarId) {
+      try { car = await readCar(context.accountingCarId); } catch (error) {
+        console.error("LINE accounting card car lookup failed.", error);
+      }
+    }
+    await replyWithMessages(context.replyToken, [buildAccountingMenuCard(car)]);
   } else {
     await replyWithText(
       context.replyToken,

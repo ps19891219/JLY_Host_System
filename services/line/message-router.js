@@ -125,6 +125,13 @@ function routeMenuCommand(text) {
     );
 
   switch (normalized) {
+    case "jly車團帳務":
+      return {
+        handled: true,
+        action: "assistant_accounting_card",
+        replyText: "開啟車團帳務選單"
+      };
+
     case "jly記帳":
       return {
         handled: true,
@@ -145,6 +152,41 @@ function routeMenuCommand(text) {
         replyText:
           "⏰ 群組提醒入口已開啟。\n" +
           "提醒內容與時間設定將在下一階段加入。"
+      };
+
+    case "jly成員座位":
+      return {
+        handled: true,
+        action: "assistant_member_menu",
+        replyText: "👥 成員與座位功能將在下一階段加入。"
+      };
+
+    case "jly最新通知":
+      return {
+        handled: true,
+        action: "assistant_notice_menu",
+        replyText: "📣 目前沒有新的車團通知。"
+      };
+
+    case "jly新增分帳":
+      return {
+        handled: true,
+        action: "assistant_split_create",
+        replyText: "➕ 新增分帳頁面將在下一階段加入。"
+      };
+
+    case "jly我的分帳":
+      return {
+        handled: true,
+        action: "assistant_my_balance",
+        replyText: "👤 個人應收／應付頁面將在下一階段加入。"
+      };
+
+    case "jly我的帳目":
+      return {
+        handled: true,
+        action: "assistant_my_entries",
+        replyText: "✏️ 我的帳目頁面將在下一階段加入。"
       };
 
     case "jly車團資訊":

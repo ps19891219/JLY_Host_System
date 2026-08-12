@@ -90,6 +90,13 @@ test(
             }
           };
         },
+        getCarById: async function () {
+          return {
+            id: "car-1",
+            scriptName: "測試劇本",
+            date: "2026-08-20"
+          };
+        },
         sendReplyMessage: async function (
           replyToken,
           messages
@@ -112,25 +119,43 @@ test(
     );
     assert.equal(calls[0][0], "binding");
     assert.equal(calls[1][0], "reply");
-    assert.equal(
-      calls[1][2][0].quickReply.items.length,
-      4
-    );
+    assert.equal(calls[1][2][0].type, "flex");
     assert.deepEqual(
-      calls[1][2][0].quickReply.items.map(
+      calls[1][2][0].contents.body.contents.map(
         function (item) {
           return item.action.text;
         }
       ),
       [
-        "JLY 記帳",
-        "JLY 提醒",
+        "JLY 車團帳務",
         "JLY 車團資訊",
+        "JLY 成員座位",
+        "JLY 提醒",
+        "JLY 最新通知",
         "JLY 使用說明"
       ]
     );
   }
 );
+
+test("accounting button opens the persistent second-level menu", async function () {
+  let messages = null;
+  const result = await routeEvent(
+    createTextEvent({ text: "JLY 車團帳務" }),
+    {
+      resolveGroupBinding: async function (groupId) {
+        return { bound: true, reason: "binding_found", binding: { groupId, carId: "car-1" } };
+      },
+      getCarById: async function () {
+        return { id: "car-1", scriptName: "測試劇本" };
+      },
+      sendReplyMessage: async function (_replyToken, sent) { messages = sent; }
+    }
+  );
+  assert.equal(result.route, "assistant_accounting_card");
+  assert.equal(messages[0].type, "flex");
+  assert.equal(messages[0].contents.body.contents.length, 4);
+});
 
 test(
   "binding lookup failure does not prevent assistant reply",
