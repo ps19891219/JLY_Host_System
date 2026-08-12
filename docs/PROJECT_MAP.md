@@ -373,7 +373,7 @@ Firestore
 - `line-group-binding-repository.js`：Firestore 讀寫及停用綁定。
 - `services/firebase/admin.js`：Firebase Admin 初始化。
 
-目前 `services/line/group-binding-service.js` 是 Git 未追蹤檔案；提交前須完成檢查。
+`services/line/group-binding-service.js` 已通過語法與 CommonJS 模組載入檢查，可作為群組綁定查詢服務使用。目前尚未由 `event-router.js` 或 `message-router.js` 呼叫，因此屬於已完成但尚未接入 LINE Runtime 的基礎模組。
 
 伺服器環境變數：
 
@@ -542,7 +542,7 @@ matching
 - 舊地圖列出的 `api/line-login.js` 不存在。
 - `ROADMAP.md`、`VERSION_HISTORY.md`、`CODING_RULE.md`、`DATABASE_RULE.md` 目前是空檔。
 - 專案缺少正式測試與部署驗證指令。
-- LINE 群組綁定服務尚有未追蹤檔案。
+- LINE 群組綁定查詢服務尚未接入 Event Router／Message Router。
 
 ---
 
@@ -595,7 +595,7 @@ matching
 ## 14. 建議下一步
 
 1. 修正 `pages/players.html` 的 Script 入口並驗證玩家資料庫。
-2. 檢查及提交 `services/line/group-binding-service.js`。
+2. 將 LINE Group Binding Service 接入 Event Router／Message Router。
 3. 為 LINE Webhook／Group Binding 增加自動測試。
 4. 建立 Firestore Collection 與 Security Rules 的正式文件。
 5. 完成 Car Detail Transitional Runtime 依賴稽核。
@@ -614,3 +614,8 @@ matching
 - 修正不存在的 `api/line-login.js` 描述。
 - 明確區分 Current、Transitional、Compatibility、Legacy Candidate 與 Backup。
 - 記錄玩家資料庫入口缺檔、空文件及未追蹤檔案。
+
+### V2.1｜2026-08-12
+
+- 確認 `services/line/group-binding-service.js` 通過語法與模組載入檢查。
+- 將 Group Binding Service 標示為已完成、尚未接入 LINE Runtime 的基礎模組。
