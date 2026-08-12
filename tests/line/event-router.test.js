@@ -14,8 +14,12 @@ function createTextEvent(options = {}) {
     type: "message",
     timestamp: 1,
     replyToken:
-      options.replyToken ||
-      "reply-token",
+      Object.prototype.hasOwnProperty.call(
+        options,
+        "replyToken"
+      )
+        ? options.replyToken
+        : "reply-token",
     source: {
       type:
         options.sourceType ||
@@ -176,5 +180,125 @@ test(
     assert.equal(result.handled, true);
     assert.equal(bindingCalls, 0);
     assert.equal(result.groupBinding, null);
+  }
+);
+
+test(
+  "group accounting command writes the current group entry",
+  async function () {
+    const calls = [];
+
+    const result = await routeEvent(
+      createTextEvent({
+        text: "JLY 支出 350 聚餐飲料"
+      }),
+      {
+        resolveGroupBinding: async function () {
+          return {
+            bound: false,
+            reason: "binding_not_found",
+            binding: null
+          };
+        },
+        recordGroupAccounting: async function (
+          context,
+          command
+        ) {
+          calls.push([
+            "save",
+            context.source.groupId,
+            command
+          ]);
+
+          return {
+            saved: true,
+            entry: command
+          };
+        },
+        sendTextReply: async function (
+          replyToken,
+          text
+        ) {
+          calls.push([
+            "reply",
+            replyToken,
+            text
+          ]);
+        }
+      }
+    );
+
+    assert.equal(result.route, "accounting_create");
+    assert.equal(calls[0][0], "save");
+    assert.equal(calls[0][1], "group-1");
+    assert.equal(calls[0][2].amount, 350);
+    assert.ok(calls[1][2].includes("記帳成功"));
+    assert.ok(calls[1][2].includes("聚餐飲料"));
+  }
+);
+
+test(
+  "private chat accounting command does not write a group entry",
+  async function () {
+    let saveCalls = 0;
+    let replyText = "";
+
+    const result = await routeEvent(
+      createTextEvent({
+        sourceType: "user",
+        groupId: "",
+        text: "JLY 支出 350 聚餐飲料"
+      }),
+      {
+        recordGroupAccounting: async function () {
+          saveCalls += 1;
+        },
+        sendTextReply: async function (
+          replyToken,
+          text
+        ) {
+          replyText = text;
+        }
+      }
+    );
+
+    assert.equal(
+      result.route,
+      "accounting_group_required"
+    );
+    assert.equal(saveCalls, 0);
+    assert.ok(replyText.includes("只能在 LINE 群組"));
+  }
+);
+
+test(
+  "accounting command without reply token does not write",
+  async function () {
+    let saveCalls = 0;
+
+    const result = await routeEvent(
+      createTextEvent({
+        replyToken: "",
+        text: "JLY 支出 350 聚餐飲料"
+      }),
+      {
+        resolveGroupBinding: async function () {
+          return {
+            bound: false,
+            reason: "binding_not_found",
+            binding: null
+          };
+        },
+        recordGroupAccounting: async function () {
+          saveCalls += 1;
+        }
+      }
+    );
+
+    assert.equal(
+      result.route,
+      "message_missing_reply_token"
+    );
+    assert.equal(saveCalls, 0);
   }
 );

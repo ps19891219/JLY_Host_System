@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.5
+> Version: V2.6
 >
 > Last Updated: 2026-08-12
 >
@@ -422,7 +422,31 @@ Rich Menu 只顯示在 LINE Official Account 的一對一聊天室。群組內�
 - `tests/line/group-quick-menu.test.js`：驗證四個按鈕的 LINE 訊息格式。
 - `tests/line/event-router.test.js`：驗證群組綁定查詢順序與實際回覆 payload。
 
-目前群組按鈕只有入口與提示回覆；記帳寫入 Firebase、提醒排程與車團查詢的實際資料操作將在後續階段加入。
+目前群組按鈕中的記帳已接入 Firebase；提醒排程與車團查詢仍只有入口及提示回覆，實際資料操作將在後續階段加入。
+
+### 6.5 LINE 群組記帳
+
+群組記帳第一版指令：
+
+- `JLY 支出 350 聚餐飲料`
+- `JLY 收入 1000 成員繳費`
+
+資料路徑：
+
+```text
+lineGroupAccounts/{groupId}/entries/{LINE messageId}
+```
+
+以 `groupId` 區分各群帳本，以 LINE `messageId` 作為帳目文件 ID，讓同一則 Webhook 重送時覆寫同一筆資料而不產生重複帳目。每筆資料包含收入／支出類型、正整數金額、說明、LINE 記帳者 userId、來源與建立時間。
+
+相關檔案：
+
+- `services/line/accounting-command.js`：解析與驗證群組記帳指令。
+- `services/line/group-accounting-service.js`：將 LINE Event Context 轉為帳目資料。
+- `services/firebase/line-group-accounting-repository.js`：寫入群組帳本 Firestore 路徑。
+- `services/line/event-router.js`：限制只有群組可寫入並回覆記帳結果。
+- `tests/line/accounting-command.test.js`：指令格式與金額測試。
+- `tests/line/group-accounting-service.test.js`：群組識別與寫入資料測試。
 
 ---
 
@@ -690,3 +714,11 @@ matching
 - 使用者在群組呼叫 `JLY 小助手` 時，保留目前 `groupId` 並顯示記帳、提醒、車團資訊及使用說明入口。
 - 一對一聊天室維持原本回覆，正常群聊仍不查詢 Firebase、不觸發小助手。
 - 新增群組快速選單與 Event Router payload 自動測試。
+
+### V2.6｜2026-08-12
+
+- 新增 LINE 群組收入與支出文字指令。
+- 新增按 `groupId` 分帳、按 LINE `messageId` 防重複的 Firestore 帳目結構。
+- 保存記帳者 LINE userId、金額、說明、類型及建立時間。
+- 私人聊天室不可寫入群組帳本；格式錯誤時提供正確輸入範例。
+- 新增群組記帳指令、服務與 Event Router 自動測試。

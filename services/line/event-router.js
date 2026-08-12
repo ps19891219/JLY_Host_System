@@ -49,6 +49,12 @@ const {
   "./group-binding-service"
 );
 
+const {
+  recordGroupAccounting
+} = require(
+  "./group-accounting-service"
+);
+
 // ============================================================
 // Normalize Text
 // ============================================================
@@ -217,6 +223,10 @@ async function handleMessageEvent(
     dependencies.resolveGroupBinding ||
     resolveGroupBinding;
 
+  const recordAccounting =
+    dependencies.recordGroupAccounting ||
+    recordGroupAccounting;
+
   // ----------------------------------------------------------
   // Non-text message
   // ----------------------------------------------------------
@@ -310,6 +320,64 @@ async function handleMessageEvent(
         binding: null
       };
     }
+  }
+
+  // ----------------------------------------------------------
+  // Group accounting command
+  // ----------------------------------------------------------
+
+  if (messageResult.action === "accounting_create") {
+    if (!context.replyToken) {
+      return {
+        handled: false,
+        route: "message_missing_reply_token",
+        context,
+        groupBinding
+      };
+    }
+
+    if (
+      context.source.type !== "group" ||
+      !context.source.groupId
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "群組記帳只能在 LINE 群組內使用。"
+      );
+
+      return {
+        handled: true,
+        route: "accounting_group_required",
+        context,
+        groupBinding
+      };
+    }
+
+    const accountingResult =
+      await recordAccounting(
+        context,
+        messageResult.accounting
+      );
+
+    const typeLabel =
+      messageResult.accounting.type === "income"
+        ? "收入"
+        : "支出";
+
+    await replyWithText(
+      context.replyToken,
+      "✅ 記帳成功\n" +
+      `${typeLabel}：$${messageResult.accounting.amount.toLocaleString("zh-TW")}\n` +
+      `說明：${messageResult.accounting.description}`
+    );
+
+    return {
+      handled: true,
+      route: "accounting_create",
+      context,
+      groupBinding,
+      accountingResult
+    };
   }
 
   // ----------------------------------------------------------

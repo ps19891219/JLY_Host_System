@@ -35,6 +35,12 @@ V1 does NOT:
 
 "use strict";
 
+const {
+  parseAccountingCommand
+} = require(
+  "./accounting-command"
+);
+
 // ============================================================
 // Normalize Text
 // ============================================================
@@ -178,6 +184,32 @@ function routeTextMessage(text) {
       action:
         "ignore_empty",
       replyText: ""
+    };
+  }
+
+  const accountingResult =
+    parseAccountingCommand(
+      normalizedText
+    );
+
+  if (accountingResult) {
+    if (!accountingResult.valid) {
+      return {
+        handled: true,
+        action: "accounting_invalid",
+        replyText:
+          "記帳格式不正確。\n" +
+          "請輸入：JLY 支出 金額 說明\n" +
+          "例如：JLY 支出 350 聚餐飲料"
+      };
+    }
+
+    return {
+      handled: true,
+      action: "accounting_create",
+      replyText: "",
+      accounting:
+        accountingResult.command
     };
   }
 
