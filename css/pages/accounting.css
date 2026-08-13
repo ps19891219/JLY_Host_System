@@ -51,6 +51,26 @@
   padding: 0;
 }
 
+.accounting-member-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.accounting-select-all {
+  min-height: 32px;
+  border: 1px solid #b9cfc7;
+  border-radius: 999px;
+  padding: 4px 11px;
+  background: #fff;
+  color: #397b68;
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 700;
+}
+
 .accounting-member-list label {
   grid-template-columns: auto 1fr minmax(90px, .45fr);
   align-items: center;
