@@ -7,33 +7,33 @@ const source=fs.readFileSync(path.join(__dirname,"../../js/modules/accounting/ac
 const context={window:{},Date};vm.runInNewContext(source,context);const fee=context.window.JLYActivityFeeData;
 
 test("script fee plan keeps player receivables separate from external vendor payable",()=>{
-  const plan=fee.buildPlan({carId:"car-1",vendorName:"劇本工作室",vendorTotal:4500,playerFee:800,memberIds:["a","b","c","d","e","f"]},"host","2026-08-14T01:00:00.000Z");
-  assert.equal(plan.memberCharges.length,6);assert.equal(plan.vendorTotal,4500);assert.equal(plan.vendor.linkedStoreId,"");assert.equal(plan.feeType,"script_fee");
+  const plan=fee.buildPlan({carId:"car-1",vendorName:"劇本工作室",requiredPlayerCount:6,playerFee:800,memberIds:["a","b","c","d","e","f"]},"host","2026-08-14T01:00:00.000Z");
+  assert.equal(plan.memberCharges.length,6);assert.equal(plan.vendorTotal,4800);assert.equal(plan.vendor.linkedStoreId,"");assert.equal(plan.feeType,"script_fee");
 });
 
 test("script fee summary tracks collections deposits balance payments refunds and custody",()=>{
-  const plan=fee.buildPlan({carId:"car-1",vendorName:"劇本工作室",vendorTotal:4500,playerFee:800,memberIds:["a","b"]},"host","2026-08-14T01:00:00.000Z");
+  const plan=fee.buildPlan({carId:"car-1",vendorName:"劇本工作室",requiredPlayerCount:2,playerFee:2250,memberIds:["a","b"]},"host","2026-08-14T01:00:00.000Z");
   const result=fee.summarize(plan,[{personId:"a",kind:"payment",amount:800},{personId:"b",kind:"payment",amount:800},{personId:"b",kind:"refund",amount:100}],[{kind:"deposit",amount:1500},{kind:"balance",amount:2000},{kind:"refund",amount:200}]);
-  assert.equal(result.memberCollected,1500);assert.equal(result.memberOutstanding,100);assert.equal(result.vendorPaid,3300);assert.equal(result.vendorOutstanding,1200);assert.equal(result.custodyBalance,-1800);
+  assert.equal(result.memberCollected,1500);assert.equal(result.memberOutstanding,3000);assert.equal(result.vendorPaid,3300);assert.equal(result.vendorOutstanding,1200);assert.equal(result.custodyBalance,-1800);
 });
 
-test("base player fee follows only the current player-area identities",()=>{
-  const plan=fee.buildPlan({carId:"car-1",vendorName:"店家",vendorBaseAmount:4000,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z");
-  const synced=fee.syncPlayers(plan,["p1","p2","p3"],"host","2026-08-14T02:00:00.000Z"),summary=fee.summarize(synced,[],[]);
-  assert.equal(summary.memberDue,2400);assert.deepEqual(Array.from(synced.playerIds),["p1","p2","p3"]);
+test("base fee uses fixed script capacity even before every player joins",()=>{
+  const plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:6,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z"),summary=fee.summarize(plan,[],[]);
+  assert.equal(plan.vendorBaseAmount,4800);assert.equal(summary.memberDue,4800);assert.equal(summary.unassignedCount,4);assert.equal(summary.unassignedBase,3200);
+  const synced=fee.syncPlayers(plan,["p1","p2","p3"],"host","2026-08-14T02:00:00.000Z");assert.equal(synced.vendorBaseAmount,4800);assert.equal(fee.summarize(synced,[],[]).unassignedCount,3);
 });
 
 test("additional vendor fee supports equal specific host and custom allocation without fixed fields",()=>{
-  let plan=fee.buildPlan({carId:"car-1",vendorName:"店家",vendorBaseAmount:4000,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z");
+  let plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:2,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z");
   plan=fee.addFeeItem(plan,{title:"指定 DM 費",amount:200,allocationType:"equal"},"host","2026-08-14T02:00:00.000Z");
   plan=fee.addFeeItem(plan,{title:"服裝費",amount:300,allocationType:"specific",personId:"p1"},"host","2026-08-14T03:00:00.000Z");
   plan=fee.addFeeItem(plan,{title:"主揪招待",amount:100,allocationType:"host"},"host","2026-08-14T04:00:00.000Z");
   plan=fee.addFeeItem(plan,{title:"其他",amount:90,allocationType:"custom",allocations:[{personId:"p1",amount:40},{personId:"p2",amount:50}]},"host","2026-08-14T05:00:00.000Z");
   const summary=fee.summarize(plan,[],[]),byId=new Map(summary.members.map(item=>[item.personId,item.amount]));
-  assert.equal(plan.vendorTotal,4690);assert.equal(byId.get("p1"),1240);assert.equal(byId.get("p2"),950);assert.equal(byId.get("host"),100);
+  assert.equal(plan.vendorTotal,2290);assert.equal(byId.get("p1"),1240);assert.equal(byId.get("p2"),950);assert.equal(byId.get("host"),100);
 });
 
 test("custom additional fee must allocate its complete amount",()=>{
-  const plan=fee.buildPlan({carId:"car-1",vendorName:"店家",vendorBaseAmount:4000,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z");
+  const plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:2,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z");
   assert.throws(()=>fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"custom",allocations:[{personId:"p1",amount:100}]},"host"),/fee_allocation_total_mismatch/);
 });
