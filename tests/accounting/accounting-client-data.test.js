@@ -37,3 +37,32 @@ test("buildQuickTransaction creates one pending Activity transaction and separat
 test("buildQuickTransaction rejects missing formal creator identity", () => {
   assert.throws(() => accountingData.buildQuickTransaction({ transactionId: "web-2", carId: "car-99", title: "停車費", amount: 200, createdBy: "" }), /quick_transaction_invalid/);
 });
+
+test("current profile resolves to an older linked car identity and keeps the person's name", () => {
+  const members = accountingData.collectActivityMembers({
+    ownerId: "old-jly-identity",
+    organizerName: "凱崴私團"
+  });
+  members[0].identityIds.push("profile-shijie");
+
+  const current = accountingData.resolveCurrentActivityMember(members, {
+    identityIds: ["profile-shijie", "old-jly-identity"],
+    displayName: "詩婕"
+  });
+
+  assert.equal(current.personId, "old-jly-identity");
+  assert.equal(current.displayName, "詩婕");
+  assert.notEqual(current.displayName, "凱崴私團");
+});
+
+test("getCurrentIdentity includes profile, device, and linked identities", () => {
+  const values = new Map([
+    ["currentPlayerProfileId", "profile-shijie"],
+    ["currentPlayerId", "device-shijie"],
+    ["currentPlayerName", "詩婕"],
+    ["linkedPlayerIds", JSON.stringify(["old-jly-identity"])]
+  ]);
+  const identity = accountingData.getCurrentIdentity({ getItem: key => values.get(key) || "" });
+  assert.deepEqual(identity.identityIds, ["profile-shijie", "device-shijie", "old-jly-identity"]);
+  assert.equal(identity.displayName, "詩婕");
+});

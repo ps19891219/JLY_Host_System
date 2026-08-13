@@ -5,23 +5,39 @@
 })(typeof window !== "undefined" ? window : null, function () {
   "use strict";
   const text = value => String(value == null ? "" : value).trim();
+  const unique = values => [...new Set((values || []).map(text).filter(Boolean))];
   function person(source, role) {
     const item = source && typeof source === "object" ? source : {};
     const nested = item.memberSnapshot || item.member || item.player || {};
     const personId = text(item.personId || item.memberId || item.playerId || item.profileId || item.id || nested.personId || nested.memberId || nested.playerId || nested.profileId || nested.id);
     if (!personId) return null;
-    return { personId, displayName: text(item.displayName || item.playerName || item.name || item.nickname || nested.displayName || nested.playerName || nested.name || nested.nickname) || "未命名成員", roles: [role] };
+    const identityIds = unique([personId, item.identityId, item.memberId, item.playerId, item.profileId, item.id, ...(Array.isArray(item.linkedPlayerIds) ? item.linkedPlayerIds : []), nested.identityId, nested.memberId, nested.playerId, nested.profileId, nested.id, ...(Array.isArray(nested.linkedPlayerIds) ? nested.linkedPlayerIds : [])]);
+    return { personId, identityIds, displayName: text(item.displayName || item.playerName || item.name || item.nickname || nested.displayName || nested.playerName || nested.name || nested.nickname) || "未命名成員", roles: [role] };
   }
   function collectActivityMembers(car) {
     const source = car || {}, map = new Map();
-    function add(item) { if (!item) return; const previous = map.get(item.personId); if (previous) previous.roles = [...new Set([...previous.roles, ...item.roles])]; else map.set(item.personId, item); }
-    add(person({ personId: source.ownerId, displayName: source.ownerName || source.organizerName || source.organizer }, "owner"));
+    function add(item) { if (!item) return; const previous = map.get(item.personId); if (previous) { previous.roles = unique([...previous.roles, ...item.roles]); previous.identityIds = unique([...previous.identityIds, ...item.identityIds]); } else map.set(item.personId, item); }
+    add(person({ personId: source.ownerId, displayName: source.ownerName || "車團主揪" }, "owner"));
     (Array.isArray(source.players) ? source.players : []).filter(item => item && item.status !== "已取消" && item.status !== "cancelled").forEach(item => add(person(item, "player")));
     (Array.isArray(source.staffSlots) ? source.staffSlots : []).forEach(item => add(person(item, "staff")));
     return [...map.values()];
   }
   function getCurrentPersonId(storage) {
     return text(storage && (storage.getItem("currentPlayerProfileId") || storage.getItem("currentPlayerId")));
+  }
+  function getCurrentIdentity(storage, identityApi) {
+    let linked = [];
+    try { linked = JSON.parse(storage && storage.getItem("linkedPlayerIds") || "[]"); } catch (_) { linked = []; }
+    const ids = identityApi && typeof identityApi.getAllPlayerIdentityIds === "function"
+      ? identityApi.getAllPlayerIdentityIds()
+      : [storage && storage.getItem("currentPlayerProfileId"), storage && storage.getItem("currentPlayerId"), ...linked];
+    return { identityIds: unique(ids), displayName: text(identityApi && typeof identityApi.getCurrentPlayerName === "function" ? identityApi.getCurrentPlayerName() : storage && storage.getItem("currentPlayerName")) };
+  }
+  function resolveCurrentActivityMember(members, identity) {
+    const currentIds = new Set(identity && identity.identityIds || []);
+    const member = (members || []).find(item => (item.identityIds || [item.personId]).some(id => currentIds.has(id)));
+    if (!member) return null;
+    return { ...member, displayName: text(identity.displayName) || member.displayName };
   }
   function buildQuickTransaction(input, now) {
     const transactionId = text(input.transactionId);
@@ -39,5 +55,5 @@
       schemaVersion: 1
     };
   }
-  return { collectActivityMembers, getCurrentPersonId, buildQuickTransaction };
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction };
 });

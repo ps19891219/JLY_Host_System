@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.35
+> Version: V2.36
 >
 > Last Updated: 2026-08-13
 >
@@ -978,3 +978,9 @@ matching
 - 快速記帳建立唯一 Transaction，保留分離的 `createdBy` 與 `paidBy`，預設 `splitStatus=pending`，並在同一 Firestore transaction 建立 `pending_split`。
 - Current 前端儲存位置維持 `cars/{carId}/accountingEntries/{transactionId}` 與 `cars/{carId}/accountingPendingActions/{pendingActionId}`；LINE Messaging Runtime 本階段未擴充。
 - 已知限制：目前「查看全部帳務」、平均／自訂分帳與付款雙方確認尚未接上 Car Detail UI，屬 Accounting V1 下一階段。
+
+### V2.36｜2026-08-13
+
+- Car Detail 帳務載入正式 `JLYIdentity`，比對目前 Profile ID、裝置 Identity ID 與 `linkedPlayerIds`，避免同一位正式成員因歷史 Identity 不同而被拒絕記帳。
+- 快速記帳會將目前登入者解析回車團保存的正式 Person／Member ID；付款人預設顯示目前玩家姓名，例如「詩婕」。
+- 車團 `organizerName`／工作室名稱不再被帳務模組誤當成主揪個人姓名。

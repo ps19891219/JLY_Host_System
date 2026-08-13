@@ -8,7 +8,9 @@
     loading=true;
     try {
       const data=window.JLYAccountingData,repository=window.JLYAccountingRepository,renderer=window.JLYAccountingRender;
-      const members=data.collectActivityMembers(car),currentPersonId=data.getCurrentPersonId(localStorage),dashboard=await repository.loadDashboard(carId),memberNames=new Map(members.map(member=>[member.personId,member.displayName]));
+      const members=data.collectActivityMembers(car),currentIdentity=data.getCurrentIdentity(localStorage,window.JLYIdentity),currentMember=data.resolveCurrentActivityMember(members,currentIdentity),currentPersonId=currentMember&&currentMember.personId;
+      if(currentMember){const index=members.findIndex(member=>member.personId===currentPersonId);members[index]=currentMember;}
+      const dashboard=await repository.loadDashboard(carId),memberNames=new Map(members.map(member=>[member.personId,member.displayName]));
       section.innerHTML=renderer.buildDashboardHtml({members,currentPersonId,memberNames,transactions:dashboard.transactions,pendingActions:dashboard.pendingActions,counts:counts(dashboard.pendingActions)});
       window.JLYAccountingActions.bind({section,onSave:async input=>{if(!currentPersonId)throw new Error("identity_required");if(!members.some(member=>member.personId===currentPersonId))throw new Error("activity_membership_required");const canUuid=window.crypto&&typeof window.crypto.randomUUID==="function";const transactionId=canUuid?`web-${window.crypto.randomUUID()}`:`web-${Date.now()}`;const transaction=data.buildQuickTransaction({...input,transactionId,activityId:carId,createdBy:currentPersonId},new Date().toISOString());await repository.createQuickTransaction(transaction,String(car.ownerId||currentPersonId));},onReload:()=>{loading=false;mount();}});
       mountedCarId=carId;
