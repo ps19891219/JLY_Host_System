@@ -35,6 +35,13 @@ test("淨額付款由付款方申報並由收款方確認", () => {
   assert.match(repository, /accountingSettlements/);
 });
 
+test("主揪只能代未使用系統的收款人確認淨額付款", () => {
+  assert.match(render, /managerCanConfirm/);
+  assert.match(render, />代為確認收款<\/button>/);
+  assert.match(repository, /manager_for_offline_member/);
+  assert.match(repository, /authority\.targetUsesSystem/);
+});
+
 test("結算小視窗沿用已載入的個人淨額，不另外查詢資料", () => {
   assert.match(render, /model\.personalSettlement&&model\.personalSettlement\.transfers/);
   assert.doesNotMatch(actions, /getDocs|fetch\(|\.get\(/);

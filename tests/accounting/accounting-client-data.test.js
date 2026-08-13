@@ -20,6 +20,15 @@ test("collectActivityMembers merges formal owner, player, and staff identities",
 
   assert.deepEqual(members.map(item => item.personId), ["owner-1", "player-1", "shared-1", "staff-1"]);
   assert.deepEqual(members.find(item => item.personId === "shared-1").roles, ["player", "staff"]);
+  assert.equal(members.find(item => item.personId === "staff-1").usesSystem, false);
+});
+
+test("registration identity does not enable personal accounting by itself", () => {
+  const members=accountingData.collectActivityMembers({ownerId:"host",players:[{memberId:"registered-1",profileId:"profile-1",lineUserId:"U-registration",playerName:"燕餃"},{memberId:"active-1",playerName:"小霙",accountingSelfServiceEnabled:true}]});
+  assert.equal(members.find(item=>item.personId==="registered-1").usesSystem,false);
+  assert.equal(members.find(item=>item.personId==="active-1").usesSystem,true);
+  const current=accountingData.resolveCurrentActivityMember(members,{identityIds:["registered-1"],displayName:"燕餃"});
+  assert.equal(current.usesSystem,true);
 });
 
 test("buildQuickTransaction creates one pending Activity transaction and separates creator from payer", () => {

@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.51
+> Version: V2.53
 >
 > Last Updated: 2026-08-13
 >
@@ -1076,3 +1076,13 @@ matching
 
 - 個人帳務摘要拆成「我欠誰」、「誰欠我」與「互抵後總額」三個入口；前兩者顯示扣抵前的原始應付／應收關係，第三者才顯示最終淨額與付款確認操作。
 - `accountingViews/activityCurrent` Schema 升級至 V3，新增 `obligationsByPair` 聚合所有未結清 Split 的付款人關係，不受最近帳目顯示筆數限制，也不需在點擊摘要時重新讀取 Transaction。
+
+### V2.52｜2026-08-13
+
+- 淨額收款確認套用既有離線成員代理規則：收款人尚未使用系統時，主揪可在管理視角執行「代為確認收款」；已使用系統的正式成員仍只能本人確認。
+- 代理確認紀錄保存 `confirmedBy`、`confirmedFor` 與 `confirmationAuthority=manager_for_offline_member`，明確區分實際操作者與被代理成員。
+
+### V2.53｜2026-08-13
+
+- Activity Member 的報名／Member／Profile／LINE 識別資料不再自動代表已啟用個人帳務；只有 `accountingSelfServiceEnabled=true` 或目前已驗證登入的本人，才視為帳務自助使用者。
+- 現階段手動建立或僅完成報名的玩家預設可由主揪代處理款項；未來個人帳務正式開放時，再於完成帳務啟用流程後寫入 `accountingSelfServiceEnabled=true`。

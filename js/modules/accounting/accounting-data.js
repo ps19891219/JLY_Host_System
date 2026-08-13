@@ -12,7 +12,7 @@
     const personId = text(item.personId || item.memberId || item.playerId || item.profileId || item.id || nested.personId || nested.memberId || nested.playerId || nested.profileId || nested.id);
     if (!personId) return null;
     const identityIds = unique([personId, item.identityId, item.memberId, item.playerId, item.profileId, item.id, ...(Array.isArray(item.linkedPlayerIds) ? item.linkedPlayerIds : []), nested.identityId, nested.memberId, nested.playerId, nested.profileId, nested.id, ...(Array.isArray(nested.linkedPlayerIds) ? nested.linkedPlayerIds : [])]);
-    const usesSystem = Boolean(text(item.memberId || item.profileId || item.identityId || item.lineUserId || nested.memberId || nested.profileId || nested.identityId || nested.lineUserId));
+    const usesSystem = item.accountingSelfServiceEnabled === true || nested.accountingSelfServiceEnabled === true;
     return { personId, identityIds, displayName: text(item.displayName || item.playerName || item.name || item.nickname || nested.displayName || nested.playerName || nested.name || nested.nickname) || "未命名成員", roles: [role], usesSystem };
   }
   function collectActivityMembers(car) {
@@ -38,7 +38,7 @@
     const currentIds = new Set(identity && identity.identityIds || []);
     const member = (members || []).find(item => (item.identityIds || [item.personId]).some(id => currentIds.has(id)));
     if (!member) return null;
-    return { ...member, displayName: text(identity.displayName) || member.displayName };
+    return { ...member, displayName: text(identity.displayName) || member.displayName, usesSystem: true };
   }
   function buildQuickTransaction(input, now) {
     const transactionId = text(input.transactionId);
