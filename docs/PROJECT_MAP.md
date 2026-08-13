@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.33
+> Version: V2.34
 >
 > Last Updated: 2026-08-13
 >
@@ -493,6 +493,7 @@ Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇
 - `services/accounting/settlement.js`：付款申報、撤回、收款確認、退回與整筆結清判定。
 - `services/accounting/pending-action.js`：依帳務狀態產生具責任人的待分帳、待付款、待確認收款與退回待辦。
 - `services/accounting/compatibility.js`：將具正式身分的既有帳目原地映射成 Transaction，並為現行帳務快照提供暫時欄位別名。
+- `services/firebase/activity-accounting-repository.js`：以同一個 Firestore Transaction 寫入正式 Transaction，並同步完成舊待辦、產生下一階段 Pending Action。
 - `tests/accounting/accounting-core.test.js`：Accounting Core 純領域規則測試。
 
 正式資料來源仍規劃沿用：
@@ -501,7 +502,16 @@ Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇
 cars/{carId}/accountingEntries/{transactionId}
 ```
 
-既有文件將以同一文件原地補齊通用 Transaction 欄位，不建立「車團帳、個人帳、LINE 帳」等重複交易。個人家計簿與跨村總帳未來只建立查詢／聚合視圖。Pending Action 的正式 Firestore 儲存位置尚待 Repository 階段定案；目前核心模型不直接寫入資料庫。
+既有文件將以同一文件原地補齊通用 Transaction 欄位，不建立「車團帳、個人帳、LINE 帳」等重複交易。個人家計簿與跨村總帳未來只建立查詢／聚合視圖。
+
+劇本車第一版 Firestore 路徑：
+
+```text
+cars/{carId}/accountingEntries/{transactionId}
+cars/{carId}/accountingPendingActions/{pendingActionId}
+```
+
+Pending Action 是流程與責任人資料，不是第二份金額來源。完成的待辦改為 `status=completed` 並保留 `history`，不刪除；Transaction 內只保存目前有效的 `pendingActionIds`，供低讀取量首頁摘要使用。
 
 早期帳目若缺少正式 `createdBy`／`paidBy` Person ID，必須保留原資料並標記 `identity_resolution_required`；不可把 LINE userId 當作 Person ID，也不可用顯示名稱猜測。完成身分解析前不產生個人 Pending Action。
 
@@ -952,3 +962,10 @@ matching
 - Transaction 明確保留 `activityId`、`activityType`、`villageType`、`createdBy`、`paidBy`、`splitStatus` 與 `settlementStatus`。
 - 完成平均分帳尾差、自訂金額驗證、付款申報／撤回、收款確認／退回及責任人待辦的純規則測試。
 - 現階段不擴充 LINE 完整帳務管理；未來 LINE 快速記帳必須寫入同一份正式 Transaction。
+
+### V2.34｜2026-08-13
+
+- 新增 Activity Accounting Firestore Repository，劇本車沿用 `accountingEntries` 作為唯一 Transaction 正式來源。
+- 新增 `accountingPendingActions` 子集合；待辦具責任人、交易與 Split 關聯，完成後保留狀態歷程而不刪除。
+- Transaction 與 Pending Action 在同一個 Firestore Transaction 內同步，完成分帳時會完成 `pending_split` 並產生各欠款人的 `payment_due`。
+- Transaction 文件保存目前有效的 `pendingActionIds` 與 `schemaVersion=1`，並暫時保留現行帳務快照所需的相容欄位。
