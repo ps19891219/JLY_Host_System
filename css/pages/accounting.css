@@ -155,19 +155,31 @@
 }
 
 .accounting-entry {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
   gap: 12px;
   padding: 13px 0;
   border-bottom: 1px solid #eee8df;
 }
 
-.accounting-entry > div {
+.accounting-entry-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.accounting-entry-summary > div { display: grid; gap: 4px; }
+.accounting-entry-summary > div:last-child { justify-items: end; text-align: right; }
+.accounting-settlement-list { display: grid; gap: 7px; }
+.accounting-settlement-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px; border-radius: 9px; background: #f7f4ef; font-size: .9rem; }
+.accounting-settlement-row div { display: flex; gap: 6px; }
+.accounting-settlement-row button { border: 0; border-radius: 8px; padding: 6px 9px; background: #397b68; color: #fff; font: inherit; font-weight: 700; }
+
+.accounting-entry-summary > div {
   display: grid;
   gap: 4px;
 }
 
-.accounting-entry > div:last-child {
+.accounting-entry-summary > div:last-child {
   justify-items: end;
   text-align: right;
 }

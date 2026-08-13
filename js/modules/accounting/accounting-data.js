@@ -80,5 +80,20 @@
     if (!splits.length || splits.some(split => !Number.isFinite(split.amount) || split.amount < 0) || total !== Number(totalAmount)) throw new Error("split_total_mismatch");
     return splits;
   }
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits };
+  function transitionSettlement(split, action, actorPersonId, receiverPersonId, now) {
+    const current = { ...split }, actor = text(actorPersonId), receiver = text(receiverPersonId), timestamp = text(now) || new Date().toISOString();
+    if (action === "claim") {
+      if (actor !== current.personId || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
+      return { ...current, settlementStatus: "payment_claimed", paymentClaimedBy: actor, paymentClaimedAt: timestamp, rejectedBy: "", rejectedAt: "" };
+    }
+    if (action === "withdraw") {
+      if (current.settlementStatus !== "payment_claimed" || current.paymentClaimedBy !== actor) throw new Error("settlement_action_not_allowed");
+      return { ...current, settlementStatus: "payment_due", paymentClaimedBy: "", paymentClaimedAt: "" };
+    }
+    if (!["confirm", "reject"].includes(action) || actor !== receiver || current.settlementStatus !== "payment_claimed") throw new Error("settlement_action_not_allowed");
+    return action === "confirm"
+      ? { ...current, settlementStatus: "settled", confirmedBy: actor, confirmedAt: timestamp }
+      : { ...current, settlementStatus: "settlement_rejected", rejectedBy: actor, rejectedAt: timestamp, confirmedBy: "", confirmedAt: "" };
+  }
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement };
 });

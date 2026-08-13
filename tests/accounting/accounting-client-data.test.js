@@ -83,3 +83,17 @@ test("browser custom split must equal the transaction amount", () => {
   assert.throws(() => accountingData.buildCustomSplits(people, { a: 300, b: 380 }, 690, "a"), /split_total_mismatch/);
   assert.deepEqual(accountingData.buildCustomSplits(people, { a: 310, b: 380 }, 690, "a").map(split => split.amount), [310, 380]);
 });
+
+test("browser settlement requires debtor claim and receiver confirmation", () => {
+  const due={splitId:"split-b",personId:"b",amount:300,settlementStatus:"payment_due"};
+  const claimed=accountingData.transitionSettlement(due,"claim","b","a","2026-08-13T02:00:00.000Z");
+  assert.equal(claimed.settlementStatus,"payment_claimed");
+  assert.throws(()=>accountingData.transitionSettlement(claimed,"confirm","b","a"),/settlement_action_not_allowed/);
+  assert.equal(accountingData.transitionSettlement(claimed,"confirm","a","a").settlementStatus,"settled");
+});
+
+test("browser payment claim can be withdrawn or rejected", () => {
+  const claimed={splitId:"split-b",personId:"b",amount:300,settlementStatus:"payment_claimed",paymentClaimedBy:"b"};
+  assert.equal(accountingData.transitionSettlement(claimed,"withdraw","b","a").settlementStatus,"payment_due");
+  assert.equal(accountingData.transitionSettlement(claimed,"reject","a","a").settlementStatus,"settlement_rejected");
+});

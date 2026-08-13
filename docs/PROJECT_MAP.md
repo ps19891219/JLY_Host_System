@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.38
+> Version: V2.39
 >
 > Last Updated: 2026-08-13
 >
@@ -996,3 +996,10 @@ matching
 
 - 待分帳表單開啟時預設勾選全部正式 Activity Member，減少一般全員平均分帳的操作步驟。
 - 成員名單新增小型「全選／取消全選」按鈕，個別勾選變動時按鈕文字會同步更新；自訂金額模式沿用同一份選取狀態。
+
+### V2.39｜2026-08-13
+
+- Car Detail 帳目顯示每位 Split 的金額與獨立結清狀態；欠款本人可申報「我已付款」，並在收款人確認前撤回。
+- Transaction 的實際付款人是唯一收款確認者，可按「確認收到」正式結清 Split，或按「尚未收到」退回付款申報。
+- 每次付款狀態轉換會同步完成舊 Pending Action 並產生下一責任人的 `payment_due`、`payment_confirmation` 或 `settlement_rejected`。
+- 只有所有 Split 都 settled 時，整筆 Transaction 才顯示「全部結清」；付款方不能自行完成結清。
