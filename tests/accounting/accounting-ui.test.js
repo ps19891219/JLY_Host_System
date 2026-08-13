@@ -74,3 +74,11 @@ test("互抵與付款上限都使用一對一應收應付關係", () => {
   assert.match(repository, /netTransferAmount\(view\.obligationsByPair,from,to\)/);
   assert.match(repository, /netTransferAmount\(obligationsByPair,record\.fromPersonId,record\.toPersonId\)/);
 });
+
+test("主揪可在管理視角代未啟用系統的付款人登記彙總付款", () => {
+  assert.match(render, /data-action="manager_claim"/);
+  assert.match(render, /代為登記部分付款/);
+  assert.match(controller, /input\.action==="claim"\|\|input\.action==="manager_claim"/);
+  assert.match(repository, /managerClaim&&input\.actorPersonId===input\.managerPersonId&&!input\.targetUsesSystem/);
+  assert.match(repository, /claimAuthority:managerClaim\?"manager_for_offline_member":"self"/);
+});

@@ -44,11 +44,13 @@
   }
   function netSettlementAction(model,item,claim) {
     const receiver=model.membersById.get(item.toPersonId);
+    const debtor=model.membersById.get(item.fromPersonId);
     const managerCanConfirm=claim&&model.managementMode&&model.isManager&&receiver&&!receiver.usesSystem;
     if(managerCanConfirm)return `<button type="button" class="accounting-net-action" data-action="manager_confirm" data-settlement-id="${escape(claim.settlementId)}" data-target-person-id="${escape(claim.toPersonId)}">代為確認收款</button>`;
     if(claim&&model.currentPersonId===claim.fromPersonId)return `<button type="button" class="accounting-net-action" data-action="withdraw" data-settlement-id="${escape(claim.settlementId)}">撤回付款</button>`;
     if(claim&&model.currentPersonId===claim.toPersonId)return `<button type="button" class="accounting-net-action" data-action="confirm" data-settlement-id="${escape(claim.settlementId)}">確認收款</button>`;
     if(!claim&&item.fromPersonId===model.viewPersonId&&model.currentPersonId===item.fromPersonId)return `<div class="accounting-payment-input"><label>本次付款金額<input class="accounting-net-amount" type="number" min="1" max="${item.amount}" step="1" inputmode="numeric" placeholder="最多 ${item.amount}"></label><div><button type="button" class="accounting-net-action" data-action="claim" data-from-person-id="${escape(item.fromPersonId)}" data-to-person-id="${escape(item.toPersonId)}">送出部分付款</button><button type="button" class="accounting-net-action accounting-pay-full" data-action="claim" data-from-person-id="${escape(item.fromPersonId)}" data-to-person-id="${escape(item.toPersonId)}" data-amount="${item.amount}">全部付清</button></div></div>`;
+    if(!claim&&item.fromPersonId===model.viewPersonId&&model.managementMode&&model.isManager&&debtor&&!debtor.usesSystem)return `<div class="accounting-payment-input"><label>代為登記付款金額<input class="accounting-net-amount" type="number" min="1" max="${item.amount}" step="1" inputmode="numeric" placeholder="最多 ${item.amount}"></label><div><button type="button" class="accounting-net-action" data-action="manager_claim" data-from-person-id="${escape(item.fromPersonId)}" data-to-person-id="${escape(item.toPersonId)}">代為登記部分付款</button><button type="button" class="accounting-net-action accounting-pay-full" data-action="manager_claim" data-from-person-id="${escape(item.fromPersonId)}" data-to-person-id="${escape(item.toPersonId)}" data-amount="${item.amount}">代為登記全額</button></div></div>`;
     return "";
   }
   function settlementDialogRows(model,type) {
