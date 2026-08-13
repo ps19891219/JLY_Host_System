@@ -23,11 +23,12 @@ test("原始應收應付與互抵後總額分開顯示", () => {
   assert.match(render, />誰欠我</);
   assert.match(render, />互抵後總額</);
   assert.match(repository, /obligationsByPair/);
-  assert.match(repository, /schemaVersion:3/);
+  assert.match(repository, /schemaVersion:4/);
 });
 
 test("淨額付款由付款方申報並由收款方確認", () => {
-  assert.match(render, />我已付款<\/button>/);
+  assert.match(render, />送出部分付款<\/button>/);
+  assert.match(render, />全部付清<\/button>/);
   assert.match(render, />確認收款<\/button>/);
   assert.match(actions, /onNetSettlement/);
   assert.match(repository, /status:"payment_claimed"/);
@@ -43,14 +44,25 @@ test("主揪只能代未使用系統的收款人確認淨額付款", () => {
   assert.ok(render.indexOf("if(managerCanConfirm)") < render.indexOf("model.currentPersonId===claim.fromPersonId"), "管理離線收款人時，代為確認必須優先於付款人撤回");
 });
 
-test("詳細帳目優先顯示離線收款人的代理確認，不被付款人撤回遮蔽", () => {
-  assert.match(render, /canConfirmForReceiver/);
-  assert.match(render, /data-target-person-id=.*代為確認收款/);
-  assert.ok(render.indexOf("if(canConfirmForReceiver)") < render.indexOf("if(mine)buttons"));
-  assert.match(actions, /targetPersonId:button\.dataset\.targetPersonId/);
+test("詳細帳目不再提供逐筆付款與代理確認", () => {
+  assert.match(render, /已列入彙總/);
+  assert.doesNotMatch(render, /canConfirmForReceiver/);
+  assert.doesNotMatch(actions, /accounting-settlement-row button/);
 });
 
 test("結算小視窗沿用已載入的個人淨額，不另外查詢資料", () => {
   assert.match(render, /model\.personalSettlement&&model\.personalSettlement\.transfers/);
   assert.doesNotMatch(actions, /getDocs|fetch\(|\.get\(/);
+});
+
+test("下方分帳明細唯讀，上方互抵總額支援部分付款與全額付清", () => {
+  assert.match(render, /accounting-net-amount/);
+  assert.match(render, />送出部分付款</);
+  assert.match(render, />全部付清</);
+  assert.match(render, /已列入彙總/);
+  assert.doesNotMatch(render, /accounting-settlement-row[^`]*data-action/);
+  assert.match(actions, /input&&input\.value/);
+  assert.match(repository, /applyConfirmedSettlements/);
+  assert.match(repository, /settleObligation/);
+  assert.match(repository, /net_settlement_invalid_amount/);
 });

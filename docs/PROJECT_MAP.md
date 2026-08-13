@@ -2,9 +2,9 @@
 
 > Status: Working Map
 >
-> Version: V2.55
+> Version: V2.56
 >
-> Last Updated: 2026-08-13
+> Last Updated: 2026-08-14
 >
 > Source of truth: repository files and current HTML runtime references
 
@@ -1096,3 +1096,10 @@ matching
 
 - 修正 Car Detail「詳細帳目」的逐筆付款按鈕：主揪查看未啟用帳務的收款人視角時，依收款人 `paidBy` 判斷代理權限並優先顯示「代為確認收款」。
 - 原先只修正互抵總額小視窗，未涵蓋逐筆帳目中的「撤回」按鈕；本版已讓實際詳細帳目入口套用相同的離線收款人代理規則。
+
+### V2.56｜2026-08-14
+
+- 車團帳務的付款操作改為上方「我的結算結果」依對手人彙總處理，下方 Transaction / Split 明細僅供核對，不再逐筆顯示付款或收款按鈕。
+- 付款人可輸入本次部分付款金額，或使用「全部付清」；同一對付款與收款人同時只允許一筆待確認申報。
+- 付款申報不會立即扣減餘額；收款方確認，或主揪代未啟用帳務的離線成員確認後，才同步扣減互抵餘額與原始應收應付彙總。
+- `cars/{carId}/accountingViews/activityCurrent` 升級為 `schemaVersion=4`，重建摘要時會讀取 `accountingSettlements` 並重播所有已確認的彙總付款，避免重新載入後餘額回復。

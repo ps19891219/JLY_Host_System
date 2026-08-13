@@ -12,18 +12,11 @@
   }
   function settlementRows(item, model) {
     if (item.splitStatus === "pending") return "";
-    return (item.splits || []).filter(split=>split.settlementStatus!=="settled"&&(split.personId===model.viewPersonId||item.paidBy===model.viewPersonId)).map(split => {
-      const mine=split.personId===model.currentPersonId,receiver=item.paidBy===model.currentPersonId,targetMember=model.membersById.get(split.personId),receiverMember=model.membersById.get(item.paidBy),canManage=model.managementMode&&model.isManager&&targetMember&&!targetMember.usesSystem,canConfirmForReceiver=model.managementMode&&model.isManager&&model.viewPersonId===item.paidBy&&receiverMember&&!receiverMember.usesSystem,name=model.memberNames.get(split.personId)||split.displayName||"成員";
-      let label="尚未付款",buttons="";
+    return (item.splits || []).filter(split=>split.personId===model.viewPersonId||item.paidBy===model.viewPersonId).map(split => {
+      const name=model.memberNames.get(split.personId)||split.displayName||"成員";
+      let label="已列入彙總";
       if(split.settlementStatus==="settled")label="已結清";
-      else if(split.settlementStatus==="payment_claimed"){label="已付款，待確認";if(canConfirmForReceiver)buttons=`<button data-action="confirm" data-target-person-id="${escape(item.paidBy)}">代為確認收款</button>`;else{if(mine)buttons=`<button data-action="withdraw">撤回</button>`;if(receiver)buttons+=`<button data-action="confirm">確認收款</button>`;else if(canManage)buttons+=`<button data-action="confirm">代為確認</button>`;}}
-      else if(split.settlementStatus==="settlement_rejected")label="付款被退回";
-      if(["payment_due","settlement_rejected"].includes(split.settlementStatus)){
-        if(mine)buttons+=`<button data-action="claim">已付款</button>`;
-        if(receiver)buttons+=`<button data-action="receiver_settle">已收款</button>`;
-        else if(canManage)buttons+=`<button data-action="manager_claim">代為登記付款</button>`;
-      }
-      return `<div class="accounting-settlement-row" data-transaction-id="${escape(item.transactionId)}" data-split-id="${escape(split.splitId)}"><span>${escape(name)}｜${money(split.amount)}｜${label}</span><div>${buttons}</div></div>`;
+      return `<div class="accounting-settlement-row"><span>${escape(name)}｜${money(split.amount)}｜${label}</span></div>`;
     }).join("");
   }
   function buildDashboardHtmlLegacy(model) {
@@ -55,11 +48,11 @@
     if(managerCanConfirm)return `<button type="button" class="accounting-net-action" data-action="manager_confirm" data-settlement-id="${escape(claim.settlementId)}" data-target-person-id="${escape(claim.toPersonId)}">代為確認收款</button>`;
     if(claim&&model.currentPersonId===claim.fromPersonId)return `<button type="button" class="accounting-net-action" data-action="withdraw" data-settlement-id="${escape(claim.settlementId)}">撤回付款</button>`;
     if(claim&&model.currentPersonId===claim.toPersonId)return `<button type="button" class="accounting-net-action" data-action="confirm" data-settlement-id="${escape(claim.settlementId)}">確認收款</button>`;
-    if(!claim&&item.fromPersonId===model.viewPersonId&&model.currentPersonId===item.fromPersonId)return `<button type="button" class="accounting-net-action" data-action="claim" data-from-person-id="${escape(item.fromPersonId)}" data-to-person-id="${escape(item.toPersonId)}" data-amount="${item.amount}">我已付款</button>`;
+    if(!claim&&item.fromPersonId===model.viewPersonId&&model.currentPersonId===item.fromPersonId)return `<div class="accounting-payment-input"><label>本次付款金額<input class="accounting-net-amount" type="number" min="1" max="${item.amount}" step="1" inputmode="numeric" placeholder="最多 ${item.amount}"></label><div><button type="button" class="accounting-net-action" data-action="claim" data-from-person-id="${escape(item.fromPersonId)}" data-to-person-id="${escape(item.toPersonId)}">送出部分付款</button><button type="button" class="accounting-net-action accounting-pay-full" data-action="claim" data-from-person-id="${escape(item.fromPersonId)}" data-to-person-id="${escape(item.toPersonId)}" data-amount="${item.amount}">全部付清</button></div></div>`;
     return "";
   }
   function settlementDialogRows(model,type) {
-    const personId=model.viewPersonId;if(type!=="net"){const items=type==="payable"?model.personalObligations.payable:model.personalObligations.receivable;if(!items.length)return `<p class="empty-text">目前沒有${type==="payable"?"應付":"應收"}明細</p>`;return items.map(item=>{const otherId=type==="payable"?item.toPersonId:item.fromPersonId,name=model.memberNames.get(otherId)||"待確認成員";return `<div class="accounting-dialog-row"><span>${type==="payable"?"付給":"向"} <strong>${escape(name)}</strong>${type==="receivable"?" 收款":""}<small>互相扣抵前</small></span><b>${money(item.amount)}</b></div>`;}).join("");}const transfers=(model.personalSettlement&&model.personalSettlement.transfers||[]).filter(item=>item.fromPersonId===personId||item.toPersonId===personId);if(!transfers.length)return `<p class="empty-text">互相扣抵後目前不需付款或收款</p>`;return transfers.map(item=>{const payable=item.fromPersonId===personId,otherId=payable?item.toPersonId:item.fromPersonId,name=model.memberNames.get(otherId)||"待確認成員",claim=(model.activeNetSettlements||[]).find(record=>record.fromPersonId===item.fromPersonId&&record.toPersonId===item.toPersonId&&record.status==="payment_claimed"),action=netSettlementAction(model,item,claim);return `<div class="accounting-dialog-row"><span>${payable?"付給":"向"} <strong>${escape(name)}</strong>${payable?"":" 收款"}<small>${claim?"已付款，等待收款方確認":"互相扣抵後"}</small></span><b>${money(item.amount)}</b>${action}</div>`;}).join("");
+    const personId=model.viewPersonId;if(type!=="net"){const items=type==="payable"?model.personalObligations.payable:model.personalObligations.receivable;if(!items.length)return `<p class="empty-text">目前沒有${type==="payable"?"應付":"應收"}明細</p>`;return items.map(item=>{const otherId=type==="payable"?item.toPersonId:item.fromPersonId,name=model.memberNames.get(otherId)||"待確認成員";return `<div class="accounting-dialog-row"><span>${type==="payable"?"付給":"向"} <strong>${escape(name)}</strong>${type==="receivable"?" 收款":""}<small>未結清明細合計</small></span><b>${money(item.amount)}</b></div>`;}).join("");}const transfers=(model.personalSettlement&&model.personalSettlement.transfers||[]).filter(item=>item.fromPersonId===personId||item.toPersonId===personId);if(!transfers.length)return `<p class="empty-text">互相扣抵後目前不需付款或收款</p>`;return transfers.map(item=>{const payable=item.fromPersonId===personId,otherId=payable?item.toPersonId:item.fromPersonId,name=model.memberNames.get(otherId)||"待確認成員",claim=(model.activeNetSettlements||[]).find(record=>record.fromPersonId===item.fromPersonId&&record.toPersonId===item.toPersonId&&record.status==="payment_claimed"),action=netSettlementAction(model,item,claim),amount=claim?claim.amount:item.amount;return `<div class="accounting-dialog-row"><span>${payable?"付給":"向"} <strong>${escape(name)}</strong>${payable?"":" 收款"}<small>${claim?`已申報 ${money(claim.amount)}，等待確認`:"互相扣抵後"}</small></span><b>${money(amount)}</b>${action}</div>`;}).join("");
   }
   function buildDashboardHtml(model) {
     const netTotal=(model.personalSettlement.payable||0)+(model.personalSettlement.receivable||0),netDirection=model.personalSettlement.payable?"互抵後應付":model.personalSettlement.receivable?"互抵後應收":"已互抵完成";
