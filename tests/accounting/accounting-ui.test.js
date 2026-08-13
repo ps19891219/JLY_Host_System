@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, "../..");
 const render = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-render.js"), "utf8");
 const actions = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-actions.js"), "utf8");
 const repository = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-repository.js"), "utf8");
+const controller = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-controller.js"), "utf8");
 
 test("個人應付與應收摘要可開啟各自的明細小視窗", () => {
   assert.match(render, /data-settlement-dialog="payable"/);
@@ -65,4 +66,11 @@ test("下方分帳明細唯讀，上方互抵總額支援部分付款與全額�
   assert.match(repository, /applyConfirmedSettlements/);
   assert.match(repository, /settleObligation/);
   assert.match(repository, /net_settlement_invalid_amount/);
+});
+
+test("互抵與付款上限都使用一對一應收應付關係", () => {
+  assert.match(controller, /netSettlementFromObligations\(dashboard\.obligationsByPair\)/);
+  assert.doesNotMatch(controller, /netSettlementFromBalances\(dashboard\.balanceByPerson\)/);
+  assert.match(repository, /netTransferAmount\(view\.obligationsByPair,from,to\)/);
+  assert.match(repository, /netTransferAmount\(obligationsByPair,record\.fromPersonId,record\.toPersonId\)/);
 });

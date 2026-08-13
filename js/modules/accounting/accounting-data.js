@@ -172,6 +172,14 @@
     const id=text(personId),transfers=(netSettlement&&netSettlement.transfers||[]).filter(item=>item.fromPersonId===id||item.toPersonId===id);
     return { transfers, payable:transfers.filter(item=>item.fromPersonId===id).reduce((sum,item)=>sum+item.amount,0), receivable:transfers.filter(item=>item.toPersonId===id).reduce((sum,item)=>sum+item.amount,0) };
   }
+  function netSettlementFromObligations(items) {
+    const directed=new Map(),pairs=new Set();
+    (Array.isArray(items)?items:[]).forEach(item=>{const from=text(item&&item.fromPersonId),to=text(item&&item.toPersonId),amount=Math.round(Number(item&&item.amount)||0);if(!from||!to||from===to||amount<=0)return;directed.set(`${from}\u0000${to}`,(directed.get(`${from}\u0000${to}`)||0)+amount);pairs.add([from,to].sort().join("\u0000"));});
+    const transfers=[];
+    pairs.forEach(key=>{const [a,b]=key.split("\u0000"),aToB=directed.get(`${a}\u0000${b}`)||0,bToA=directed.get(`${b}\u0000${a}`)||0,difference=aToB-bToA;if(difference>0)transfers.push({fromPersonId:a,toPersonId:b,amount:difference});else if(difference<0)transfers.push({fromPersonId:b,toPersonId:a,amount:-difference});});
+    transfers.sort((left,right)=>left.fromPersonId.localeCompare(right.fromPersonId)||left.toPersonId.localeCompare(right.toPersonId));
+    return {transfers};
+  }
   function personalObligations(items,personId){const id=text(personId),list=(Array.isArray(items)?items:[]).filter(item=>item.fromPersonId===id||item.toPersonId===id);return{payable:list.filter(item=>item.fromPersonId===id),receivable:list.filter(item=>item.toPersonId===id),payableTotal:list.filter(item=>item.fromPersonId===id).reduce((sum,item)=>sum+(Number(item.amount)||0),0),receivableTotal:list.filter(item=>item.toPersonId===id).reduce((sum,item)=>sum+(Number(item.amount)||0),0)};}
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, personalSettlement, personalObligations };
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, netSettlementFromObligations, personalSettlement, personalObligations };
 });

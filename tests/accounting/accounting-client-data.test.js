@@ -202,3 +202,15 @@ test("net settlement never creates a transfer from a person to themselves", () =
   const result=accountingData.netSettlementFromBalances([{personId:"shijie",balance:25},{personId:"shijie",balance:-25}]);
   assert.equal(result.transfers.some(item=>item.fromPersonId===item.toPersonId),false);
 });
+
+test("pairwise settlement only offsets debts between the same two people", () => {
+  const result=accountingData.netSettlementFromObligations([
+    {fromPersonId:"shijie",toPersonId:"yanjiao",amount:100},
+    {fromPersonId:"yanjiao",toPersonId:"shijie",amount:40},
+    {fromPersonId:"xiaoying",toPersonId:"shijie",amount:80}
+  ]);
+  assert.deepEqual(result.transfers,[
+    {fromPersonId:"shijie",toPersonId:"yanjiao",amount:60},
+    {fromPersonId:"xiaoying",toPersonId:"shijie",amount:80}
+  ]);
+});
