@@ -27,6 +27,9 @@
     filters.querySelectorAll("button").forEach(button=>button.addEventListener("click",()=>applyFilter(button.dataset.filter)));
     const loadMore=section.querySelector("#accountingLoadMore");
     if(loadMore)loadMore.addEventListener("click",async()=>{loadMore.disabled=true;loadMore.textContent="載入中…";try{await config.onLoadMore();}catch(_){loadMore.disabled=false;loadMore.textContent="載入下一頁";}});
+    const settlementDialog=section.querySelector("#accountingSettlementDialog"),dialogTitle=section.querySelector("#accountingSettlementDialogTitle"),dialogTotal=section.querySelector("#accountingSettlementDialogTotal"),payableRows=section.querySelector("#accountingPayableRows"),receivableRows=section.querySelector("#accountingReceivableRows");
+    section.querySelectorAll("[data-settlement-dialog]").forEach(button=>button.addEventListener("click",()=>{const isPayable=button.dataset.settlementDialog==="payable";dialogTitle.textContent=isPayable?"我要付給誰":"誰要付給我";dialogTotal.textContent=`合計 ${button.querySelector("b").textContent}`;payableRows.hidden=!isPayable;receivableRows.hidden=isPayable;if(typeof settlementDialog.showModal==="function")settlementDialog.showModal();else settlementDialog.setAttribute("open","");}));
+    if(settlementDialog){section.querySelector("#accountingSettlementDialogClose").addEventListener("click",()=>settlementDialog.close());settlementDialog.addEventListener("click",event=>{if(event.target===settlementDialog)settlementDialog.close();});}
   }
   window.JLYAccountingActions = { bind };
 })();
