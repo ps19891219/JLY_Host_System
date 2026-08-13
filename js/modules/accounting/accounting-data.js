@@ -12,12 +12,13 @@
     const personId = text(item.personId || item.memberId || item.playerId || item.profileId || item.id || nested.personId || nested.memberId || nested.playerId || nested.profileId || nested.id);
     if (!personId) return null;
     const identityIds = unique([personId, item.identityId, item.memberId, item.playerId, item.profileId, item.id, ...(Array.isArray(item.linkedPlayerIds) ? item.linkedPlayerIds : []), nested.identityId, nested.memberId, nested.playerId, nested.profileId, nested.id, ...(Array.isArray(nested.linkedPlayerIds) ? nested.linkedPlayerIds : [])]);
-    return { personId, identityIds, displayName: text(item.displayName || item.playerName || item.name || item.nickname || nested.displayName || nested.playerName || nested.name || nested.nickname) || "未命名成員", roles: [role] };
+    const usesSystem = Boolean(text(item.memberId || item.profileId || item.identityId || item.lineUserId || nested.memberId || nested.profileId || nested.identityId || nested.lineUserId));
+    return { personId, identityIds, displayName: text(item.displayName || item.playerName || item.name || item.nickname || nested.displayName || nested.playerName || nested.name || nested.nickname) || "未命名成員", roles: [role], usesSystem };
   }
   function collectActivityMembers(car) {
     const source = car || {}, map = new Map();
-    function add(item) { if (!item) return; const previous = map.get(item.personId); if (previous) { previous.roles = unique([...previous.roles, ...item.roles]); previous.identityIds = unique([...previous.identityIds, ...item.identityIds]); } else map.set(item.personId, item); }
-    add(person({ personId: source.ownerId, displayName: source.ownerName || "車團主揪" }, "owner"));
+    function add(item) { if (!item) return; const previous = map.get(item.personId); if (previous) { previous.roles = unique([...previous.roles, ...item.roles]); previous.identityIds = unique([...previous.identityIds, ...item.identityIds]); previous.usesSystem=previous.usesSystem||item.usesSystem; } else map.set(item.personId, item); }
+    add(person({ personId: source.ownerId, memberId: source.ownerMemberId, identityId: source.ownerId, displayName: source.ownerName || "車團主揪" }, "owner"));
     (Array.isArray(source.players) ? source.players : []).filter(item => item && item.status !== "已取消" && item.status !== "cancelled").forEach(item => add(person(item, "player")));
     (Array.isArray(source.staffSlots) ? source.staffSlots : []).forEach(item => add(person(item, "staff")));
     return [...map.values()];
@@ -80,26 +81,26 @@
     if (!splits.length || splits.some(split => !Number.isFinite(split.amount) || split.amount < 0) || total !== Number(totalAmount)) throw new Error("split_total_mismatch");
     return splits;
   }
-  function transitionSettlement(split, action, actorPersonId, receiverPersonId, now, managerPersonId) {
+  function transitionSettlement(split, action, actorPersonId, receiverPersonId, now, managerPersonId, targetUsesSystem) {
     const current = { ...split }, actor = text(actorPersonId), receiver = text(receiverPersonId), timestamp = text(now) || new Date().toISOString();
     if (action === "claim") {
       if (actor !== current.personId || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
       return { ...current, settlementStatus: "payment_claimed", paymentClaimedBy: actor, paymentClaimedAt: timestamp, rejectedBy: "", rejectedAt: "" };
     }
     if (action === "manager_claim") {
-      if (actor !== text(managerPersonId) || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
+      if (targetUsesSystem || actor !== text(managerPersonId) || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
       return { ...current, settlementStatus: "payment_claimed", paymentClaimedBy: current.personId, paymentClaimedAt: timestamp, paymentRecordedBy: actor, paymentRecordSource: "manager", rejectedBy: "", rejectedAt: "" };
     }
     if (action === "receiver_settle") {
       const isReceiver=actor===receiver,isManager=actor===text(managerPersonId);
-      if ((!isReceiver&&!isManager) || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
+      if ((!isReceiver&&(!isManager||targetUsesSystem)) || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
       return { ...current, settlementStatus: "settled", paymentClaimedBy: current.personId, paymentClaimedAt: timestamp, paymentRecordedBy: actor, paymentRecordSource: isReceiver?"receiver":"manager_override", confirmedBy: actor, confirmedAt: timestamp, confirmationAuthority:isReceiver?"receiver":"manager" };
     }
     if (action === "withdraw") {
       if (current.settlementStatus !== "payment_claimed" || current.paymentClaimedBy !== actor) throw new Error("settlement_action_not_allowed");
       return { ...current, settlementStatus: "payment_due", paymentClaimedBy: "", paymentClaimedAt: "" };
     }
-    const canConfirm=actor===receiver||actor===text(managerPersonId);
+    const canConfirm=actor===receiver||(actor===text(managerPersonId)&&!targetUsesSystem);
     if (!["confirm", "reject"].includes(action) || !canConfirm || current.settlementStatus !== "payment_claimed") throw new Error("settlement_action_not_allowed");
     return action === "confirm"
       ? { ...current, settlementStatus: "settled", confirmedBy: actor, confirmedAt: timestamp, confirmationAuthority:actor===receiver?"receiver":"manager" }
@@ -166,5 +167,9 @@
     while(i<debtors.length&&j<creditors.length){const amount=Math.min(debtors[i].amount,creditors[j].amount);if(amount>0)transfers.push({fromPersonId:debtors[i].personId,toPersonId:creditors[j].personId,amount});debtors[i].amount-=amount;creditors[j].amount-=amount;if(!debtors[i].amount)i++;if(!creditors[j].amount)j++;}
     return { balances:[...balances].map(([personId,balance])=>({personId,balance})).filter(item=>item.balance), transfers };
   }
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances };
+  function personalSettlement(netSettlement, personId) {
+    const id=text(personId),transfers=(netSettlement&&netSettlement.transfers||[]).filter(item=>item.fromPersonId===id||item.toPersonId===id);
+    return { transfers, payable:transfers.filter(item=>item.fromPersonId===id).reduce((sum,item)=>sum+item.amount,0), receivable:transfers.filter(item=>item.toPersonId===id).reduce((sum,item)=>sum+item.amount,0) };
+  }
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, personalSettlement };
 });

@@ -167,3 +167,16 @@ test("stored activity balances recreate the same net transfer without reading tr
     {personId:"xiaoying",balance:-200}
   ]).transfers,[{fromPersonId:"xiaoying",toPersonId:"shijie",amount:200}]);
 });
+
+test("personal settlement only returns money involving the selected person", () => {
+  const personal=accountingData.personalSettlement({transfers:[{fromPersonId:"a",toPersonId:"b",amount:200},{fromPersonId:"c",toPersonId:"d",amount:500}]},"a");
+  assert.equal(personal.payable,200);
+  assert.equal(personal.receivable,0);
+  assert.equal(personal.transfers.length,1);
+});
+
+test("manager cannot operate payment confirmation for a system user", () => {
+  const due={splitId:"split-b",personId:"b",amount:300,settlementStatus:"payment_due"};
+  assert.throws(()=>accountingData.transitionSettlement(due,"manager_claim","host","a",undefined,"host",true),/settlement_action_not_allowed/);
+  assert.equal(accountingData.transitionSettlement(due,"manager_claim","host","a",undefined,"host",false).settlementStatus,"payment_claimed");
+});
