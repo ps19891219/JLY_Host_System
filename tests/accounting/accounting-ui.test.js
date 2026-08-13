@@ -8,6 +8,8 @@ const render = fs.readFileSync(path.join(root, "js/modules/accounting/accounting
 const actions = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-actions.js"), "utf8");
 const repository = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-repository.js"), "utf8");
 const controller = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-controller.js"), "utf8");
+const feeRepository = fs.readFileSync(path.join(root, "js/modules/accounting/activity-fee-repository.js"), "utf8");
+const feeController = fs.readFileSync(path.join(root, "js/modules/accounting/activity-fee-controller.js"), "utf8");
 
 test("個人應付與應收摘要可開啟各自的明細小視窗", () => {
   assert.match(render, /data-settlement-dialog="payable"/);
@@ -24,7 +26,7 @@ test("原始應收應付與互抵後總額分開顯示", () => {
   assert.match(render, />誰欠我</);
   assert.match(render, />互抵後總額</);
   assert.match(repository, /obligationsByPair/);
-  assert.match(repository, /schemaVersion:4/);
+  assert.match(repository, /schemaVersion:5/);
 });
 
 test("淨額付款由付款方申報並由收款方確認", () => {
@@ -81,4 +83,21 @@ test("主揪可在管理視角代未啟用系統的付款人登記彙總付款",
   assert.match(controller, /input\.action==="claim"\|\|input\.action==="manager_claim"/);
   assert.match(repository, /managerClaim&&input\.actorPersonId===input\.managerPersonId&&!input\.targetUsesSystem/);
   assert.match(repository, /claimAuthority:managerClaim\?"manager_for_offline_member":"self"/);
+});
+
+test("淨額付清後同一對成員的反向等額債務一併互抵完成", () => {
+  assert.match(repository, /const offset=Math\.min\(Number\(direct\.amount\)\|\|0,Number\(reverse\.amount\)\|\|0\)/);
+  assert.match(repository, /obligations=settleObligation\(obligations,from,to,amount\)/);
+  assert.match(repository, /schemaVersion:5/);
+});
+
+test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
+  assert.match(feeRepository, /accountingFeePlans/);
+  assert.match(feeRepository, /accountingFeeCollections/);
+  assert.match(feeRepository, /accountingExternalPayments/);
+  assert.match(feeRepository, /accountingFeeAuditLogs/);
+  assert.match(feeController, /玩家待收/);
+  assert.match(feeController, /店家待付/);
+  assert.match(feeController, /訂金/);
+  assert.match(feeController, /尾款/);
 });

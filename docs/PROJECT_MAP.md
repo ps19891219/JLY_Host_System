@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.58
+> Version: V2.60
 >
 > Last Updated: 2026-08-14
 >
@@ -494,6 +494,9 @@ Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇
 - `services/accounting/pending-action.js`：依帳務狀態產生具責任人的待分帳、待付款、待確認收款與退回待辦。
 - `services/accounting/compatibility.js`：將具正式身分的既有帳目原地映射成 Transaction，並為現行帳務快照提供暫時欄位別名。
 - `services/firebase/activity-accounting-repository.js`：以同一個 Firestore Transaction 寫入正式 Transaction，並同步完成舊待辦、產生下一階段 Pending Action。
+- `js/modules/accounting/activity-fee-data.js`：劇本費計畫、玩家代收、店家付款與車團暫存餘額的純計算規則。
+- `js/modules/accounting/activity-fee-repository.js`：劇本費計畫、玩家收款與外部店家訂金／尾款／退款的 Firestore 讀寫及稽核。
+- `js/modules/accounting/activity-fee-controller.js`：Car Detail 劇本費與店家核銷介面；現階段由主揪管理，LINE 入口未擴充。
 - `tests/accounting/accounting-core.test.js`：Accounting Core 純領域規則測試。
 
 正式資料來源仍規劃沿用：
@@ -1113,3 +1116,15 @@ matching
 
 - 主揪進入帳務管理並切換至未啟用帳務系統的付款人視角時，可在一對一互抵總額上代為登記部分付款或全額付款。
 - 代理付款申報會保留實際操作人、代理的付款人及 `manager_for_offline_member` 權限來源；已啟用系統的成員仍只能由本人申報。
+
+### V2.59｜2026-08-14
+
+- 一對一淨額付款經收款方確認後，除了扣除實際付款金額，也會將同一對成員剩餘的反向等額債務同時互抵，使該組正確回到「已互抵完成」。
+- `accountingViews/activityCurrent` 升級為 `schemaVersion=5`，現有車團下次載入會重建彙總並重播已確認付款，自動修復先前保留的等額雙向餘額。
+
+### V2.60｜2026-08-14
+
+- 新增劇本費與外部店家核銷第一版：主揪可建立玩家每人應付劇本費與店家總費用，分別登記玩家收款／退款及店家訂金／尾款／退款。
+- 劇本費頁面彙總玩家待收、店家待付與車團暫存餘額；玩家代收不視為主揪個人收入。
+- 新增 `accountingFeePlans/scriptFee`、`accountingFeeCollections`、`accountingExternalPayments` 與 `accountingFeeAuditLogs`；外部店家保留 `externalPartyId`、`linkedOrganizationId`、`linkedStoreId`，未來店家加入 JLY 後可連結為店家收入，不重建帳目。
+- 劇本費屬劇本車 Activity Extension，與玩家一對一共同支出互抵分離；LINE 快速記帳本階段不擴充。

@@ -309,6 +309,17 @@
   font-size: .88rem;
 }
 
+.accounting-fee-section { display: grid; gap: 14px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #e8e1d8; }
+.accounting-fee-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.accounting-fee-summary span { display: grid; gap: 4px; padding: 11px; border-radius: 11px; background: #f7f4ef; font-size: .84rem; }
+.accounting-fee-summary b { font-size: 1rem; color: #397b68; }
+.accounting-fee-members { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.accounting-fee-members li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #f7f4ef; }
+.accounting-fee-forms { display: grid; gap: 12px; }
+.accounting-fee-forms h5 { margin: 0; font-size: 1rem; }
+.accounting-fee-forms select,
+.accounting-fee-forms input { width: 100%; min-height: 44px; box-sizing: border-box; border: 1px solid #d7d2ca; border-radius: 11px; padding: 9px 11px; background: #fff; font: inherit; }
+
 .accounting-view-all {
   width: auto;
   background: #efebe5;
