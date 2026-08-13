@@ -492,6 +492,7 @@ Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇
 - `services/accounting/split.js`：平均分帳、尾差及自訂金額合計驗證。
 - `services/accounting/settlement.js`：付款申報、撤回、收款確認、退回與整筆結清判定。
 - `services/accounting/pending-action.js`：依帳務狀態產生具責任人的待分帳、待付款、待確認收款與退回待辦。
+- `services/accounting/compatibility.js`：將具正式身分的既有帳目原地映射成 Transaction，並為現行帳務快照提供暫時欄位別名。
 - `tests/accounting/accounting-core.test.js`：Accounting Core 純領域規則測試。
 
 正式資料來源仍規劃沿用：
@@ -501,6 +502,8 @@ cars/{carId}/accountingEntries/{transactionId}
 ```
 
 既有文件將以同一文件原地補齊通用 Transaction 欄位，不建立「車團帳、個人帳、LINE 帳」等重複交易。個人家計簿與跨村總帳未來只建立查詢／聚合視圖。Pending Action 的正式 Firestore 儲存位置尚待 Repository 階段定案；目前核心模型不直接寫入資料庫。
+
+早期帳目若缺少正式 `createdBy`／`paidBy` Person ID，必須保留原資料並標記 `identity_resolution_required`；不可把 LINE userId 當作 Person ID，也不可用顯示名稱猜測。完成身分解析前不產生個人 Pending Action。
 
 帳務參與者需由該 Activity 的正式關係合併取得：建立主揪、`players[]`、`staffSlots[]`。唯一識別使用正式 `memberId`／`playerId`／Person ID，顯示名稱只作快照與介面顯示。
 
