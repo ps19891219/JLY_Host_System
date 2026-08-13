@@ -23,8 +23,10 @@
     section.querySelectorAll(".accounting-settlement-row button").forEach(button=>button.addEventListener("click",async()=>{const row=button.closest(".accounting-settlement-row");button.disabled=true;const original=button.textContent;button.textContent="處理中…";try{await config.onSettlement({transactionId:row.dataset.transactionId,splitId:row.dataset.splitId,action:button.dataset.action});config.onReload();}catch(error){button.disabled=false;button.textContent=original;alert("目前無法執行這個付款動作，請重新確認身分與狀態。");}}));
     const viewAll=section.querySelector("#accountingViewAll"),filters=section.querySelector("#accountingFilters"),entries=[...section.querySelectorAll(".accounting-entry")],empty=section.querySelector("#accountingFilterEmpty"),title=section.querySelector("#accountingListTitle");
     function applyFilter(filter){let visible=0;entries.forEach(entry=>{const state=entry.dataset.filterState,show=filter==="all"||(filter==="pending"?state!=="settled":state===filter);entry.hidden=!show;if(show)visible++;});empty.hidden=visible!==0;filters.querySelectorAll("button").forEach(button=>button.classList.toggle("active",button.dataset.filter===filter));}
-    viewAll.addEventListener("click",()=>{filters.hidden=false;viewAll.hidden=true;title.textContent="全部車團帳務";applyFilter("pending");});
+    viewAll.addEventListener("click",async()=>{if(config.onViewAll&&viewAll.textContent.includes("查看詳細")){viewAll.disabled=true;viewAll.textContent="載入中…";try{await config.onViewAll();}catch(_){viewAll.disabled=false;viewAll.textContent="查看詳細帳務";}return;}filters.hidden=false;viewAll.hidden=true;title.textContent="詳細車團帳務";applyFilter("pending");});
     filters.querySelectorAll("button").forEach(button=>button.addEventListener("click",()=>applyFilter(button.dataset.filter)));
+    const loadMore=section.querySelector("#accountingLoadMore");
+    if(loadMore)loadMore.addEventListener("click",async()=>{loadMore.disabled=true;loadMore.textContent="載入中…";try{await config.onLoadMore();}catch(_){loadMore.disabled=false;loadMore.textContent="載入下一頁";}});
   }
   window.JLYAccountingActions = { bind };
 })();

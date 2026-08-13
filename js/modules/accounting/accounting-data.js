@@ -158,5 +158,13 @@
     }
     return { balances: [...balances].map(([personId,balance]) => ({ personId, balance: Math.round(balance) })).filter(item => item.balance !== 0), transfers };
   }
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement };
+  function netSettlementFromBalances(items) {
+    const balances = new Map((Array.isArray(items) ? items : []).map(item => [text(item.personId), Number(item.balance) || 0]));
+    const debtors = [...balances].filter(([,balance]) => balance < 0).map(([personId,balance]) => ({ personId, amount: -balance })).sort((a,b)=>b.amount-a.amount);
+    const creditors = [...balances].filter(([,balance]) => balance > 0).map(([personId,balance]) => ({ personId, amount: balance })).sort((a,b)=>b.amount-a.amount);
+    const transfers=[];let i=0,j=0;
+    while(i<debtors.length&&j<creditors.length){const amount=Math.min(debtors[i].amount,creditors[j].amount);if(amount>0)transfers.push({fromPersonId:debtors[i].personId,toPersonId:creditors[j].personId,amount});debtors[i].amount-=amount;creditors[j].amount-=amount;if(!debtors[i].amount)i++;if(!creditors[j].amount)j++;}
+    return { balances:[...balances].map(([personId,balance])=>({personId,balance})).filter(item=>item.balance), transfers };
+  }
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances };
 });

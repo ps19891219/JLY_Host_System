@@ -160,3 +160,10 @@ test("net settlement ignores pending split, deleted, and already settled obligat
   ];
   assert.deepEqual(accountingData.calculateNetSettlement(transactions).transfers,[]);
 });
+
+test("stored activity balances recreate the same net transfer without reading transactions", () => {
+  assert.deepEqual(accountingData.netSettlementFromBalances([
+    {personId:"shijie",balance:200},
+    {personId:"xiaoying",balance:-200}
+  ]).transfers,[{fromPersonId:"xiaoying",toPersonId:"shijie",amount:200}]);
+});

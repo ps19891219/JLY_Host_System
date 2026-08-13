@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.44
+> Version: V2.45
 >
 > Last Updated: 2026-08-13
 >
@@ -1034,3 +1034,11 @@ matching
 - 系統只聚合已完成分帳且尚未 settled 的 Split，先計算每位成員的淨應收／淨應付，再產生最少必要的「誰付給誰多少」轉帳建議。
 - 待分帳、軟刪除與已結清款項不計入目前淨額，避免尚未確認的分攤或已完成付款重複計算。
 - 目前淨額摘要是顯示層；付款確認仍保留在原始 Split，後續需增加可追溯的淨額付款分配機制，才能用一次付款安全結清多筆 Split。
+
+### V2.45｜2026-08-13
+
+- Activity Accounting 新增 `cars/{carId}/accountingViews/activityCurrent` 物化摘要，保存最近五筆 Transaction、全車未結清淨額與全車待辦計數；它是正式 Transaction 的衍生快照，不是第二份帳目。
+- 第一次遇到尚無摘要的舊車團時，會讀取既有 Transaction 與未完成 Pending Action 建立一次摘要；之後新增、完成分帳與付款狀態轉換都在同一 Firestore Transaction 內同步更新摘要。
+- Car Detail 一般開啟改為讀取一份 Activity 摘要，以及只屬於目前使用者的 Pending Action；不再固定讀取最近 20 筆 Transaction 與全車所有待辦。
+- 最近帳目直接使用摘要內五筆資料；只有點擊「查看詳細帳務」才按需讀取第一頁最多十筆正式 Transaction，避免一般瀏覽產生不必要讀取。
+- 淨額結算改由摘要內全車 `balanceByPerson` 產生，因此不再受最近 20 筆帳目上限影響；原始 Transaction、Split 與付款歷史仍完整保留。
