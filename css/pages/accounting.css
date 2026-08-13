@@ -189,9 +189,15 @@
 }
 
 .accounting-view-all {
-  width: 100%;
+  width: auto;
   background: #efebe5;
 }
+
+.accounting-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.accounting-filters { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; }
+.accounting-filters[hidden] { display: none; }
+.accounting-filters button { flex: 0 0 auto; border: 0; border-radius: 999px; padding: 8px 12px; background: #efebe5; color: #5f5a54; font: inherit; font-weight: 700; }
+.accounting-filters button.active { background: #397b68; color: #fff; }
 
 @media (max-width: 600px) {
   .accounting-heading {

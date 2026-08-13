@@ -80,20 +80,44 @@
     if (!splits.length || splits.some(split => !Number.isFinite(split.amount) || split.amount < 0) || total !== Number(totalAmount)) throw new Error("split_total_mismatch");
     return splits;
   }
-  function transitionSettlement(split, action, actorPersonId, receiverPersonId, now) {
+  function transitionSettlement(split, action, actorPersonId, receiverPersonId, now, managerPersonId) {
     const current = { ...split }, actor = text(actorPersonId), receiver = text(receiverPersonId), timestamp = text(now) || new Date().toISOString();
     if (action === "claim") {
       if (actor !== current.personId || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
       return { ...current, settlementStatus: "payment_claimed", paymentClaimedBy: actor, paymentClaimedAt: timestamp, rejectedBy: "", rejectedAt: "" };
     }
+    if (action === "manager_claim") {
+      if (actor !== text(managerPersonId) || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
+      return { ...current, settlementStatus: "payment_claimed", paymentClaimedBy: current.personId, paymentClaimedAt: timestamp, paymentRecordedBy: actor, paymentRecordSource: "manager", rejectedBy: "", rejectedAt: "" };
+    }
+    if (action === "receiver_settle") {
+      const isReceiver=actor===receiver,isManager=actor===text(managerPersonId);
+      if ((!isReceiver&&!isManager) || !["payment_due", "settlement_rejected"].includes(current.settlementStatus)) throw new Error("settlement_action_not_allowed");
+      return { ...current, settlementStatus: "settled", paymentClaimedBy: current.personId, paymentClaimedAt: timestamp, paymentRecordedBy: actor, paymentRecordSource: isReceiver?"receiver":"manager_override", confirmedBy: actor, confirmedAt: timestamp, confirmationAuthority:isReceiver?"receiver":"manager" };
+    }
     if (action === "withdraw") {
       if (current.settlementStatus !== "payment_claimed" || current.paymentClaimedBy !== actor) throw new Error("settlement_action_not_allowed");
       return { ...current, settlementStatus: "payment_due", paymentClaimedBy: "", paymentClaimedAt: "" };
     }
-    if (!["confirm", "reject"].includes(action) || actor !== receiver || current.settlementStatus !== "payment_claimed") throw new Error("settlement_action_not_allowed");
+    const canConfirm=actor===receiver||actor===text(managerPersonId);
+    if (!["confirm", "reject"].includes(action) || !canConfirm || current.settlementStatus !== "payment_claimed") throw new Error("settlement_action_not_allowed");
     return action === "confirm"
-      ? { ...current, settlementStatus: "settled", confirmedBy: actor, confirmedAt: timestamp }
-      : { ...current, settlementStatus: "settlement_rejected", rejectedBy: actor, rejectedAt: timestamp, confirmedBy: "", confirmedAt: "" };
+      ? { ...current, settlementStatus: "settled", confirmedBy: actor, confirmedAt: timestamp, confirmationAuthority:actor===receiver?"receiver":"manager" }
+      : { ...current, settlementStatus: "settlement_rejected", rejectedBy: actor, rejectedAt: timestamp, rejectionAuthority:actor===receiver?"receiver":"manager", confirmedBy: "", confirmedAt: "" };
   }
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement };
+  function transactionFilterState(transaction, currentPersonId) {
+    const item=transaction||{},splits=Array.isArray(item.splits)?item.splits:[],mine=splits.find(split=>split.personId===currentPersonId);
+    if(item.settlementStatus==="settled")return "settled";
+    if(item.splitStatus==="pending")return "pending_split";
+    if(splits.some(split=>split.settlementStatus==="payment_claimed")&&item.paidBy===currentPersonId)return "payment_confirmation";
+    if(mine&&["payment_due","settlement_rejected"].includes(mine.settlementStatus))return "payment_due";
+    return "pending_other";
+  }
+  function filterTransactions(transactions, filter, currentPersonId) {
+    const list=Array.isArray(transactions)?transactions:[];
+    if(filter==="all")return list;
+    if(filter==="pending")return list.filter(item=>transactionFilterState(item,currentPersonId)!=="settled");
+    return list.filter(item=>transactionFilterState(item,currentPersonId)===filter);
+  }
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions };
 });

@@ -97,3 +97,43 @@ test("browser payment claim can be withdrawn or rejected", () => {
   assert.equal(accountingData.transitionSettlement(claimed,"withdraw","b","a").settlementStatus,"payment_due");
   assert.equal(accountingData.transitionSettlement(claimed,"reject","a","a").settlementStatus,"settlement_rejected");
 });
+
+test("accounting list classifies the current person's next action", () => {
+  const base={splitStatus:"completed",paidBy:"a",settlementStatus:"payment_due",splits:[{personId:"b",settlementStatus:"payment_due"}]};
+  assert.equal(accountingData.transactionFilterState(base,"b"),"payment_due");
+  assert.equal(accountingData.transactionFilterState({...base,splits:[{personId:"b",settlementStatus:"payment_claimed"}]},"a"),"payment_confirmation");
+  assert.equal(accountingData.transactionFilterState({splitStatus:"pending"},"a"),"pending_split");
+  assert.equal(accountingData.transactionFilterState({splitStatus:"completed",settlementStatus:"settled"},"a"),"settled");
+});
+
+test("accounting list filters pending and settled transactions without copying data", () => {
+  const rows=[{transactionId:"1",splitStatus:"pending"},{transactionId:"2",splitStatus:"completed",settlementStatus:"settled"}];
+  assert.deepEqual(accountingData.filterTransactions(rows,"pending","a").map(row=>row.transactionId),["1"]);
+  assert.strictEqual(accountingData.filterTransactions(rows,"all","a")[0],rows[0]);
+});
+
+test("manager can record a debtor payment without pretending to be the debtor", () => {
+  const due={splitId:"split-b",personId:"b",amount:300,settlementStatus:"payment_due"};
+  const claimed=accountingData.transitionSettlement(due,"manager_claim","host","a","2026-08-13T03:00:00.000Z","host");
+  assert.equal(claimed.settlementStatus,"payment_claimed");
+  assert.equal(claimed.paymentClaimedBy,"b");
+  assert.equal(claimed.paymentRecordedBy,"host");
+  assert.equal(claimed.paymentRecordSource,"manager");
+});
+
+test("actual receiver can directly record received payment", () => {
+  const due={splitId:"split-b",personId:"b",amount:300,settlementStatus:"payment_due"};
+  const settled=accountingData.transitionSettlement(due,"receiver_settle","a","a","2026-08-13T03:00:00.000Z","a");
+  assert.equal(settled.settlementStatus,"settled");
+  assert.equal(settled.confirmedBy,"a");
+  assert.throws(()=>accountingData.transitionSettlement(due,"receiver_settle","outsider","a",undefined,"host"),/settlement_action_not_allowed/);
+});
+
+test("manager can settle on behalf of the receiver with explicit authority history", () => {
+  const due={splitId:"split-b",personId:"b",amount:300,settlementStatus:"payment_due"};
+  const settled=accountingData.transitionSettlement(due,"receiver_settle","host","a","2026-08-13T04:00:00.000Z","host");
+  assert.equal(settled.settlementStatus,"settled");
+  assert.equal(settled.confirmedBy,"host");
+  assert.equal(settled.confirmationAuthority,"manager");
+  assert.equal(settled.paymentRecordSource,"manager_override");
+});

@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.39
+> Version: V2.42
 >
 > Last Updated: 2026-08-13
 >
@@ -1003,3 +1003,21 @@ matching
 - Transaction 的實際付款人是唯一收款確認者，可按「確認收到」正式結清 Split，或按「尚未收到」退回付款申報。
 - 每次付款狀態轉換會同步完成舊 Pending Action 並產生下一責任人的 `payment_due`、`payment_confirmation` 或 `settlement_rejected`。
 - 只有所有 Split 都 settled 時，整筆 Transaction 才顯示「全部結清」；付款方不能自行完成結清。
+
+### V2.40｜2026-08-13
+
+- Car Detail 的「查看全部帳務」正式啟用，沿用已讀取的 Transaction 清單，不建立或複製第二份帳務資料。
+- 完整列表支援「全部、待處理、待分帳、待付款、待確認、已結清」篩選；開啟時預設顯示待處理帳務。
+- 待付款與待確認分類依目前登入 Person ID 判定，讓使用者優先看到下一步輪到自己的帳；首頁仍只顯示最近五筆以維持畫面精簡。
+
+### V2.41｜2026-08-13
+
+- 車團主揪可替欠款成員「代登已付款」，不必等待玩家本人操作；Split 會分開記錄欠款人 `paymentClaimedBy` 與代登者 `paymentRecordedBy`。
+- 主揪代登不會冒充玩家本人，且若主揪不是實際收款人，仍需 Transaction 的 `paidBy` 確認後才 settled。
+- 實際收款人可直接按「標記已收款」，同時保存付款代登與收款確認時間；非收款人即使是主揪也不能跳過真正收款人直接結清。
+
+### V2.42｜2026-08-13
+
+- 車團帳務權限調整為：欠款本人可申報「我已付款」；Transaction 的 `paidBy` 可確認自己的應收款；車團主揪可管理全部付款狀態。
+- 主揪可代替收款人確認、退回或直接標記已收款，並以 `confirmationAuthority=manager`、`paymentRecordSource=manager_override` 明確保存管理者代操作，不偽裝成原收款人。
+- 一般成員仍不能修改其他人的 Split；完整 Transaction 內容修改與軟刪除介面留待下一階段，並沿用既有稽核紀錄原則。
