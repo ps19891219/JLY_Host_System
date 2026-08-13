@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.53
+> Version: V2.54
 >
 > Last Updated: 2026-08-13
 >
@@ -1086,3 +1086,8 @@ matching
 
 - Activity Member 的報名／Member／Profile／LINE 識別資料不再自動代表已啟用個人帳務；只有 `accountingSelfServiceEnabled=true` 或目前已驗證登入的本人，才視為帳務自助使用者。
 - 現階段手動建立或僅完成報名的玩家預設可由主揪代處理款項；未來個人帳務正式開放時，再於完成帳務啟用流程後寫入 `accountingSelfServiceEnabled=true`。
+
+### V2.54｜2026-08-13
+
+- 主揪同時是淨額付款人、並在管理模式查看未啟用帳務的收款人時，操作按鈕優先顯示「代為確認收款」，避免付款人的「撤回付款」遮蔽代理確認入口。
+- 回到付款人自己的帳務視角時仍顯示「撤回付款」，代理確認與本人付款操作依目前視角清楚分離。

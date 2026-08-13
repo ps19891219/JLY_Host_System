@@ -40,6 +40,7 @@ test("主揪只能代未使用系統的收款人確認淨額付款", () => {
   assert.match(render, />代為確認收款<\/button>/);
   assert.match(repository, /manager_for_offline_member/);
   assert.match(repository, /authority\.targetUsesSystem/);
+  assert.ok(render.indexOf("if(managerCanConfirm)") < render.indexOf("model.currentPersonId===claim.fromPersonId"), "管理離線收款人時，代為確認必須優先於付款人撤回");
 });
 
 test("結算小視窗沿用已載入的個人淨額，不另外查詢資料", () => {
