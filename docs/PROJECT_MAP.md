@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.60
+> Version: V2.61
 >
 > Last Updated: 2026-08-14
 >
@@ -1128,3 +1128,10 @@ matching
 - 劇本費頁面彙總玩家待收、店家待付與車團暫存餘額；玩家代收不視為主揪個人收入。
 - 新增 `accountingFeePlans/scriptFee`、`accountingFeeCollections`、`accountingExternalPayments` 與 `accountingFeeAuditLogs`；外部店家保留 `externalPartyId`、`linkedOrganizationId`、`linkedStoreId`，未來店家加入 JLY 後可連結為店家收入，不重建帳目。
 - 劇本費屬劇本車 Activity Extension，與玩家一對一共同支出互抵分離；LINE 快速記帳本階段不擴充。
+
+### V2.61｜2026-08-14
+
+- 基本劇本費只以車團 `players[]` 的玩家區成員計費，不納入 `staffSlots[]` 工作人員；玩家區人數變動時會以每人設定金額重新計算應收。
+- 店家核銷改為「店家基本費用＋動態費用項目」；指定 DM 費與其他加費使用「＋新增費用項目」，不佔用固定欄位。
+- 每個額外費用項目獨立保留名稱、類型、金額、備註與負擔方式，支援玩家均分、指定玩家、主揪支付與自訂分攤；費用同時納入店家應付總額與對應人員應付。
+- 玩家預付訂金沿用玩家收款紀錄，店家訂金仍獨立計入外部店家已付，兩者不混合。

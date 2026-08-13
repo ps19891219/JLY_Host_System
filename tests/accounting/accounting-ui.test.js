@@ -100,4 +100,9 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /店家待付/);
   assert.match(feeController, /訂金/);
   assert.match(feeController, /尾款/);
+  assert.match(feeController, /＋ 新增費用項目/);
+  assert.match(feeController, /玩家均分/);
+  assert.match(feeController, /指定玩家支付/);
+  assert.match(feeController, /主揪支付/);
+  assert.match(feeController, /自訂分攤/);
 });
