@@ -172,5 +172,6 @@
     const id=text(personId),transfers=(netSettlement&&netSettlement.transfers||[]).filter(item=>item.fromPersonId===id||item.toPersonId===id);
     return { transfers, payable:transfers.filter(item=>item.fromPersonId===id).reduce((sum,item)=>sum+item.amount,0), receivable:transfers.filter(item=>item.toPersonId===id).reduce((sum,item)=>sum+item.amount,0) };
   }
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, personalSettlement };
+  function personalObligations(items,personId){const id=text(personId),list=(Array.isArray(items)?items:[]).filter(item=>item.fromPersonId===id||item.toPersonId===id);return{payable:list.filter(item=>item.fromPersonId===id),receivable:list.filter(item=>item.toPersonId===id),payableTotal:list.filter(item=>item.fromPersonId===id).reduce((sum,item)=>sum+(Number(item.amount)||0),0),receivableTotal:list.filter(item=>item.toPersonId===id).reduce((sum,item)=>sum+(Number(item.amount)||0),0)};}
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, personalSettlement, personalObligations };
 });

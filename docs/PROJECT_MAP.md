@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.49
+> Version: V2.51
 >
 > Last Updated: 2026-08-13
 >
@@ -1065,3 +1065,14 @@ matching
 
 - Car Detail 的「我還要付」與「別人還欠我」摘要改為可點擊卡片，使用原頁小視窗分別顯示付款／收款對象與淨額。
 - 明細直接沿用 Accounting Controller 已載入的 `personalSettlement.transfers`，不新增 Firestore 查詢；原本重複顯示的下方「我的結算結果」區塊從一般畫面移除。
+
+### V2.50｜2026-08-13
+
+- 淨額結算小視窗接上雙方確認流程：付款方可申報「我已付款」或在確認前撤回，收款方可「確認收款」，確認後才從 Activity 帳務餘額扣除。
+- 新增 `cars/{carId}/accountingSettlements/{settlementId}` 保存淨額付款、確認與撤回歷史；`accountingViews/activityCurrent.activeNetSettlements` 保存進行中的付款申報，避免開啟小視窗時新增讀取。
+- 淨額付款申報會建立責任人為收款方的 `payment_confirmation` Pending Action；完成或撤回後保留 Settlement 歷史並完成待辦，不刪除原始 Transaction 或 Split。
+
+### V2.51｜2026-08-13
+
+- 個人帳務摘要拆成「我欠誰」、「誰欠我」與「互抵後總額」三個入口；前兩者顯示扣抵前的原始應付／應收關係，第三者才顯示最終淨額與付款確認操作。
+- `accountingViews/activityCurrent` Schema 升級至 V3，新增 `obligationsByPair` 聚合所有未結清 Split 的付款人關係，不受最近帳目顯示筆數限制，也不需在點擊摘要時重新讀取 Transaction。

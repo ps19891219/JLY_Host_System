@@ -175,6 +175,14 @@ test("personal settlement only returns money involving the selected person", () 
   assert.equal(personal.transfers.length,1);
 });
 
+test("personal obligations keep gross payable and receivable before netting", () => {
+  const result=accountingData.personalObligations([{fromPersonId:"a",toPersonId:"b",amount:300},{fromPersonId:"b",toPersonId:"a",amount:100},{fromPersonId:"c",toPersonId:"d",amount:500}],"a");
+  assert.equal(result.payableTotal,300);
+  assert.equal(result.receivableTotal,100);
+  assert.equal(result.payable.length,1);
+  assert.equal(result.receivable.length,1);
+});
+
 test("manager cannot operate payment confirmation for a system user", () => {
   const due={splitId:"split-b",personId:"b",amount:300,settlementStatus:"payment_due"};
   assert.throws(()=>accountingData.transitionSettlement(due,"manager_claim","host","a",undefined,"host",true),/settlement_action_not_allowed/);
