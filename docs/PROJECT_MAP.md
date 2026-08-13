@@ -2,9 +2,9 @@
 
 > Status: Working Map
 >
-> Version: V2.20
+> Version: V2.33
 >
-> Last Updated: 2026-08-12
+> Last Updated: 2026-08-13
 >
 > Source of truth: repository files and current HTML runtime references
 
@@ -482,6 +482,28 @@ cars/{carId}/accountingAuditLogs/{auditId}
 
 稽核紀錄包含操作類型、帳目 ID、操作者 LINE userId、權限依據、修改前資料、修改後資料與時間。一般成員無法由 LINE 指令查看，主揪與系統管理者可使用 `JLY 異動紀錄`。
 
+### 6.6 Accounting Core V1（施工中）
+
+Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇本村專用帳本。劇本車是第一個正式 Activity 實作，現階段停止擴充 LINE 帳務功能，既有 LINE Messaging API、Webhook、群組事件與 `groupId → carId` 綁定只保留為未來快速記帳入口。
+
+核心模組：
+
+- `services/accounting/transaction.js`：Transaction 標準結構；保留 `activityId`、`activityType`、`villageType`、`carId`，並分離 `createdBy` 與 `paidBy`。
+- `services/accounting/split.js`：平均分帳、尾差及自訂金額合計驗證。
+- `services/accounting/settlement.js`：付款申報、撤回、收款確認、退回與整筆結清判定。
+- `services/accounting/pending-action.js`：依帳務狀態產生具責任人的待分帳、待付款、待確認收款與退回待辦。
+- `tests/accounting/accounting-core.test.js`：Accounting Core 純領域規則測試。
+
+正式資料來源仍規劃沿用：
+
+```text
+cars/{carId}/accountingEntries/{transactionId}
+```
+
+既有文件將以同一文件原地補齊通用 Transaction 欄位，不建立「車團帳、個人帳、LINE 帳」等重複交易。個人家計簿與跨村總帳未來只建立查詢／聚合視圖。Pending Action 的正式 Firestore 儲存位置尚待 Repository 階段定案；目前核心模型不直接寫入資料庫。
+
+帳務參與者需由該 Activity 的正式關係合併取得：建立主揪、`players[]`、`staffSlots[]`。唯一識別使用正式 `memberId`／`playerId`／Person ID，顯示名稱只作快照與介面顯示。
+
 ---
 
 ## 7. Firebase 與資料地圖
@@ -919,3 +941,11 @@ matching
 - 新增帳目可選擇「先記總額，之後再分帳」或「現在立即分帳」。
 - 暫不分帳的支出標記為 `pending`，仍會立即計入車團總支出，但不會先產生成員應收／應付。
 - 帳務頁列出待分帳項目，使用者可稍後點擊「分帳」補選成員。
+
+### V2.33｜2026-08-13
+
+- 正式啟動跨 Activity 的 JLY Accounting Core；劇本車為第一個 Activity Accounting 實作，不另建劇本村專用帳本。
+- 新增 Transaction、Split、Settlement 與 Pending Action 四個獨立領域模組，避免帳務邏輯繼續堆入 `cardetail.js` 或 LINE Event Router。
+- Transaction 明確保留 `activityId`、`activityType`、`villageType`、`createdBy`、`paidBy`、`splitStatus` 與 `settlementStatus`。
+- 完成平均分帳尾差、自訂金額驗證、付款申報／撤回、收款確認／退回及責任人待辦的純規則測試。
+- 現階段不擴充 LINE 完整帳務管理；未來 LINE 快速記帳必須寫入同一份正式 Transaction。
