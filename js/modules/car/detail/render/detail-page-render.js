@@ -434,6 +434,24 @@ console.log(
     `;
   }
 
+  function buildAccountingSectionHtml() {
+    const renderer = window.JLYAccountingRender;
+
+    if (
+      renderer &&
+      typeof renderer.buildShellHtml === "function"
+    ) {
+      return renderer.buildShellHtml();
+    }
+
+    return `
+      <section class="card accounting-card" id="accountingSection">
+        <h3>💰 車團帳務</h3>
+        <p>帳務模組載入中...</p>
+      </section>
+    `;
+  }
+
   // ------------------------------------------------------------
   // 完整頁面
   // ------------------------------------------------------------
@@ -472,9 +490,11 @@ console.log(
         safeConfig.scriptName
       )}
 
-            ${buildCarSummaryHtml(
+      ${buildCarSummaryHtml(
         safeConfig
       )}
+
+      ${buildAccountingSectionHtml()}
 
       ${buildLineGroupBindingHtml(
         car
@@ -520,6 +540,8 @@ console.log(
     buildNavigationHtml,
 
     buildLineGroupBindingHtml,
+
+    buildAccountingSectionHtml,
 
     buildPageHtml
   };

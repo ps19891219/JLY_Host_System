@@ -1,0 +1,147 @@
+.accounting-card {
+  display: grid;
+  gap: 18px;
+}
+
+.accounting-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.accounting-heading h3,
+.accounting-heading p,
+.accounting-card h4 {
+  margin: 0;
+}
+
+.accounting-heading p,
+.accounting-entry small,
+.accounting-view-all,
+.accounting-card .empty-text {
+  color: #746f68;
+}
+
+.accounting-heading button,
+.accounting-form-actions button,
+.accounting-view-all {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.accounting-heading button,
+.accounting-form-actions button[type="submit"] {
+  color: #fff;
+  background: #397b68;
+}
+
+.accounting-pending-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.accounting-pending-grid span {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8f3eb;
+  color: #655f58;
+}
+
+.accounting-pending-grid b {
+  color: #252321;
+  font-size: 1.35rem;
+}
+
+.accounting-quick-form {
+  display: grid;
+  gap: 13px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f7faf8;
+}
+
+.accounting-quick-form[hidden] {
+  display: none;
+}
+
+.accounting-quick-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.accounting-quick-form input,
+.accounting-quick-form select {
+  width: 100%;
+  min-height: 46px;
+  box-sizing: border-box;
+  border: 1px solid #d7d2ca;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  font: inherit;
+}
+
+.accounting-form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.accounting-form-actions button {
+  flex: 1;
+}
+
+.accounting-entry-list {
+  display: grid;
+  gap: 10px;
+}
+
+.accounting-entry {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid #eee8df;
+}
+
+.accounting-entry > div {
+  display: grid;
+  gap: 4px;
+}
+
+.accounting-entry > div:last-child {
+  justify-items: end;
+  text-align: right;
+}
+
+.accounting-entry span {
+  font-size: .88rem;
+}
+
+.accounting-view-all {
+  width: 100%;
+  background: #efebe5;
+}
+
+@media (max-width: 600px) {
+  .accounting-heading {
+    align-items: flex-start;
+  }
+
+  .accounting-pending-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .accounting-pending-grid span {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}

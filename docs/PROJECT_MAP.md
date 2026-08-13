@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.34
+> Version: V2.35
 >
 > Last Updated: 2026-08-13
 >
@@ -969,3 +969,12 @@ matching
 - 新增 `accountingPendingActions` 子集合；待辦具責任人、交易與 Split 關聯，完成後保留狀態歷程而不刪除。
 - Transaction 與 Pending Action 在同一個 Firestore Transaction 內同步，完成分帳時會完成 `pending_split` 並產生各欠款人的 `payment_due`。
 - Transaction 文件保存目前有效的 `pendingActionIds` 與 `schemaVersion=1`，並暫時保留現行帳務快照所需的相容欄位。
+
+### V2.35｜2026-08-13
+
+- `pages/car-detail.html` 正式載入獨立的 `js/modules/accounting/` 前端模組與 `css/pages/accounting.css`，帳務邏輯沒有繼續堆入 Transitional `js/cardetail.js`。
+- Car Detail 增加「車團帳務」正式區塊，第一版顯示待分帳、待付款、待確認收款數量，以及最近五筆 Transaction。
+- 車團成員來源整合 `ownerId`、`players` 與 `staffSlots`，帳務身份只採正式 Person / Player / Member ID；顯示名稱不作唯一識別。
+- 快速記帳建立唯一 Transaction，保留分離的 `createdBy` 與 `paidBy`，預設 `splitStatus=pending`，並在同一 Firestore transaction 建立 `pending_split`。
+- Current 前端儲存位置維持 `cars/{carId}/accountingEntries/{transactionId}` 與 `cars/{carId}/accountingPendingActions/{pendingActionId}`；LINE Messaging Runtime 本階段未擴充。
+- 已知限制：目前「查看全部帳務」、平均／自訂分帳與付款雙方確認尚未接上 Car Detail UI，屬 Accounting V1 下一階段。
