@@ -43,6 +43,13 @@ test("主揪只能代未使用系統的收款人確認淨額付款", () => {
   assert.ok(render.indexOf("if(managerCanConfirm)") < render.indexOf("model.currentPersonId===claim.fromPersonId"), "管理離線收款人時，代為確認必須優先於付款人撤回");
 });
 
+test("詳細帳目優先顯示離線收款人的代理確認，不被付款人撤回遮蔽", () => {
+  assert.match(render, /canConfirmForReceiver/);
+  assert.match(render, /data-target-person-id=.*代為確認收款/);
+  assert.ok(render.indexOf("if(canConfirmForReceiver)") < render.indexOf("if(mine)buttons"));
+  assert.match(actions, /targetPersonId:button\.dataset\.targetPersonId/);
+});
+
 test("結算小視窗沿用已載入的個人淨額，不另外查詢資料", () => {
   assert.match(render, /model\.personalSettlement&&model\.personalSettlement\.transfers/);
   assert.doesNotMatch(actions, /getDocs|fetch\(|\.get\(/);

@@ -13,10 +13,10 @@
   function settlementRows(item, model) {
     if (item.splitStatus === "pending") return "";
     return (item.splits || []).filter(split=>split.settlementStatus!=="settled"&&(split.personId===model.viewPersonId||item.paidBy===model.viewPersonId)).map(split => {
-      const mine=split.personId===model.currentPersonId,receiver=item.paidBy===model.currentPersonId,targetMember=model.membersById.get(split.personId),canManage=model.managementMode&&model.isManager&&targetMember&&!targetMember.usesSystem,name=model.memberNames.get(split.personId)||split.displayName||"成員";
+      const mine=split.personId===model.currentPersonId,receiver=item.paidBy===model.currentPersonId,targetMember=model.membersById.get(split.personId),receiverMember=model.membersById.get(item.paidBy),canManage=model.managementMode&&model.isManager&&targetMember&&!targetMember.usesSystem,canConfirmForReceiver=model.managementMode&&model.isManager&&model.viewPersonId===item.paidBy&&receiverMember&&!receiverMember.usesSystem,name=model.memberNames.get(split.personId)||split.displayName||"成員";
       let label="尚未付款",buttons="";
       if(split.settlementStatus==="settled")label="已結清";
-      else if(split.settlementStatus==="payment_claimed"){label="已付款，待確認";if(mine)buttons=`<button data-action="withdraw">撤回</button>`;if(receiver)buttons+=`<button data-action="confirm">確認收款</button>`;else if(canManage)buttons+=`<button data-action="confirm">代為確認</button>`;}
+      else if(split.settlementStatus==="payment_claimed"){label="已付款，待確認";if(canConfirmForReceiver)buttons=`<button data-action="confirm" data-target-person-id="${escape(item.paidBy)}">代為確認收款</button>`;else{if(mine)buttons=`<button data-action="withdraw">撤回</button>`;if(receiver)buttons+=`<button data-action="confirm">確認收款</button>`;else if(canManage)buttons+=`<button data-action="confirm">代為確認</button>`;}}
       else if(split.settlementStatus==="settlement_rejected")label="付款被退回";
       if(["payment_due","settlement_rejected"].includes(split.settlementStatus)){
         if(mine)buttons+=`<button data-action="claim">已付款</button>`;
