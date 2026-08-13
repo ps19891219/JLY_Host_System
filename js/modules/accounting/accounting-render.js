@@ -12,7 +12,7 @@
   }
   function settlementRows(item, model) {
     if (item.splitStatus === "pending") return "";
-    return (item.splits || []).filter(split=>split.personId===model.viewPersonId||item.paidBy===model.viewPersonId).map(split => {
+    return (item.splits || []).filter(split=>split.settlementStatus!=="settled"&&(split.personId===model.viewPersonId||item.paidBy===model.viewPersonId)).map(split => {
       const mine=split.personId===model.currentPersonId,receiver=item.paidBy===model.currentPersonId,targetMember=model.membersById.get(split.personId),canManage=model.managementMode&&model.isManager&&targetMember&&!targetMember.usesSystem,name=model.memberNames.get(split.personId)||split.displayName||"成員";
       let label="尚未付款",buttons="";
       if(split.settlementStatus==="settled")label="已結清";

@@ -180,3 +180,8 @@ test("manager cannot operate payment confirmation for a system user", () => {
   assert.throws(()=>accountingData.transitionSettlement(due,"manager_claim","host","a",undefined,"host",true),/settlement_action_not_allowed/);
   assert.equal(accountingData.transitionSettlement(due,"manager_claim","host","a",undefined,"host",false).settlementStatus,"payment_claimed");
 });
+
+test("net settlement never creates a transfer from a person to themselves", () => {
+  const result=accountingData.netSettlementFromBalances([{personId:"shijie",balance:25},{personId:"shijie",balance:-25}]);
+  assert.equal(result.transfers.some(item=>item.fromPersonId===item.toPersonId),false);
+});
