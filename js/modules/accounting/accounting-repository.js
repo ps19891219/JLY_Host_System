@@ -30,5 +30,19 @@
     });
     return data;
   }
-  window.JLYAccountingRepository = { loadDashboard, createQuickTransaction };
+  async function completeSplit(carId, transactionId, splits, actorPersonId, managerPersonId) {
+    const db=requireDb(),root=db.collection("cars").doc(carId),entryRef=root.collection("accountingEntries").doc(transactionId),actions=root.collection("accountingPendingActions"),now=new Date().toISOString();
+    await db.runTransaction(async transaction=>{
+      const entrySnapshot=await transaction.get(entryRef);if(!entrySnapshot.exists)throw new Error("transaction_not_found");
+      const entry={transactionId:entrySnapshot.id,...entrySnapshot.data()};
+      if(actorPersonId!==entry.createdBy&&actorPersonId!==entry.paidBy&&actorPersonId!==managerPersonId)throw new Error("split_permission_denied");
+      const oldIds=Array.isArray(entry.pendingActionIds)?entry.pendingActionIds:[];
+      const oldSnapshots=await Promise.all(oldIds.map(id=>transaction.get(actions.doc(id))));
+      oldSnapshots.forEach((snapshot,index)=>{if(snapshot.exists){const old=snapshot.data();transaction.set(actions.doc(oldIds[index]),{...old,status:"completed",completedAt:now,updatedAt:now,history:[...(old.history||[]),{status:"completed",at:now,actorPersonId}]},{merge:false});}});
+      const pendingIds=[];
+      for(const split of splits){if(split.settlementStatus==="settled")continue;const id=`payment_due-${transactionId}-${split.personId}`;pendingIds.push(id);transaction.set(actions.doc(id),{pendingActionId:id,actionType:"payment_due",responsiblePersonId:split.personId,transactionId,splitId:split.splitId,activityId:entry.activityId||carId,carId,status:"pending",createdAt:now,updatedAt:now,completedAt:"",history:[{status:"pending",at:now}]},{merge:false});}
+      transaction.set(entryRef,{...entry,splits,shares:splits,participants:splits.map(split=>split.personId),splitStatus:"completed",settlementStatus:pendingIds.length?"payment_due":"settled",pendingActionIds:pendingIds,updatedAt:now},{merge:false});
+    });
+  }
+  window.JLYAccountingRepository = { loadDashboard, createQuickTransaction, completeSplit };
 })();

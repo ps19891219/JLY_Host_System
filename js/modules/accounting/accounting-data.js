@@ -55,5 +55,30 @@
       schemaVersion: 1
     };
   }
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction };
+  function buildEqualSplits(participants, totalAmount, paidBy) {
+    const people = Array.isArray(participants) ? participants : [];
+    const total = Number(totalAmount);
+    if (!people.length || !Number.isFinite(total) || total <= 0) throw new Error("split_invalid");
+    const base = Math.floor(total / people.length);
+    return people.map((member, index) => ({
+      splitId: `split-${member.personId}`,
+      personId: member.personId,
+      displayName: member.displayName,
+      amount: index === people.length - 1 ? total - base * (people.length - 1) : base,
+      settlementStatus: member.personId === paidBy ? "settled" : "payment_due"
+    }));
+  }
+  function buildCustomSplits(participants, amounts, totalAmount, paidBy) {
+    const splits = (participants || []).map(member => ({
+      splitId: `split-${member.personId}`,
+      personId: member.personId,
+      displayName: member.displayName,
+      amount: Number(amounts && amounts[member.personId]),
+      settlementStatus: member.personId === paidBy ? "settled" : "payment_due"
+    }));
+    const total = splits.reduce((sum, split) => sum + split.amount, 0);
+    if (!splits.length || splits.some(split => !Number.isFinite(split.amount) || split.amount < 0) || total !== Number(totalAmount)) throw new Error("split_total_mismatch");
+    return splits;
+  }
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits };
 });

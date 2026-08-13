@@ -494,8 +494,6 @@ console.log(
         safeConfig
       )}
 
-      ${buildAccountingSectionHtml()}
-
       ${buildLineGroupBindingHtml(
         car
       )}
@@ -507,6 +505,8 @@ console.log(
       ${buildSeatSectionHtml(
         car
       )}
+
+      ${buildAccountingSectionHtml()}
 
       ${buildApplicationsSectionHtml(
         applications

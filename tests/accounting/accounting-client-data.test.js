@@ -66,3 +66,20 @@ test("getCurrentIdentity includes profile, device, and linked identities", () =>
   assert.deepEqual(identity.identityIds, ["profile-shijie", "device-shijie", "old-jly-identity"]);
   assert.equal(identity.displayName, "詩婕");
 });
+
+test("browser equal split assigns the remainder to the last selected member", () => {
+  const splits = accountingData.buildEqualSplits([
+    { personId: "a", displayName: "詩婕" },
+    { personId: "b", displayName: "小霙" },
+    { personId: "c", displayName: "玩家 A" }
+  ], 100, "a");
+  assert.deepEqual(splits.map(split => split.amount), [33, 33, 34]);
+  assert.equal(splits[0].settlementStatus, "settled");
+  assert.equal(splits[1].settlementStatus, "payment_due");
+});
+
+test("browser custom split must equal the transaction amount", () => {
+  const people = [{ personId: "a", displayName: "詩婕" }, { personId: "b", displayName: "小霙" }];
+  assert.throws(() => accountingData.buildCustomSplits(people, { a: 300, b: 380 }, 690, "a"), /split_total_mismatch/);
+  assert.deepEqual(accountingData.buildCustomSplits(people, { a: 310, b: 380 }, 690, "a").map(split => split.amount), [310, 380]);
+});

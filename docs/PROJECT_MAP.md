@@ -2,7 +2,7 @@
 
 > Status: Working Map
 >
-> Version: V2.36
+> Version: V2.37
 >
 > Last Updated: 2026-08-13
 >
@@ -984,3 +984,10 @@ matching
 - Car Detail 帳務載入正式 `JLYIdentity`，比對目前 Profile ID、裝置 Identity ID 與 `linkedPlayerIds`，避免同一位正式成員因歷史 Identity 不同而被拒絕記帳。
 - 快速記帳會將目前登入者解析回車團保存的正式 Person／Member ID；付款人預設顯示目前玩家姓名，例如「詩婕」。
 - 車團 `organizerName`／工作室名稱不再被帳務模組誤當成主揪個人姓名。
+
+### V2.37｜2026-08-13
+
+- Car Detail 將成員／座位名單排列在帳務區上方，維持非帳務車團的主要操作優先順序。
+- 待分帳 Transaction 可從最近帳目直接開啟分帳表單，支援勾選正式 Activity Member 後平均分帳或輸入自訂金額。
+- 平均分帳的整除尾差固定分配給最後一位所選成員；自訂金額合計不等於 Transaction 金額時禁止完成。
+- 完成分帳會結束 `pending_split`，為非付款人成員建立具責任人的 `payment_due`；付款人自己的 Split 直接標記 settled，但不代表其他成員已結清。

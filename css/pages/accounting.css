@@ -34,6 +34,36 @@
   font-weight: 700;
 }
 
+.accounting-split-open {
+  border: 0;
+  border-radius: 10px;
+  padding: 7px 12px;
+  background: #fff0c8;
+  color: #6b4d00;
+  font: inherit;
+  font-weight: 700;
+}
+
+.accounting-member-list {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+}
+
+.accounting-member-list label {
+  grid-template-columns: auto 1fr minmax(90px, .45fr);
+  align-items: center;
+  padding: 10px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.accounting-member-list input[type="checkbox"] {
+  width: 22px;
+  min-height: 22px;
+}
+
 .accounting-heading button,
 .accounting-form-actions button[type="submit"] {
   color: #fff;
