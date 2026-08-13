@@ -154,6 +154,50 @@
   gap: 10px;
 }
 
+.accounting-net-settlement {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 6px;
+  padding: 15px;
+  border-radius: 14px;
+  background: #eef8f4;
+}
+
+.accounting-net-settlement h4,
+.accounting-net-settlement p,
+.accounting-net-settlement ul {
+  margin: 0;
+}
+
+.accounting-net-settlement small {
+  color: #5f746d;
+}
+
+.accounting-net-settlement ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.accounting-net-settlement li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.accounting-net-settlement li strong:nth-of-type(2) {
+  text-align: right;
+}
+
+.accounting-net-settlement li b {
+  color: #397b68;
+}
+
 .accounting-entry {
   display: grid;
   gap: 12px;

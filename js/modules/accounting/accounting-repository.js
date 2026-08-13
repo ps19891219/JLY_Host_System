@@ -56,7 +56,7 @@
       const nextIds=new Set(nextActions.map(item=>item.pendingActionId));
       oldSnapshots.forEach((snapshot,index)=>{if(snapshot.exists&&!nextIds.has(oldIds[index])){const old=snapshot.data();transaction.set(actions.doc(oldIds[index]),{...old,status:"completed",completedAt:now,updatedAt:now,history:[...(old.history||[]),{status:"completed",at:now,actorPersonId}]},{merge:false});}});
       nextActions.forEach(action=>transaction.set(actions.doc(action.pendingActionId),action,{merge:true}));
-      const pendingActionIds=nextActions.map(action=>action.pendingActionId),settlementStatus=splits.length&&splits.every(split=>split.settlementStatus==="settled")?"settled":nextSplit.settlementStatus;
+      const pendingActionIds=nextActions.map(action=>action.pendingActionId),settlementStatus=splits.length&&splits.every(split=>split.settlementStatus==="settled")?"settled":"pending";
       transaction.set(entryRef,{...entry,splits,shares:splits,settlementStatus,pendingActionIds,updatedAt:now},{merge:false});
     });
   }

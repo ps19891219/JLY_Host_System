@@ -107,8 +107,8 @@
   }
   function transactionFilterState(transaction, currentPersonId) {
     const item=transaction||{},splits=Array.isArray(item.splits)?item.splits:[],mine=splits.find(split=>split.personId===currentPersonId);
-    if(item.settlementStatus==="settled")return "settled";
     if(item.splitStatus==="pending")return "pending_split";
+    if(splits.length&&splits.every(split=>split.settlementStatus==="settled"))return "settled";
     if(splits.some(split=>split.settlementStatus==="payment_claimed")&&item.paidBy===currentPersonId)return "payment_confirmation";
     if(mine&&["payment_due","settlement_rejected"].includes(mine.settlementStatus))return "payment_due";
     return "pending_other";
@@ -119,5 +119,44 @@
     if(filter==="pending")return list.filter(item=>transactionFilterState(item,currentPersonId)!=="settled");
     return list.filter(item=>transactionFilterState(item,currentPersonId)===filter);
   }
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions };
+  function calculateNetSettlement(transactions) {
+    const balances = new Map();
+    const add = (personId, value) => {
+      const id = text(personId), amount = Number(value);
+      if (!id || !Number.isFinite(amount) || amount === 0) return;
+      balances.set(id, (balances.get(id) || 0) + amount);
+    };
+    (Array.isArray(transactions) ? transactions : []).forEach(transaction => {
+      if (!transaction || transaction.status === "deleted" || transaction.splitStatus !== "completed") return;
+      const receiver = text(transaction.paidBy || transaction.payerMemberId);
+      if (!receiver) return;
+      (Array.isArray(transaction.splits) ? transaction.splits : []).forEach(split => {
+        const debtor = text(split && split.personId), amount = Number(split && split.amount);
+        if (!debtor || debtor === receiver || split.settlementStatus === "settled" || !Number.isFinite(amount) || amount <= 0) return;
+        add(debtor, -amount);
+        add(receiver, amount);
+      });
+    });
+    const debtors = [], creditors = [];
+    balances.forEach((balance, personId) => {
+      const rounded = Math.round(balance);
+      if (rounded < 0) debtors.push({ personId, amount: -rounded });
+      if (rounded > 0) creditors.push({ personId, amount: rounded });
+    });
+    debtors.sort((a,b) => b.amount-a.amount || a.personId.localeCompare(b.personId));
+    creditors.sort((a,b) => b.amount-a.amount || a.personId.localeCompare(b.personId));
+    const transfers = [];
+    let debtorIndex = 0, creditorIndex = 0;
+    while (debtorIndex < debtors.length && creditorIndex < creditors.length) {
+      const debtor = debtors[debtorIndex], creditor = creditors[creditorIndex];
+      const amount = Math.min(debtor.amount, creditor.amount);
+      if (amount > 0) transfers.push({ fromPersonId: debtor.personId, toPersonId: creditor.personId, amount });
+      debtor.amount -= amount;
+      creditor.amount -= amount;
+      if (debtor.amount === 0) debtorIndex += 1;
+      if (creditor.amount === 0) creditorIndex += 1;
+    }
+    return { balances: [...balances].map(([personId,balance]) => ({ personId, balance: Math.round(balance) })).filter(item => item.balance !== 0), transfers };
+  }
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement };
 });

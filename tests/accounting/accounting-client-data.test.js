@@ -103,11 +103,11 @@ test("accounting list classifies the current person's next action", () => {
   assert.equal(accountingData.transactionFilterState(base,"b"),"payment_due");
   assert.equal(accountingData.transactionFilterState({...base,splits:[{personId:"b",settlementStatus:"payment_claimed"}]},"a"),"payment_confirmation");
   assert.equal(accountingData.transactionFilterState({splitStatus:"pending"},"a"),"pending_split");
-  assert.equal(accountingData.transactionFilterState({splitStatus:"completed",settlementStatus:"settled"},"a"),"settled");
+  assert.equal(accountingData.transactionFilterState({splitStatus:"completed",settlementStatus:"settled",splits:[{personId:"a",settlementStatus:"settled"}]},"a"),"settled");
 });
 
 test("accounting list filters pending and settled transactions without copying data", () => {
-  const rows=[{transactionId:"1",splitStatus:"pending"},{transactionId:"2",splitStatus:"completed",settlementStatus:"settled"}];
+  const rows=[{transactionId:"1",splitStatus:"pending"},{transactionId:"2",splitStatus:"completed",settlementStatus:"settled",splits:[{personId:"a",settlementStatus:"settled"}]}];
   assert.deepEqual(accountingData.filterTransactions(rows,"pending","a").map(row=>row.transactionId),["1"]);
   assert.strictEqual(accountingData.filterTransactions(rows,"all","a")[0],rows[0]);
 });
@@ -136,4 +136,27 @@ test("manager can settle on behalf of the receiver with explicit authority histo
   assert.equal(settled.confirmedBy,"host");
   assert.equal(settled.confirmationAuthority,"manager");
   assert.equal(settled.paymentRecordSource,"manager_override");
+});
+
+test("transaction is not fully settled while any split remains unpaid", () => {
+  const transaction={splitStatus:"completed",settlementStatus:"settled",splits:[{personId:"a",settlementStatus:"settled"},{personId:"b",settlementStatus:"payment_due"}]};
+  assert.equal(accountingData.transactionFilterState(transaction,"a"),"pending_other");
+});
+
+test("net settlement offsets debts across transactions and shows final transfers", () => {
+  const transactions = [
+    { transactionId:"dinner",status:"active",splitStatus:"completed",paidBy:"shijie",splits:[{personId:"shijie",amount:300,settlementStatus:"settled"},{personId:"xiaoying",amount:300,settlementStatus:"payment_due"}] },
+    { transactionId:"parking",status:"active",splitStatus:"completed",paidBy:"xiaoying",splits:[{personId:"shijie",amount:100,settlementStatus:"payment_due"},{personId:"xiaoying",amount:100,settlementStatus:"settled"}] }
+  ];
+  const result = accountingData.calculateNetSettlement(transactions);
+  assert.deepEqual(result.transfers,[{fromPersonId:"xiaoying",toPersonId:"shijie",amount:200}]);
+});
+
+test("net settlement ignores pending split, deleted, and already settled obligations", () => {
+  const transactions = [
+    { splitStatus:"pending",paidBy:"a",splits:[{personId:"b",amount:500,settlementStatus:"payment_due"}] },
+    { status:"deleted",splitStatus:"completed",paidBy:"a",splits:[{personId:"b",amount:300,settlementStatus:"payment_due"}] },
+    { status:"active",splitStatus:"completed",paidBy:"a",splits:[{personId:"b",amount:200,settlementStatus:"settled"}] }
+  ];
+  assert.deepEqual(accountingData.calculateNetSettlement(transactions).transfers,[]);
 });
