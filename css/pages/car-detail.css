@@ -1146,7 +1146,7 @@ white-space:pre-wrap;
   min-height: 68px;
 
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr) 24px;
+  grid-template-columns: 110px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
 
@@ -1164,8 +1164,6 @@ white-space:pre-wrap;
 }
 
 .car-info-item.is-editable {
-  cursor: pointer;
-
   transition:
     transform 0.16s ease,
     box-shadow 0.16s ease,
@@ -1197,6 +1195,39 @@ white-space:pre-wrap;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+button.car-info-item-top,
+button.car-info-value {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+}
+
+.car-info-jump,
+.car-info-value-action {
+  cursor: pointer;
+}
+
+.car-info-jump-hint {
+  color: #aaaaaa;
+  font-size: 14px;
+}
+
+.car-info-value-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 8px !important;
+}
+
+.car-info-jump:focus-visible,
+.car-info-value-action:focus-visible {
+  outline: 3px solid rgba(86, 139, 224, 0.22);
+  outline-offset: 4px;
 }
 
 .car-info-icon {
@@ -1243,6 +1274,11 @@ white-space:pre-wrap;
 
 .seat-section {
   margin: 18px 0;
+  scroll-margin-top: 18px;
+}
+
+#accountingSection {
+  scroll-margin-top: 18px;
 }
 
 .seat-section-header {

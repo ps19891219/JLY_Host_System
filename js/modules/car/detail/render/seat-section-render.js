@@ -78,7 +78,7 @@ console.log(
 
   function buildSeatSectionHtml(car) {
     return `
-      <section class="seat-section">
+      <section class="seat-section" id="seatSection">
         <div class="seat-section-header">
           <div class="seat-section-title-group">
             <h3 class="seat-section-title">

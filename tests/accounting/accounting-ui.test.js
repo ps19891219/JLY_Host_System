@@ -10,6 +10,8 @@ const repository = fs.readFileSync(path.join(root, "js/modules/accounting/accoun
 const controller = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-controller.js"), "utf8");
 const feeRepository = fs.readFileSync(path.join(root, "js/modules/accounting/activity-fee-repository.js"), "utf8");
 const feeController = fs.readFileSync(path.join(root, "js/modules/accounting/activity-fee-controller.js"), "utf8");
+const summaryRender = fs.readFileSync(path.join(root, "js/modules/car/detail/render/summary-render.js"), "utf8");
+const seatRender = fs.readFileSync(path.join(root, "js/modules/car/detail/render/seat-section-render.js"), "utf8");
 
 test("個人應付與應收摘要可開啟各自的明細小視窗", () => {
   assert.match(render, /data-settlement-dialog="payable"/);
@@ -100,10 +102,14 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /店家待付/);
   assert.match(feeController, /訂金/);
   assert.match(feeController, /尾款/);
-  assert.match(feeController, /＋ 新增費用項目/);
+  assert.match(feeController, /＋ 新增費用/);
   assert.match(feeController, /id="feeItemForm" class="accounting-quick-form" hidden/);
-  assert.match(feeController, /setFeeItemFormOpen/);
-  assert.match(feeController, /feeItemCancel/);
+  assert.match(feeController, /id="memberFeeForm" class="accounting-quick-form" hidden/);
+  assert.match(feeController, /id="vendorFeeForm" class="accounting-quick-form" hidden/);
+  assert.match(feeController, /setFeeFormOpen/);
+  assert.match(feeController, /data-fee-cancel/);
+  assert.match(feeController, /person\.outstanding/);
+  assert.match(feeController, /summary\.vendorOutstanding/);
   assert.match(feeController, /玩家均分/);
   assert.match(feeController, /指定玩家支付/);
   assert.match(feeController, /主揪支付/);
@@ -114,4 +120,15 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(controller, /car\.studioName\|\|car\.organizerName\|\|car\.organizer/);
   assert.match(feeController, /vendorName\?`<p><strong>店家／工作室：<\/strong>/);
   assert.match(feeController, /vendorName:vendorName\|\|values\.vendorName/);
+});
+
+test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
+  assert.match(summaryRender, /navigationTarget/);
+  assert.match(summaryRender, /seatSection/);
+  assert.match(summaryRender, /activityFeeSection/);
+  assert.match(render, /id="activityFeeMount"/);
+  assert.match(feeController, /mountPoint=section\.querySelector\("#activityFeeMount"\)\|\|section/);
+  assert.match(summaryRender, /openSingleFieldEditor/);
+  assert.match(summaryRender, /openSeatSettings\(\)/);
+  assert.match(seatRender, /id="seatSection"/);
 });

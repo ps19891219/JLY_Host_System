@@ -111,6 +111,14 @@ console.log(
       config.editable === true &&
       Boolean(field);
 
+    const navigationTarget = String(
+      config.navigationTarget || ""
+    );
+
+    const valueAction = String(
+      config.valueAction || ""
+    );
+
     const cardClass = [
       "car-info-item",
 
@@ -132,77 +140,34 @@ console.log(
           )}"`
         : "";
 
-    const clickAttribute =
-      editable
-        ? `onclick="openSingleFieldEditor('${escapeValue(
-            field
-          )}')"`
-        : "";
+    const resolvedValueAction =
+      valueAction ||
+      (editable
+        ? `openSingleFieldEditor('${escapeValue(field)}')`
+        : "");
 
-    const keyboardAttributes =
-      editable
-        ? `
-          role="button"
-          tabindex="0"
-          onkeydown="
-            if (
-              event.key === 'Enter' ||
-              event.key === ' '
-            ) {
-              event.preventDefault();
-
-              openSingleFieldEditor(
-                '${escapeValue(field)}'
-              );
-            }
-          "
-        `
-        : "";
+    const labelContent = `
+      <span class="car-info-icon" aria-hidden="true">
+        ${escapeValue(config.icon || "")}
+      </span>
+      <span class="car-info-label">
+        ${escapeValue(config.label || "")}
+      </span>
+      ${navigationTarget ? `<span class="car-info-jump-hint" aria-hidden="true">↓</span>` : ""}
+    `;
 
     return `
       <div
         class="${cardClass}"
         ${fieldAttribute}
-        ${clickAttribute}
-        ${keyboardAttributes}
       >
-        <div class="car-info-item-top">
-          <span
-            class="car-info-icon"
-            aria-hidden="true"
-          >
-            ${escapeValue(
-              config.icon || ""
-            )}
-          </span>
+        ${navigationTarget
+          ? `<button type="button" class="car-info-item-top car-info-jump" onclick="document.getElementById('${escapeValue(navigationTarget)}')?.scrollIntoView({behavior:'smooth',block:'start'})">${labelContent}</button>`
+          : `<div class="car-info-item-top">${labelContent}</div>`}
 
-          <span class="car-info-label">
-            ${escapeValue(
-              config.label || ""
-            )}
-          </span>
-
-          ${
-            editable
-              ? `
-                <span
-                  class="car-info-edit-hint"
-                  aria-hidden="true"
-                >
-                  ›
-                </span>
-              `
-              : ""
-          }
-        </div>
-
-        <div class="car-info-value">
-          ${escapeValue(
-            config.value == null
-              ? ""
-              : config.value
-          )}
-        </div>
+        ${resolvedValueAction
+          ? `<button type="button" class="car-info-value car-info-value-action" onclick="${resolvedValueAction}">${escapeValue(config.value == null ? "" : config.value)}<span class="car-info-edit-hint" aria-hidden="true">›</span></button>`
+          : `<div class="car-info-value">${escapeValue(config.value == null ? "" : config.value)}</div>`}
       </div>
     `;
   }
@@ -361,7 +326,9 @@ console.log(
             field:
               "price",
             editable:
-              true
+              true,
+            navigationTarget:
+              "activityFeeSection"
           })}
 
           ${buildInfoItem({
@@ -370,7 +337,11 @@ console.log(
             value:
               view.peopleText,
             editable:
-              false
+              false,
+            navigationTarget:
+              "seatSection",
+            valueAction:
+              "openSeatSettings()"
           })}
 
           ${buildInfoItem({
@@ -381,7 +352,9 @@ console.log(
             field:
               "studioName",
             editable:
-              true
+              true,
+            navigationTarget:
+              "activityFeeSection"
           })}
 
           ${buildInfoItem({
