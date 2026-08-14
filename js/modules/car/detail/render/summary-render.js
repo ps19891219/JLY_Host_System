@@ -352,9 +352,7 @@ console.log(
             field:
               "studioName",
             editable:
-              true,
-            navigationTarget:
-              "activityFeeSection"
+              true
           })}
 
           ${buildInfoItem({
