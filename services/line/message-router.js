@@ -215,8 +215,14 @@ function routeMenuCommand(text) {
         action:
           "assistant_help_menu",
         replyText:
-          "❓ 使用說明\n" +
-          "點選「車團帳務」，即可新增此劇本的帳目。"
+          "❓ JLY 小助手｜使用說明\n" +
+          "輸入「JLY 小助手」可重新開啟功能選單。\n\n" +
+          "快捷指令：\n" +
+          "JLY 店家｜查看工作室與地點\n" +
+          "JLY 時間｜查看日期與開始時間\n" +
+          "JLY 人員｜查看玩家人數與缺額\n\n" +
+          "快速記帳可使用選單按鈕，或輸入：\n" +
+          "@JLY小助手 記帳 晚餐 690 詩婕付"
       };
 
     default:

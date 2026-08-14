@@ -59,9 +59,10 @@ for (const [text, action] of cases) {
   );
 }
 
-test("group help only explains the current script accounting entry", function () {
+test("group help lists the available compact car shortcuts and quick accounting", function () {
   const result = routeTextMessage("JLY 使用說明");
-  assert.ok(result.replyText.includes("新增此劇本的帳目"));
-  assert.equal(result.replyText.includes("今日"), false);
-  assert.equal(result.replyText.includes("本月"), false);
+  assert.ok(result.replyText.includes("JLY 店家"));
+  assert.ok(result.replyText.includes("JLY 時間"));
+  assert.ok(result.replyText.includes("JLY 人員"));
+  assert.ok(result.replyText.includes("記帳 晚餐 690 詩婕付"));
 });

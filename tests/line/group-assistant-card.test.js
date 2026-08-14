@@ -23,7 +23,7 @@ test("group assistant card shows car identity and six persistent entries", funct
   assert.equal(buttons(card).length, 6);
   assert.deepEqual(
     buttons(card).map(button => button.action.type),
-    ["message", "message", "message", "uri", "uri", "uri"]
+    ["message", "message", "message", "uri", "uri", "message"]
   );
   assert.equal(buttons(card)[0].action.text, "JLY 店家");
   assert.equal(buttons(card)[1].action.text, "JLY 時間");
@@ -34,6 +34,7 @@ test("group assistant card shows car identity and six persistent entries", funct
     buttons(card)[4].action.uri,
     "https://example.com/pages/car-view.html?id=car-1"
   );
+  assert.equal(buttons(card)[5].action.text, "JLY 使用說明");
 });
 
 test("accounting card is a second-level persistent menu", function () {

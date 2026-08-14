@@ -124,7 +124,7 @@ test(
     assert.equal(calls[1][2][0].type, "flex");
     assert.deepEqual(calls[1][2][0].contents.body.contents.map(
       function (item) { return item.action.type; }
-    ), ["message", "message", "message", "uri", "uri", "uri"]);
+    ), ["message", "message", "message", "uri", "uri", "message"]);
   }
 );
 

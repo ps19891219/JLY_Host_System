@@ -111,7 +111,7 @@ function buildGroupAssistantQuickInfoCard(car, options = {}) {
     messageButton("👥 人員資訊", "JLY 人員", "#806A9B"),
     uriButton("⚡ 快速記帳", link("accounting"), "#B17B42"),
     uriButton("🚗 車團總覽", playerViewLink, "#9A5960"),
-    uriButton("❓ 使用說明", link("info"), "#777777")
+    messageButton("❓ 使用說明", "JLY 使用說明", "#777777")
   ]);
 }
 
