@@ -38,11 +38,13 @@ test("group assistant card shows car identity and six persistent entries", funct
 });
 
 test("accounting card is a second-level persistent menu", function () {
-  const card = buildAccountingMenuCard({ scriptName: "測試劇本" });
+  const card = buildAccountingMenuCard({ scriptName: "測試劇本" },{baseUrl:"https://example.com",token:"signed"});
   assert.equal(card.type, "flex");
   assert.equal(buttons(card).length, 4);
+  assert.equal(buttons(card)[0].action.type,"uri");
+  assert.match(buttons(card)[0].action.uri,/group-assistant\.html\?token=signed&tab=accounting/);
   assert.deepEqual(
     buttons(card).map(button => button.action.label),
-    ["➕ 新增分帳", "📒 帳目總覽", "👤 我的應收／應付", "✏️ 我的帳目"]
+    ["📊 車團總帳", "➕ 新增分帳", "👤 我的應收／應付", "✏️ 我的帳目"]
   );
 });

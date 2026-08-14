@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V2.69
+> Version: V2.70
 >
 > Last Updated: 2026-08-14
 >
+
+## V2.70 車團總帳頁第一版（2026-08-14）
+
+- 現有 `pages/group-assistant.html?tab=accounting` 正式定位為 LINE 群組綁定車團的總帳入口，不另建重複頁面。
+- 新增 `services/accounting/activity-accounting-summary.js`，從唯一正式 Transaction 與 Settlement 建立總收入、總支出、成員實際付款／應負擔及一對一互抵後待結清摘要。
+- `api/group-assistant-context.js` 改讀 Accounting Core 摘要並以 `accountingViews/activityCurrent.summaryVersion` 快取；先比較帳目與核銷的最新更新版本，只有資料改變時才從正式帳目重建。
+- 總帳頁保留歷史實際付款金額，核銷只降低待結清金額；LINE 小助手既有「車團帳務／快速記帳」連結繼續進入同一頁面。
 
 ## V2.69 LINE 快速記帳結果回覆（2026-08-14）
 

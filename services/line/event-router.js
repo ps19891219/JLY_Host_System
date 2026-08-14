@@ -937,7 +937,8 @@ async function handleMessageEvent(
         console.error("LINE accounting card car lookup failed.", error);
       }
     }
-    await replyWithMessages(context.replyToken, [buildAccountingMenuCard(car)]);
+    const token=context.accountingCarId?createAssistantToken({groupId:context.source.groupId,carId:context.accountingCarId}):"";
+    await replyWithMessages(context.replyToken, [buildAccountingMenuCard(car,{token,baseUrl:readPublicBaseUrl()})]);
   } else {
     await replyWithText(
       context.replyToken,

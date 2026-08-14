@@ -139,6 +139,8 @@ test("accounting button opens the persistent second-level menu", async function 
       getCarById: async function () {
         return { id: "car-1", scriptName: "測試劇本" };
       },
+      createGroupAssistantToken: function () { return "signed"; },
+      getPublicBaseUrl: function () { return "https://example.com"; },
       sendReplyMessage: async function (_replyToken, sent) { messages = sent; }
     }
   );

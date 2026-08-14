@@ -85,13 +85,15 @@ function buildGroupAssistantCard(car, options = {}) {
   );
 }
 
-function buildAccountingMenuCard(car) {
+function buildAccountingMenuCard(car, options = {}) {
+  const baseUrl=String(options.baseUrl||"").replace(/\/$/,""),token=encodeURIComponent(String(options.token||""));
+  const totalLink=`${baseUrl}/pages/group-assistant.html?token=${token}&tab=accounting`;
   return buildCard(
     `💰 ${getCarTitle(car)}｜車團帳務`,
     "選擇要使用的帳務功能",
     [
+      uriButton("📊 車團總帳", totalLink, "#487A91"),
       messageButton("➕ 新增分帳", "JLY 新增分帳"),
-      messageButton("📒 帳目總覽", "JLY 帳本餘額", "#487A91"),
       messageButton("👤 我的應收／應付", "JLY 我的分帳", "#806A9B"),
       messageButton("✏️ 我的帳目", "JLY 我的帳目", "#B17B42")
     ]
