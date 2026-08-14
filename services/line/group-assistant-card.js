@@ -101,7 +101,7 @@ function buildAccountingMenuCard(car) {
 function buildGroupAssistantQuickInfoCard(car, options = {}) {
   const baseUrl = String(options.baseUrl || "").replace(/\/$/, ""), token = encodeURIComponent(String(options.token || ""));
   const link = tab => `${baseUrl}/pages/group-assistant.html?token=${token}&tab=${tab}`;
-  const carId = encodeURIComponent(text(car && (car.id || car.carId)));
+  const carId = encodeURIComponent(text(options.carId || (car && (car.id || car.carId))));
   const playerViewLink = carId
     ? `${baseUrl}/pages/car-view.html?id=${carId}`
     : link("info");

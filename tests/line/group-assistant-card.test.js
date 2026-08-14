@@ -13,10 +13,9 @@ function buttons(message) {
 
 test("group assistant card shows car identity and six persistent entries", function () {
   const card = buildGroupAssistantCard({
-    id: "car-1",
     scriptName: "測試劇本",
     date: "2026-08-20"
-  }, { baseUrl: "https://example.com", token: "signed-token" });
+  }, { baseUrl: "https://example.com", token: "signed-token", carId: "car-1" });
   assert.equal(card.type, "flex");
   assert.ok(card.altText.includes("測試劇本"));
   assert.ok(card.contents.header.contents[0].text.includes("測試劇本"));

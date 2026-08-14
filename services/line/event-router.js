@@ -908,7 +908,11 @@ async function handleMessageEvent(
       : "";
     await replyWithMessages(
       context.replyToken,
-      [buildGroupAssistantCard(car, { token, baseUrl: readPublicBaseUrl() })]
+      [buildGroupAssistantCard(car, {
+        token,
+        baseUrl: readPublicBaseUrl(),
+        carId: context.accountingCarId
+      })]
     );
   } else if (
     messageResult.action === "assistant_accounting_card" &&
