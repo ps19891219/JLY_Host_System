@@ -323,6 +323,10 @@
 .accounting-fee-details[hidden] { display: none; }
 .accounting-drafts { display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: #fff5df; }
 .accounting-drafts > div:last-child { display: grid; gap: 10px; }
+.accounting-drafts > div[hidden] { display: none; }
+.accounting-drafts-toggle { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; width: 100%; padding: 0; border: 0; background: transparent; color: #5e4318; text-align: left; font: inherit; }
+.accounting-drafts-toggle span { font-weight: 800; }
+.accounting-drafts-toggle small { color: #9a5f08; }
 .accounting-draft-row { display: grid; gap: 9px; padding: 12px; border-radius: 12px; background: #fff; }
 .accounting-draft-row > div:first-child { display: grid; gap: 3px; }
 .accounting-draft-row label { display: grid; gap: 5px; }
