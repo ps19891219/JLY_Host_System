@@ -55,3 +55,116 @@ test("payer own share is already settled and does not create a payment action", 
   assert.equal(actions.length,1);
   assert.equal(actions[0].responsiblePersonId,"friend");
 });
+
+test(
+  "transaction supports multiple actual payers",
+  () => {
+    const transaction =
+      createTransaction({
+        transactionId:
+          "tx-multi-pay",
+
+        activityId:
+          "car-1",
+
+        createdBy:
+          "shijie",
+
+        title:
+          "晚餐",
+
+        amount:
+          1000,
+
+        payments: [
+          {
+            personId:
+              "xiaoying",
+            amount: 350
+          },
+          {
+            personId:
+              "shijie",
+            amount: 350
+          },
+          {
+            personId:
+              "xiaohuang",
+            amount: 300
+          }
+        ]
+      });
+
+    assert.deepEqual(
+      transaction.payments.map(
+        item => [
+          item.personId,
+          item.amount
+        ]
+      ),
+      [
+        [
+          "xiaoying",
+          350
+        ],
+        [
+          "shijie",
+          350
+        ],
+        [
+          "xiaohuang",
+          300
+        ]
+      ]
+    );
+
+    assert.equal(
+      transaction.paidBy,
+      "xiaoying"
+    );
+
+    assert.equal(
+      transaction.splitStatus,
+      "pending"
+    );
+  }
+);
+
+test(
+  "multiple payment total must equal transaction amount",
+  () => {
+    assert.throws(
+      () =>
+        createTransaction({
+          transactionId:
+            "tx-invalid-pay",
+
+          activityId:
+            "car-1",
+
+          createdBy:
+            "shijie",
+
+          title:
+            "晚餐",
+
+          amount:
+            1000,
+
+          payments: [
+            {
+              personId:
+                "shijie",
+              amount: 350
+            },
+            {
+              personId:
+                "xiaoying",
+              amount: 300
+            }
+          ]
+        }),
+      /payment_total_mismatch/
+    );
+  }
+);
