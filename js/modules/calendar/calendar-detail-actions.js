@@ -358,52 +358,7 @@
       }
     }
 
-    const deleteResponse =
-  await fetch(
-    "/api/delete-test-car",
-    {
-      method: "POST",
-
-      headers: {
-        "Content-Type":
-          "application/json"
-      },
-
-      body:
-        JSON.stringify({
-          carId
-        })
-    }
-  );
-
-
-const deleteResult =
-  await deleteResponse.json();
-
-
-if (
-  !deleteResponse.ok ||
-  !deleteResult.success
-) {
-  const message =
-    deleteResult.error ===
-      "line_login_required"
-      ? "永久刪除測試車前，請先完成 LINE 登入。"
-
-      : deleteResult.error ===
-          "car_owner_required"
-        ? "只有這台車的主揪可以永久刪除測試車。"
-
-      : deleteResult.error ===
-          "car_not_found"
-        ? "找不到這台車，可能已經被刪除。"
-
-      : "測試車資料清理失敗。";
-
-  throw new Error(
-    message
-  );
-}
+    await carRef.delete();
 
     /*
       清掉上一台／下一台車的導覽資料。
