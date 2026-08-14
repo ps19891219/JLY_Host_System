@@ -720,22 +720,31 @@ test("quick accounting saves an unresolved payer silently as a pending draft", a
     sendTextReply: async (_token, text) => { replyText = text; }
   });
   assert.equal(result.route, "accounting_quick_pending");
-  assert.match(replyText, /已暫存/);
-  assert.doesNotMatch(replyText, /請選擇|可能是/);
+  assert.match(replyText, /已暫存，等待確認付款人/);
+  assert.match(replyText, /項目：晚餐/);
+  assert.match(replyText, /金額：\$690/);
+  assert.match(replyText, /車團帳務的「待確認」/);
+  assert.doesNotMatch(replyText, /小英|請選擇|可能是/);
 });
 
 test("quick accounting with one resolved payer creates the formal entry", async function () {
   let savedCommand;
+  let replyText = "";
   const result = await routeEvent(createTextEvent({ text: "@JLY小助手 記帳 晚餐 690 小英付" }), {
     resolveGroupBinding: async groupId => ({ bound: true, binding: { groupId, carId: "car-1" } }),
     resolveAccountingAuthority: async () => ({ playerId: "host", playerDisplayName: "詩婕", canManageAll: true }),
     getCarById: async () => ({ id: "car-1" }),
     prepareQuickAccounting: async () => ({ saved: false, reason: "payer_resolved", payer: { personId: "p1", displayName: "小英" } }),
     saveResolvedQuickAccounting: async (_context, command, payer) => { savedCommand = { ...command, payerMemberId: payer.personId }; return { transactionId: "line-message-1" }; },
-    sendTextReply: async () => {}
+    sendTextReply: async (_token, text) => { replyText = text; }
   });
   assert.equal(result.route, "accounting_quick_created");
   assert.equal(savedCommand.payerMemberId, "p1");
+  assert.match(replyText, /已正式記帳/);
+  assert.match(replyText, /項目：晚餐/);
+  assert.match(replyText, /金額：\$690/);
+  assert.match(replyText, /付款人：小英/);
+  assert.match(replyText, /待分帳/);
 });
 test("car information shortcuts reply with only the requested slice", async function () {
   const replies = [];

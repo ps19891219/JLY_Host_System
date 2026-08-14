@@ -506,11 +506,24 @@ async function handleMessageEvent(
     const prepared = await prepareQuickEntry(context, messageResult.accounting, car || {}, authority);
     if (prepared.reason === "payer_resolved") {
       const result = await saveResolvedQuickEntry(context, messageResult.accounting, prepared.payer, car || {}, authority);
-      await replyWithText(context.replyToken, `✅ 已記帳：${messageResult.accounting.title} $${messageResult.accounting.amount.toLocaleString("zh-TW")}\n付款人：${prepared.payer.displayName || "本人"}｜待分帳`);
+      await replyWithText(
+        context.replyToken,
+        "✅ 已正式記帳\n" +
+          `項目：${messageResult.accounting.title}\n` +
+          `金額：$${messageResult.accounting.amount.toLocaleString("zh-TW")}\n` +
+          `付款人：${prepared.payer.displayName || "本人"}\n` +
+          "狀態：🟡 待分帳"
+      );
       return { handled: true, route: "accounting_quick_created", context, groupBinding, accountingResult: result };
     }
     if (prepared.saved) {
-      await replyWithText(context.replyToken, `📝 ${messageResult.accounting.title} $${messageResult.accounting.amount.toLocaleString("zh-TW")} 已暫存\n付款人「${messageResult.accounting.payerInput}」待確認`);
+      await replyWithText(
+        context.replyToken,
+        "🟡 已暫存，等待確認付款人\n" +
+          `項目：${messageResult.accounting.title}\n` +
+          `金額：$${messageResult.accounting.amount.toLocaleString("zh-TW")}\n` +
+          "請由主揪到車團帳務的「待確認」處理。"
+      );
       return { handled: true, route: "accounting_quick_pending", context, groupBinding, pendingResult: prepared };
     }
     await replyWithText(context.replyToken, prepared.reason === "identity_required" ? "請先完成 LINE 與 JLY Member 身分連結。" : "一般成員只能登記自己付款；請由主揪代為處理其他付款人。");
