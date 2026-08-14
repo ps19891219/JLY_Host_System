@@ -5,12 +5,24 @@ const assert = require("node:assert/strict");
 
 const {
   parseAccountingCommand,
+  parseQuickAccountingCommand,
   parseAccountingQuery,
   parseAccountingMutation,
   parseGroupBindingCommand
 } = require(
   "../../services/line/accounting-command"
 );
+
+test("parses assistant quick accounting with an optional payer label", function () {
+  assert.deepEqual(parseQuickAccountingCommand("@JLY小助手 記帳 晚餐 690 小英付"), {
+    valid: true,
+    command: { type: "expense", title: "晚餐", amount: 690, payerInput: "小英" }
+  });
+  assert.deepEqual(parseQuickAccountingCommand("JLY 記帳 停車費 200"), {
+    valid: true,
+    command: { type: "expense", title: "停車費", amount: 200, payerInput: "" }
+  });
+});
 
 test("parses a group expense command", function () {
   const result =

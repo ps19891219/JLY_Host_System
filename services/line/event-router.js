@@ -97,6 +97,7 @@ const {
   confirmGroupPairing,
   cancelGroupPairing
 } = require("./group-car-pairing-service");
+const { prepareQuickAccounting } = require("./quick-accounting-service");
 
 // ============================================================
 // Normalize Text
@@ -295,6 +296,7 @@ async function handleMessageEvent(
   const readCar = dependencies.getCarById || getCarById;
   const createAssistantToken = dependencies.createGroupAssistantToken || createGroupAssistantToken;
   const readPublicBaseUrl = dependencies.getPublicBaseUrl || getPublicBaseUrl;
+  const prepareQuickEntry = dependencies.prepareQuickAccounting || prepareQuickAccounting;
 
   // ----------------------------------------------------------
   // Non-text message
@@ -480,6 +482,30 @@ async function handleMessageEvent(
   // ----------------------------------------------------------
   // Group accounting command
   // ----------------------------------------------------------
+
+  if (messageResult.action === "accounting_quick_create") {
+    if (!context.replyToken) return { handled: false, route: "message_missing_reply_token", context, groupBinding };
+    if (context.source.type !== "group" || !context.source.groupId || !context.accountingCarId) {
+      await replyWithText(context.replyToken, "請先在已綁定車團的 LINE 群組使用快速記帳。");
+      return { handled: true, route: "accounting_binding_required", context, groupBinding };
+    }
+    const authority = await resolveAuthority(context, groupBinding);
+    context.accountingActorMemberId = authority.playerId || "";
+    context.accountingActorDisplayName = authority.playerDisplayName || "";
+    const car = await readCar(context.accountingCarId);
+    const prepared = await prepareQuickEntry(context, messageResult.accounting, car || {}, authority);
+    if (prepared.reason === "payer_resolved") {
+      const result = await recordAccounting(context, { type: "expense", amount: messageResult.accounting.amount, description: messageResult.accounting.title, payerMemberId: prepared.payer.personId, payerDisplayName: prepared.payer.displayName });
+      await replyWithText(context.replyToken, result.saved ? `✅ 已記帳：${messageResult.accounting.title} $${messageResult.accounting.amount.toLocaleString("zh-TW")}\n付款人：${prepared.payer.displayName || "本人"}｜待分帳` : "記帳失敗，請確認群組已綁定車團。");
+      return { handled: true, route: "accounting_quick_created", context, groupBinding, accountingResult: result };
+    }
+    if (prepared.saved) {
+      await replyWithText(context.replyToken, `📝 ${messageResult.accounting.title} $${messageResult.accounting.amount.toLocaleString("zh-TW")} 已暫存\n付款人「${messageResult.accounting.payerInput}」待確認`);
+      return { handled: true, route: "accounting_quick_pending", context, groupBinding, pendingResult: prepared };
+    }
+    await replyWithText(context.replyToken, prepared.reason === "identity_required" ? "請先完成 LINE 與 JLY Member 身分連結。" : "一般成員只能登記自己付款；請由主揪代為處理其他付款人。");
+    return { handled: true, route: "accounting_quick_denied", context, groupBinding, pendingResult: prepared };
+  }
 
   if (messageResult.action === "accounting_create") {
     if (!context.replyToken) {

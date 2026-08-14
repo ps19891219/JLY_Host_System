@@ -2,10 +2,19 @@
 
 > Status: Working Map
 >
-> Version: V2.63
+> Version: V2.64
 >
 > Last Updated: 2026-08-14
 >
+
+## V2.64 LINE 快速記帳待確認流程（2026-08-14）
+
+- 新增 `services/accounting/pending-entry.js`：付款人名稱正規化、唯一／相似／同名判斷，以及待確認記帳 Schema。
+- 新增 `services/line/quick-accounting-service.js`：解析群組綁定車團成員；唯一付款人可正式入帳，無法唯一辨識時不建立 Transaction。
+- 新增 `services/firebase/accounting-draft-repository.js`：待確認資料寫入 `cars/{carId}/accountingDrafts/{draftId}`，稽核寫入 `cars/{carId}/accountingDraftAuditLogs/{auditId}`。
+- LINE 支援 `@JLY小助手 記帳 <項目> <金額> [付款人]付`；待確認時群組只顯示簡短暫存結果，不展開候選名單。
+- Car Detail 帳務區僅向主揪讀取待確認記帳；可指定正式 Person ID、調整金額、確認建立唯一 Transaction，或留下刪除稽核紀錄。
+- 待確認資料在確認前不進入 `accountingEntries`、分帳、應收應付或互抵計算。
 > Source of truth: repository files and current HTML runtime references
 
 ---

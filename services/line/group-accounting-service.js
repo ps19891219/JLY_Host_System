@@ -148,6 +148,8 @@ async function recordGroupAccounting(
     userId: context.source.userId,
     actorMemberId: context.accountingActorMemberId || "",
     actorDisplayName: context.accountingActorDisplayName || "",
+    payerMemberId: command.payerMemberId || context.accountingActorMemberId || "",
+    payerDisplayName: command.payerDisplayName || context.accountingActorDisplayName || "",
     type: command.type,
     amount: command.amount,
     description: command.description,

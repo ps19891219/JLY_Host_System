@@ -37,6 +37,7 @@ V1 does NOT:
 
 const {
   parseAccountingCommand,
+  parseQuickAccountingCommand,
   parseAccountingQuery,
   parseAccountingMutation,
   parseGroupBindingCommand
@@ -283,12 +284,21 @@ function routeTextMessage(text) {
   }
 
   const accountingResult =
+    parseQuickAccountingCommand(normalizedText);
+
+  if (accountingResult) {
+    return accountingResult.valid
+      ? { handled: true, action: "accounting_quick_create", replyText: "", accounting: accountingResult.command }
+      : { handled: true, action: "accounting_invalid", replyText: "記帳金額格式不正確。" };
+  }
+
+  const legacyAccountingResult =
     parseAccountingCommand(
       normalizedText
     );
 
-  if (accountingResult) {
-    if (!accountingResult.valid) {
+  if (legacyAccountingResult) {
+    if (!legacyAccountingResult.valid) {
       return {
         handled: true,
         action: "accounting_invalid",
@@ -304,7 +314,7 @@ function routeTextMessage(text) {
       action: "accounting_create",
       replyText: "",
       accounting:
-        accountingResult.command
+        legacyAccountingResult.command
     };
   }
 

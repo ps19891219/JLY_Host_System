@@ -13,6 +13,15 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function parseQuickAccountingCommand(value) {
+  const text = normalizeText(value).replace(/^@?jly\s*小助手\s*/i, "").replace(/^jly\s*/i, "");
+  const match = text.match(/^記帳\s+(.+?)\s+([\d,]+)(?:\s+(.+?)付)?$/);
+  if (!match) return null;
+  const amount = Number(match[2].replace(/,/g, ""));
+  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > MAX_AMOUNT) return { valid: false, error: "invalid_amount" };
+  return { valid: true, command: { type: "expense", title: normalizeText(match[1]), amount, payerInput: normalizeText(match[3]) } };
+}
+
 function parseAccountingCommand(value) {
   const text = normalizeText(value);
   const match = text.match(
@@ -166,6 +175,7 @@ function parseGroupBindingCommand(value) {
 
 module.exports = {
   MAX_AMOUNT,
+  parseQuickAccountingCommand,
   parseAccountingCommand,
   parseAccountingQuery,
   parseAccountingMutation,

@@ -710,3 +710,30 @@ test("successful binding only shows the player-facing result and next step", asy
   assert.equal(replyText.includes("遷移"), false);
   assert.equal(replyText.includes("3 筆"), false);
 });
+test("quick accounting saves an unresolved payer silently as a pending draft", async function () {
+  let replyText = "";
+  const result = await routeEvent(createTextEvent({ text: "@JLY小助手 記帳 晚餐 690 小英付" }), {
+    resolveGroupBinding: async groupId => ({ bound: true, binding: { groupId, carId: "car-1" } }),
+    resolveAccountingAuthority: async () => ({ playerId: "host", playerDisplayName: "詩婕", canManageAll: true }),
+    getCarById: async () => ({ id: "car-1" }),
+    prepareQuickAccounting: async () => ({ saved: true, reason: "pending_identity", draft: { draftId: "line-message-1" } }),
+    sendTextReply: async (_token, text) => { replyText = text; }
+  });
+  assert.equal(result.route, "accounting_quick_pending");
+  assert.match(replyText, /已暫存/);
+  assert.doesNotMatch(replyText, /請選擇|可能是/);
+});
+
+test("quick accounting with one resolved payer creates the formal entry", async function () {
+  let savedCommand;
+  const result = await routeEvent(createTextEvent({ text: "@JLY小助手 記帳 晚餐 690 小英付" }), {
+    resolveGroupBinding: async groupId => ({ bound: true, binding: { groupId, carId: "car-1" } }),
+    resolveAccountingAuthority: async () => ({ playerId: "host", playerDisplayName: "詩婕", canManageAll: true }),
+    getCarById: async () => ({ id: "car-1" }),
+    prepareQuickAccounting: async () => ({ saved: false, reason: "payer_resolved", payer: { personId: "p1", displayName: "小英" } }),
+    recordGroupAccounting: async (_context, command) => { savedCommand = command; return { saved: true }; },
+    sendTextReply: async () => {}
+  });
+  assert.equal(result.route, "accounting_quick_created");
+  assert.equal(savedCommand.payerMemberId, "p1");
+});
