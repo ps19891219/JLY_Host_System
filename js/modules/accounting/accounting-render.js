@@ -58,10 +58,15 @@
   }
   function buildDashboardHtml(model) {
     const netTotal=(model.personalSettlement.payable||0)+(model.personalSettlement.receivable||0),netDirection=model.personalSettlement.payable?"互抵後應付":model.personalSettlement.receivable?"互抵後應收":"已互抵完成";
+    const hasAccountingData=(model.transactions||[]).length>0||(model.personalObligations.payableTotal||0)>0||(model.personalObligations.receivableTotal||0)>0||(model.activeNetSettlements||[]).length>0;
     const summary=`<div class="accounting-pending-grid"><button type="button" class="accounting-summary-button" data-settlement-dialog="payable"><span>我欠誰</span><b>${money(model.personalObligations.payableTotal)}</b><small>查看原始應付</small></button><button type="button" class="accounting-summary-button" data-settlement-dialog="receivable"><span>誰欠我</span><b>${money(model.personalObligations.receivableTotal)}</b><small>查看原始應收</small></button><button type="button" class="accounting-summary-button" data-settlement-dialog="net"><span>互抵後總額</span><b>${money(netTotal)}</b><small>${netDirection}</small></button></div>`;
     const original=`<div class="accounting-pending-grid"><span>我還要付 <b>${money(model.personalSettlement.payable)}</b></span><span>別人還欠我 <b>${money(model.personalSettlement.receivable)}</b></span><span>等待我確認 <b>${model.counts.paymentConfirmation||0}</b></span></div>`;
     const dialog=`<dialog id="accountingSettlementDialog" class="accounting-settlement-dialog"><div class="accounting-dialog-heading"><div><h4 id="accountingSettlementDialogTitle">款項明細</h4><p id="accountingSettlementDialogTotal"></p></div><button type="button" id="accountingSettlementDialogClose" aria-label="關閉">×</button></div><div id="accountingPayableRows" hidden>${settlementDialogRows(model,"payable")}</div><div id="accountingReceivableRows" hidden>${settlementDialogRows(model,"receivable")}</div><div id="accountingNetRows" hidden>${settlementDialogRows(model,"net")}</div></dialog>`;
-    return buildDashboardHtmlBase(model).replace('<div class="accounting-pending-grid">','<div id="activityFeeMount"></div><div class="accounting-pending-grid">').replace(original,summary+dialog).replace(netSettlementHtml(model),"");
+    const detailStart='<div class="accounting-list-heading">',detailEnd='<p id="accountingFilterEmpty" class="empty-text" hidden>目前沒有符合條件的帳目</p>';
+    const detailToggle=`<button type="button" id="accountingDetailsToggle" class="accounting-details-toggle" aria-expanded="${model.detailMode?"true":"false"}"${hasAccountingData?"":" hidden"}>${model.detailMode?"收起帳務明細":"展開帳務明細"}</button>`;
+    let html=buildDashboardHtmlBase(model).replace('<div class="accounting-pending-grid">','<div id="activityFeeMount"></div><div class="accounting-pending-grid">').replace(original,hasAccountingData?summary+dialog:"").replace(netSettlementHtml(model),"");
+    html=html.replace(detailStart,`${detailToggle}<section id="accountingDetails"${model.detailMode?"":" hidden"}>${detailStart}`).replace(detailEnd,`${detailEnd}</section>`);
+    return html;
   }
   window.JLYAccountingRender = { buildShellHtml, buildDashboardHtml, statusLabel, netSettlementHtml };
 })();

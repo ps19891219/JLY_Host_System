@@ -331,6 +331,10 @@
   background: #efebe5;
 }
 
+.accounting-details-toggle { width: 100%; min-height: 46px; border: 1px solid #ddd6cd; border-radius: 12px; background: #f7f4ef; color: #4d4944; font: inherit; font-weight: 700; }
+#accountingDetails { display: grid; gap: 12px; }
+#accountingDetails[hidden] { display: none; }
+
 .accounting-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .accounting-filters { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; }
 .accounting-filters[hidden] { display: none; }

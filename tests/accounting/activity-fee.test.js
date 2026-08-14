@@ -23,6 +23,12 @@ test("base fee uses fixed script capacity even before every player joins",()=>{
   const synced=fee.syncPlayers(plan,["p1","p2","p3"],"host","2026-08-14T02:00:00.000Z");assert.equal(synced.vendorBaseAmount,4800);assert.equal(fee.summarize(synced,[],[]).unassignedCount,3);
 });
 
+test("script data changes automatically recalculate the fixed vendor amount",()=>{
+  const plan=fee.buildPlan({carId:"car-1",vendorName:"vendor",requiredPlayerCount:6,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z");
+  const synced=fee.syncPlayers({...plan,requiredPlayerCount:7,playerFee:900},["p1","p2"],"host","2026-08-14T02:00:00.000Z");
+  assert.equal(synced.vendorBaseAmount,6300);assert.equal(synced.vendorTotal,6300);assert.equal(synced.memberCharges[0].amount,900);
+});
+
 test("additional vendor fee supports equal specific host and custom allocation without fixed fields",()=>{
   let plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:2,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z");
   plan=fee.addFeeItem(plan,{title:"指定 DM 費",amount:200,allocationType:"equal"},"host","2026-08-14T02:00:00.000Z");

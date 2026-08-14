@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "../..");
 const render = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-render.js"), "utf8");
@@ -12,6 +13,18 @@ const feeRepository = fs.readFileSync(path.join(root, "js/modules/accounting/act
 const feeController = fs.readFileSync(path.join(root, "js/modules/accounting/activity-fee-controller.js"), "utf8");
 const summaryRender = fs.readFileSync(path.join(root, "js/modules/car/detail/render/summary-render.js"), "utf8");
 const seatRender = fs.readFileSync(path.join(root, "js/modules/car/detail/render/seat-section-render.js"), "utf8");
+
+function renderAccounting(transactions) {
+  const context = { window: {} };
+  vm.runInNewContext(render, context);
+  return context.window.JLYAccountingRender.buildDashboardHtml({
+    members: [], membersById: new Map(), memberNames: new Map(), transactions,
+    currentPersonId: "p1", viewPersonId: "p1", isManager: false, managementMode: false,
+    counts: { total: 0, paymentConfirmation: 0 }, personalSettlement: { payable: 0, receivable: 0, transfers: [] },
+    personalObligations: { payable: [], receivable: [], payableTotal: 0, receivableTotal: 0 },
+    activeNetSettlements: [], detailMode: false, detailHasMore: false, getFilterState: () => "pending_split"
+  });
+}
 
 test("個人應付與應收摘要可開啟各自的明細小視窗", () => {
   assert.match(render, /data-settlement-dialog="payable"/);
@@ -115,11 +128,12 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /主揪支付/);
   assert.match(feeController, /自訂分攤/);
   assert.match(feeController, /requiredPlayerCount/);
-  assert.match(feeController, /不因目前缺人減少/);
+  assert.match(feeController, /系統會自動建立並計算劇本費/);
   assert.doesNotMatch(feeController, /name="vendorBaseAmount"/);
   assert.match(controller, /car\.studioName\|\|car\.organizerName\|\|car\.organizer/);
-  assert.match(feeController, /vendorName\?`<p><strong>店家／工作室：<\/strong>/);
-  assert.match(feeController, /vendorName:vendorName\|\|values\.vendorName/);
+  assert.match(feeController, /!loaded\.plan&&isManager&&fixedCount&&defaultPlayerFee&&vendorName/);
+  assert.doesNotMatch(feeController, /id="feePlanForm"/);
+  assert.doesNotMatch(feeController, /建立劇本費<\/button>/);
 });
 
 test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
@@ -128,7 +142,26 @@ test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
   assert.match(summaryRender, /activityFeeSection/);
   assert.match(render, /id="activityFeeMount"/);
   assert.match(feeController, /mountPoint=section\.querySelector\("#activityFeeMount"\)\|\|section/);
+  assert.match(render, /hasAccountingData/);
+  assert.match(render, /id="accountingDetailsToggle"/);
+  assert.match(render, /id="accountingDetails"/);
+  assert.match(render, /hasAccountingData\?summary\+dialog:""/);
+  assert.match(actions, /details\.hidden=!details\.hidden/);
   assert.match(summaryRender, /openSingleFieldEditor/);
   assert.match(summaryRender, /openSeatSettings\(\)/);
   assert.match(seatRender, /id="seatSection"/);
+});
+
+test("沒有快速記帳時隱藏個人帳務摘要與明細入口", () => {
+  const html = renderAccounting([]);
+  assert.doesNotMatch(html, /data-settlement-dialog=/);
+  assert.match(html, /id="accountingDetailsToggle"[^>]* hidden/);
+  assert.match(html, /id="accountingDetails" hidden/);
+});
+
+test("有快速記帳後顯示摘要，明細仍預設收合", () => {
+  const html = renderAccounting([{ transactionId: "t1", title: "晚餐", amount: 300, paidBy: "p1", splitStatus: "pending", splits: [] }]);
+  assert.match(html, /data-settlement-dialog="payable"/);
+  assert.doesNotMatch(html, /id="accountingDetailsToggle"[^>]* hidden/);
+  assert.match(html, /id="accountingDetails" hidden/);
 });

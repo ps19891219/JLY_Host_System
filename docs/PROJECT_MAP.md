@@ -496,7 +496,7 @@ Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇
 - `services/firebase/activity-accounting-repository.js`：以同一個 Firestore Transaction 寫入正式 Transaction，並同步完成舊待辦、產生下一階段 Pending Action。
 - `js/modules/accounting/activity-fee-data.js`：劇本費計畫、玩家代收、店家付款與車團暫存餘額的純計算規則。
 - `js/modules/accounting/activity-fee-repository.js`：劇本費計畫、玩家收款與外部店家訂金／尾款／退款的 Firestore 讀寫及稽核。
-- `js/modules/accounting/activity-fee-controller.js`：Car Detail 劇本費與店家核銷介面；現階段由主揪管理，LINE 入口未擴充。
+- `js/modules/accounting/activity-fee-controller.js`：Car Detail 劇本費與店家核銷介面；工作室、固定玩家人數與每人劇本費資料完整時自動建立／同步基本劇本費，現階段由主揪管理，LINE 入口未擴充。
 - `tests/accounting/accounting-core.test.js`：Accounting Core 純領域規則測試。
 
 正式資料來源仍規劃沿用：
