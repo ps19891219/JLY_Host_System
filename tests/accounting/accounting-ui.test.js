@@ -151,8 +151,9 @@ test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
   assert.doesNotMatch(summaryRender, /field:\s*"studioName",\s*editable:\s*true,\s*navigationTarget:/);
   assert.match(render, /id="activityFeeMount"/);
   assert.match(render, /accounting-drafts/);
-  assert.match(render, /id="accountingDraftsBody" hidden/);
-  assert.match(actions, /setDraftsOpen/);
+  assert.match(render, /id="accountingPendingBody" hidden/);
+  assert.match(render, /accounting-pending-entry/);
+  assert.match(actions, /pendingBody\.hidden/);
   assert.match(render, /data-draft-dismiss/);
   assert.match(controller, /loadPendingDrafts/);
   assert.match(controller, /transitionDraft/);

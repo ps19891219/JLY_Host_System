@@ -355,6 +355,10 @@
 .accounting-attention span { font-weight: 800; }
 .accounting-attention small { grid-column: 1; color: #7b6339; }
 .accounting-attention b { grid-column: 2; grid-row: 1 / span 2; color: #9a5f08; }
+.accounting-attention-section { display: grid; gap: 10px; }
+#accountingPendingBody { display: grid; gap: 10px; }
+#accountingPendingBody[hidden] { display: none; }
+#accountingDetails .accounting-entry[data-filter-state="pending_split"] { display: none; }
 
 .accounting-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .accounting-filters { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; }
