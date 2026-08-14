@@ -97,7 +97,7 @@ const {
   confirmGroupPairing,
   cancelGroupPairing
 } = require("./group-car-pairing-service");
-const { prepareQuickAccounting } = require("./quick-accounting-service");
+const { prepareQuickAccounting, saveResolvedQuickAccounting } = require("./quick-accounting-service");
 
 // ============================================================
 // Normalize Text
@@ -297,6 +297,7 @@ async function handleMessageEvent(
   const createAssistantToken = dependencies.createGroupAssistantToken || createGroupAssistantToken;
   const readPublicBaseUrl = dependencies.getPublicBaseUrl || getPublicBaseUrl;
   const prepareQuickEntry = dependencies.prepareQuickAccounting || prepareQuickAccounting;
+  const saveResolvedQuickEntry = dependencies.saveResolvedQuickAccounting || saveResolvedQuickAccounting;
 
   // ----------------------------------------------------------
   // Non-text message
@@ -495,8 +496,8 @@ async function handleMessageEvent(
     const car = await readCar(context.accountingCarId);
     const prepared = await prepareQuickEntry(context, messageResult.accounting, car || {}, authority);
     if (prepared.reason === "payer_resolved") {
-      const result = await recordAccounting(context, { type: "expense", amount: messageResult.accounting.amount, description: messageResult.accounting.title, payerMemberId: prepared.payer.personId, payerDisplayName: prepared.payer.displayName });
-      await replyWithText(context.replyToken, result.saved ? `✅ 已記帳：${messageResult.accounting.title} $${messageResult.accounting.amount.toLocaleString("zh-TW")}\n付款人：${prepared.payer.displayName || "本人"}｜待分帳` : "記帳失敗，請確認群組已綁定車團。");
+      const result = await saveResolvedQuickEntry(context, messageResult.accounting, prepared.payer, car || {}, authority);
+      await replyWithText(context.replyToken, `✅ 已記帳：${messageResult.accounting.title} $${messageResult.accounting.amount.toLocaleString("zh-TW")}\n付款人：${prepared.payer.displayName || "本人"}｜待分帳`);
       return { handled: true, route: "accounting_quick_created", context, groupBinding, accountingResult: result };
     }
     if (prepared.saved) {

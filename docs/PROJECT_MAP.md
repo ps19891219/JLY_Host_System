@@ -15,6 +15,7 @@
 - LINE 支援 `@JLY小助手 記帳 <項目> <金額> [付款人]付`；待確認時群組只顯示簡短暫存結果，不展開候選名單。
 - Car Detail 帳務區僅向主揪讀取待確認記帳；可指定正式 Person ID、調整金額、確認建立唯一 Transaction，或留下刪除稽核紀錄。
 - 待確認資料在確認前不進入 `accountingEntries`、分帳、應收應付或互抵計算。
+- 唯一辨識付款人的 LINE 快速記帳直接使用 `activity-accounting-repository` 建立正式 Transaction；寫入後將 `accountingViews/activityCurrent` 標記重建，避免只寫入舊 LINE 帳本而未出現在 Car Detail。
 > Source of truth: repository files and current HTML runtime references
 
 ---

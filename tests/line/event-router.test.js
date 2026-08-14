@@ -731,7 +731,7 @@ test("quick accounting with one resolved payer creates the formal entry", async 
     resolveAccountingAuthority: async () => ({ playerId: "host", playerDisplayName: "詩婕", canManageAll: true }),
     getCarById: async () => ({ id: "car-1" }),
     prepareQuickAccounting: async () => ({ saved: false, reason: "payer_resolved", payer: { personId: "p1", displayName: "小英" } }),
-    recordGroupAccounting: async (_context, command) => { savedCommand = command; return { saved: true }; },
+    saveResolvedQuickAccounting: async (_context, command, payer) => { savedCommand = { ...command, payerMemberId: payer.personId }; return { transactionId: "line-message-1" }; },
     sendTextReply: async () => {}
   });
   assert.equal(result.route, "accounting_quick_created");

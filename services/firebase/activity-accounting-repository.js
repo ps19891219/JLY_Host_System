@@ -73,6 +73,7 @@ function createRepository(dependencies = {}) {
         schemaVersion: 1
       };
       firestoreTransaction.set(transactionRef, stored, { merge: false });
+      firestoreTransaction.set(root.collection("accountingViews").doc("activityCurrent"), { schemaVersion: 0, updatedAt: timestamp }, { merge: true });
       return stored;
     });
   }

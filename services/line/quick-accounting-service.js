@@ -2,6 +2,7 @@
 
 const { buildPendingEntry, resolvePayerLabel } = require("../accounting/pending-entry");
 const { saveAccountingDraft } = require("../firebase/accounting-draft-repository");
+const { createRepository } = require("../firebase/activity-accounting-repository");
 
 function member(item, role) {
   const source = item && typeof item === "object" ? item : {}, nested = source.memberSnapshot || source.member || source.player || {};
@@ -34,4 +35,15 @@ async function prepareQuickAccounting(context, command, car, authority, dependen
   return { saved: true, reason: "pending_identity", draft, resolution };
 }
 
-module.exports = { collectMembers, prepareQuickAccounting };
+async function saveResolvedQuickAccounting(context, command, payer, car, authority, dependencies = {}) {
+  const now = new Date(Number(context.timestamp) || Date.now()).toISOString();
+  const repository = dependencies.repository || createRepository();
+  return repository.saveTransaction({
+    transactionId: `line-${context.message.id}`, activityId: context.accountingCarId, activityType: "car", villageType: "script_village", carId: context.accountingCarId,
+    type: command.type || "expense", title: command.title, amount: command.amount, currency: "TWD",
+    createdBy: authority.playerId, paidBy: payer.personId, participants: [], splits: [], splitStatus: "pending", settlementStatus: "pending",
+    source: "line_group", note: `LINE group ${context.source.groupId}`, createdAt: now, updatedAt: now
+  }, { accountingManagerPersonId: String(car && car.ownerId || authority.playerId) });
+}
+
+module.exports = { collectMembers, prepareQuickAccounting, saveResolvedQuickAccounting };
