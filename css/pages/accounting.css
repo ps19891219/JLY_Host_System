@@ -317,6 +317,9 @@
 .accounting-fee-members li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #f7f4ef; }
 .accounting-fee-forms { display: grid; gap: 12px; }
 .accounting-fee-forms h5 { margin: 0; font-size: 1rem; }
+.accounting-fee-toggle { width: 100%; min-height: 48px; border: 1px dashed #3f846f; border-radius: 12px; background: #f5fbf8; color: #2f715e; font: inherit; font-weight: 700; }
+.accounting-form-actions { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.accounting-secondary-button { background: #ece8e2 !important; color: #514d48 !important; }
 .accounting-fee-forms select,
 .accounting-fee-forms input { width: 100%; min-height: 44px; box-sizing: border-box; border: 1px solid #d7d2ca; border-radius: 11px; padding: 9px 11px; background: #fff; font: inherit; }
 
