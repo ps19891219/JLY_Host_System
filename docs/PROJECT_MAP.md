@@ -2,10 +2,15 @@
 
 > Status: Working Map
 >
-> Version: V2.64
+> Version: V2.65
 >
 > Last Updated: 2026-08-14
 >
+
+## V2.65 LINE 車團總覽連結（2026-08-14）
+
+- LINE 群組小助手的「車團總覽」直接開啟目前綁定車團的玩家查看頁 `pages/car-view.html?id={carId}`。
+- 快速記帳仍使用具簽章 Token 的 `pages/group-assistant.html`；玩家總覽不再誤連到群組小助手資訊分頁。
 
 ## V2.64 LINE 快速記帳待確認流程（2026-08-14）
 

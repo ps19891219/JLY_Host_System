@@ -13,6 +13,7 @@ function buttons(message) {
 
 test("group assistant card shows car identity and six persistent entries", function () {
   const card = buildGroupAssistantCard({
+    id: "car-1",
     scriptName: "測試劇本",
     date: "2026-08-20"
   }, { baseUrl: "https://example.com", token: "signed-token" });
@@ -30,6 +31,10 @@ test("group assistant card shows car identity and six persistent entries", funct
   assert.equal(buttons(card)[2].action.text, "JLY 人員");
   assert.ok(buttons(card)[3].action.uri.includes("tab=accounting"));
   assert.ok(buttons(card)[3].action.uri.includes("signed-token"));
+  assert.equal(
+    buttons(card)[4].action.uri,
+    "https://example.com/pages/car-view.html?id=car-1"
+  );
 });
 
 test("accounting card is a second-level persistent menu", function () {
