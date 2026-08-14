@@ -14,52 +14,20 @@
 
 
   // =====================================
-  // Main navigation
-  // =====================================
-
-  function showTab(name) {
-    document
-      .querySelectorAll(".tab-panel")
-      .forEach(node => {
-        node.classList.toggle(
-          "hidden",
-          node.id !== name
-        );
-      });
-
-    document
-      .querySelectorAll("[data-tab]")
-      .forEach(node => {
-        node.classList.toggle(
-          "active",
-          node.dataset.tab === name
-        );
-      });
-
-    if (name === "accounting") {
-      const requestedAccountingTab =
-        query.get("accountingTab") || "overview";
-
-      showAccountingTab(requestedAccountingTab);
-    }
-  }
-
-
-  // =====================================
   // Accounting navigation
   // =====================================
 
   function showAccountingTab(name) {
     const allowedTabs = [
-      "overview",
-      "settlements",
-      "entries"
+      "merchant",
+      "expenses",
+      "ledger"
     ];
 
     const activeTab =
       allowedTabs.includes(name)
         ? name
-        : "overview";
+        : "expenses";
 
     document
       .querySelectorAll(".accounting-panel")
@@ -86,37 +54,81 @@
   // =====================================
 
   function requireLogin() {
-    if (context.currentMember) {
+    if (
+      context &&
+      context.currentMember
+    ) {
       return true;
     }
 
-    el("loginPrompt").classList.remove("hidden");
+    el("loginPrompt")
+      .classList
+      .remove("hidden");
 
     return false;
   }
 
 
   // =====================================
-  // Members
+  // Member helpers
   // =====================================
 
-  function renderMembers() {
-    const payer = el("payerMember");
+  function memberName(id) {
+    const memberId = String(id || "");
+
+    const item =
+      (context && context.members || [])
+        .find(member =>
+          String(member.memberId || "") === memberId
+        );
+
+    return (
+      item &&
+      item.displayName
+    ) || "成員";
+  }
+
+
+  function currentMemberId() {
+    if (
+      !context ||
+      !context.currentMember
+    ) {
+      return "";
+    }
+
+    const candidates = [
+      context.currentMember.identityId,
+      context.currentMember.profileId,
+      context.currentMember.memberId
+    ]
+      .map(value => String(value || ""))
+      .filter(Boolean);
+
+    const members =
+      context.members || [];
+
+    return (
+      candidates.find(id =>
+        members.some(member =>
+          String(member.memberId || "") === id
+        )
+      ) ||
+      ""
+    );
+  }
+
+
+  // =====================================
+  // Share members
+  // =====================================
+
+  function renderShareMembers() {
     const shares = el("shareMemberList");
 
-    payer.innerHTML = "";
     shares.innerHTML = "";
 
     (context.members || []).forEach(member => {
-      const option =
-        document.createElement("option");
-
-      option.value = member.memberId;
-      option.textContent = member.displayName;
-
-      payer.appendChild(option);
-
-
       const row =
         document.createElement("label");
 
@@ -126,9 +138,8 @@
       const name =
         document.createElement("span");
 
-      const amount =
+      const amountInput =
         document.createElement("input");
-
 
       row.className = "share-row";
 
@@ -137,137 +148,415 @@
       checkbox.value = member.memberId;
       checkbox.checked = true;
 
-      name.textContent = member.displayName;
+      name.textContent =
+        member.displayName;
 
-      amount.type = "number";
-      amount.className = "share-amount";
-      amount.min = "1";
-      amount.step = "1";
-      amount.inputMode = "numeric";
-      amount.dataset.memberId = member.memberId;
+      amountInput.type = "number";
+      amountInput.className = "share-amount";
+      amountInput.min = "1";
+      amountInput.step = "1";
+      amountInput.inputMode = "numeric";
+      amountInput.dataset.memberId =
+        member.memberId;
 
-      amount.setAttribute(
+      amountInput.setAttribute(
         "aria-label",
         `${member.displayName} 分攤金額`
       );
 
-
       checkbox.addEventListener(
         "change",
         () => {
-          amount.disabled = !checkbox.checked;
+          amountInput.disabled =
+            !checkbox.checked;
+
           distributeShares();
         }
       );
 
-
       row.append(
         checkbox,
         name,
-        amount
+        amountInput
       );
 
       shares.appendChild(row);
     });
-
-
-    const ids = [
-      context.currentMember &&
-        context.currentMember.identityId,
-
-      context.currentMember &&
-        context.currentMember.profileId
-    ];
-
-
-    const mine = ids.find(id =>
-      [...payer.options].some(
-        option => option.value === id
-      )
-    );
-
-
-    if (mine) {
-      payer.value = mine;
-    }
-
 
     distributeShares();
   }
 
 
   function distributeShares() {
-    const total = Math.max(
-      0,
-      Math.floor(
-        Number(el("entryAmount").value) || 0
-      )
-    );
-
+    const total =
+      Math.max(
+        0,
+        Math.floor(
+          Number(
+            el("entryAmount").value
+          ) || 0
+        )
+      );
 
     const rows = [
-      ...document.querySelectorAll(".share-row")
+      ...document.querySelectorAll(
+        ".share-row"
+      )
     ].filter(row =>
       row
         .querySelector(".share-check")
         .checked
     );
 
-
     if (!rows.length) {
       return;
     }
 
-
     const base =
-      Math.floor(total / rows.length);
-
+      Math.floor(
+        total / rows.length
+      );
 
     rows.forEach((row, index) => {
-      row.querySelector(
-        ".share-amount"
-      ).value =
-        index === rows.length - 1
-          ? total -
-            base * (rows.length - 1)
-          : base;
+      row
+        .querySelector(".share-amount")
+        .value =
+          index === rows.length - 1
+            ? total -
+              base *
+              (rows.length - 1)
+            : base;
     });
   }
 
 
-  function memberName(id) {
-    const item =
-      (context.members || []).find(
-        member => member.memberId === id
+  // =====================================
+  // Payment rows
+  // =====================================
+
+  function buildPaymentSelect(
+    selectedMemberId = ""
+  ) {
+    const select =
+      document.createElement("select");
+
+    select.className =
+      "payment-member";
+
+    select.setAttribute(
+      "aria-label",
+      "付款人"
+    );
+
+    (context.members || []).forEach(member => {
+      const option =
+        document.createElement("option");
+
+      option.value =
+        member.memberId;
+
+      option.textContent =
+        member.displayName;
+
+      option.selected =
+        String(member.memberId) ===
+        String(selectedMemberId);
+
+      select.appendChild(option);
+    });
+
+    return select;
+  }
+
+
+  function addPaymentRow(
+    payment = {},
+    options = {}
+  ) {
+    const list =
+      el("paymentList");
+
+    const row =
+      document.createElement("div");
+
+    const selectedId =
+      String(
+        payment.memberId ||
+        payment.personId ||
+        ""
       );
 
-    return (
-      (item && item.displayName) ||
-      "成員"
+    const select =
+      buildPaymentSelect(
+        selectedId
+      );
+
+    const amountInput =
+      document.createElement("input");
+
+    const remove =
+      document.createElement("button");
+
+    row.className =
+      "payment-row";
+
+    amountInput.type =
+      "number";
+
+    amountInput.className =
+      "payment-amount";
+
+    amountInput.min =
+      "1";
+
+    amountInput.step =
+      "1";
+
+    amountInput.inputMode =
+      "numeric";
+
+    amountInput.placeholder =
+      "金額";
+
+    amountInput.value =
+      payment.amount
+        ? Number(payment.amount)
+        : "";
+
+    amountInput.setAttribute(
+      "aria-label",
+      "付款金額"
+    );
+
+    remove.type =
+      "button";
+
+    remove.className =
+      "payment-remove";
+
+    remove.textContent =
+      "×";
+
+    remove.setAttribute(
+      "aria-label",
+      "移除付款人"
+    );
+
+    select.addEventListener(
+      "change",
+      updatePaymentTotal
+    );
+
+    amountInput.addEventListener(
+      "input",
+      updatePaymentTotal
+    );
+
+    remove.addEventListener(
+      "click",
+      () => {
+        const rows =
+          document.querySelectorAll(
+            ".payment-row"
+          );
+
+        if (rows.length <= 1) {
+          amountInput.value =
+            el("entryAmount").value || "";
+
+          select.value =
+            currentMemberId() ||
+            (
+              context.members &&
+              context.members[0] &&
+              context.members[0].memberId
+            ) ||
+            "";
+
+          updatePaymentTotal();
+          return;
+        }
+
+        row.remove();
+
+        updatePaymentTotal();
+      }
+    );
+
+    row.append(
+      select,
+      amountInput,
+      remove
+    );
+
+    list.appendChild(row);
+
+    if (
+      options.focusAmount
+    ) {
+      amountInput.focus();
+    }
+
+    updatePaymentTotal();
+  }
+
+
+  function resetPaymentRows(
+    payments = null
+  ) {
+    el("paymentList").innerHTML = "";
+
+    if (
+      Array.isArray(payments) &&
+      payments.length
+    ) {
+      payments.forEach(payment =>
+        addPaymentRow(payment)
+      );
+
+      updatePaymentTotal();
+
+      return;
+    }
+
+    const total =
+      Number(
+        el("entryAmount").value
+      ) || 0;
+
+    const defaultMemberId =
+      currentMemberId() ||
+      (
+        context.members &&
+        context.members[0] &&
+        context.members[0].memberId
+      ) ||
+      "";
+
+    addPaymentRow({
+      memberId:
+        defaultMemberId,
+
+      amount:
+        total > 0
+          ? total
+          : ""
+    });
+  }
+
+
+  function getPaymentItems() {
+    return [
+      ...document.querySelectorAll(
+        ".payment-row"
+      )
+    ]
+      .map(row => ({
+        memberId:
+          row
+            .querySelector(
+              ".payment-member"
+            )
+            .value,
+
+        amount:
+          Number(
+            row
+              .querySelector(
+                ".payment-amount"
+              )
+              .value
+          )
+      }))
+      .filter(item =>
+        item.memberId
+      );
+  }
+
+
+  function updatePaymentTotal() {
+    const total =
+      Number(
+        el("entryAmount").value
+      ) || 0;
+
+    const paymentTotal =
+      getPaymentItems()
+        .reduce(
+          (sum, item) =>
+            sum +
+            (
+              Number.isFinite(
+                item.amount
+              )
+                ? item.amount
+                : 0
+            ),
+          0
+        );
+
+    const status =
+      el("paymentTotal");
+
+    status.textContent =
+      `已付款 ${money(paymentTotal)} / ${money(total)}`;
+
+    status.classList.toggle(
+      "invalid",
+      total > 0 &&
+      paymentTotal !== total
     );
   }
 
-    // =====================================
-  // Accounting overview
+
+  function syncSinglePaymentToTotal() {
+    const rows = [
+      ...document.querySelectorAll(
+        ".payment-row"
+      )
+    ];
+
+    if (
+      rows.length !== 1
+    ) {
+      updatePaymentTotal();
+      return;
+    }
+
+    const amountInput =
+      rows[0].querySelector(
+        ".payment-amount"
+      );
+
+    amountInput.value =
+      el("entryAmount").value || "";
+
+    updatePaymentTotal();
+  }
+
+
+  // =====================================
+  // Accounting total / member ledger
   // =====================================
 
   function renderBalances(items) {
-    const list = el("memberBalances");
+    const list =
+      el("memberBalances");
 
     list.innerHTML = "";
 
-
     if (!items.length) {
-      list.className = "list empty";
+      list.className =
+        "list empty";
+
       list.textContent =
         "目前沒有分帳資料";
 
       return;
     }
 
-
-    list.className = "list";
-
+    list.className =
+      "list";
 
     items.forEach(item => {
       const row =
@@ -279,25 +568,36 @@
       const result =
         document.createElement("b");
 
-      const net =
-        Number(item.netAmount) || 0;
+      const currentNet =
+        Number(
+          item.currentNetAmount != null
+            ? item.currentNetAmount
+            : item.netAmount
+        ) || 0;
 
+      const paidAmount =
+        Number(
+          item.paidAmount
+        ) || 0;
+
+      const shareAmount =
+        Number(
+          item.shareAmount
+        ) || 0;
 
       name.innerHTML =
         `<strong>${memberName(item.personId)}</strong>` +
         `<small>` +
-        `實際付款 ${money(item.paidAmount)}` +
-        `｜應負擔 ${money(item.shareAmount)}` +
+        `本次花費 ${money(shareAmount)}` +
+        `｜實際付款 ${money(paidAmount)}` +
         `</small>`;
 
-
       result.textContent =
-        net > 0
-          ? `應收 ${money(net)}`
-          : net < 0
-            ? `應付 ${money(-net)}`
+        currentNet > 0
+          ? `待收 ${money(currentNet)}`
+          : currentNet < 0
+            ? `待付 ${money(-currentNet)}`
             : "✅ 已結清";
-
 
       row.append(
         name,
@@ -310,7 +610,7 @@
 
 
   // =====================================
-  // Settlement status
+  // Settlement plan
   // =====================================
 
   function renderTransfers(items) {
@@ -319,9 +619,9 @@
 
     list.innerHTML = "";
 
-
     if (!items.length) {
-      list.className = "list empty";
+      list.className =
+        "list empty";
 
       list.textContent =
         "✅ 目前帳款均已結清";
@@ -329,41 +629,95 @@
       return;
     }
 
-
-    list.className = "list";
-
+    list.className =
+      "list";
 
     items.forEach(item => {
       const row =
         document.createElement("div");
 
-      const text =
+      const transferText =
         document.createElement("span");
 
       const value =
         document.createElement("b");
 
-
-      text.innerHTML =
+      transferText.innerHTML =
         `<strong>` +
         `${memberName(item.fromPersonId)}` +
         ` → ` +
         `${memberName(item.toPersonId)}` +
         `</strong>` +
-        `<small>待結清</small>`;
-
+        `<small>建議結算</small>`;
 
       value.textContent =
         money(item.amount);
 
-
       row.append(
-        text,
+        transferText,
         value
       );
 
       list.appendChild(row);
     });
+  }
+
+
+  // =====================================
+  // Entry helpers
+  // =====================================
+
+  function entryPayments(entry) {
+    if (
+      Array.isArray(entry.payments) &&
+      entry.payments.length
+    ) {
+      return entry.payments.map(item => ({
+        memberId:
+          item.memberId ||
+          item.personId ||
+          item.playerId ||
+          "",
+
+        amount:
+          Number(item.amount) || 0
+      }));
+    }
+
+    const legacyId =
+      entry.payerMemberId ||
+      entry.paidBy ||
+      "";
+
+    if (!legacyId) {
+      return [];
+    }
+
+    return [
+      {
+        memberId:
+          legacyId,
+
+        amount:
+          Number(entry.amount) || 0
+      }
+    ];
+  }
+
+
+  function renderPaymentDescription(entry) {
+    const payments =
+      entryPayments(entry);
+
+    if (!payments.length) {
+      return "";
+    }
+
+    return payments
+      .map(payment =>
+        `${memberName(payment.memberId)} ${money(payment.amount)}`
+      )
+      .join("・");
   }
 
 
@@ -377,59 +731,53 @@
 
     list.innerHTML = "";
 
-
     if (!entries.length) {
-      list.className = "list empty";
+      list.className =
+        "list empty";
 
       list.textContent =
-        "目前沒有帳目紀錄";
+        "目前沒有共同支出紀錄";
 
       return;
     }
 
-
-    list.className = "list";
-
+    list.className =
+      "list";
 
     entries.forEach(entry => {
       const row =
         document.createElement("div");
 
-      const text =
+      const entryText =
         document.createElement("span");
 
       const value =
         document.createElement("b");
-
 
       const typeLabel =
         entry.type === "income"
           ? "收入"
           : "支出";
 
+      const paymentText =
+        renderPaymentDescription(
+          entry
+        );
 
-      const payer =
-        entry.paidBy
-          ? memberName(entry.paidBy)
-          : "";
-
-
-      text.innerHTML =
+      entryText.innerHTML =
         `<strong>` +
-        `${entry.description || "未命名帳目"}` +
+        `${entry.description || entry.title || "未命名帳目"}` +
         `</strong>` +
         `<small>` +
         `${typeLabel}` +
-        `${payer ? `｜付款人 ${payer}` : ""}` +
+        `${paymentText ? `｜付款 ${paymentText}` : ""}` +
         `</small>`;
-
 
       value.textContent =
         money(entry.amount);
 
-
       row.append(
-        text,
+        entryText,
         value
       );
 
@@ -444,9 +792,10 @@
 
   function updateShareVisibility() {
     const visible =
-      el("entryType").value === "expense" &&
-      el("splitMode").value === "now";
-
+      el("entryType").value ===
+        "expense" &&
+      el("splitMode").value ===
+        "now";
 
     el("shareMembers")
       .classList
@@ -462,38 +811,39 @@
       return;
     }
 
-
     pendingEntryId =
-      entry ? entry.id : "";
-
+      entry
+        ? entry.id
+        : "";
 
     el("formTitle").textContent =
       entry
         ? "完成分帳"
-        : "新增帳目";
-
+        : "新增共同支出";
 
     el("entryType").value =
-      "expense";
-
+      entry
+        ? entry.type || "expense"
+        : "expense";
 
     el("entryAmount").value =
       entry
         ? entry.amount
         : "";
 
-
     el("entryDescription").value =
       entry
-        ? entry.description
+        ? (
+            entry.description ||
+            entry.title ||
+            ""
+          )
         : "";
-
 
     el("splitMode").value =
       entry
         ? "now"
         : "later";
-
 
     el("entryType").disabled =
       Boolean(entry);
@@ -504,7 +854,6 @@
     el("entryDescription").readOnly =
       Boolean(entry);
 
-
     el("splitModeField")
       .classList
       .toggle(
@@ -512,15 +861,28 @@
         Boolean(entry)
       );
 
+    /*
+     * Completing a pending split must not rewrite
+     * the original payment allocation.
+     */
+    el("paymentBlock")
+      .classList
+      .toggle(
+        "hidden",
+        Boolean(entry)
+      );
+
+    if (!entry) {
+      resetPaymentRows();
+    }
 
     distributeShares();
     updateShareVisibility();
-
+    updatePaymentTotal();
 
     el("splitForm")
       .classList
       .remove("hidden");
-
 
     el("splitForm")
       .scrollIntoView({
@@ -550,41 +912,47 @@
 
     el("splitForm").reset();
 
-    el("entryType").disabled = false;
+    el("entryType").disabled =
+      false;
 
-    el("entryAmount").readOnly = false;
+    el("entryAmount").readOnly =
+      false;
 
     el("entryDescription").readOnly =
       false;
-
 
     el("splitModeField")
       .classList
       .remove("hidden");
 
+    el("paymentBlock")
+      .classList
+      .remove("hidden");
 
-    el("formStatus").textContent = "";
+    el("formStatus").textContent =
+      "";
 
     el("formStatus")
       .classList
       .add("hidden");
 
-
-    el("saveSplit").disabled = false;
+    el("saveSplit").disabled =
+      false;
 
     el("saveSplit").textContent =
       "儲存";
-
 
     el("splitForm")
       .classList
       .add("hidden");
 
+    resetPaymentRows();
 
     updateShareVisibility();
   }
 
-    // =====================================
+
+  // =====================================
   // Pending split entries
   // =====================================
 
@@ -592,20 +960,17 @@
     const list =
       el("pendingEntries");
 
-
     const pending =
-      entries.filter(
-        entry =>
-          entry.type === "expense" &&
-          entry.splitStatus === "pending"
+      entries.filter(entry =>
+        entry.type === "expense" &&
+        entry.splitStatus === "pending"
       );
-
 
     list.innerHTML = "";
 
-
     if (!pending.length) {
-      list.className = "list empty";
+      list.className =
+        "list empty";
 
       list.textContent =
         "目前沒有待分帳項目";
@@ -613,44 +978,47 @@
       return;
     }
 
-
-    list.className = "list";
-
+    list.className =
+      "list";
 
     pending.forEach(entry => {
       const row =
         document.createElement("div");
 
-      const text =
+      const entryText =
         document.createElement("span");
 
       const button =
         document.createElement("button");
 
+      entryText.innerHTML =
+        `<strong>` +
+        `${entry.description || entry.title || "未命名帳目"}` +
+        `</strong>` +
+        `<small>${money(entry.amount)}｜待分帳</small>`;
 
-      text.textContent =
-        `${entry.description} ` +
-        `${money(entry.amount)}`;
+      button.type =
+        "button";
 
+      button.className =
+        "mini";
 
-      button.type = "button";
-
-      button.className = "mini";
-
-      button.textContent = "分帳";
-
+      button.textContent =
+        "分帳";
 
       button.addEventListener(
         "click",
         () => {
-          showAccountingTab("entries");
+          showAccountingTab(
+            "expenses"
+          );
+
           openForm(entry);
         }
       );
 
-
       row.append(
-        text,
+        entryText,
         button
       );
 
@@ -666,10 +1034,9 @@
   function render(data) {
     context = data;
 
-
     el("scriptName").textContent =
-      data.car.scriptName;
-
+      data.car.scriptName ||
+      "未命名車團";
 
     el("carMeta").textContent =
       [
@@ -679,55 +1046,42 @@
         .filter(Boolean)
         .join("・");
 
-
-    el("infoContent").textContent =
-      [
-        data.car.date &&
-          `日期：${data.car.date}`,
-
-        data.car.location &&
-          `地點：${data.car.location}`
-      ]
-        .filter(Boolean)
-        .join("\n") ||
-      "目前沒有其他車團資訊";
-
-
     el("income").textContent =
       money(
         data.accounting.totalIncome
       );
-
 
     el("expense").textContent =
       money(
         data.accounting.totalExpense
       );
 
-
     el("balance").textContent =
       money(
         data.accounting.outstandingAmount
       );
 
-
     const entries =
-      data.accounting.recentEntries || [];
+      data.accounting.recentEntries ||
+      [];
 
-
-    renderMembers();
+    renderShareMembers();
 
     renderBalances(
-      data.accounting.memberSummaries || []
+      data.accounting.memberSummaries ||
+      []
     );
 
     renderTransfers(
-      data.accounting.settlementTransfers || []
+      data.accounting.settlementTransfers ||
+      []
     );
 
     renderPending(entries);
 
     renderEntries(entries);
+
+    resetPaymentRows();
   }
 
 
@@ -742,10 +1096,8 @@
           `/api/group-assistant-context?token=${encodeURIComponent(token)}`
         );
 
-
       const data =
         await response.json();
-
 
       if (
         !response.ok ||
@@ -757,18 +1109,19 @@
         );
       }
 
-
       render(data);
-
 
       el("loading")
         .classList
         .add("hidden");
 
+      el("accounting")
+        .classList
+        .remove("hidden");
 
-      showTab(
-        query.get("tab") ||
-        "info"
+      showAccountingTab(
+        query.get("accountingTab") ||
+        "expenses"
       );
 
     } catch (error) {
@@ -776,15 +1129,13 @@
         .classList
         .add("hidden");
 
-
       el("error")
         .classList
         .remove("hidden");
 
-
       el("error").textContent =
         error.message ===
-        "binding_inactive"
+          "binding_inactive"
           ? "這個群組連結已失效，請重新呼喚 JLY 小助手。"
           : "無法讀取資料，請稍後再試。";
     }
@@ -799,18 +1150,15 @@
     const button =
       el("lineLogin");
 
-
     button.disabled = true;
 
     button.textContent =
       "正在開啟 LINE 登入…";
 
-
     try {
       const returnPath =
         location.pathname +
         location.search;
-
 
       const response =
         await fetch(
@@ -829,10 +1177,8 @@
           }
         );
 
-
       const data =
         await response.json();
-
 
       if (
         !response.ok ||
@@ -842,7 +1188,6 @@
           "login_state_failed"
         );
       }
-
 
       const params =
         new URLSearchParams({
@@ -861,7 +1206,6 @@
             "openid profile"
         });
 
-
       location.assign(
         `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`
       );
@@ -872,31 +1216,17 @@
       button.textContent =
         "LINE 登入";
 
-
       el("loginPrompt")
         .firstChild
         .textContent =
-        "無法開啟 LINE 登入，請重新整理後再試。";
+          "無法開啟 LINE 登入，請重新整理後再試。";
     }
   }
 
-    // =====================================
-  // Events
+
   // =====================================
-
-  document
-    .querySelectorAll("[data-tab]")
-    .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => {
-          showTab(
-            button.dataset.tab
-          );
-        }
-      );
-    });
-
+  // Accounting tab events
+  // =====================================
 
   document
     .querySelectorAll(
@@ -914,11 +1244,18 @@
     });
 
 
+  // =====================================
+  // Form events
+  // =====================================
+
   el("createSplit")
     .addEventListener(
       "click",
       () => {
-        showAccountingTab("entries");
+        showAccountingTab(
+          "expenses"
+        );
+
         openForm(null);
       }
     );
@@ -948,7 +1285,28 @@
   el("entryAmount")
     .addEventListener(
       "input",
-      distributeShares
+      () => {
+        distributeShares();
+        syncSinglePaymentToTotal();
+      }
+    );
+
+
+  el("addPayment")
+    .addEventListener(
+      "click",
+      () => {
+        if (!requireLogin()) {
+          return;
+        }
+
+        addPaymentRow(
+          {},
+          {
+            focusAmount: true
+          }
+        );
+      }
     );
 
 
@@ -969,22 +1327,30 @@
       async event => {
         event.preventDefault();
 
-
         const button =
           el("saveSplit");
-
 
         const total =
           Number(
             el("entryAmount").value
           );
 
-
         const description =
           el("entryDescription")
             .value
             .trim();
 
+        if (
+          !Number.isFinite(total) ||
+          total <= 0 ||
+          !description
+        ) {
+          showFormStatus(
+            "請輸入正確的金額與說明。"
+          );
+
+          return;
+        }
 
         const shareItems = [
           ...document.querySelectorAll(
@@ -1000,18 +1366,21 @@
           )
           .map(row => ({
             memberId:
-              row.querySelector(
-                ".share-check"
-              ).value,
+              row
+                .querySelector(
+                  ".share-check"
+                )
+                .value,
 
             amount:
               Number(
-                row.querySelector(
-                  ".share-amount"
-                ).value
+                row
+                  .querySelector(
+                    ".share-amount"
+                  )
+                  .value
               )
           }));
-
 
         const isSplitting =
           el("entryType").value ===
@@ -1022,7 +1391,6 @@
               "now"
           );
 
-
         const shareTotal =
           shareItems.reduce(
             (sum, item) =>
@@ -1030,27 +1398,13 @@
             0
           );
 
-
-        if (
-          !Number.isFinite(total) ||
-          total <= 0 ||
-          !description
-        ) {
-          showFormStatus(
-            "請輸入正確的金額與說明。"
-          );
-
-          return;
-        }
-
-
         if (
           isSplitting &&
           shareTotal !== total
         ) {
           const difference =
-            total - shareTotal;
-
+            total -
+            shareTotal;
 
           showFormStatus(
             `目前分帳加總 ${money(shareTotal)}，` +
@@ -1059,21 +1413,89 @@
             `${money(Math.abs(difference))}）。`
           );
 
-
           return;
         }
 
+        /*
+         * Existing pending entries keep their original
+         * payment allocation.
+         */
+        let payments = [];
 
-        button.disabled = true;
+        if (!pendingEntryId) {
+          payments =
+            getPaymentItems();
+
+          if (!payments.length) {
+            showFormStatus(
+              "請至少加入一位付款人。"
+            );
+
+            return;
+          }
+
+          const uniqueMembers =
+            new Set(
+              payments.map(
+                item =>
+                  item.memberId
+              )
+            );
+
+          if (
+            uniqueMembers.size !==
+            payments.length
+          ) {
+            showFormStatus(
+              "同一位付款人請只保留一筆付款金額。"
+            );
+
+            return;
+          }
+
+          const invalidPayment =
+            payments.some(item =>
+              !Number.isFinite(
+                item.amount
+              ) ||
+              item.amount <= 0
+            );
+
+          const paymentTotal =
+            payments.reduce(
+              (sum, item) =>
+                sum + item.amount,
+              0
+            );
+
+          if (
+            invalidPayment ||
+            paymentTotal !== total
+          ) {
+            const difference =
+              total -
+              paymentTotal;
+
+            showFormStatus(
+              `付款金額目前共 ${money(paymentTotal)}，` +
+              `需等於 ${money(total)}` +
+              `（${difference > 0 ? "還差" : "超出"} ` +
+              `${money(Math.abs(difference))}）。`
+            );
+
+            return;
+          }
+        }
+
+        button.disabled =
+          true;
 
         button.textContent =
           "儲存中…";
 
-
         showFormStatus(
           "正在儲存，請稍候…"
         );
-
 
         try {
           const response =
@@ -1087,55 +1509,69 @@
                     "application/json"
                 },
 
-                body: JSON.stringify({
-                  token,
+                body:
+                  JSON.stringify({
+                    token,
 
-                  entryId:
-                    pendingEntryId ||
-                    undefined,
+                    entryId:
+                      pendingEntryId ||
+                      undefined,
 
-                  type:
-                    el("entryType").value,
+                    type:
+                      el("entryType")
+                        .value,
 
-                  amount:
-                    total,
+                    amount:
+                      total,
 
-                  description,
+                    description,
 
-                  splitMode:
-                    pendingEntryId
-                      ? "now"
-                      : el("splitMode").value,
+                    splitMode:
+                      pendingEntryId
+                        ? "now"
+                        : el("splitMode")
+                            .value,
 
-                  payerMemberId:
-                    el("payerMember").value,
+                    payments:
+                      pendingEntryId
+                        ? undefined
+                        : payments,
 
-                  shares:
-                    shareItems
-                })
+                    shares:
+                      shareItems
+                  })
               }
             );
-
 
           const result =
             await response.json();
 
-
           if (!response.ok) {
-            showFormStatus(
+            const errorMessage =
               result.error ===
                 "line_login_required"
                 ? "請先使用 LINE 登入。"
 
                 : result.error ===
                     "share_total_mismatch"
-                  ? "每人金額加總必須等於帳目總額。"
+                  ? "每人分攤金額加總必須等於帳目總額。"
 
-                  : "儲存失敗，請稍後再試。"
+                : result.error ===
+                    "payment_total_mismatch"
+                  ? "付款金額加總必須等於帳目總額。"
+
+                : result.error ===
+                    "invalid_payer"
+                  ? "付款人資料不正確，請重新選擇。"
+
+                : "儲存失敗，請稍後再試。";
+
+            showFormStatus(
+              errorMessage
             );
 
-
-            button.disabled = false;
+            button.disabled =
+              false;
 
             button.textContent =
               "儲存";
@@ -1143,29 +1579,23 @@
             return;
           }
 
-
           button.textContent =
             "儲存成功";
 
-
           showFormStatus(
-            "✅ 分帳已儲存成功"
+            pendingEntryId
+              ? "✅ 分帳已完成"
+              : "✅ 帳目已儲存成功"
           );
 
-
           await load();
-
 
           setTimeout(
             () => {
               closeForm();
 
-              showTab(
-                "accounting"
-              );
-
               showAccountingTab(
-                "entries"
+                "expenses"
               );
             },
             700
@@ -1176,8 +1606,8 @@
             "網路連線失敗，請重新按一次儲存。"
           );
 
-
-          button.disabled = false;
+          button.disabled =
+            false;
 
           button.textContent =
             "重新儲存";

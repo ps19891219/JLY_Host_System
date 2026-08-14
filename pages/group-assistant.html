@@ -1,40 +1,25 @@
 <!doctype html>
 <html lang="zh-Hant">
+
 <head>
   <meta charset="utf-8">
+
   <meta
     name="viewport"
     content="width=device-width,initial-scale=1,viewport-fit=cover"
   >
 
-  <title>JLY 群組小助手</title>
+  <title>JLY 車團帳務</title>
 
   <link
     rel="stylesheet"
-    href="/css/group-assistant.css?v=3"
+    href="/css/group-assistant.css?v=4"
   >
 
   <style>
-    .split-form fieldset .share-row {
-      display: grid;
-      grid-template-columns: 24px 1fr 110px;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .split-form fieldset .share-check {
-      width: 22px;
-    }
-
-    .split-form fieldset .share-amount {
-      width: 100%;
-      margin: 0;
-      text-align: right;
-    }
-
-    .share-amount:disabled {
-      opacity: .45;
-    }
+    /* =====================================
+       Shared
+       ===================================== */
 
     .list span strong,
     .list span small {
@@ -47,10 +32,9 @@
       font-size: 12px;
     }
 
-    /* ================================
-       Accounting sub navigation
-       V2.71
-       ================================ */
+    /* =====================================
+       Accounting tabs
+       ===================================== */
 
     .accounting-tabs {
       display: grid;
@@ -89,63 +73,151 @@
       font-size: 13px;
       line-height: 1.6;
     }
+
+    /* =====================================
+       Payment rows
+       ===================================== */
+
+    .payment-block {
+      margin: 16px 0;
+    }
+
+    .payment-block > label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .payment-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .payment-row {
+      display: grid;
+      grid-template-columns: 1fr 120px 42px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .payment-row select,
+    .payment-row input {
+      width: 100%;
+      margin: 0;
+    }
+
+    .payment-remove {
+      width: 42px;
+      height: 42px;
+      border: 0;
+      border-radius: 12px;
+      background: #ebe6df;
+      color: #6d6259;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .payment-total {
+      margin: 10px 0 0;
+      color: #83776d;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .payment-total.invalid {
+      color: #b45454;
+      font-weight: 700;
+    }
+
+    .add-payment {
+      width: 100%;
+      margin: 10px 0 0;
+      border: 1px dashed #cfc5bb;
+      border-radius: 13px;
+      padding: 11px;
+      background: #fff;
+      color: #514a45;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    /* =====================================
+       Split rows
+       ===================================== */
+
+    .split-form fieldset .share-row {
+      display: grid;
+      grid-template-columns: 24px 1fr 110px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .split-form fieldset .share-check {
+      width: 22px;
+    }
+
+    .split-form fieldset .share-amount {
+      width: 100%;
+      margin: 0;
+      text-align: right;
+    }
+
+    .share-amount:disabled {
+      opacity: .45;
+    }
+
+    /* =====================================
+       Merchant placeholder
+       ===================================== */
+
+    .merchant-placeholder {
+      padding: 18px;
+      border-radius: 16px;
+      background: #f7f2eb;
+      color: #756b63;
+      line-height: 1.7;
+    }
   </style>
 </head>
 
+
 <body>
+
   <main class="app">
 
-    <!-- ================================
+    <!-- =====================================
          Header
-         ================================ -->
+         ===================================== -->
 
     <header class="hero">
+
       <span class="bear">🐻</span>
 
       <div>
-        <p>JLY 群組小助手</p>
-        <h1 id="scriptName">正在載入車團</h1>
+        <p>JLY 車團帳務</p>
+
+        <h1 id="scriptName">
+          正在載入車團
+        </h1>
+
         <small id="carMeta"></small>
       </div>
+
     </header>
 
 
-    <!-- ================================
-         Main navigation
-         ================================ -->
-
-    <nav
-      class="tabs"
-      aria-label="功能選單"
-    >
-      <button data-tab="info">
-        車團
-      </button>
-
-      <button data-tab="accounting">
-        車團總帳
-      </button>
-
-      <button data-tab="members">
-        成員
-      </button>
-
-      <button data-tab="notices">
-        公告
-      </button>
-    </nav>
-
-
-    <!-- ================================
+    <!-- =====================================
          Loading / Error
-         ================================ -->
+         ===================================== -->
 
     <section
       id="loading"
       class="panel"
     >
-      正在讀取車團資料…
+      正在讀取車團帳務…
     </section>
+
 
     <section
       id="error"
@@ -153,135 +225,97 @@
     ></section>
 
 
-    <!-- ================================
-         Car info
-         ================================ -->
-
-    <section
-      id="info"
-      class="panel tab-panel hidden"
-    >
-      <h2>車團資訊</h2>
-
-      <div id="infoContent"></div>
-    </section>
-
-
-    <!-- ================================
+    <!-- =====================================
          Accounting
-         ================================ -->
+         ===================================== -->
 
     <section
       id="accounting"
-      class="panel tab-panel hidden"
+      class="panel hidden"
     >
 
-      <h2>車團總帳</h2>
+      <h2>車團帳務</h2>
 
-      <!-- Accounting second-level tabs -->
+
+      <!-- Accounting tabs -->
 
       <nav
         class="accounting-tabs"
-        aria-label="車團總帳功能"
+        aria-label="車團帳務功能"
       >
+
         <button
           type="button"
-          data-accounting-tab="overview"
+          data-accounting-tab="merchant"
+        >
+          店家帳目
+        </button>
+
+
+        <button
+          type="button"
+          data-accounting-tab="expenses"
           class="active"
         >
-          總覽
+          共同支出
         </button>
+
 
         <button
           type="button"
-          data-accounting-tab="settlements"
+          data-accounting-tab="ledger"
         >
-          待結清
+          總帳
         </button>
 
-        <button
-          type="button"
-          data-accounting-tab="entries"
-        >
-          帳目
-        </button>
       </nav>
 
 
-      <!-- ================================
-           Accounting / Overview
-           ================================ -->
+      <!-- =====================================
+           Merchant
+           ===================================== -->
 
       <section
-        id="accounting-overview"
+        id="accounting-merchant"
+        class="accounting-panel hidden"
+      >
+
+        <h3>店家帳目</h3>
+
+        <div class="merchant-placeholder">
+
+          這裡之後會接入：
+
+          <br>
+          ・工作室
+          <br>
+          ・劇本金額 × 人數
+          <br>
+          ・劇本待付金額
+          <br>
+          ・DM 指定費
+          <br>
+          ・其他店家費用
+          <br>
+          ・已付款／未付款狀態
+
+          <br><br>
+
+          目前先保留正式入口，
+          下一階段再串接既有劇本與工作室資料。
+
+        </div>
+
+      </section>
+
+
+      <!-- =====================================
+           Shared expenses
+           ===================================== -->
+
+      <section
+        id="accounting-expenses"
         class="accounting-panel"
-      >
-
-        <div class="totals">
-          <article>
-            <span>總收入</span>
-            <b id="income">$0</b>
-          </article>
-
-          <article>
-            <span>總支出</span>
-            <b id="expense">$0</b>
-          </article>
-
-          <article>
-            <span>待結清</span>
-            <b id="balance">$0</b>
-          </article>
-        </div>
-
-        <h3 class="accounting-section-title">
-          成員付款統計
-        </h3>
-
-        <div
-          id="memberBalances"
-          class="list empty"
-        >
-          目前沒有分帳資料
-        </div>
-
-      </section>
-
-
-      <!-- ================================
-           Accounting / Settlements
-           ================================ -->
-
-      <section
-        id="accounting-settlements"
-        class="accounting-panel hidden"
-      >
-
-        <h3>結算狀態</h3>
-
-        <p class="settlement-note">
-          系統內成員完成付款與收款確認後，
-          車團總帳會自動同步結清狀態。
-          未加入 JLY 的成員，後續可由主揪協助人工核銷。
-        </p>
-
-        <div
-          id="settlementTransfers"
-          class="list empty"
-        >
-          目前沒有待結清帳款
-        </div>
-
-      </section>
-
-
-      <!-- ================================
-           Accounting / Entries
-           ================================ -->
-
-      <section
-        id="accounting-entries"
-        class="accounting-panel hidden"
       >
 
         <button
@@ -289,7 +323,7 @@
           id="createSplit"
           type="button"
         >
-          ＋ 新增帳目
+          ＋ 新增共同支出
         </button>
 
 
@@ -299,6 +333,7 @@
           id="loginPrompt"
           class="notice hidden"
         >
+
           新增或分帳前，請先使用 LINE 登入。
 
           <button
@@ -308,10 +343,13 @@
           >
             LINE 登入
           </button>
+
         </div>
 
 
-        <!-- Split form -->
+        <!-- =====================================
+             Entry form
+             ===================================== -->
 
         <form
           id="splitForm"
@@ -320,13 +358,15 @@
         >
 
           <h3 id="formTitle">
-            新增帳目
+            新增共同支出
           </h3>
+
 
           <label>
             類型
 
             <select id="entryType">
+
               <option value="expense">
                 支出
               </option>
@@ -334,6 +374,7 @@
               <option value="income">
                 收入
               </option>
+
             </select>
           </label>
 
@@ -348,6 +389,7 @@
               step="1"
               required
               inputmode="numeric"
+              placeholder="例如：1000"
             >
           </label>
 
@@ -359,15 +401,59 @@
               id="entryDescription"
               maxlength="80"
               required
-              placeholder="例如：晚餐費用"
+              placeholder="例如：晚餐"
             >
           </label>
 
 
+          <!-- =====================================
+               Payments
+               ===================================== -->
+
+          <div
+            id="paymentBlock"
+            class="payment-block"
+          >
+
+            <label>
+              付款明細
+            </label>
+
+            <div
+              id="paymentList"
+              class="payment-list"
+            ></div>
+
+
+            <button
+              id="addPayment"
+              class="add-payment"
+              type="button"
+            >
+              ＋ 新增付款人
+            </button>
+
+
+            <p
+              id="paymentTotal"
+              class="payment-total"
+            >
+              已付款 $0 / $0
+            </p>
+
+          </div>
+
+
+          <!-- =====================================
+               Split mode
+               ===================================== -->
+
           <label id="splitModeField">
+
             處理方式
 
             <select id="splitMode">
+
               <option value="later">
                 先記總額，之後再分帳
               </option>
@@ -375,29 +461,28 @@
               <option value="now">
                 現在立即分帳
               </option>
+
             </select>
+
           </label>
 
 
-          <label>
-            付款人
-
-            <select
-              id="payerMember"
-              required
-            ></select>
-          </label>
-
+          <!-- =====================================
+               Shares
+               ===================================== -->
 
           <fieldset
             id="shareMembers"
             class="hidden"
           >
+
             <legend>
-              每位成員分多少（預設平均，可修改）
+              每位成員分多少
+              （預設平均，可修改）
             </legend>
 
             <div id="shareMemberList"></div>
+
           </fieldset>
 
 
@@ -415,6 +500,7 @@
             儲存
           </button>
 
+
           <button
             class="secondary"
             id="cancelSplit"
@@ -426,7 +512,9 @@
         </form>
 
 
-        <!-- Pending split -->
+        <!-- =====================================
+             Pending split
+             ===================================== -->
 
         <h3 class="accounting-section-title">
           待分帳項目
@@ -440,58 +528,93 @@
         </div>
 
 
-        <!-- Entry history -->
+        <!-- =====================================
+             Entry history
+             ===================================== -->
 
         <h3 class="accounting-section-title">
-          帳目紀錄
+          共同支出紀錄
         </h3>
 
         <div
           id="accountingEntries"
           class="list empty"
         >
-          目前沒有帳目紀錄
+          目前沒有共同支出紀錄
         </div>
 
       </section>
 
-    </section>
+
+      <!-- =====================================
+           Ledger
+           ===================================== -->
+
+      <section
+        id="accounting-ledger"
+        class="accounting-panel hidden"
+      >
+
+        <div class="totals">
+
+          <article>
+            <span>總收入</span>
+            <b id="income">$0</b>
+          </article>
 
 
-    <!-- ================================
-         Members
-         ================================ -->
-
-    <section
-      id="members"
-      class="panel tab-panel hidden"
-    >
-      <h2>成員功能</h2>
-
-      <p>
-        成員名單功能將在下一階段加入。
-      </p>
-    </section>
+          <article>
+            <span>總支出</span>
+            <b id="expense">$0</b>
+          </article>
 
 
-    <!-- ================================
-         Notices
-         ================================ -->
+          <article>
+            <span>待結清</span>
+            <b id="balance">$0</b>
+          </article>
 
-    <section
-      id="notices"
-      class="panel tab-panel hidden"
-    >
-      <h2>車團公告</h2>
+        </div>
 
-      <p>
-        目前沒有車團公告。
-      </p>
+
+        <h3 class="accounting-section-title">
+          成員總帳
+        </h3>
+
+        <div
+          id="memberBalances"
+          class="list empty"
+        >
+          目前沒有分帳資料
+        </div>
+
+
+        <h3 class="accounting-section-title">
+          結算方式
+        </h3>
+
+        <p class="settlement-note">
+          系統會依整台車每位成員的實際付款與應負擔，
+          計算目前最精簡的結算方式。
+        </p>
+
+        <div
+          id="settlementTransfers"
+          class="list empty"
+        >
+          目前沒有待結清帳款
+        </div>
+
+      </section>
+
+
     </section>
 
   </main>
 
 
-  <script src="/js/group-assistant.js?v=8"></script>
+  <script src="/js/group-assistant.js?v=9"></script>
+
 </body>
+
 </html>
