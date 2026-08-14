@@ -18,92 +18,19 @@ function activeEntry(entry) {
   return entry && entry.status !== "deleted";
 }
 
-function normalizePayments(entry) {
-  const payments = Array.isArray(entry && entry.payments)
-    ? entry.payments
-        .map(item => ({
-          memberId: normalizeText(
-            item && (
-              item.memberId ||
-              item.personId ||
-              item.playerId
-            )
-          ),
-          displayName: normalizeText(
-            item && (
-              item.displayName ||
-              item.memberName
-            )
-          ),
-          amount: Number(item && item.amount) || 0
-        }))
-        .filter(item => item.memberId && item.amount > 0)
-    : [];
-
-  if (payments.length) {
-    return payments;
-  }
-
-  const payerMemberId = normalizeText(
-    entry && entry.payerMemberId
-  );
-
-  const amount = Number(
-    entry && entry.amount
-  ) || 0;
-
-  if (!payerMemberId || amount <= 0) {
-    return [];
-  }
-
-  return [
-    {
-      memberId: payerMemberId,
-      displayName: normalizeText(
-        entry && entry.payerDisplayName
-      ),
-      amount
-    }
-  ];
-}
-
-function paymentTotal(entry) {
-  return normalizePayments(entry).reduce(
-    (sum, payment) => sum + payment.amount,
-    0
-  );
-}
-
 function compactEntry(entry) {
   return {
     id: normalizeText(entry.id || entry.messageId),
     type: normalizeText(entry.type),
     amount: Number(entry.amount) || 0,
     description: normalizeText(entry.description),
-
     actorMemberId: normalizeText(entry.actorMemberId),
     actorDisplayName: normalizeText(entry.actorDisplayName),
-
-    // Legacy compatibility
     payerMemberId: normalizeText(entry.payerMemberId),
     payerDisplayName: normalizeText(entry.payerDisplayName),
-
-    // Formal actual-payment data
-    payments: normalizePayments(entry),
-
-    shares: Array.isArray(entry.shares)
-      ? entry.shares
-      : [],
-
-    splitStatus:
-      normalizeText(entry.splitStatus) ||
-      (
-        Array.isArray(entry.shares) &&
-        entry.shares.length
-          ? "completed"
-          : "pending"
-      ),
-
+    shares: Array.isArray(entry.shares) ? entry.shares : [],
+    splitStatus: normalizeText(entry.splitStatus) ||
+      (Array.isArray(entry.shares) && entry.shares.length ? "completed" : "pending"),
     createdAt: normalizeText(entry.createdAt),
     updatedAt: normalizeText(entry.updatedAt)
   };
@@ -129,39 +56,17 @@ function buildMemberBalances(entries) {
     return item;
   }
   for (const entry of entries) {
-  if (entry && entry.splitStatus === "pending") {
-    continue;
-  }
-
-  for (const payment of normalizePayments(entry)) {
-    const payer = member(
-      payment.memberId,
-      payment.displayName
-    );
-
-    if (payer) {
-      payer.paidAmount += payment.amount;
+    if (entry && entry.splitStatus === "pending") continue;
+    const payer = member(entry.payerMemberId, entry.payerDisplayName);
+    if (payer) payer.paidAmount += Number(entry.amount) || 0;
+    for (const share of (Array.isArray(entry.shares) ? entry.shares : [])) {
+      const participant = member(
+        share.memberId,
+        share.displayName || share.memberName
+      );
+      if (participant) participant.shareAmount += Number(share.amount) || 0;
     }
   }
-
-  for (
-    const share of (
-      Array.isArray(entry.shares)
-        ? entry.shares
-        : []
-    )
-  ) {
-    const participant = member(
-      share.memberId,
-      share.displayName || share.memberName
-    );
-
-    if (participant) {
-      participant.shareAmount +=
-        Number(share.amount) || 0;
-    }
-  }
-}
   return [...balances.values()].map(item => {
     item.balance = item.paidAmount - item.shareAmount;
     item.status = item.balance > 0
@@ -205,17 +110,8 @@ function applyEntryToMemberBalances(memberBalances, entry, factor = 1) {
       return item;
     }).filter(item => item.paidAmount !== 0 || item.shareAmount !== 0);
   }
-  for (const payment of normalizePayments(entry)) {
-  const payer = member(
-    payment.memberId,
-    payment.displayName
-  );
-
-  if (payer) {
-    payer.paidAmount +=
-      factor * payment.amount;
-  }
-}
+  const payer = member(entry.payerMemberId, entry.payerDisplayName);
+  if (payer) payer.paidAmount += factor * (Number(entry.amount) || 0);
   for (const share of (entry && Array.isArray(entry.shares) ? entry.shares : [])) {
     const participant = member(share.memberId, share.displayName || share.memberName);
     if (participant) participant.shareAmount += factor * (Number(share.amount) || 0);
@@ -333,9 +229,6 @@ async function saveCarAccountingEntry(entry) {
     actorDisplayName: normalizeText(entry.actorDisplayName),
     payerMemberId: normalizeText(entry.payerMemberId),
     payerDisplayName: normalizeText(entry.payerDisplayName),
-
-    payments: normalizePayments(entry),
-
     shares: Array.isArray(entry.shares) ? entry.shares : [],
     splitStatus: normalizeText(entry.splitStatus) ||
       (Array.isArray(entry.shares) && entry.shares.length ? "completed" : "pending"),
@@ -551,20 +444,14 @@ async function completeCarAccountingSplit(options) {
     if (before.status === "deleted" || before.splitStatus !== "pending") return null;
     const now = new Date().toISOString();
     const after = {
-  ...before,
-
-  // Actual payments belong to the original transaction.
-  // Completing a split must not rewrite who paid.
-  payments: normalizePayments(before),
-
-  shares: Array.isArray(options.shares)
-    ? options.shares
-    : [],
-
-  splitStatus: "completed",
-  updatedAt: now,
-  updatedBy: normalizeText(options.actorUserId)
-};
+      ...before,
+      payerMemberId: normalizeText(options.payerMemberId),
+      payerDisplayName: normalizeText(options.payerDisplayName),
+      shares: Array.isArray(options.shares) ? options.shares : [],
+      splitStatus: "completed",
+      updatedAt: now,
+      updatedBy: normalizeText(options.actorUserId)
+    };
     const storedAfter = { ...after }; delete storedAfter.id;
     const audit = {
       id: auditRef.id, carId: options.carId, groupId: before.groupId || "",
