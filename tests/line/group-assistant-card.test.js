@@ -23,12 +23,13 @@ test("group assistant card shows car identity and six persistent entries", funct
   assert.equal(buttons(card).length, 6);
   assert.deepEqual(
     buttons(card).map(button => button.action.type),
-    [
-      "uri", "uri", "uri", "uri", "uri", "uri"
-    ]
+    ["message", "message", "message", "uri", "uri", "uri"]
   );
-  assert.ok(buttons(card)[0].action.uri.includes("tab=accounting"));
-  assert.ok(buttons(card)[0].action.uri.includes("signed-token"));
+  assert.equal(buttons(card)[0].action.text, "JLY 店家");
+  assert.equal(buttons(card)[1].action.text, "JLY 時間");
+  assert.equal(buttons(card)[2].action.text, "JLY 人員");
+  assert.ok(buttons(card)[3].action.uri.includes("tab=accounting"));
+  assert.ok(buttons(card)[3].action.uri.includes("signed-token"));
 });
 
 test("accounting card is a second-level persistent menu", function () {

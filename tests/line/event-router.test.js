@@ -122,9 +122,9 @@ test(
     assert.equal(calls[0][0], "binding");
     assert.equal(calls[1][0], "reply");
     assert.equal(calls[1][2][0].type, "flex");
-    assert.ok(calls[1][2][0].contents.body.contents.every(
-      function (item) { return item.action.type === "uri"; }
-    ));
+    assert.deepEqual(calls[1][2][0].contents.body.contents.map(
+      function (item) { return item.action.type; }
+    ), ["message", "message", "message", "uri", "uri", "uri"]);
   }
 );
 
@@ -736,4 +736,18 @@ test("quick accounting with one resolved payer creates the formal entry", async 
   });
   assert.equal(result.route, "accounting_quick_created");
   assert.equal(savedCommand.payerMemberId, "p1");
+});
+test("car information shortcuts reply with only the requested slice", async function () {
+  const replies = [];
+  for (const text of ["JLY 店家", "JLY 時間", "JLY 人員"]) {
+    const result = await routeEvent(createTextEvent({ text }), {
+      resolveGroupBinding: async groupId => ({ bound: true, binding: { groupId, carId: "car-1" } }),
+      getCarById: async () => ({ scriptName: "溫床", studioName: "玩硬", address: "測試路1號", date: "2026-08-20", time: "19:00", totalPeople: 6, players: [{ id: "p1" }] }),
+      sendTextReply: async (_token, reply) => { replies.push(reply); }
+    });
+    assert.match(result.route, /^assistant_(store|time|people)_info$/);
+  }
+  assert.match(replies[0], /店家資訊/);assert.doesNotMatch(replies[0], /時間資訊/);
+  assert.match(replies[1], /時間資訊/);assert.doesNotMatch(replies[1], /人員資訊/);
+  assert.match(replies[2], /人員資訊/);assert.doesNotMatch(replies[2], /店家資訊/);
 });

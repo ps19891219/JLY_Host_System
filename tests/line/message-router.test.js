@@ -4,10 +4,17 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
-  routeTextMessage
+  routeTextMessage,
+  routeMenuCommand
 } = require(
   "../../services/line/message-router"
 );
+
+test("routes compact car information keywords", function () {
+  assert.equal(routeMenuCommand("JLY 店家").action, "assistant_store_info");
+  assert.equal(routeMenuCommand("JLY 時間").action, "assistant_time_info");
+  assert.equal(routeMenuCommand("JLY 人員").action, "assistant_people_info");
+});
 
 const cases = [
   [

@@ -98,6 +98,7 @@ const {
   cancelGroupPairing
 } = require("./group-car-pairing-service");
 const { prepareQuickAccounting, saveResolvedQuickAccounting } = require("./quick-accounting-service");
+const { buildStoreInfo, buildTimeInfo, buildPeopleInfo } = require("./car-info-slices");
 
 // ============================================================
 // Normalize Text
@@ -483,6 +484,14 @@ async function handleMessageEvent(
   // ----------------------------------------------------------
   // Group accounting command
   // ----------------------------------------------------------
+
+  if (["assistant_store_info","assistant_time_info","assistant_people_info"].includes(messageResult.action)) {
+    if (!context.replyToken) return { handled: false, route: "message_missing_reply_token", context, groupBinding };
+    if (!context.accountingCarId) { await replyWithText(context.replyToken, "請先將這個 LINE 群組綁定 JLY 車團。");return { handled: true, route: "assistant_info_binding_required", context, groupBinding }; }
+    const car = await readCar(context.accountingCarId),builders={assistant_store_info:buildStoreInfo,assistant_time_info:buildTimeInfo,assistant_people_info:buildPeopleInfo};
+    await replyWithText(context.replyToken,builders[messageResult.action](car||{}));
+    return { handled: true, route: messageResult.action, context, groupBinding };
+  }
 
   if (messageResult.action === "accounting_quick_create") {
     if (!context.replyToken) return { handled: false, route: "message_missing_reply_token", context, groupBinding };

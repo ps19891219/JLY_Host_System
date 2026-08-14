@@ -98,8 +98,21 @@ function buildAccountingMenuCard(car) {
   );
 }
 
+function buildGroupAssistantQuickInfoCard(car, options = {}) {
+  const baseUrl = String(options.baseUrl || "").replace(/\/$/, ""), token = encodeURIComponent(String(options.token || ""));
+  const link = tab => `${baseUrl}/pages/group-assistant.html?token=${token}&tab=${tab}`;
+  return buildCard(`🚗 ${getCarTitle(car)}`, getCarSubtitle(car), [
+    messageButton("🏠 店家資訊", "JLY 店家"),
+    messageButton("📅 時間資訊", "JLY 時間", "#487A91"),
+    messageButton("👥 人員資訊", "JLY 人員", "#806A9B"),
+    uriButton("⚡ 快速記帳", link("accounting"), "#B17B42"),
+    uriButton("🚗 車團總覽", link("info"), "#9A5960"),
+    uriButton("❓ 使用說明", link("info"), "#777777")
+  ]);
+}
+
 module.exports = {
-  buildGroupAssistantCard,
+  buildGroupAssistantCard: buildGroupAssistantQuickInfoCard,
   buildAccountingMenuCard,
   getCarTitle,
   getCarSubtitle

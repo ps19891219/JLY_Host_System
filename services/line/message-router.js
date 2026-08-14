@@ -126,6 +126,15 @@ function routeMenuCommand(text) {
     );
 
   switch (normalized) {
+    case "jly店家":
+    case "jly地址":
+      return { handled: true, action: "assistant_store_info", replyText: "" };
+    case "jly時間":
+    case "jly日期":
+      return { handled: true, action: "assistant_time_info", replyText: "" };
+    case "jly人員":
+    case "jly名單":
+      return { handled: true, action: "assistant_people_info", replyText: "" };
     case "jly車團帳務":
       return {
         handled: true,

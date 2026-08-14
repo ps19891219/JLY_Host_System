@@ -16,6 +16,7 @@
 - Car Detail 帳務區僅向主揪讀取待確認記帳；可指定正式 Person ID、調整金額、確認建立唯一 Transaction，或留下刪除稽核紀錄。
 - 待確認資料在確認前不進入 `accountingEntries`、分帳、應收應付或互抵計算。
 - 唯一辨識付款人的 LINE 快速記帳直接使用 `activity-accounting-repository` 建立正式 Transaction；寫入後將 `accountingViews/activityCurrent` 標記重建，避免只寫入舊 LINE 帳本而未出現在 Car Detail。
+- LINE 群組小助手快捷卡新增「店家資訊、時間資訊、人員資訊」切片查詢；`services/line/car-info-slices.js` 只從綁定車團即時組合該區塊，不建立資訊副本。
 > Source of truth: repository files and current HTML runtime references
 
 ---
