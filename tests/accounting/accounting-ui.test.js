@@ -120,6 +120,10 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /id="memberFeeForm" class="accounting-quick-form" hidden/);
   assert.match(feeController, /id="vendorFeeForm" class="accounting-quick-form" hidden/);
   assert.match(feeController, /setFeeFormOpen/);
+  assert.match(feeController, /feeDetailsToggle\.id="feeDetailsToggle"/);
+  assert.match(feeController, /feeDetails\.hidden=true/);
+  assert.match(feeController, /展開核銷明細/);
+  assert.match(feeController, /收起核銷明細/);
   assert.match(feeController, /data-fee-cancel/);
   assert.match(feeController, /person\.outstanding/);
   assert.match(feeController, /summary\.vendorOutstanding/);
