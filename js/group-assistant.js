@@ -1,51 +1,1195 @@
 (function () {
   "use strict";
-  const query = new URLSearchParams(location.search), token = query.get("token") || "";
-  let context = null, pendingEntryId = "";
-  const el = id => document.getElementById(id), money = value => `$${Number(value || 0).toLocaleString("zh-TW")}`;
-  function showTab(name) { document.querySelectorAll(".tab-panel").forEach(node => node.classList.toggle("hidden", node.id !== name)); document.querySelectorAll("[data-tab]").forEach(node => node.classList.toggle("active", node.dataset.tab === name)); }
-  function requireLogin() { if (context.currentMember) return true; el("loginPrompt").classList.remove("hidden"); return false; }
-  function renderMembers() { const payer=el("payerMember"), shares=el("shareMemberList"); payer.innerHTML=""; shares.innerHTML=""; (context.members||[]).forEach(member=>{ const option=document.createElement("option"); option.value=member.memberId; option.textContent=member.displayName; payer.appendChild(option); const row=document.createElement("label"), checkbox=document.createElement("input"), name=document.createElement("span"), amount=document.createElement("input"); row.className="share-row"; checkbox.type="checkbox"; checkbox.className="share-check"; checkbox.value=member.memberId; checkbox.checked=true; name.textContent=member.displayName; amount.type="number"; amount.className="share-amount"; amount.min="1"; amount.step="1"; amount.inputMode="numeric"; amount.dataset.memberId=member.memberId; amount.setAttribute("aria-label",`${member.displayName} 分攤金額`); checkbox.addEventListener("change",()=>{amount.disabled=!checkbox.checked;distributeShares();}); row.append(checkbox,name,amount); shares.appendChild(row); }); const ids=[context.currentMember&&context.currentMember.identityId,context.currentMember&&context.currentMember.profileId]; const mine=ids.find(id=>[...payer.options].some(option=>option.value===id)); if(mine)payer.value=mine; distributeShares(); }
-  function distributeShares(){const total=Math.max(0,Math.floor(Number(el("entryAmount").value)||0)),rows=[...document.querySelectorAll(".share-row")].filter(row=>row.querySelector(".share-check").checked);if(!rows.length)return;const base=Math.floor(total/rows.length);rows.forEach((row,index)=>{row.querySelector(".share-amount").value=index===rows.length-1?total-base*(rows.length-1):base;});}
-  function memberName(id){const item=(context.members||[]).find(member=>member.memberId===id);return item&&item.displayName||"成員";}
-  function renderBalances(items) { const list=el("memberBalances"); list.innerHTML=""; if(!items.length){list.className="list empty";list.textContent="目前沒有分帳資料";return;} list.className="list"; items.forEach(item=>{const row=document.createElement("div"),name=document.createElement("span"),result=document.createElement("b"),net=Number(item.netAmount)||0;name.innerHTML=`<strong>${memberName(item.personId)}</strong><small>實際付款 ${money(item.paidAmount)}｜應負擔 ${money(item.shareAmount)}</small>`;result.textContent=net>0?`應收 ${money(net)}`:net<0?`應付 ${money(-net)}`:"✅ 已結清";row.append(name,result);list.appendChild(row);}); }
-  function renderTransfers(items){const list=el("settlementTransfers");list.innerHTML="";if(!items.length){list.className="list empty";list.textContent="✅ 目前帳款均已結清";return;}list.className="list";items.forEach(item=>{const row=document.createElement("div"),text=document.createElement("span"),value=document.createElement("b");text.textContent=`🟡 ${memberName(item.fromPersonId)} → ${memberName(item.toPersonId)}`;value.textContent=money(item.amount);row.append(text,value);list.appendChild(row);});}
-  function updateShareVisibility(){const visible=el("entryType").value==="expense"&&el("splitMode").value==="now";el("shareMembers").classList.toggle("hidden",!visible);}
-  function openForm(entry) { if(!requireLogin())return; pendingEntryId=entry?entry.id:""; el("formTitle").textContent=entry?"完成分帳":"新增帳目"; el("entryType").value="expense"; el("entryAmount").value=entry?entry.amount:""; el("entryDescription").value=entry?entry.description:""; el("splitMode").value=entry?"now":"later"; el("entryType").disabled=Boolean(entry); el("entryAmount").readOnly=Boolean(entry); el("entryDescription").readOnly=Boolean(entry); el("splitModeField").classList.toggle("hidden",Boolean(entry)); distributeShares(); updateShareVisibility(); el("splitForm").classList.remove("hidden"); el("splitForm").scrollIntoView({behavior:"smooth"}); }
-  function showFormStatus(message){el("formStatus").textContent=message;el("formStatus").classList.remove("hidden");el("formStatus").scrollIntoView({behavior:"smooth",block:"center"});}
-  function closeForm(){pendingEntryId="";el("splitForm").reset();el("entryType").disabled=false;el("entryAmount").readOnly=false;el("entryDescription").readOnly=false;el("splitModeField").classList.remove("hidden");el("formStatus").textContent="";el("formStatus").classList.add("hidden");el("saveSplit").disabled=false;el("saveSplit").textContent="儲存";el("splitForm").classList.add("hidden");updateShareVisibility();}
-  function renderPending(entries){const list=el("pendingEntries"),pending=entries.filter(entry=>entry.type==="expense"&&entry.splitStatus==="pending");list.innerHTML="";if(!pending.length){list.className="list empty";list.textContent="目前沒有待分帳項目";return;}list.className="list";pending.forEach(entry=>{const row=document.createElement("div"),text=document.createElement("span"),button=document.createElement("button");text.textContent=`${entry.description} ${money(entry.amount)}`;button.type="button";button.className="mini";button.textContent="分帳";button.addEventListener("click",()=>openForm(entry));row.append(text,button);list.appendChild(row);});}
-  function render(data){context=data;el("scriptName").textContent=data.car.scriptName;el("carMeta").textContent=[data.car.date,data.car.location].filter(Boolean).join("・");el("infoContent").textContent=[data.car.date&&`日期：${data.car.date}`,data.car.location&&`地點：${data.car.location}`].filter(Boolean).join("\n")||"目前沒有其他車團資訊";el("income").textContent=money(data.accounting.totalIncome);el("expense").textContent=money(data.accounting.totalExpense);el("balance").textContent=money(data.accounting.outstandingAmount);renderMembers();renderBalances(data.accounting.memberSummaries||[]);renderTransfers(data.accounting.settlementTransfers||[]);renderPending(data.accounting.recentEntries||[]);}
-  async function load(){try{const response=await fetch(`/api/group-assistant-context?token=${encodeURIComponent(token)}`);const data=await response.json();if(!response.ok||!data.success)throw new Error(data.error||"load_failed");render(data);el("loading").classList.add("hidden");showTab(query.get("tab")||"info");}catch(error){el("loading").classList.add("hidden");el("error").classList.remove("hidden");el("error").textContent=error.message==="binding_inactive"?"這個群組連結已失效，請重新呼喚 JLY 小助手。":"無法讀取資料，請稍後再試。";}}
-  async function startLineLogin() {
-    const button = el("lineLogin");
-    button.disabled = true;
-    button.textContent = "正在開啟 LINE 登入…";
-    try {
-      const returnPath = location.pathname + location.search;
-      const response = await fetch("/api/line-login-state", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ returnPath })
+
+  const query = new URLSearchParams(location.search);
+  const token = query.get("token") || "";
+
+  let context = null;
+  let pendingEntryId = "";
+
+  const el = id => document.getElementById(id);
+
+  const money = value =>
+    `$${Number(value || 0).toLocaleString("zh-TW")}`;
+
+
+  // =====================================
+  // Main navigation
+  // =====================================
+
+  function showTab(name) {
+    document
+      .querySelectorAll(".tab-panel")
+      .forEach(node => {
+        node.classList.toggle(
+          "hidden",
+          node.id !== name
+        );
       });
-      const data = await response.json();
-      if (!response.ok || !data.state) throw new Error("login_state_failed");
-      const params = new URLSearchParams({
-        response_type: "code",
-        client_id: "2010653666",
-        redirect_uri: `${location.origin}/pages/line-callback.html`,
-        state: data.state,
-        scope: "openid profile"
+
+    document
+      .querySelectorAll("[data-tab]")
+      .forEach(node => {
+        node.classList.toggle(
+          "active",
+          node.dataset.tab === name
+        );
       });
-      location.assign(`https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`);
-    } catch (_error) {
-      button.disabled = false;
-      button.textContent = "LINE 登入";
-      el("loginPrompt").firstChild.textContent = "無法開啟 LINE 登入，請重新整理後再試。";
+
+    if (name === "accounting") {
+      const requestedAccountingTab =
+        query.get("accountingTab") || "overview";
+
+      showAccountingTab(requestedAccountingTab);
     }
   }
-  document.querySelectorAll("[data-tab]").forEach(button=>button.addEventListener("click",()=>showTab(button.dataset.tab)));
-  el("createSplit").addEventListener("click",()=>openForm(null));el("cancelSplit").addEventListener("click",closeForm);el("entryType").addEventListener("change",updateShareVisibility);el("splitMode").addEventListener("change",updateShareVisibility);el("entryAmount").addEventListener("input",distributeShares);el("lineLogin").addEventListener("click",startLineLogin);
-  el("splitForm").addEventListener("submit",async event=>{event.preventDefault();const button=el("saveSplit"),total=Number(el("entryAmount").value),description=el("entryDescription").value.trim(),shareItems=[...document.querySelectorAll(".share-row")].filter(row=>row.querySelector(".share-check").checked).map(row=>({memberId:row.querySelector(".share-check").value,amount:Number(row.querySelector(".share-amount").value)})),isSplitting=el("entryType").value==="expense"&&(pendingEntryId||el("splitMode").value==="now"),shareTotal=shareItems.reduce((sum,item)=>sum+item.amount,0);if(!Number.isFinite(total)||total<=0||!description){showFormStatus("請輸入正確的金額與說明。");return;}if(isSplitting&&shareTotal!==total){const difference=total-shareTotal;showFormStatus(`目前分帳加總 ${money(shareTotal)}，需等於 ${money(total)}（${difference>0?"還差":"超出"} ${money(Math.abs(difference))}）。`);return;}button.disabled=true;button.textContent="儲存中…";showFormStatus("正在儲存，請稍候…");try{const response=await fetch("/api/group-assistant-entry",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,entryId:pendingEntryId||undefined,type:el("entryType").value,amount:total,description,splitMode:pendingEntryId?"now":el("splitMode").value,payerMemberId:el("payerMember").value,shares:shareItems})});const result=await response.json();if(!response.ok){showFormStatus(result.error==="line_login_required"?"請先使用 LINE 登入。":result.error==="share_total_mismatch"?"每人金額加總必須等於帳目總額。":"儲存失敗，請稍後再試。");button.disabled=false;button.textContent="儲存";return;}button.textContent="儲存成功";showFormStatus("✅ 分帳已儲存成功");await load();setTimeout(()=>{closeForm();showTab("accounting");},700);}catch(_error){showFormStatus("網路連線失敗，請重新按一次儲存。");button.disabled=false;button.textContent="重新儲存";}});
+
+
+  // =====================================
+  // Accounting navigation
+  // =====================================
+
+  function showAccountingTab(name) {
+    const allowedTabs = [
+      "overview",
+      "settlements",
+      "entries"
+    ];
+
+    const activeTab =
+      allowedTabs.includes(name)
+        ? name
+        : "overview";
+
+    document
+      .querySelectorAll(".accounting-panel")
+      .forEach(node => {
+        node.classList.toggle(
+          "hidden",
+          node.id !== `accounting-${activeTab}`
+        );
+      });
+
+    document
+      .querySelectorAll("[data-accounting-tab]")
+      .forEach(node => {
+        node.classList.toggle(
+          "active",
+          node.dataset.accountingTab === activeTab
+        );
+      });
+  }
+
+
+  // =====================================
+  // Login
+  // =====================================
+
+  function requireLogin() {
+    if (context.currentMember) {
+      return true;
+    }
+
+    el("loginPrompt").classList.remove("hidden");
+
+    return false;
+  }
+
+
+  // =====================================
+  // Members
+  // =====================================
+
+  function renderMembers() {
+    const payer = el("payerMember");
+    const shares = el("shareMemberList");
+
+    payer.innerHTML = "";
+    shares.innerHTML = "";
+
+    (context.members || []).forEach(member => {
+      const option =
+        document.createElement("option");
+
+      option.value = member.memberId;
+      option.textContent = member.displayName;
+
+      payer.appendChild(option);
+
+
+      const row =
+        document.createElement("label");
+
+      const checkbox =
+        document.createElement("input");
+
+      const name =
+        document.createElement("span");
+
+      const amount =
+        document.createElement("input");
+
+
+      row.className = "share-row";
+
+      checkbox.type = "checkbox";
+      checkbox.className = "share-check";
+      checkbox.value = member.memberId;
+      checkbox.checked = true;
+
+      name.textContent = member.displayName;
+
+      amount.type = "number";
+      amount.className = "share-amount";
+      amount.min = "1";
+      amount.step = "1";
+      amount.inputMode = "numeric";
+      amount.dataset.memberId = member.memberId;
+
+      amount.setAttribute(
+        "aria-label",
+        `${member.displayName} 分攤金額`
+      );
+
+
+      checkbox.addEventListener(
+        "change",
+        () => {
+          amount.disabled = !checkbox.checked;
+          distributeShares();
+        }
+      );
+
+
+      row.append(
+        checkbox,
+        name,
+        amount
+      );
+
+      shares.appendChild(row);
+    });
+
+
+    const ids = [
+      context.currentMember &&
+        context.currentMember.identityId,
+
+      context.currentMember &&
+        context.currentMember.profileId
+    ];
+
+
+    const mine = ids.find(id =>
+      [...payer.options].some(
+        option => option.value === id
+      )
+    );
+
+
+    if (mine) {
+      payer.value = mine;
+    }
+
+
+    distributeShares();
+  }
+
+
+  function distributeShares() {
+    const total = Math.max(
+      0,
+      Math.floor(
+        Number(el("entryAmount").value) || 0
+      )
+    );
+
+
+    const rows = [
+      ...document.querySelectorAll(".share-row")
+    ].filter(row =>
+      row
+        .querySelector(".share-check")
+        .checked
+    );
+
+
+    if (!rows.length) {
+      return;
+    }
+
+
+    const base =
+      Math.floor(total / rows.length);
+
+
+    rows.forEach((row, index) => {
+      row.querySelector(
+        ".share-amount"
+      ).value =
+        index === rows.length - 1
+          ? total -
+            base * (rows.length - 1)
+          : base;
+    });
+  }
+
+
+  function memberName(id) {
+    const item =
+      (context.members || []).find(
+        member => member.memberId === id
+      );
+
+    return (
+      (item && item.displayName) ||
+      "成員"
+    );
+  }
+
+    // =====================================
+  // Accounting overview
+  // =====================================
+
+  function renderBalances(items) {
+    const list = el("memberBalances");
+
+    list.innerHTML = "";
+
+
+    if (!items.length) {
+      list.className = "list empty";
+      list.textContent =
+        "目前沒有分帳資料";
+
+      return;
+    }
+
+
+    list.className = "list";
+
+
+    items.forEach(item => {
+      const row =
+        document.createElement("div");
+
+      const name =
+        document.createElement("span");
+
+      const result =
+        document.createElement("b");
+
+      const net =
+        Number(item.netAmount) || 0;
+
+
+      name.innerHTML =
+        `<strong>${memberName(item.personId)}</strong>` +
+        `<small>` +
+        `實際付款 ${money(item.paidAmount)}` +
+        `｜應負擔 ${money(item.shareAmount)}` +
+        `</small>`;
+
+
+      result.textContent =
+        net > 0
+          ? `應收 ${money(net)}`
+          : net < 0
+            ? `應付 ${money(-net)}`
+            : "✅ 已結清";
+
+
+      row.append(
+        name,
+        result
+      );
+
+      list.appendChild(row);
+    });
+  }
+
+
+  // =====================================
+  // Settlement status
+  // =====================================
+
+  function renderTransfers(items) {
+    const list =
+      el("settlementTransfers");
+
+    list.innerHTML = "";
+
+
+    if (!items.length) {
+      list.className = "list empty";
+
+      list.textContent =
+        "✅ 目前帳款均已結清";
+
+      return;
+    }
+
+
+    list.className = "list";
+
+
+    items.forEach(item => {
+      const row =
+        document.createElement("div");
+
+      const text =
+        document.createElement("span");
+
+      const value =
+        document.createElement("b");
+
+
+      text.innerHTML =
+        `<strong>` +
+        `${memberName(item.fromPersonId)}` +
+        ` → ` +
+        `${memberName(item.toPersonId)}` +
+        `</strong>` +
+        `<small>待結清</small>`;
+
+
+      value.textContent =
+        money(item.amount);
+
+
+      row.append(
+        text,
+        value
+      );
+
+      list.appendChild(row);
+    });
+  }
+
+
+  // =====================================
+  // Entry list
+  // =====================================
+
+  function renderEntries(entries) {
+    const list =
+      el("accountingEntries");
+
+    list.innerHTML = "";
+
+
+    if (!entries.length) {
+      list.className = "list empty";
+
+      list.textContent =
+        "目前沒有帳目紀錄";
+
+      return;
+    }
+
+
+    list.className = "list";
+
+
+    entries.forEach(entry => {
+      const row =
+        document.createElement("div");
+
+      const text =
+        document.createElement("span");
+
+      const value =
+        document.createElement("b");
+
+
+      const typeLabel =
+        entry.type === "income"
+          ? "收入"
+          : "支出";
+
+
+      const payer =
+        entry.paidBy
+          ? memberName(entry.paidBy)
+          : "";
+
+
+      text.innerHTML =
+        `<strong>` +
+        `${entry.description || "未命名帳目"}` +
+        `</strong>` +
+        `<small>` +
+        `${typeLabel}` +
+        `${payer ? `｜付款人 ${payer}` : ""}` +
+        `</small>`;
+
+
+      value.textContent =
+        money(entry.amount);
+
+
+      row.append(
+        text,
+        value
+      );
+
+      list.appendChild(row);
+    });
+  }
+
+
+  // =====================================
+  // Split form
+  // =====================================
+
+  function updateShareVisibility() {
+    const visible =
+      el("entryType").value === "expense" &&
+      el("splitMode").value === "now";
+
+
+    el("shareMembers")
+      .classList
+      .toggle(
+        "hidden",
+        !visible
+      );
+  }
+
+
+  function openForm(entry) {
+    if (!requireLogin()) {
+      return;
+    }
+
+
+    pendingEntryId =
+      entry ? entry.id : "";
+
+
+    el("formTitle").textContent =
+      entry
+        ? "完成分帳"
+        : "新增帳目";
+
+
+    el("entryType").value =
+      "expense";
+
+
+    el("entryAmount").value =
+      entry
+        ? entry.amount
+        : "";
+
+
+    el("entryDescription").value =
+      entry
+        ? entry.description
+        : "";
+
+
+    el("splitMode").value =
+      entry
+        ? "now"
+        : "later";
+
+
+    el("entryType").disabled =
+      Boolean(entry);
+
+    el("entryAmount").readOnly =
+      Boolean(entry);
+
+    el("entryDescription").readOnly =
+      Boolean(entry);
+
+
+    el("splitModeField")
+      .classList
+      .toggle(
+        "hidden",
+        Boolean(entry)
+      );
+
+
+    distributeShares();
+    updateShareVisibility();
+
+
+    el("splitForm")
+      .classList
+      .remove("hidden");
+
+
+    el("splitForm")
+      .scrollIntoView({
+        behavior: "smooth"
+      });
+  }
+
+
+  function showFormStatus(message) {
+    el("formStatus").textContent =
+      message;
+
+    el("formStatus")
+      .classList
+      .remove("hidden");
+
+    el("formStatus")
+      .scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+  }
+
+
+  function closeForm() {
+    pendingEntryId = "";
+
+    el("splitForm").reset();
+
+    el("entryType").disabled = false;
+
+    el("entryAmount").readOnly = false;
+
+    el("entryDescription").readOnly =
+      false;
+
+
+    el("splitModeField")
+      .classList
+      .remove("hidden");
+
+
+    el("formStatus").textContent = "";
+
+    el("formStatus")
+      .classList
+      .add("hidden");
+
+
+    el("saveSplit").disabled = false;
+
+    el("saveSplit").textContent =
+      "儲存";
+
+
+    el("splitForm")
+      .classList
+      .add("hidden");
+
+
+    updateShareVisibility();
+  }
+
+    // =====================================
+  // Pending split entries
+  // =====================================
+
+  function renderPending(entries) {
+    const list =
+      el("pendingEntries");
+
+
+    const pending =
+      entries.filter(
+        entry =>
+          entry.type === "expense" &&
+          entry.splitStatus === "pending"
+      );
+
+
+    list.innerHTML = "";
+
+
+    if (!pending.length) {
+      list.className = "list empty";
+
+      list.textContent =
+        "目前沒有待分帳項目";
+
+      return;
+    }
+
+
+    list.className = "list";
+
+
+    pending.forEach(entry => {
+      const row =
+        document.createElement("div");
+
+      const text =
+        document.createElement("span");
+
+      const button =
+        document.createElement("button");
+
+
+      text.textContent =
+        `${entry.description} ` +
+        `${money(entry.amount)}`;
+
+
+      button.type = "button";
+
+      button.className = "mini";
+
+      button.textContent = "分帳";
+
+
+      button.addEventListener(
+        "click",
+        () => {
+          showAccountingTab("entries");
+          openForm(entry);
+        }
+      );
+
+
+      row.append(
+        text,
+        button
+      );
+
+      list.appendChild(row);
+    });
+  }
+
+
+  // =====================================
+  // Main render
+  // =====================================
+
+  function render(data) {
+    context = data;
+
+
+    el("scriptName").textContent =
+      data.car.scriptName;
+
+
+    el("carMeta").textContent =
+      [
+        data.car.date,
+        data.car.location
+      ]
+        .filter(Boolean)
+        .join("・");
+
+
+    el("infoContent").textContent =
+      [
+        data.car.date &&
+          `日期：${data.car.date}`,
+
+        data.car.location &&
+          `地點：${data.car.location}`
+      ]
+        .filter(Boolean)
+        .join("\n") ||
+      "目前沒有其他車團資訊";
+
+
+    el("income").textContent =
+      money(
+        data.accounting.totalIncome
+      );
+
+
+    el("expense").textContent =
+      money(
+        data.accounting.totalExpense
+      );
+
+
+    el("balance").textContent =
+      money(
+        data.accounting.outstandingAmount
+      );
+
+
+    const entries =
+      data.accounting.recentEntries || [];
+
+
+    renderMembers();
+
+    renderBalances(
+      data.accounting.memberSummaries || []
+    );
+
+    renderTransfers(
+      data.accounting.settlementTransfers || []
+    );
+
+    renderPending(entries);
+
+    renderEntries(entries);
+  }
+
+
+  // =====================================
+  // Load context
+  // =====================================
+
+  async function load() {
+    try {
+      const response =
+        await fetch(
+          `/api/group-assistant-context?token=${encodeURIComponent(token)}`
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.error ||
+          "load_failed"
+        );
+      }
+
+
+      render(data);
+
+
+      el("loading")
+        .classList
+        .add("hidden");
+
+
+      showTab(
+        query.get("tab") ||
+        "info"
+      );
+
+    } catch (error) {
+      el("loading")
+        .classList
+        .add("hidden");
+
+
+      el("error")
+        .classList
+        .remove("hidden");
+
+
+      el("error").textContent =
+        error.message ===
+        "binding_inactive"
+          ? "這個群組連結已失效，請重新呼喚 JLY 小助手。"
+          : "無法讀取資料，請稍後再試。";
+    }
+  }
+
+
+  // =====================================
+  // LINE login
+  // =====================================
+
+  async function startLineLogin() {
+    const button =
+      el("lineLogin");
+
+
+    button.disabled = true;
+
+    button.textContent =
+      "正在開啟 LINE 登入…";
+
+
+    try {
+      const returnPath =
+        location.pathname +
+        location.search;
+
+
+      const response =
+        await fetch(
+          "/api/line-login-state",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              returnPath
+            })
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        !data.state
+      ) {
+        throw new Error(
+          "login_state_failed"
+        );
+      }
+
+
+      const params =
+        new URLSearchParams({
+          response_type: "code",
+
+          client_id:
+            "2010653666",
+
+          redirect_uri:
+            `${location.origin}/pages/line-callback.html`,
+
+          state:
+            data.state,
+
+          scope:
+            "openid profile"
+        });
+
+
+      location.assign(
+        `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`
+      );
+
+    } catch (_error) {
+      button.disabled = false;
+
+      button.textContent =
+        "LINE 登入";
+
+
+      el("loginPrompt")
+        .firstChild
+        .textContent =
+        "無法開啟 LINE 登入，請重新整理後再試。";
+    }
+  }
+
+    // =====================================
+  // Events
+  // =====================================
+
+  document
+    .querySelectorAll("[data-tab]")
+    .forEach(button => {
+      button.addEventListener(
+        "click",
+        () => {
+          showTab(
+            button.dataset.tab
+          );
+        }
+      );
+    });
+
+
+  document
+    .querySelectorAll(
+      "[data-accounting-tab]"
+    )
+    .forEach(button => {
+      button.addEventListener(
+        "click",
+        () => {
+          showAccountingTab(
+            button.dataset.accountingTab
+          );
+        }
+      );
+    });
+
+
+  el("createSplit")
+    .addEventListener(
+      "click",
+      () => {
+        showAccountingTab("entries");
+        openForm(null);
+      }
+    );
+
+
+  el("cancelSplit")
+    .addEventListener(
+      "click",
+      closeForm
+    );
+
+
+  el("entryType")
+    .addEventListener(
+      "change",
+      updateShareVisibility
+    );
+
+
+  el("splitMode")
+    .addEventListener(
+      "change",
+      updateShareVisibility
+    );
+
+
+  el("entryAmount")
+    .addEventListener(
+      "input",
+      distributeShares
+    );
+
+
+  el("lineLogin")
+    .addEventListener(
+      "click",
+      startLineLogin
+    );
+
+
+  // =====================================
+  // Save accounting entry
+  // =====================================
+
+  el("splitForm")
+    .addEventListener(
+      "submit",
+      async event => {
+        event.preventDefault();
+
+
+        const button =
+          el("saveSplit");
+
+
+        const total =
+          Number(
+            el("entryAmount").value
+          );
+
+
+        const description =
+          el("entryDescription")
+            .value
+            .trim();
+
+
+        const shareItems = [
+          ...document.querySelectorAll(
+            ".share-row"
+          )
+        ]
+          .filter(row =>
+            row
+              .querySelector(
+                ".share-check"
+              )
+              .checked
+          )
+          .map(row => ({
+            memberId:
+              row.querySelector(
+                ".share-check"
+              ).value,
+
+            amount:
+              Number(
+                row.querySelector(
+                  ".share-amount"
+                ).value
+              )
+          }));
+
+
+        const isSplitting =
+          el("entryType").value ===
+            "expense" &&
+          (
+            pendingEntryId ||
+            el("splitMode").value ===
+              "now"
+          );
+
+
+        const shareTotal =
+          shareItems.reduce(
+            (sum, item) =>
+              sum + item.amount,
+            0
+          );
+
+
+        if (
+          !Number.isFinite(total) ||
+          total <= 0 ||
+          !description
+        ) {
+          showFormStatus(
+            "請輸入正確的金額與說明。"
+          );
+
+          return;
+        }
+
+
+        if (
+          isSplitting &&
+          shareTotal !== total
+        ) {
+          const difference =
+            total - shareTotal;
+
+
+          showFormStatus(
+            `目前分帳加總 ${money(shareTotal)}，` +
+            `需等於 ${money(total)}` +
+            `（${difference > 0 ? "還差" : "超出"} ` +
+            `${money(Math.abs(difference))}）。`
+          );
+
+
+          return;
+        }
+
+
+        button.disabled = true;
+
+        button.textContent =
+          "儲存中…";
+
+
+        showFormStatus(
+          "正在儲存，請稍候…"
+        );
+
+
+        try {
+          const response =
+            await fetch(
+              "/api/group-assistant-entry",
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+
+                body: JSON.stringify({
+                  token,
+
+                  entryId:
+                    pendingEntryId ||
+                    undefined,
+
+                  type:
+                    el("entryType").value,
+
+                  amount:
+                    total,
+
+                  description,
+
+                  splitMode:
+                    pendingEntryId
+                      ? "now"
+                      : el("splitMode").value,
+
+                  payerMemberId:
+                    el("payerMember").value,
+
+                  shares:
+                    shareItems
+                })
+              }
+            );
+
+
+          const result =
+            await response.json();
+
+
+          if (!response.ok) {
+            showFormStatus(
+              result.error ===
+                "line_login_required"
+                ? "請先使用 LINE 登入。"
+
+                : result.error ===
+                    "share_total_mismatch"
+                  ? "每人金額加總必須等於帳目總額。"
+
+                  : "儲存失敗，請稍後再試。"
+            );
+
+
+            button.disabled = false;
+
+            button.textContent =
+              "儲存";
+
+            return;
+          }
+
+
+          button.textContent =
+            "儲存成功";
+
+
+          showFormStatus(
+            "✅ 分帳已儲存成功"
+          );
+
+
+          await load();
+
+
+          setTimeout(
+            () => {
+              closeForm();
+
+              showTab(
+                "accounting"
+              );
+
+              showAccountingTab(
+                "entries"
+              );
+            },
+            700
+          );
+
+        } catch (_error) {
+          showFormStatus(
+            "網路連線失敗，請重新按一次儲存。"
+          );
+
+
+          button.disabled = false;
+
+          button.textContent =
+            "重新儲存";
+        }
+      }
+    );
+
+
+  // =====================================
+  // Start
+  // =====================================
+
   load();
+
 })();
