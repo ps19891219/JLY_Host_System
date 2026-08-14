@@ -2,10 +2,16 @@
 
 > Status: Working Map
 >
-> Version: V2.65
+> Version: V2.66
 >
 > Last Updated: 2026-08-14
 >
+
+## V2.66 玩家查看頁成員完整視圖（2026-08-14）
+
+- 新增 `api/car-view-context.js` 與 `services/car/car-view-access.js`，使用既有 30 天 LINE Member Session 比對車團 owner、`players` 與 `staffSlots` 的正式身份 ID。
+- 正式車團成員可在 `pages/car-view.html` 查看完整車團、玩家、工作人員及座位資料；非成員只接收公開基本資訊，不回傳成員名單、座位或私人備註。
+- 玩家頁改由同網域 API 取得依權限裁切的資料；不需要每台車重新驗證，帳務、私人玩家資料及主揪管理操作仍不屬於玩家完整視圖。
 
 ## V2.65 LINE 車團總覽連結（2026-08-14）
 

@@ -98,23 +98,12 @@ console.log(
   // 即時顯示單一車團
   // ==========================================================
 
-  function subscribeCar(
+  async function subscribeCar(
     carId,
     container
   ) {
     const renderModule =
       getRenderModule();
-
-    const db =
-      window.db;
-
-    if (!db) {
-      showFirebaseError(
-        container
-      );
-
-      return;
-    }
 
     stopCarListener();
 
@@ -122,57 +111,22 @@ console.log(
       container
     );
 
-    const carRef =
-      db
-        .collection("cars")
-        .doc(carId);
-
-    unsubscribeCarSnapshot =
-      carRef.onSnapshot(
-        function (carDoc) {
-          if (!carDoc.exists) {
-            renderModule.renderNotFound(
-              container
-            );
-
-            return;
-          }
-
-          const car = {
-            id: carDoc.id,
-            ...carDoc.data()
-          };
-
-          window.currentPublicCarData =
-            car;
-
-          renderModule.renderCarView(
-            container,
-            car,
-            carDoc.id
-          );
-
-          console.log(
-            "玩家頁已同步最新車團資料：",
-            carDoc.id
-          );
-        },
-
-        function (error) {
-          console.error(
-            "玩家頁即時同步失敗：",
-            error
-          );
-
-          renderModule.renderError(
-            container,
-            error &&
-            error.message
-              ? error.message
-              : "讀取車團資料失敗"
-          );
-        }
+    try {
+      const response = await fetch(
+        "/api/car-view-context?id=" + encodeURIComponent(carId),
+        { credentials: "same-origin", cache: "no-store" }
       );
+      const result = await response.json();
+      if (response.status === 404) return renderModule.renderNotFound(container);
+      if (!response.ok || !result.success) throw new Error(result.error || "讀取車團資料失敗");
+      const car = { ...result.car, id: result.car.id || carId, viewAccess: result.access };
+      window.currentPublicCarData = car;
+      renderModule.renderCarView(container, car, carId);
+      console.log("玩家頁已載入車團資料：", carId, result.access);
+    } catch (error) {
+      console.error("玩家頁讀取失敗：", error);
+      renderModule.renderError(container, error && error.message ? error.message : "讀取車團資料失敗");
+    }
   }
 
   // ==========================================================
@@ -262,16 +216,7 @@ console.log(
       container
     );
 
-    if (window.db) {
-      subscribeCar(
-        carId,
-        container
-      );
-
-      return;
-    }
-
-    waitForFirebase(
+    subscribeCar(
       carId,
       container
     );

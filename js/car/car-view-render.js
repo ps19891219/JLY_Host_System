@@ -1614,10 +1614,16 @@ function renderCurrentSeatSummary(
         carId
       );
 
+    const accessHtml = sourceCar.viewAccess === "member"
+      ? '<div class="car-view-access-note">✅ 車團成員完整資訊</div>'
+      : '<div class="car-view-access-note is-public">目前顯示公開資訊；完成 LINE 登入並加入車團後可查看完整名單與座位。</div>';
+
     container.innerHTML =
       '<article class="car-view-card">' +
 
       headerHtml +
+
+      accessHtml +
 
       '<section class="car-view-info-card" ' +
       'aria-label="車團基本資訊">' +

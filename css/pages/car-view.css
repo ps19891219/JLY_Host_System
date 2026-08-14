@@ -418,3 +418,17 @@
     font-size: 16px;
   }
 }
+.car-view-access-note {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #e9f5ef;
+  color: #2f6b57;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.car-view-access-note.is-public {
+  background: #f6f1e9;
+  color: #766b63;
+}
