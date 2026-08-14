@@ -158,6 +158,8 @@ test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
   assert.match(render, /hasAccountingData/);
   assert.match(render, /id="accountingDetailsToggle"/);
   assert.match(render, /id="accountingDetails"/);
+  assert.match(render, /id="accountingAttention"/);
+  assert.match(actions, /attention\.addEventListener/);
   assert.match(render, /hasAccountingData\?summary\+dialog:""/);
   assert.match(actions, /details\.hidden=!details\.hidden/);
   assert.match(summaryRender, /openSingleFieldEditor/);
@@ -177,4 +179,5 @@ test("有快速記帳後顯示摘要，明細仍預設收合", () => {
   assert.match(html, /data-settlement-dialog="payable"/);
   assert.doesNotMatch(html, /id="accountingDetailsToggle"[^>]* hidden/);
   assert.match(html, /id="accountingDetails" hidden/);
+  assert.match(html, /⚠️ 待處理 1 筆/);
 });
