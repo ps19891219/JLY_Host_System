@@ -127,6 +127,10 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /data-fee-cancel/);
   assert.match(feeController, /person\.outstanding/);
   assert.match(feeController, /summary\.vendorOutstanding/);
+  assert.match(feeController, /card\.dataset\.feeSummaryTarget=target/);
+  assert.match(feeController, /targets=\["memberFeeForm","vendorFeeForm"\]/);
+  assert.match(feeController, /button\.dataset\.feeToggle!=="feeItemForm"/);
+  assert.match(feeController, /event\.key==="Enter"\|\|event\.key===" "/);
   assert.match(feeController, /玩家均分/);
   assert.match(feeController, /指定玩家支付/);
   assert.match(feeController, /主揪支付/);
