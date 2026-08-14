@@ -63,7 +63,7 @@ function getCarTitle(car) {
 }
 
 function getCarSubtitle(car) {
-  const date = text(car && (car.date || car.startDate));
+  const date = text(car && (car.gameDate || car.date || car.startDate));
   return date ? `${date}｜車團小助手` : "車團小助手";
 }
 

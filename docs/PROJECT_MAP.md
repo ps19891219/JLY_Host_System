@@ -2,10 +2,15 @@
 
 > Status: Working Map
 >
-> Version: V2.66
+> Version: V2.67
 >
 > Last Updated: 2026-08-14
 >
+
+## V2.67 LINE 車團時間欄位對齊（2026-08-14）
+
+- LINE「時間資訊」與小助手卡片日期改以正式 Car Detail 欄位 `gameDate`、`gameTime` 為第一優先，舊資料才回退 `date`／`startDate` 與 `time`／`startTime`。
+- 玩家公開資料裁切同步保留 `gameDate`、`gameTime`，避免正式車團已有時間卻顯示尚未設定。
 
 ## V2.66 玩家查看頁成員完整視圖（2026-08-14）
 
