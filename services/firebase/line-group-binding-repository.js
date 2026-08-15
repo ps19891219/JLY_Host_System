@@ -201,12 +201,74 @@ async function disableBinding(
 }
 
 // ============================================================
+// Get Active Binding By Car ID
+// ============================================================
+
+async function getActiveBindingByCarId(
+  carId
+) {
+  const normalizedCarId =
+    normalizeText(
+      carId
+    );
+
+  if (!normalizedCarId) {
+    return null;
+  }
+
+  /*
+   * Only carId is queried here.
+   * status is filtered afterwards so V1
+   * does not depend on an extra composite index.
+   */
+  const snapshot =
+    await getCollection()
+      .where(
+        "carId",
+        "==",
+        normalizedCarId
+      )
+      .limit(10)
+      .get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const activeDocument =
+    snapshot.docs.find(
+      function (doc) {
+        const data =
+          doc.data() || {};
+
+        return (
+          normalizeText(
+            data.status
+          ) === "active"
+        );
+      }
+    );
+
+  if (!activeDocument) {
+    return null;
+  }
+
+  return {
+    id:
+      activeDocument.id,
+
+    ...activeDocument.data()
+  };
+}
+
+// ============================================================
 // Exports
 // ============================================================
 
 module.exports = {
   COLLECTION_NAME,
   getBindingByGroupId,
+  getActiveBindingByCarId,
   saveBinding,
   disableBinding
 };
