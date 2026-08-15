@@ -25,6 +25,10 @@ const {
   completeCarAccountingSplit
 } = require("../services/firebase/car-accounting-repository");
 
+const {
+  getFirestore
+} = require("../services/firebase/admin");
+
 
 // ============================================================
 // Helpers
@@ -67,15 +71,75 @@ function parseBody(req) {
 }
 
 
-function identities(session) {
-  return new Set(
+async function identities(session) {
+  const ids = new Set(
     [
-      session.profileId,
-      session.identityId
+      session && session.profileId,
+      session && session.identityId
     ]
-      .map(String)
+      .map(value => String(value || "").trim())
       .filter(Boolean)
   );
+
+  const profileId =
+    String(
+      session &&
+      session.profileId ||
+      ""
+    ).trim();
+
+  if (!profileId) {
+    return ids;
+  }
+
+  try {
+    const snapshot =
+      await getFirestore()
+        .collection("players")
+        .doc(profileId)
+        .get();
+
+    if (!snapshot.exists) {
+      return ids;
+    }
+
+    const profile =
+      snapshot.data() || {};
+
+    [
+      snapshot.id,
+      profile.identityId,
+      profile.playerId,
+      profile.personId
+    ]
+      .map(value =>
+        String(value || "").trim()
+      )
+      .filter(Boolean)
+      .forEach(id => ids.add(id));
+
+    const linkedPlayerIds =
+      Array.isArray(profile.linkedPlayerIds)
+        ? profile.linkedPlayerIds
+        : [];
+
+    linkedPlayerIds
+      .map(value =>
+        String(value || "").trim()
+      )
+      .filter(Boolean)
+      .forEach(id => ids.add(id));
+
+    return ids;
+
+  } catch (error) {
+    console.error(
+      "讀取登入者 Player Profile 失敗",
+      error
+    );
+
+    return ids;
+  }
 }
 
 
@@ -232,9 +296,9 @@ module.exports = async function handler(req, res) {
 
 
     const actorIds =
-      identities(
-        session.data
-      );
+  await identities(
+    session.data
+  );
 
 
     const isOwner =

@@ -1,13 +1,505 @@
 "use strict";
-const { verifyGroupAssistantToken } = require("../services/line/group-assistant-link");
-const { getBindingByGroupId } = require("../services/firebase/line-group-binding-repository");
-const { getCarById } = require("../services/firebase/line-accounting-authorization-repository");
-const { getCarAccountingView } = require("../services/firebase/car-accounting-repository");
-const { readCookie, verifyMemberSession } = require("../services/line/member-session");
-const { getFirestore } = require("../services/firebase/admin");
-const { buildActivityAccountingSummary } = require("../services/accounting/activity-accounting-summary");
-const { collectMembers } = require("../services/line/quick-accounting-service");
-function members(car) { return collectMembers(car).map(item=>({memberId:item.personId,displayName:item.displayName||"成員",role:item.role})); }
-function send(res, status, data) { res.statusCode=status; res.setHeader("Content-Type","application/json; charset=utf-8"); res.setHeader("Cache-Control","no-store"); res.end(JSON.stringify(data)); }
-async function totalSummary(carId) { const db=getFirestore(),root=db.collection("cars").doc(carId),viewRef=root.collection("accountingViews").doc("activityCurrent"),[view,latestEntry,latestSettlement]=await Promise.all([viewRef.get(),root.collection("accountingEntries").orderBy("updatedAt","desc").limit(1).get(),root.collection("accountingSettlements").orderBy("updatedAt","desc").limit(1).get()]),sourceVersion=[latestEntry.empty?"":String(latestEntry.docs[0].data().updatedAt||""),latestSettlement.empty?"":String(latestSettlement.docs[0].data().updatedAt||"")].join("|");if(view.exists&&Number(view.data().summaryVersion)>=1&&view.data().summarySourceVersion===sourceVersion)return view.data();const [entries,settlements]=await Promise.all([root.collection("accountingEntries").get(),root.collection("accountingSettlements").get()]);const summary=buildActivityAccountingSummary(entries.docs.map(doc=>({transactionId:doc.id,...doc.data()})),settlements.docs.map(doc=>({settlementId:doc.id,...doc.data()})));await viewRef.set({...summary,summarySourceVersion:sourceVersion,updatedAt:new Date().toISOString()},{merge:true});return summary; }
-module.exports = async function handler(req,res) { if(req.method!=="GET") return send(res,405,{success:false,error:"method_not_allowed"}); try { const result=verifyGroupAssistantToken(req.query&&req.query.token); if(!result.valid)return send(res,401,{success:false,error:"invalid_link"}); const {groupId,carId}=result.data; const binding=await getBindingByGroupId(groupId); if(!binding||binding.status!=="active"||String(binding.carId)!==String(carId))return send(res,403,{success:false,error:"binding_inactive"}); const [car,accounting,total]=await Promise.all([getCarById(carId),getCarAccountingView(carId),totalSummary(carId)]); if(!car)return send(res,404,{success:false,error:"car_not_found"}); const session=verifyMemberSession(readCookie(req)); return send(res,200,{success:true,currentMember:session.valid?{profileId:session.data.profileId,identityId:session.data.identityId,displayName:session.data.displayName}:null,car:{id:car.id,scriptName:car.scriptName||car.title||car.name||"JLY 車團",date:car.gameDate||car.date||car.startDate||"",location:car.location||car.storeName||""},members:members(car),accounting:{...total,activeEntryCount:Number(accounting.activeEntryCount)||0,recentEntries:Array.isArray(accounting.recentEntries)?accounting.recentEntries:[]}}); } catch(error){console.error("讀取群組助手資料失敗",error);return send(res,500,{success:false,error:"assistant_context_failed"});} };
+
+const {
+  verifyGroupAssistantToken
+} = require("../services/line/group-assistant-link");
+
+const {
+  getBindingByGroupId
+} = require("../services/firebase/line-group-binding-repository");
+
+const {
+  getCarById
+} = require("../services/firebase/line-accounting-authorization-repository");
+
+const {
+  getCarAccountingView
+} = require("../services/firebase/car-accounting-repository");
+
+const {
+  readCookie,
+  verifyMemberSession
+} = require("../services/line/member-session");
+
+const {
+  getFirestore
+} = require("../services/firebase/admin");
+
+const {
+  buildActivityAccountingSummary
+} = require("../services/accounting/activity-accounting-summary");
+
+const {
+  collectMembers
+} = require("../services/line/quick-accounting-service");
+
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+
+function members(car) {
+  return collectMembers(car).map(item => ({
+    memberId: item.personId,
+    displayName: item.displayName || "成員",
+    role: item.role
+  }));
+}
+
+
+function send(res, status, data) {
+  res.statusCode = status;
+
+  res.setHeader(
+    "Content-Type",
+    "application/json; charset=utf-8"
+  );
+
+  res.setHeader(
+    "Cache-Control",
+    "no-store"
+  );
+
+  res.end(
+    JSON.stringify(data)
+  );
+}
+
+
+async function resolveCurrentMember(
+  session,
+  carMembers
+) {
+  if (
+    !session ||
+    !session.valid ||
+    !session.data
+  ) {
+    return null;
+  }
+
+  const data = session.data;
+
+  const candidateIds = new Set(
+    [
+      data.profileId,
+      data.identityId
+    ]
+      .map(normalizeText)
+      .filter(Boolean)
+  );
+
+  const profileId =
+    normalizeText(
+      data.profileId
+    );
+
+  if (profileId) {
+    try {
+      const profileSnapshot =
+        await getFirestore()
+          .collection("players")
+          .doc(profileId)
+          .get();
+
+      if (profileSnapshot.exists) {
+        const profile =
+          profileSnapshot.data() || {};
+
+        [
+          profileSnapshot.id,
+          profile.identityId,
+          profile.playerId,
+          profile.personId
+        ]
+          .map(normalizeText)
+          .filter(Boolean)
+          .forEach(id =>
+            candidateIds.add(id)
+          );
+
+        const linkedPlayerIds =
+          Array.isArray(
+            profile.linkedPlayerIds
+          )
+            ? profile.linkedPlayerIds
+            : [];
+
+        linkedPlayerIds
+          .map(normalizeText)
+          .filter(Boolean)
+          .forEach(id =>
+            candidateIds.add(id)
+          );
+      }
+    } catch (error) {
+      console.error(
+        "讀取目前使用者 Player Profile 失敗",
+        error
+      );
+    }
+  }
+
+  const matchedMember =
+    (carMembers || []).find(member =>
+      candidateIds.has(
+        normalizeText(
+          member.memberId
+        )
+      )
+    );
+
+  return {
+    profileId:
+      normalizeText(
+        data.profileId
+      ),
+
+    identityId:
+      normalizeText(
+        data.identityId
+      ),
+
+    memberId:
+      matchedMember
+        ? normalizeText(
+            matchedMember.memberId
+          )
+        : "",
+
+    displayName:
+      matchedMember &&
+      matchedMember.displayName
+        ? matchedMember.displayName
+        : normalizeText(
+            data.displayName
+          )
+  };
+}
+
+
+async function totalSummary(carId) {
+  const db =
+    getFirestore();
+
+  const root =
+    db
+      .collection("cars")
+      .doc(carId);
+
+  const viewRef =
+    root
+      .collection(
+        "accountingViews"
+      )
+      .doc(
+        "activityCurrent"
+      );
+
+  const [
+    view,
+    latestEntry,
+    latestSettlement
+  ] = await Promise.all([
+    viewRef.get(),
+
+    root
+      .collection(
+        "accountingEntries"
+      )
+      .orderBy(
+        "updatedAt",
+        "desc"
+      )
+      .limit(1)
+      .get(),
+
+    root
+      .collection(
+        "accountingSettlements"
+      )
+      .orderBy(
+        "updatedAt",
+        "desc"
+      )
+      .limit(1)
+      .get()
+  ]);
+
+  const sourceVersion =
+    [
+      latestEntry.empty
+        ? ""
+        : String(
+            latestEntry
+              .docs[0]
+              .data()
+              .updatedAt ||
+            ""
+          ),
+
+      latestSettlement.empty
+        ? ""
+        : String(
+            latestSettlement
+              .docs[0]
+              .data()
+              .updatedAt ||
+            ""
+          )
+    ].join("|");
+
+  if (
+    view.exists &&
+    Number(
+      view.data()
+        .summaryVersion
+    ) >= 1 &&
+    view.data()
+      .summarySourceVersion ===
+      sourceVersion
+  ) {
+    return view.data();
+  }
+
+  const [
+    entries,
+    settlements
+  ] = await Promise.all([
+    root
+      .collection(
+        "accountingEntries"
+      )
+      .get(),
+
+    root
+      .collection(
+        "accountingSettlements"
+      )
+      .get()
+  ]);
+
+  const summary =
+    buildActivityAccountingSummary(
+      entries.docs.map(
+        doc => ({
+          transactionId:
+            doc.id,
+
+          ...doc.data()
+        })
+      ),
+
+      settlements.docs.map(
+        doc => ({
+          settlementId:
+            doc.id,
+
+          ...doc.data()
+        })
+      )
+    );
+
+  await viewRef.set(
+    {
+      ...summary,
+
+      summarySourceVersion:
+        sourceVersion,
+
+      updatedAt:
+        new Date()
+          .toISOString()
+    },
+    {
+      merge: true
+    }
+  );
+
+  return summary;
+}
+
+
+module.exports =
+async function handler(
+  req,
+  res
+) {
+  if (
+    req.method !== "GET"
+  ) {
+    return send(
+      res,
+      405,
+      {
+        success: false,
+        error:
+          "method_not_allowed"
+      }
+    );
+  }
+
+  try {
+    const result =
+      verifyGroupAssistantToken(
+        req.query &&
+        req.query.token
+      );
+
+    if (!result.valid) {
+      return send(
+        res,
+        401,
+        {
+          success: false,
+          error:
+            "invalid_link"
+        }
+      );
+    }
+
+    const {
+      groupId,
+      carId
+    } = result.data;
+
+    const binding =
+      await getBindingByGroupId(
+        groupId
+      );
+
+    if (
+      !binding ||
+      binding.status !==
+        "active" ||
+      String(
+        binding.carId
+      ) !==
+      String(
+        carId
+      )
+    ) {
+      return send(
+        res,
+        403,
+        {
+          success: false,
+          error:
+            "binding_inactive"
+        }
+      );
+    }
+
+    const [
+      car,
+      accounting,
+      total
+    ] = await Promise.all([
+      getCarById(
+        carId
+      ),
+
+      getCarAccountingView(
+        carId
+      ),
+
+      totalSummary(
+        carId
+      )
+    ]);
+
+    if (!car) {
+      return send(
+        res,
+        404,
+        {
+          success: false,
+          error:
+            "car_not_found"
+        }
+      );
+    }
+
+    const carMembers =
+      members(car);
+
+    const session =
+      verifyMemberSession(
+        readCookie(req)
+      );
+
+    const currentMember =
+      await resolveCurrentMember(
+        session,
+        carMembers
+      );
+
+    return send(
+      res,
+      200,
+      {
+        success: true,
+
+        currentMember,
+
+        car: {
+          id:
+            car.id,
+
+          scriptName:
+            car.scriptName ||
+            car.title ||
+            car.name ||
+            "JLY 車團",
+
+          date:
+            car.gameDate ||
+            car.date ||
+            car.startDate ||
+            "",
+
+          location:
+            car.location ||
+            car.storeName ||
+            ""
+        },
+
+        members:
+          carMembers,
+
+        accounting: {
+          ...total,
+
+          activeEntryCount:
+            Number(
+              accounting.activeEntryCount
+            ) || 0,
+
+          recentEntries:
+            Array.isArray(
+              accounting.recentEntries
+            )
+              ? accounting.recentEntries
+              : []
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "讀取群組助手資料失敗",
+      error
+    );
+
+    return send(
+      res,
+      500,
+      {
+        success: false,
+        error:
+          "assistant_context_failed"
+      }
+    );
+  }
+};
