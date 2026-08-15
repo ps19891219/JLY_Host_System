@@ -108,13 +108,14 @@ function buildGroupAssistantQuickInfoCard(car, options = {}) {
     ? `${baseUrl}/pages/car-view.html?id=${carId}`
     : link("info");
   return buildCard(`🚗 ${getCarTitle(car)}`, getCarSubtitle(car), [
-    messageButton("🏠 店家資訊", "JLY 店家"),
-    messageButton("📅 時間資訊", "JLY 時間", "#487A91"),
-    messageButton("👥 人員資訊", "JLY 人員", "#806A9B"),
-    uriButton("⚡ 快速記帳", link("accounting"), "#B17B42"),
-    uriButton("🚗 車團總覽", playerViewLink, "#9A5960"),
-    messageButton("❓ 使用說明", "JLY 使用說明", "#777777")
-  ]);
+  messageButton("🏠 店家資訊", "JLY 店家"),
+  messageButton("📅 時間資訊", "JLY 時間", "#487A91"),
+  messageButton("👥 人員資訊", "JLY 人員", "#806A9B"),
+  uriButton("⚡ 快速記帳", link("accounting"), "#B17B42"),
+  messageButton("⏰ 行前提醒", "JLY 提醒", "#A66A45"),
+  uriButton("🚗 車團總覽", playerViewLink, "#9A5960"),
+  messageButton("❓ 使用說明", "JLY 使用說明", "#777777")
+]);
 }
 
 module.exports = {
