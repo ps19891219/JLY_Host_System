@@ -100,6 +100,11 @@ const {
 const { prepareQuickAccounting, saveResolvedQuickAccounting } = require("./quick-accounting-service");
 const { buildStoreInfo, buildTimeInfo, buildPeopleInfo } = require("./car-info-slices");
 
+const {
+  buildGroupReminderReply
+} = require(
+  "./reminder-service"
+);
 // ============================================================
 // Normalize Text
 // ============================================================
@@ -491,6 +496,105 @@ async function handleMessageEvent(
     const car = await readCar(context.accountingCarId),builders={assistant_store_info:buildStoreInfo,assistant_time_info:buildTimeInfo,assistant_people_info:buildPeopleInfo};
     await replyWithText(context.replyToken,builders[messageResult.action](car||{}));
     return { handled: true, route: messageResult.action, context, groupBinding };
+  }
+
+    // ----------------------------------------------------------
+  // Pre-trip reminder status
+  // ----------------------------------------------------------
+
+  if (
+    messageResult.action ===
+    "assistant_reminder_menu"
+  ) {
+    if (!context.replyToken) {
+      return {
+        handled: false,
+        route:
+          "message_missing_reply_token",
+        context,
+        groupBinding
+      };
+    }
+
+    if (
+      context.source.type !== "group" ||
+      !context.source.groupId ||
+      !context.accountingCarId
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "請先將這個 LINE 群組綁定 JLY 車團。"
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_binding_required",
+        context,
+        groupBinding
+      };
+    }
+
+    try {
+      const car =
+        await readCar(
+          context.accountingCarId
+        );
+
+      if (!car) {
+        await replyWithText(
+          context.replyToken,
+          "找不到這台 JLY 車團，請確認群組綁定狀態。"
+        );
+
+        return {
+          handled: true,
+          route:
+            "assistant_reminder_car_not_found",
+          context,
+          groupBinding
+        };
+      }
+
+      const reminderResult =
+        await buildGroupReminderReply(
+          context.accountingCarId,
+          car
+        );
+
+      await replyWithText(
+        context.replyToken,
+        reminderResult.replyText
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_menu",
+        context,
+        groupBinding,
+        reminderResult
+      };
+
+    } catch (error) {
+      console.error(
+        "LINE reminder lookup failed.",
+        error
+      );
+
+      await replyWithText(
+        context.replyToken,
+        "行前提醒目前讀取失敗，請稍後再試。"
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_failed",
+        context,
+        groupBinding
+      };
+    }
   }
 
   if (messageResult.action === "accounting_quick_create") {
