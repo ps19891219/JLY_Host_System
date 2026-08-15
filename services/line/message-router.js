@@ -65,6 +65,20 @@ function normalizeForMatch(value) {
   ).toLowerCase();
 }
 
+function normalizeAssistantAccountingShortcut(value) {
+  const original =
+    normalizeText(value);
+
+  if (!original) {
+    return "";
+  }
+
+  return original.replace(
+    /^(?:@?\s*)?(?:jly\s*)?小助手\s+記帳\s+/i,
+    "@JLY小助手 記帳 "
+  );
+}
+
 // ============================================================
 // Detect Assistant Call
 // ============================================================
@@ -240,6 +254,11 @@ function routeTextMessage(text) {
       text
     );
 
+    const accountingCommandText =
+    normalizeAssistantAccountingShortcut(
+      normalizedText
+    );
+
   if (!normalizedText) {
     return {
       handled: false,
@@ -262,7 +281,9 @@ function routeTextMessage(text) {
   }
 
   const accountingMutation =
-    parseAccountingMutation(normalizedText);
+  parseAccountingMutation(
+    accountingCommandText
+  );
 
   if (accountingMutation) {
     if (!accountingMutation.valid) {
@@ -285,9 +306,9 @@ function routeTextMessage(text) {
   }
 
   const accountingQuery =
-    parseAccountingQuery(
-      normalizedText
-    );
+  parseAccountingQuery(
+    accountingCommandText
+  );
 
   if (accountingQuery) {
     return {
@@ -299,7 +320,9 @@ function routeTextMessage(text) {
   }
 
   const accountingResult =
-    parseQuickAccountingCommand(normalizedText);
+  parseQuickAccountingCommand(
+    accountingCommandText
+  );
 
   if (accountingResult) {
     return accountingResult.valid
@@ -308,9 +331,9 @@ function routeTextMessage(text) {
   }
 
   const legacyAccountingResult =
-    parseAccountingCommand(
-      normalizedText
-    );
+  parseAccountingCommand(
+    accountingCommandText
+  );
 
   if (legacyAccountingResult) {
     if (!legacyAccountingResult.valid) {
