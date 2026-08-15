@@ -647,6 +647,40 @@ This module does NOT:
           readForm()
         );
 
+        const wasEnabled =
+  Boolean(
+    existing &&
+    existing.enabled === true
+  );
+
+const willBeEnabled =
+  prepared.enabled === true;
+
+let noticeType = "";
+let noticeStatus = "";
+
+if (
+  !wasEnabled &&
+  willBeEnabled
+) {
+  noticeType =
+    "enabled";
+
+  noticeStatus =
+    "pending";
+}
+
+if (
+  wasEnabled &&
+  !willBeEnabled
+) {
+  noticeType =
+    "disabled";
+
+  noticeStatus =
+    "pending";
+}
+
     const now =
       new Date()
         .toISOString();
@@ -664,6 +698,44 @@ This module does NOT:
 
     const data = {
       ...prepared,
+
+      noticeType:
+  noticeType ||
+  text(
+    existing &&
+    existing.noticeType
+  ),
+
+noticeStatus:
+  noticeStatus ||
+  text(
+    existing &&
+    existing.noticeStatus
+  ),
+
+noticeRequestedAt:
+  noticeStatus === "pending"
+    ? now
+    : text(
+        existing &&
+        existing.noticeRequestedAt
+      ),
+
+noticeSentAt:
+  noticeStatus === "pending"
+    ? ""
+    : text(
+        existing &&
+        existing.noticeSentAt
+      ),
+
+noticeLastError:
+  noticeStatus === "pending"
+    ? ""
+    : text(
+        existing &&
+        existing.noticeLastError
+      ),
 
       schemaVersion: 1,
 

@@ -2,16 +2,17 @@
 JLY Host System
 
 Module:
-Reminder Repository V1.1
+Reminder Repository V1.2
 
 Responsibilities:
 
 1. Read Activity reminder configuration
 2. Find reminders that are due
 3. Claim reminders before dispatch
-4. Record sent / failed state
-5. Prevent duplicate dispatch
-6. Keep Firestore logic outside LINE services
+4. Record reminder sent / failed state
+5. Handle reminder status notices
+6. Prevent duplicate dispatch
+7. Keep Firestore logic outside LINE services
 
 Firestore:
 
@@ -22,7 +23,9 @@ cars/{carId}/reminders/preTrip
 
 const {
   getFirestore
-} = require("./admin");
+} = require(
+  "./admin"
+);
 
 const REMINDER_COLLECTION =
   "reminders";
@@ -31,22 +34,36 @@ const PRE_TRIP_DOCUMENT =
   "preTrip";
 
 
+// ============================================================
+// Normalize Text
+// ============================================================
+
 function normalizeText(value) {
   return String(
-    value == null ? "" : value
+    value == null
+      ? ""
+      : value
   ).trim();
 }
 
+
+// ============================================================
+// Reminder Ref
+// ============================================================
 
 function getReminderRef(
   carId,
   reminderId = PRE_TRIP_DOCUMENT
 ) {
   const normalizedCarId =
-    normalizeText(carId);
+    normalizeText(
+      carId
+    );
 
   const normalizedReminderId =
-    normalizeText(reminderId);
+    normalizeText(
+      reminderId
+    );
 
   if (!normalizedCarId) {
     throw new Error(
@@ -72,6 +89,10 @@ function getReminderRef(
 }
 
 
+// ============================================================
+// Get Reminder
+// ============================================================
+
 async function getReminder(
   carId,
   reminderId = PRE_TRIP_DOCUMENT
@@ -91,15 +112,18 @@ async function getReminder(
       snapshot.id,
 
     carId:
-      snapshot.ref
-        .parent
-        .parent
-        .id,
+      normalizeText(
+        carId
+      ),
 
     ...snapshot.data()
   };
 }
 
+
+// ============================================================
+// Get Pre-Trip Reminder
+// ============================================================
 
 async function getPreTripReminder(
   carId
@@ -112,7 +136,7 @@ async function getPreTripReminder(
 
 
 // ============================================================
-// Find Due Reminders
+// List Due Reminders
 // ============================================================
 
 async function listDueReminders(
@@ -129,13 +153,15 @@ async function listDueReminders(
     new Date()
       .toISOString();
 
-  /*
-   * scheduledAt is stored as canonical ISO UTC text.
-   * ISO timestamps of this format sort chronologically.
-   *
-   * Only scheduledAt is queried so V1 does not require
-   * a compound Firestore index.
-   */
+  const safeLimit =
+    Math.max(
+      1,
+      Math.min(
+        50,
+        Number(limit) || 30
+      )
+    );
+
   const snapshot =
     await db
       .collectionGroup(
@@ -147,17 +173,14 @@ async function listDueReminders(
         normalizedNow
       )
       .limit(
-        Math.max(
-          1,
-          Number(limit) || 30
-        )
+        safeLimit
       )
       .get();
 
   return snapshot.docs
     .map(
       function (doc) {
-        const parentCar =
+        const carRef =
           doc.ref &&
           doc.ref.parent &&
           doc.ref.parent.parent;
@@ -167,8 +190,8 @@ async function listDueReminders(
             doc.id,
 
           carId:
-            parentCar
-              ? parentCar.id
+            carRef
+              ? carRef.id
               : "",
 
           ...doc.data()
@@ -313,7 +336,7 @@ async function claimReminder(
 
 
 // ============================================================
-// Mark Sent
+// Mark Reminder Sent
 // ============================================================
 
 async function markReminderSent(
@@ -362,7 +385,7 @@ async function markReminderSent(
 
 
 // ============================================================
-// Return Failed Reminder To Queue
+// Mark Reminder Failed
 // ============================================================
 
 async function markReminderFailed(
@@ -442,6 +465,260 @@ async function markReminderFailed(
 }
 
 
+// ============================================================
+// List Pending Reminder Notices
+// ============================================================
+
+async function listPendingReminderNotices(
+  limit = 30
+) {
+  const db =
+    getFirestore();
+
+  const safeLimit =
+    Math.max(
+      1,
+      Math.min(
+        50,
+        Number(limit) || 30
+      )
+    );
+
+  const snapshot =
+    await db
+      .collectionGroup(
+        REMINDER_COLLECTION
+      )
+      .where(
+        "noticeStatus",
+        "==",
+        "pending"
+      )
+      .limit(
+        safeLimit
+      )
+      .get();
+
+  return snapshot.docs
+    .map(
+      function (doc) {
+        const carRef =
+          doc.ref &&
+          doc.ref.parent &&
+          doc.ref.parent.parent;
+
+        return {
+          id:
+            doc.id,
+
+          carId:
+            carRef
+              ? carRef.id
+              : "",
+
+          ...doc.data()
+        };
+      }
+    )
+    .filter(
+      function (item) {
+        return Boolean(
+          normalizeText(
+            item.carId
+          )
+        );
+      }
+    );
+}
+
+
+// ============================================================
+// Claim Reminder Notice
+// ============================================================
+
+async function claimReminderNotice(
+  carId,
+  reminderId
+) {
+  const db =
+    getFirestore();
+
+  const ref =
+    getReminderRef(
+      carId,
+      reminderId
+    );
+
+  const now =
+    new Date()
+      .toISOString();
+
+  return db.runTransaction(
+    async function (
+      transaction
+    ) {
+      const snapshot =
+        await transaction.get(
+          ref
+        );
+
+      if (!snapshot.exists) {
+        return {
+          claimed: false,
+          reason:
+            "not_found"
+        };
+      }
+
+      const data =
+        snapshot.data() || {};
+
+      if (
+        normalizeText(
+          data.noticeStatus
+        ) !== "pending"
+      ) {
+        return {
+          claimed: false,
+          reason:
+            "not_pending"
+        };
+      }
+
+      transaction.set(
+        ref,
+        {
+          noticeStatus:
+            "sending",
+
+          noticeStartedAt:
+            now,
+
+          updatedAt:
+            now
+        },
+        {
+          merge: true
+        }
+      );
+
+      return {
+        claimed: true,
+
+        reminder: {
+          id:
+            snapshot.id,
+
+          carId:
+            normalizeText(
+              carId
+            ),
+
+          ...data,
+
+          noticeStatus:
+            "sending",
+
+          noticeStartedAt:
+            now
+        }
+      };
+    }
+  );
+}
+
+
+// ============================================================
+// Mark Reminder Notice Sent
+// ============================================================
+
+async function markReminderNoticeSent(
+  carId,
+  reminderId
+) {
+  const now =
+    new Date()
+      .toISOString();
+
+  await getReminderRef(
+    carId,
+    reminderId
+  ).set(
+    {
+      noticeStatus:
+        "sent",
+
+      noticeSentAt:
+        now,
+
+      noticeLastError:
+        "",
+
+      updatedAt:
+        now
+    },
+    {
+      merge: true
+    }
+  );
+
+  return {
+    sent: true,
+    sentAt:
+      now
+  };
+}
+
+
+// ============================================================
+// Mark Reminder Notice Failed
+// ============================================================
+
+async function markReminderNoticeFailed(
+  carId,
+  reminderId,
+  errorMessage
+) {
+  const now =
+    new Date()
+      .toISOString();
+
+  await getReminderRef(
+    carId,
+    reminderId
+  ).set(
+    {
+      noticeStatus:
+        "pending",
+
+      noticeLastError:
+        normalizeText(
+          errorMessage
+        ).slice(
+          0,
+          500
+        ),
+
+      updatedAt:
+        now
+    },
+    {
+      merge: true
+    }
+  );
+
+  return {
+    saved: true,
+    updatedAt:
+      now
+  };
+}
+
+
+// ============================================================
+// Exports
+// ============================================================
+
 module.exports = {
   REMINDER_COLLECTION,
   PRE_TRIP_DOCUMENT,
@@ -453,5 +730,10 @@ module.exports = {
   listDueReminders,
   claimReminder,
   markReminderSent,
-  markReminderFailed
+  markReminderFailed,
+
+  listPendingReminderNotices,
+  claimReminderNotice,
+  markReminderNoticeSent,
+  markReminderNoticeFailed
 };

@@ -144,25 +144,20 @@ function buildReminderStatusText(
       source.carTitle
     ) || "JLY 車團";
 
-  if (!source.configured) {
+  if (
+    !source.configured ||
+    !source.enabled
+  ) {
     return (
-      `⏰ 《${title}》行前提醒\n\n` +
-      "目前尚未設定行前提醒。\n" +
-      "請至 JLY 車團後台設定。"
+      `⏰《${title}》行前提醒\n\n` +
+      "⚪ 已關閉"
     );
   }
 
-  const reminder =
-    source.reminder || {};
-
-  if (!source.enabled) {
-    return (
-      `⏰ 《${title}》行前提醒\n\n` +
-      "狀態：⚪ 未開啟\n" +
-      "目前已有提醒設定，但自動提醒處於關閉狀態。\n\n" +
-      "可至 JLY 車團後台重新開啟。"
-    );
-  }
+  return (
+    `⏰《${title}》行前提醒\n\n` +
+    "🟢 已綁定"
+  );
 
   const scheduledAt =
     formatScheduledAt(
