@@ -2,10 +2,23 @@
 
 > Status: Working Map
 >
-> Version: V2.70
+> Version: V2.71
 >
-> Last Updated: 2026-08-14
+> Last Updated: 2026-08-16
 >
+
+## V2.71 LINE 行前提醒 V1 與自動排程（2026-08-16）
+
+- 啟用既有 `js/notification/` 預留模組：`notification-settings.js` 管理可擴充提醒設定與排程時間計算、`reminder.js` 負責 Car Detail 行前提醒 UI／Firestore 讀寫／預覽、`line-message.js` 負責 LINE 提醒文字預覽；`pages/car-detail.html` 已正式載入三支檔案。
+- Car Detail 的行前提醒設定保存於 `cars/{carId}/reminders/preTrip`；Reminder 文件只保存提醒設定與生命週期，不複製劇本名稱、日期、時間、地點等 Activity 正式資料，真正發送時重新讀取最新 Car。
+- LINE 群組小助手已恢復「⏰ 行前提醒」入口；`JLY 提醒` 由 `message-router.js` 路由為 `assistant_reminder_menu`，`event-router.js` 取得群組正式綁定 `carId` 後讀取同一份 Reminder，群組查詢只簡潔顯示 `🟢 已綁定` 或 `⚪ 已關閉`。
+- 新增 `services/firebase/reminder-repository.js`、`services/line/reminder-service.js`、`services/line/line-push.js`、`services/line/reminder-dispatch-service.js` 與 `api/run-reminders.js`；LINE Reply 與主動 Push 保持分離。
+- `POST /api/run-reminders` 以 `Authorization: Bearer <REMINDER_DISPATCH_SECRET>` 保護，只由排程器呼叫；V1 Scheduler Adapter 使用 cron-job.org，每 1 分鐘呼叫一次，排程器只負責喚醒 JLY，不保存車團或帳務資料。
+- Dispatcher 會先處理 Reminder 狀態通知，再找已到期 `preTrip`；到期後重新讀取最新 Car 與目前 active 的 `lineGroupBindings`，向正式綁定群組 Push 行前提醒。
+- Reminder 發送採 Firestore Transaction 先由 `scheduled → sending` 原子 Claim，成功後標記 `sent`／`sentAt`；人工連續執行已驗證第二次 `candidateCount=0`、`sentCount=0`，不會重複發送。
+- 後台首次由關閉改為開啟會建立 `noticeType=enabled`、`noticeStatus=pending`；開啟改關閉則建立 `noticeType=disabled`。目前由同一個每分鐘 Dispatcher 處理群組「已綁定／已關閉」通知，後續修改時間或文字不重複洗群組。
+- Firestore Collection Group 單欄位索引已啟用：`reminders.noticeStatus ASC`、`reminders.scheduledAt ASC`。
+- 實測完成：Secret 驗證、Firestore Collection Group 查詢、LINE 主動 Push、sent 防重複、cron-job.org Test Run `200 OK / success:true` 均已通過；Scheduler 已正式啟用。
 
 ## V2.70 車團總帳頁第一版（2026-08-14）
 
@@ -101,8 +114,9 @@ JLY Host System 是提供劇本殺／活動主揪使用的車團管理系統，�
 
 - Node.js CommonJS。
 - `firebase-admin`：伺服器端 Firestore 存取。
-- Vercel API Handler：LINE Webhook 入口。
-- LINE Messaging API：Webhook 驗證及文字回覆。
+- Vercel API Handler：LINE Webhook 與 Reminder Dispatcher API 入口。
+- LINE Messaging API：Webhook 驗證、文字回覆及伺服器端群組 Push。
+- cron-job.org：Reminder V1 的可替換 Scheduler Adapter，目前每 1 分鐘以受保護 POST 呼叫 JLY Dispatcher；不保存 JLY Activity 資料。
 - Google Identity Services／Calendar API：行事曆授權與同步。
 
 ### 2.3 套件與測試
@@ -356,11 +370,14 @@ selectedSlotId / create formal car
 
 ### 5.10 通知、報表與 Studio
 
-- `js/notification/`：LINE 訊息、提醒、招募文字與通知設定。
+- `js/notification/notification-settings.js`：Reminder 預設值、正規化與 `scheduledAt` 計算。
+- `js/notification/reminder.js`：Car Detail 行前提醒 UI、Firestore 讀寫、狀態與預覽；正式由 `pages/car-detail.html` 載入。
+- `js/notification/line-message.js`：前端 LINE 提醒文字預覽，不直接持有 LINE Token 或主動 Push。
+- `js/notification/recruitment-text.js`：招募文字預留／既有模組。
 - `js/report/`：車團、玩家、Studio 報表及匯出。
 - `js/studio/`：Studio 資料、權限、車團、DM 行程與個人資料。
 
-這三組已有實作檔案，但目前未全面確認 HTML Runtime 入口；修改前應先做依賴稽核。
+`js/notification/` 的 Reminder Runtime 已於 V2.71 正式啟用；`js/report/`、`js/studio/` 仍應在修改前做 HTML Runtime 依賴稽核。
 
 ---
 
@@ -428,6 +445,7 @@ Firestore
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY`
+- `REMINDER_DISPATCH_SECRET`：保護 `/api/run-reminders` 的伺服器端 Bearer Secret；不可寫入 Git、前端或 URL。
 
 ### 6.4 LINE 小助手按鈕選單
 
@@ -467,7 +485,7 @@ Rich Menu 只顯示在 LINE Official Account 的一對一聊天室。群組內�
 - `tests/line/group-quick-menu.test.js`：驗證四個按鈕的 LINE 訊息格式。
 - `tests/line/event-router.test.js`：驗證群組綁定查詢順序與實際回覆 payload。
 
-目前群組按鈕中的記帳已接入 Firebase；提醒排程與車團查詢仍只有入口及提示回覆，實際資料操作將在後續階段加入。
+群組按鈕中的記帳與行前提醒已接入正式資料。提醒按鈕會以群組綁定的 `carId` 讀取 `cars/{carId}/reminders/preTrip`，只顯示已綁定／已關閉；實際排程與 Push 由 Reminder Dispatcher 處理。
 
 ### 6.5 LINE 群組記帳
 
@@ -565,6 +583,65 @@ Pending Action 是流程與責任人資料，不是第二份金額來源。完�
 
 帳務參與者需由該 Activity 的正式關係合併取得：建立主揪、`players[]`、`staffSlots[]`。唯一識別使用正式 `memberId`／`playerId`／Person ID，顯示名稱只作快照與介面顯示。
 
+### 6.7 LINE 行前提醒 V1
+
+正式 Runtime：
+
+```text
+Car Detail Reminder Settings
+        ↓
+cars/{carId}/reminders/preTrip
+        ↓
+cron-job.org（每 1 分鐘）
+        ↓
+POST /api/run-reminders
+        ↓
+services/line/reminder-dispatch-service.js
+        ├─ reminder-repository.js：due / notice query、claim、sent / failed
+        ├─ line-group-binding-repository.js：carId → active groupId
+        ├─ getCarById()：重新讀最新 Activity
+        └─ line-push.js：LINE Messaging API Push
+        ↓
+LINE 已綁定群組
+```
+
+相關檔案：
+
+- `js/notification/notification-settings.js`
+- `js/notification/reminder.js`
+- `js/notification/line-message.js`
+- `services/firebase/reminder-repository.js`
+- `services/firebase/line-group-binding-repository.js`
+- `services/line/reminder-service.js`
+- `services/line/reminder-dispatch-service.js`
+- `services/line/line-push.js`
+- `services/line/message-router.js`
+- `services/line/event-router.js`
+- `api/run-reminders.js`
+- `pages/car-detail.html`
+
+Firestore：
+
+```text
+cars/{carId}/reminders/preTrip
+```
+
+主要欄位包含 `enabled`、`triggerType`、`offsetDays`、`sendTime`、`timezone`、`templateId`、`customMessage`、`targetType`、`scheduledAt`、`status`、`sentAt`、`lastError`，以及設定狀態通知使用的 `noticeType`、`noticeStatus`、`noticeRequestedAt`、`noticeSentAt`、`noticeLastError`。Activity 正式欄位不複製進 Reminder。
+
+必要 Firestore Collection Group 單欄位索引：
+
+- `reminders.noticeStatus`：Collection Group / Ascending
+- `reminders.scheduledAt`：Collection Group / Ascending
+
+Scheduler 安全規則：
+
+- `api/run-reminders.js` 只接受 POST。
+- Header 必須為 `Authorization: Bearer <REMINDER_DISPATCH_SECRET>`。
+- Secret 只存在 Vercel Environment Variables 與排程器安全設定，不放入原始碼、前端、Git 或 URL。
+- Scheduler Adapter 可替換；cron-job.org 不是 Reminder Core，也不是資料來源。
+
+已驗證：到期提醒第一次執行 `candidateCount=1 / sentCount=1`，立即第二次執行為 `candidateCount=0 / sentCount=0`；cron-job.org Test Run 回 `200 OK` 且 `success=true`。
+
 ---
 
 ## 7. Firebase 與資料地圖
@@ -588,6 +665,7 @@ Pending Action 是流程與責任人資料，不是第二份金額來源。完�
 - 玩家下的車團關係子集合。
 - 個人招募分享 Token／Owner 資料。
 - LINE 群組綁定資料。
+- `cars/{carId}/reminders/preTrip`：行前提醒設定與發送生命週期；不保存 Activity 資料副本。
 
 部分集合名稱由常數或 Repository 動態提供，部署前應再與 Firestore Rules 及正式資料庫核對。
 
@@ -706,7 +784,7 @@ matching
 - `css/cardetail.css` 與 `css/pages/car-detail.css`
 - `css/mycar.css` 與 `css/pages/mycar.css`
 - `js/car/application/` 與 `js/modules/car/detail/application/`
-- `js/notification/` 與空的 `js/modules/notification/`
+- `js/notification/`（Reminder Runtime 已啟用）與空的 `js/modules/notification/`（仍不可混用）
 - `js/report/` 與空的 `js/modules/report/`
 - `js/studio/` 與空的 `js/modules/studio/`
 
@@ -747,6 +825,8 @@ matching
 | Google Calendar | `js/modules/calendar/` |
 | LINE 登入 | `js/line.js`、`js/line-callback.js` |
 | LINE Bot | `api/line-webhook.js`、`services/line/` |
+| LINE 行前提醒 | `js/notification/`、`services/firebase/reminder-repository.js`、`services/line/reminder-*.js`、`services/line/line-push.js`、`api/run-reminders.js` |
+| Reminder Scheduler | cron-job.org → `POST /api/run-reminders`；Vercel `REMINDER_DISPATCH_SECRET` |
 | Firebase Admin | `services/firebase/admin.js` |
 
 ---
@@ -776,14 +856,15 @@ matching
 
 ## 14. 建議下一步
 
-1. 修正 `pages/players.html` 的 Script 入口並驗證玩家資料庫。
-2. 經使用者核准後，將 JLY Rich Menu 套用至 LINE Official Account 並用手機驗證。
-3. 定義記帳資料模型、權限與第一版操作流程。
-4. 為 LINE Webhook／Group Binding 增加 Firebase Repository 與 Webhook Handler 整合測試。
-5. 定義已綁定車團後可執行的 LINE 業務指令與權限規則。
-4. 建立 Firestore Collection 與 Security Rules 的正式文件。
-5. 完成 Car Detail Transitional Runtime 依賴稽核。
-6. 補寫 Coding Rule、Database Rule、Roadmap 與 Version History。
+1. 觀察 Reminder Scheduler 第一批正式自動執行 History；若穩定則維持每 1 分鐘 V1 排程，未來可替換 Scheduler Adapter 而不改 Reminder Core。
+2. 修正 `pages/players.html` 的 Script 入口並驗證玩家資料庫。
+3. 經使用者核准後，將 JLY Rich Menu 套用至 LINE Official Account 並用手機驗證。
+4. 定義記帳資料模型、權限與第一版操作流程。
+5. 為 LINE Webhook／Group Binding 增加 Firebase Repository 與 Webhook Handler 整合測試。
+6. 定義已綁定車團後可執行的 LINE 業務指令與權限規則。
+7. 建立 Firestore Collection 與 Security Rules 的正式文件。
+8. 完成 Car Detail Transitional Runtime 依賴稽核。
+9. 補寫 Coding Rule、Database Rule、Roadmap 與 Version History。
 
 ---
 
@@ -1192,3 +1273,44 @@ matching
 
 - 劇本費核銷的店家／工作室名稱自動從車團正式資料帶入，欄位優先順序為 `car.studioName`、`car.organizerName`、`car.organizer`；上方已有店家時，核銷表單不再要求重複輸入。
 - 舊車團若完全沒有上述店家資料，才顯示手動補填欄位；已建立的核銷計畫也會依車團目前的工作室名稱同步顯示。
+
+### V2.64｜2026-08-14
+
+- LINE 快速記帳新增待確認流程；付款人可唯一辨識時直接寫入正式 Transaction，無法唯一辨識時先進 `accountingDrafts`，確認前不影響正式帳務。
+- 群組小助手新增店家、時間、人員資訊切片，全部即時讀取綁定 Car，不建立資訊副本。
+
+### V2.65｜2026-08-14
+
+- LINE 群組「車團總覽」改直接開啟綁定車團的 `pages/car-view.html?id={carId}`；快速記帳仍使用具簽章 Token 的群組助手頁。
+
+### V2.66｜2026-08-14
+
+- 玩家端車團頁加入 Member Session 權限裁切；正式車團成員可查看完整車團、玩家、工作人員與座位，非成員只取得公開基本資訊。
+
+### V2.67｜2026-08-14
+
+- LINE 時間資訊與小助手卡片優先讀取正式 `gameDate`／`gameTime`，舊資料才回退相容欄位。
+
+### V2.68｜2026-08-14
+
+- 群組小助手「使用說明」改為 LINE message action，不再開啟重複資訊頁；說明聚焦現行快捷指令與快速記帳範例。
+
+### V2.69｜2026-08-14
+
+- LINE 快速記帳正式入帳後回覆項目、金額、付款人與待分帳狀態；無法唯一辨識時不公開候選成員姓名。
+
+### V2.70｜2026-08-14
+
+- `pages/group-assistant.html?tab=accounting` 正式定位為綁定車團總帳入口；新增 Activity Accounting Summary，以唯一正式 Transaction／Settlement 聚合總帳與待結清摘要。
+- `api/group-assistant-context.js` 使用 `accountingViews/activityCurrent` 快取摘要並在來源版本變更時重建。
+
+### V2.71｜2026-08-16
+
+- 啟用 Car Detail 行前提醒設定、預覽與 Firestore `cars/{carId}/reminders/preTrip`。
+- LINE 群組「行前提醒」快捷入口改讀正式 Reminder，只回覆已綁定／已關閉狀態。
+- 新增 Reminder Repository、LINE Reminder Service、LINE Push、Dispatch Service 與受 Secret 保護的 `/api/run-reminders`。
+- 建立 `reminders.noticeStatus`、`reminders.scheduledAt` Collection Group Ascending 單欄位索引。
+- 實測 LINE 主動 Push 與 Firestore Claim 防重複成功；第二次 Dispatcher 不會再次發送同一 Reminder。
+- cron-job.org Scheduler Adapter 已正式建立並改為每 1 分鐘執行；Test Run 已驗證 `200 OK / success=true`。
+- 首次開啟／關閉提醒會建立 pending 狀態通知，由同一 Dispatcher 在下一輪排程向已綁定 LINE 群組發送；一般修改設定不重複通知。
+
