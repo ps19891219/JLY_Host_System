@@ -21,7 +21,40 @@
     section.querySelector("#accountingSplitCancel").addEventListener("click",()=>{splitForm.hidden=true;splitStatus.hidden=true;});
     splitForm.addEventListener("submit",async event=>{event.preventDefault();const button=section.querySelector("#accountingSplitSave"),selected=[...section.querySelectorAll('input[name="splitMember"]:checked')].map(input=>input.value);button.disabled=true;splitStatus.hidden=false;splitStatus.textContent="正在儲存分帳…";try{const amounts={};section.querySelectorAll(".accounting-custom-amount").forEach(input=>amounts[input.dataset.personId]=input.value);await config.onSplit({transactionId:section.querySelector("#accountingSplitTransactionId").value,mode:splitMode.value,personIds:selected,amounts});splitStatus.textContent="✅ 分帳完成";setTimeout(config.onReload,500);}catch(error){splitStatus.textContent=error.message==="split_total_mismatch"?"自訂金額合計必須等於帳目總額。":error.message==="split_permission_denied"?"只有記帳者或付款人可以分帳。":"請至少選擇一位分帳成員。";button.disabled=false;}});
     const detailsToggle=section.querySelector("#accountingDetailsToggle"),details=section.querySelector("#accountingDetails");
-    if(detailsToggle&&details)detailsToggle.addEventListener("click",()=>{details.hidden=!details.hidden;detailsToggle.setAttribute("aria-expanded",String(!details.hidden));detailsToggle.textContent=details.hidden?"展開帳務明細":"收起帳務明細";if(!details.hidden)details.scrollIntoView({behavior:"smooth",block:"nearest"});});
+    if(detailsToggle&&details)detailsToggle.addEventListener("click",async()=>{
+  const opening=details.hidden;
+
+  if(opening&&config.onViewAll){
+    detailsToggle.disabled=true;
+    detailsToggle.textContent="載入帳務明細…";
+
+    try{
+      await config.onViewAll();
+      return;
+    }catch(error){
+      detailsToggle.disabled=false;
+      detailsToggle.textContent="展開帳務明細";
+      return;
+    }
+  }
+
+  details.hidden=!details.hidden;
+  detailsToggle.setAttribute(
+    "aria-expanded",
+    String(!details.hidden)
+  );
+  detailsToggle.textContent=
+    details.hidden
+      ?"展開帳務明細"
+      :"收起帳務明細";
+
+  if(!details.hidden){
+    details.scrollIntoView({
+      behavior:"smooth",
+      block:"nearest"
+    });
+  }
+});
     const attention=section.querySelector("#accountingAttention"),pendingBody=section.querySelector("#accountingPendingBody");if(attention&&pendingBody)attention.addEventListener("click",()=>{const open=pendingBody.hidden;pendingBody.hidden=!open;attention.setAttribute("aria-expanded",String(open));attention.querySelector("b").textContent=open?"收起⌃":"展開 ›";if(open)pendingBody.scrollIntoView({behavior:"smooth",block:"nearest"});});
     const viewAll=section.querySelector("#accountingViewAll"),filters=section.querySelector("#accountingFilters"),entries=[...section.querySelectorAll(".accounting-entry")],empty=section.querySelector("#accountingFilterEmpty"),title=section.querySelector("#accountingListTitle");
     function applyFilter(filter){let visible=0;entries.forEach(entry=>{const state=entry.dataset.filterState,show=filter==="all"||(filter==="pending"?state!=="settled":state===filter);entry.hidden=!show;if(show)visible++;});empty.hidden=visible!==0;filters.querySelectorAll("button").forEach(button=>button.classList.toggle("active",button.dataset.filter===filter));}
