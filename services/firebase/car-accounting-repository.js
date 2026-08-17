@@ -38,7 +38,7 @@ function normalizePayments(entry) {
           ),
           amount: Number(item && item.amount) || 0
         }))
-        .filter(item => item.memberId && item.amount > 0)
+        .filter(item => item.personId && item.amount > 0)
     : [];
 
   if (payments.length) {

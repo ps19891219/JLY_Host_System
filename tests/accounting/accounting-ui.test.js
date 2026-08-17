@@ -41,7 +41,7 @@ test("原始應收應付與互抵後總額分開顯示", () => {
   assert.match(render, />誰欠我</);
   assert.match(render, />互抵後總額</);
   assert.match(repository, /obligationsByPair/);
-  assert.match(repository, /schemaVersion:5/);
+  assert.match(repository, /VIEW_SCHEMA_VERSION = 6/);
 });
 
 test("淨額付款由付款方申報並由收款方確認", () => {
@@ -49,8 +49,8 @@ test("淨額付款由付款方申報並由收款方確認", () => {
   assert.match(render, />全部付清<\/button>/);
   assert.match(render, />確認收款<\/button>/);
   assert.match(actions, /onNetSettlement/);
-  assert.match(repository, /status:"payment_claimed"/);
-  assert.match(repository, /status:"settled"/);
+  assert.match(repository, /status:\s*"payment_claimed"/);
+  assert.match(repository, /status:\s*"settled"/);
   assert.match(repository, /accountingSettlements/);
 });
 
@@ -59,7 +59,11 @@ test("主揪只能代未使用系統的收款人確認淨額付款", () => {
   assert.match(render, />代為確認收款<\/button>/);
   assert.match(repository, /manager_for_offline_member/);
   assert.match(repository, /authority\.targetUsesSystem/);
-  assert.ok(render.indexOf("if(managerCanConfirm)") < render.indexOf("model.currentPersonId===claim.fromPersonId"), "管理離線收款人時，代為確認必須優先於付款人撤回");
+  assert.ok(
+    render.indexOf("if(managerCanConfirm)") <
+      render.indexOf("model.currentPersonId===claim.fromPersonId"),
+    "管理離線收款人時，代為確認必須優先於付款人撤回"
+  );
 });
 
 test("詳細帳目不再提供逐筆付款與代理確認", () => {
@@ -81,29 +85,38 @@ test("下方分帳明細唯讀，上方互抵總額支援部分付款與全額�
   assert.doesNotMatch(render, /accounting-settlement-row[^`]*data-action/);
   assert.match(actions, /input&&input\.value/);
   assert.match(repository, /applyConfirmedSettlements/);
-  assert.match(repository, /settleObligation/);
   assert.match(repository, /net_settlement_invalid_amount/);
 });
 
-test("互抵與付款上限都使用一對一應收應付關係", () => {
-  assert.match(controller, /netSettlementFromObligations\(dashboard\.obligationsByPair\)/);
-  assert.doesNotMatch(controller, /netSettlementFromBalances\(dashboard\.balanceByPerson\)/);
-  assert.match(repository, /netTransferAmount\(view\.obligationsByPair,from,to\)/);
-  assert.match(repository, /netTransferAmount\(obligationsByPair,record\.fromPersonId,record\.toPersonId\)/);
+test("互抵與付款上限使用全車淨額結算方案", () => {
+  assert.match(controller, /dashboard\.settlementTransfers/);
+  assert.match(controller, /netSettlementFromBalances\(dashboard\.balanceByPerson/);
+  assert.doesNotMatch(
+    controller,
+    /netSettlementFromObligations\(dashboard\.obligationsByPair\)/
+  );
+  assert.match(repository, /buildSettlementBalances/);
+  assert.match(repository, /buildSettlementPlan/);
+  assert.match(repository, /settlementTransfers/);
 });
 
 test("主揪可在管理視角代未啟用系統的付款人登記彙總付款", () => {
   assert.match(render, /data-action="manager_claim"/);
   assert.match(render, /代為登記部分付款/);
   assert.match(controller, /input\.action==="claim"\|\|input\.action==="manager_claim"/);
-  assert.match(repository, /managerClaim&&input\.actorPersonId===input\.managerPersonId&&!input\.targetUsesSystem/);
-  assert.match(repository, /claimAuthority:managerClaim\?"manager_for_offline_member":"self"/);
+  assert.match(repository, /manager_for_offline_member/);
+  assert.match(repository, /targetUsesSystem/);
 });
 
-test("淨額付清後同一對成員的反向等額債務一併互抵完成", () => {
-  assert.match(repository, /const offset=Math\.min\(Number\(direct\.amount\)\|\|0,Number\(reverse\.amount\)\|\|0\)/);
-  assert.match(repository, /obligations=settleObligation\(obligations,from,to,amount\)/);
-  assert.match(repository, /schemaVersion:5/);
+test("淨額付清後由全車 balance 重新產生剩餘結算方案", () => {
+  assert.match(repository, /applyConfirmedSettlements/);
+  assert.match(repository, /buildSettlementPlan\(currentBalance\)/);
+  assert.match(repository, /VIEW_SCHEMA_VERSION = 6/);
+  assert.match(repository, /SUMMARY_VERSION = 2/);
+  assert.doesNotMatch(
+    repository,
+    /const offset=Math\.min\(Number\(direct\.amount\)/
+  );
 });
 
 test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
@@ -139,7 +152,10 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /系統會自動建立並計算劇本費/);
   assert.doesNotMatch(feeController, /name="vendorBaseAmount"/);
   assert.match(controller, /car\.studioName\|\|car\.organizerName\|\|car\.organizer/);
-  assert.match(feeController, /!loaded\.plan&&isManager&&fixedCount&&defaultPlayerFee&&vendorName/);
+  assert.match(
+    feeController,
+    /!loaded\.plan&&isManager&&fixedCount&&defaultPlayerFee&&vendorName/
+  );
   assert.doesNotMatch(feeController, /id="feePlanForm"/);
   assert.doesNotMatch(feeController, /建立劇本費<\/button>/);
 });
@@ -148,7 +164,10 @@ test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
   assert.match(summaryRender, /navigationTarget/);
   assert.match(summaryRender, /seatSection/);
   assert.match(summaryRender, /activityFeeSection/);
-  assert.doesNotMatch(summaryRender, /field:\s*"studioName",\s*editable:\s*true,\s*navigationTarget:/);
+  assert.doesNotMatch(
+    summaryRender,
+    /field:\s*"studioName",\s*editable:\s*true,\s*navigationTarget:/
+  );
   assert.match(render, /id="activityFeeMount"/);
   assert.match(render, /accounting-drafts/);
   assert.match(render, /id="accountingPendingBody" hidden/);
@@ -157,7 +176,10 @@ test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
   assert.match(render, /data-draft-dismiss/);
   assert.match(controller, /loadPendingDrafts/);
   assert.match(controller, /transitionDraft/);
-  assert.match(feeController, /mountPoint=section\.querySelector\("#activityFeeMount"\)\|\|section/);
+  assert.match(
+    feeController,
+    /mountPoint=section\.querySelector\("#activityFeeMount"\)\|\|section/
+  );
   assert.match(render, /hasAccountingData/);
   assert.match(render, /id="accountingDetailsToggle"/);
   assert.match(render, /id="accountingDetails"/);
@@ -178,7 +200,17 @@ test("沒有快速記帳時隱藏個人帳務摘要與明細入口", () => {
 });
 
 test("有快速記帳後顯示摘要，明細仍預設收合", () => {
-  const html = renderAccounting([{ transactionId: "t1", title: "晚餐", amount: 300, paidBy: "p1", splitStatus: "pending", splits: [] }]);
+  const html = renderAccounting([
+    {
+      transactionId: "t1",
+      title: "晚餐",
+      amount: 300,
+      paidBy: "p1",
+      splitStatus: "pending",
+      splits: []
+    }
+  ]);
+
   assert.match(html, /data-settlement-dialog="payable"/);
   assert.doesNotMatch(html, /id="accountingDetailsToggle"[^>]* hidden/);
   assert.match(html, /id="accountingDetails" hidden/);

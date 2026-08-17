@@ -255,7 +255,7 @@ async function totalSummary(carId) {
     Number(
       view.data()
         .summaryVersion
-    ) >= 1 &&
+    ) >= 2 &&
     view.data()
       .summarySourceVersion ===
       sourceVersion

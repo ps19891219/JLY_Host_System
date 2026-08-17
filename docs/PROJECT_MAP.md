@@ -2,10 +2,30 @@
 
 > Status: Working Map
 >
-> Version: V2.71
+> Version: V2.72
 >
-> Last Updated: 2026-08-16
+> Last Updated: 2026-08-18
 >
+
+## V2.72 Accounting V1 正式資料鏈修復（2026-08-18）
+
+- Accounting 正式來源維持 `cars/{carId}/accountingEntries/{transactionId}`；LINE、Car Detail 與群組帳務網頁只作輸入／View，不建立第二份 Transaction。
+- 正式 Split 使用 `splits[].personId`；`shares`／`memberId` 僅保留 Legacy Compatibility。
+- 車團「誰欠誰」統一改為全車淨額：每位成員 `實際付款總額 - 最終應負擔總額`，先形成應收池／應付池，再產生全車最佳化 `settlementTransfers`；不再以每筆 Split 的付款人建立一對一欠款。
+- `accountingViews/activityCurrent` 定位為可重建 View／Cache，升級至 `schemaVersion=6`、`summaryVersion=2`；以最新 Transaction／Settlement `updatedAt` 組成 `summarySourceVersion`，來源變更即重建。
+- Car Detail 的 `accounting-repository.js` 不再維護獨立 pairwise obligation 真相；分帳、付款申報、收款確認只更新正式資料並使 View 失效，下一次載入由正式 Transaction／Settlement 重建。
+- `accounting-controller.js` 與 `accounting-render.js` 改讀全車 `settlementTransfers`；「我欠誰／誰欠我」均代表全車互抵後結果。
+- `api/group-assistant-context.js` 僅接受 `summaryVersion >= 2` 的快取；`js/group-assistant.js` 顯示成員金額時優先讀取核銷後 `currentNetAmount`，LINE 車團帳務網頁／玩家查看因此讀取同一份新版全車淨額摘要。
+- 修正 `services/firebase/car-accounting-repository.js` 的多人付款正規化：正式 `payments[].personId` 不再被舊 `memberId` filter 誤刪。
+
+### Accounting 前端正式模組分類
+
+`js/modules/accounting/` 分成兩條責任線：
+
+- Common Activity Accounting：`accounting-controller.js`（頁面協調）、`accounting-data.js`（前端 Domain Logic）、`accounting-repository.js`（Firestore／View）、`accounting-render.js`（Renderer）、`accounting-actions.js`（UI Events）。
+- Script Village Activity Fee Extension：`activity-fee-controller.js`（劇本費控制）、`activity-fee-data.js`（劇本費計算）、`activity-fee-repository.js`（劇本費 Firestore）。
+
+劇本費三檔屬劇本村 Extension，不得升格成 Accounting Core；Common Accounting 五檔不得寫死劇本費／工作室專屬規則。
 
 ## V2.71 LINE 行前提醒 V1 與自動排程（2026-08-16）
 
