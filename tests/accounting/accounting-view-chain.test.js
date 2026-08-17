@@ -145,3 +145,26 @@ test("Car Detail controller 不再從 pairwise obligations 重算誰欠誰", () 
   assert.equal(repository.includes("VIEW_SCHEMA_VERSION = 6"), true);
   assert.equal(repository.includes("summarySourceVersion"), true);
 });
+
+test("Car Detail 明細直接讀 canonical accountingEntries，不以 activityCurrent recentTransactions 當正式歷史", () => {
+  const repository = fs.readFileSync(
+    path.join(__dirname, "../../js/modules/accounting/accounting-repository.js"),
+    "utf8"
+  );
+
+  assert.equal(repository.includes('.collection("accountingEntries")'), true);
+  assert.equal(repository.includes('transactions: view.recentTransactions || []'), false);
+  assert.equal(repository.includes('recentEntries.docs'), true);
+});
+
+test("玩家車團帳務 API 不再混用 legacy getCarAccountingView", () => {
+  const contextApi = fs.readFileSync(
+    path.join(__dirname, "../../api/group-assistant-context.js"),
+    "utf8"
+  );
+
+  assert.equal(contextApi.includes("getCarAccountingView"), false);
+  assert.equal(contextApi.includes('root.collection("accountingEntries").get()'), true);
+  assert.equal(contextApi.includes("recentEntries"), true);
+  assert.equal(contextApi.includes("activeEntryCount"), true);
+});

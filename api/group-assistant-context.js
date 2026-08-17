@@ -13,10 +13,6 @@ const {
 } = require("../services/firebase/line-accounting-authorization-repository");
 
 const {
-  getCarAccountingView
-} = require("../services/firebase/car-accounting-repository");
-
-const {
   readCookie,
   verifyMemberSession
 } = require("../services/line/member-session");
@@ -180,144 +176,66 @@ async function resolveCurrentMember(
 
 
 async function totalSummary(carId) {
-  const db =
-    getFirestore();
+  const db = getFirestore();
+  const root = db.collection("cars").doc(carId);
+  const viewRef = root.collection("accountingViews").doc("activityCurrent");
 
-  const root =
-    db
-      .collection("cars")
-      .doc(carId);
-
-  const viewRef =
-    root
-      .collection(
-        "accountingViews"
-      )
-      .doc(
-        "activityCurrent"
-      );
-
-  const [
-    view,
-    latestEntry,
-    latestSettlement
-  ] = await Promise.all([
-    viewRef.get(),
-
-    root
-      .collection(
-        "accountingEntries"
-      )
-      .orderBy(
-        "updatedAt",
-        "desc"
-      )
-      .limit(1)
-      .get(),
-
-    root
-      .collection(
-        "accountingSettlements"
-      )
-      .orderBy(
-        "updatedAt",
-        "desc"
-      )
-      .limit(1)
-      .get()
+  // Canonical read: the web/player view is derived directly from the same
+  // accountingEntries + accountingSettlements used by Accounting Core.
+  // activityCurrent remains only a rebuildable summary cache.
+  const [entries, settlements] = await Promise.all([
+    root.collection("accountingEntries").get(),
+    root.collection("accountingSettlements").get()
   ]);
 
-  const sourceVersion =
-    [
-      latestEntry.empty
-        ? ""
-        : String(
-            latestEntry
-              .docs[0]
-              .data()
-              .updatedAt ||
-            ""
-          ),
+  const transactions = entries.docs
+    .map(doc => ({ transactionId: doc.id, ...doc.data() }))
+    .filter(item => item && item.status !== "deleted");
 
-      latestSettlement.empty
-        ? ""
-        : String(
-            latestSettlement
-              .docs[0]
-              .data()
-              .updatedAt ||
-            ""
-          )
-    ].join("|");
+  const settlementRecords = settlements.docs
+    .map(doc => ({ settlementId: doc.id, ...doc.data() }));
 
-  if (
-    view.exists &&
-    Number(
-      view.data()
-        .summaryVersion
-    ) >= 2 &&
-    view.data()
-      .summarySourceVersion ===
-      sourceVersion
-  ) {
-    return view.data();
-  }
+  const summary = buildActivityAccountingSummary(
+    transactions,
+    settlementRecords
+  );
 
-  const [
-    entries,
-    settlements
-  ] = await Promise.all([
-    root
-      .collection(
-        "accountingEntries"
-      )
-      .get(),
+  const latestEntryVersion = transactions.reduce(
+    (latest, item) => String(item.updatedAt || "") > latest
+      ? String(item.updatedAt || "")
+      : latest,
+    ""
+  );
 
-    root
-      .collection(
-        "accountingSettlements"
-      )
-      .get()
-  ]);
+  const latestSettlementVersion = settlementRecords.reduce(
+    (latest, item) => String(item.updatedAt || "") > latest
+      ? String(item.updatedAt || "")
+      : latest,
+    ""
+  );
 
-  const summary =
-    buildActivityAccountingSummary(
-      entries.docs.map(
-        doc => ({
-          transactionId:
-            doc.id,
+  const sourceVersion = `${latestEntryVersion}|${latestSettlementVersion}`;
+  const recentEntries = [...transactions]
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 20);
 
-          ...doc.data()
-        })
-      ),
-
-      settlements.docs.map(
-        doc => ({
-          settlementId:
-            doc.id,
-
-          ...doc.data()
-        })
-      )
-    );
+  const result = {
+    ...summary,
+    activeEntryCount: transactions.length,
+    recentEntries,
+    summarySourceVersion: sourceVersion
+  };
 
   await viewRef.set(
     {
       ...summary,
-
-      summarySourceVersion:
-        sourceVersion,
-
-      updatedAt:
-        new Date()
-          .toISOString()
+      summarySourceVersion: sourceVersion,
+      updatedAt: new Date().toISOString()
     },
-    {
-      merge: true
-    }
+    { merge: true }
   );
 
-  return summary;
+  return result;
 }
 
 
@@ -393,14 +311,9 @@ async function handler(
 
     const [
       car,
-      accounting,
       total
     ] = await Promise.all([
       getCarById(
-        carId
-      ),
-
-      getCarAccountingView(
         carId
       ),
 
@@ -473,14 +386,14 @@ async function handler(
 
           activeEntryCount:
             Number(
-              accounting.activeEntryCount
+              total.activeEntryCount
             ) || 0,
 
           recentEntries:
             Array.isArray(
-              accounting.recentEntries
+              total.recentEntries
             )
-              ? accounting.recentEntries
+              ? total.recentEntries
               : []
         }
       }

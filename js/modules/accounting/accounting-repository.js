@@ -274,10 +274,22 @@
       actionQuery = actionQuery.where("responsiblePersonId", "==", currentPersonId);
     }
 
-    const actions = await actionQuery.get();
+    const [actions, recentEntries] = await Promise.all([
+      actionQuery.get(),
+      root
+        .collection("accountingEntries")
+        .orderBy("createdAt", "desc")
+        .limit(20)
+        .get()
+    ]);
 
     return {
-      transactions: view.recentTransactions || [],
+      // Detailed/recent rows read the canonical transactions directly.
+      // activityCurrent is summary/cache only and is never the source of truth
+      // for transaction history.
+      transactions: recentEntries.docs
+        .map(doc => ({ transactionId: doc.id, ...doc.data() }))
+        .filter(item => item.status !== "deleted"),
       pendingActions: actions.docs.map(doc => ({ pendingActionId: doc.id, ...doc.data() })),
       pendingCounts: view.pendingCounts || actionCounts([]),
       balanceByPerson: view.balanceByPerson || [],
