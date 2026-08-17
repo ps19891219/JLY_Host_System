@@ -11,7 +11,7 @@ function buttons(message) {
   return message.contents.body.contents;
 }
 
-test("group assistant card shows car identity and six persistent entries", function () {
+test("group assistant card shows car identity and seven persistent entries", function () {
   const card = buildGroupAssistantCard({
     scriptName: "測試劇本",
     date: "2026-08-20"
@@ -20,21 +20,22 @@ test("group assistant card shows car identity and six persistent entries", funct
   assert.ok(card.altText.includes("測試劇本"));
   assert.ok(card.contents.header.contents[0].text.includes("測試劇本"));
   assert.ok(card.contents.header.contents[1].text.includes("2026-08-20"));
-  assert.equal(buttons(card).length, 6);
+  assert.equal(buttons(card).length, 7);
   assert.deepEqual(
     buttons(card).map(button => button.action.type),
-    ["message", "message", "message", "uri", "uri", "message"]
+    ["message", "message", "message", "uri", "message", "uri", "message"]
   );
   assert.equal(buttons(card)[0].action.text, "JLY 店家");
   assert.equal(buttons(card)[1].action.text, "JLY 時間");
   assert.equal(buttons(card)[2].action.text, "JLY 人員");
   assert.ok(buttons(card)[3].action.uri.includes("tab=accounting"));
   assert.ok(buttons(card)[3].action.uri.includes("signed-token"));
+  assert.equal(buttons(card)[4].action.text, "JLY 提醒");
   assert.equal(
-    buttons(card)[4].action.uri,
+    buttons(card)[5].action.uri,
     "https://example.com/pages/car-view.html?id=car-1"
   );
-  assert.equal(buttons(card)[5].action.text, "JLY 使用說明");
+  assert.equal(buttons(card)[6].action.text, "JLY 使用說明");
 });
 
 test("accounting card is a second-level persistent menu", function () {

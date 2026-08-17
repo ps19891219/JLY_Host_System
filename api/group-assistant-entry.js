@@ -375,9 +375,11 @@ module.exports = async function handler(req, res) {
     // ========================================================
 
     const requestedShares =
-      Array.isArray(input.shares)
-        ? input.shares
-        : [];
+      Array.isArray(input.splits)
+        ? input.splits
+        : Array.isArray(input.shares)
+          ? input.shares
+          : [];
 
 
     const splitNow =
@@ -394,11 +396,15 @@ module.exports = async function handler(req, res) {
 
         ? requestedShares
             .map(item => ({
-              memberId:
+              personId:
                 String(
                   (
                     item &&
-                    item.memberId
+                    (
+                      item.personId ||
+                      item.memberId ||
+                      item.playerId
+                    )
                   ) ||
                   ""
                 ),
@@ -414,7 +420,7 @@ module.exports = async function handler(req, res) {
 
               if (
                 !memberIds.has(
-                  item.memberId
+                  item.personId
                 )
               ) {
                 return false;
@@ -423,7 +429,7 @@ module.exports = async function handler(req, res) {
 
               if (
                 seenShareMembers.has(
-                  item.memberId
+                  item.personId
                 )
               ) {
                 return false;
@@ -431,7 +437,7 @@ module.exports = async function handler(req, res) {
 
 
               seenShareMembers.add(
-                item.memberId
+                item.personId
               );
 
               return true;
@@ -442,7 +448,7 @@ module.exports = async function handler(req, res) {
 
               displayName:
                 playerMap.get(
-                  item.memberId
+                  item.personId
                 ) ||
                 "成員"
             }))
@@ -653,13 +659,13 @@ module.exports = async function handler(req, res) {
       requestedPayments
 
         .map(item => ({
-          memberId:
+          personId:
             String(
               (
                 item &&
                 (
-                  item.memberId ||
                   item.personId ||
+                  item.memberId ||
                   item.playerId
                 )
               ) ||
@@ -676,7 +682,7 @@ module.exports = async function handler(req, res) {
         .filter(item => {
 
           if (
-            !item.memberId
+            !item.personId
           ) {
             return false;
           }
@@ -684,10 +690,10 @@ module.exports = async function handler(req, res) {
 
           const validMember =
             memberIds.has(
-              item.memberId
+              item.personId
             ) ||
             actorIds.has(
-              item.memberId
+              item.personId
             );
 
 
@@ -698,7 +704,7 @@ module.exports = async function handler(req, res) {
 
           if (
             seenPaymentMembers.has(
-              item.memberId
+              item.personId
             )
           ) {
             return false;
@@ -706,7 +712,7 @@ module.exports = async function handler(req, res) {
 
 
           seenPaymentMembers.add(
-            item.memberId
+            item.personId
           );
 
           return true;
@@ -717,11 +723,11 @@ module.exports = async function handler(req, res) {
 
           displayName:
             playerMap.get(
-              item.memberId
+              item.personId
             ) ||
             (
               actorIds.has(
-                item.memberId
+                item.personId
               )
                 ? session.data.displayName
                 : "成員"
@@ -761,7 +767,7 @@ module.exports = async function handler(req, res) {
 
       payments = [
         {
-          memberId:
+          personId:
             fallbackPayerId,
 
           displayName:
@@ -856,7 +862,7 @@ module.exports = async function handler(req, res) {
 
         // Legacy aliases
         payerMemberId:
-          firstPayment.memberId,
+          firstPayment.personId,
 
         payerDisplayName:
           firstPayment.displayName,
@@ -864,6 +870,10 @@ module.exports = async function handler(req, res) {
         // Formal actual payments
         payments,
 
+        // Formal split source
+        splits: shares,
+
+        // Legacy compatibility alias
         shares,
 
         splitStatus:

@@ -1,6 +1,7 @@
 "use strict";
 
 const { getFirestore } = require("./admin");
+const { createTransaction } = require("../accounting/transaction");
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -22,7 +23,7 @@ function normalizePayments(entry) {
   const payments = Array.isArray(entry && entry.payments)
     ? entry.payments
         .map(item => ({
-          memberId: normalizeText(
+          personId: normalizeText(
             item && (
               item.memberId ||
               item.personId ||
@@ -58,13 +59,31 @@ function normalizePayments(entry) {
 
   return [
     {
-      memberId: payerMemberId,
+      personId: payerMemberId,
       displayName: normalizeText(
         entry && entry.payerDisplayName
       ),
       amount
     }
   ];
+}
+
+function normalizeSplits(entry) {
+  const source = Array.isArray(entry && entry.splits)
+    ? entry.splits
+    : Array.isArray(entry && entry.shares)
+      ? entry.shares
+      : [];
+
+  return source
+    .map(item => ({
+      ...item,
+      personId: normalizeText(
+        item && (item.personId || item.memberId || item.playerId)
+      ),
+      amount: Number(item && item.amount) || 0
+    }))
+    .filter(item => item.personId && item.amount > 0);
 }
 
 function paymentTotal(entry) {
@@ -91,15 +110,18 @@ function compactEntry(entry) {
     // Formal actual-payment data
     payments: normalizePayments(entry),
 
-    shares: Array.isArray(entry.shares)
-      ? entry.shares
-      : [],
+    splits: normalizeSplits(entry),
+
+    // Legacy compatibility alias for older LINE views only.
+    shares: normalizeSplits(entry).map(split => ({
+      ...split,
+      memberId: split.personId
+    })),
 
     splitStatus:
       normalizeText(entry.splitStatus) ||
       (
-        Array.isArray(entry.shares) &&
-        entry.shares.length
+        normalizeSplits(entry).length
           ? "completed"
           : "pending"
       ),
@@ -135,7 +157,7 @@ function buildMemberBalances(entries) {
 
   for (const payment of normalizePayments(entry)) {
     const payer = member(
-      payment.memberId,
+      payment.personId,
       payment.displayName
     );
 
@@ -146,13 +168,11 @@ function buildMemberBalances(entries) {
 
   for (
     const share of (
-      Array.isArray(entry.shares)
-        ? entry.shares
-        : []
+      normalizeSplits(entry)
     )
   ) {
     const participant = member(
-      share.memberId,
+      share.personId,
       share.displayName || share.memberName
     );
 
@@ -207,7 +227,7 @@ function applyEntryToMemberBalances(memberBalances, entry, factor = 1) {
   }
   for (const payment of normalizePayments(entry)) {
   const payer = member(
-    payment.memberId,
+    payment.personId,
     payment.displayName
   );
 
@@ -216,8 +236,8 @@ function applyEntryToMemberBalances(memberBalances, entry, factor = 1) {
       factor * payment.amount;
   }
 }
-  for (const share of (entry && Array.isArray(entry.shares) ? entry.shares : [])) {
-    const participant = member(share.memberId, share.displayName || share.memberName);
+  for (const share of normalizeSplits(entry)) {
+    const participant = member(share.personId, share.displayName || share.memberName);
     if (participant) participant.shareAmount += factor * (Number(share.amount) || 0);
   }
   return [...balances.values()]
@@ -324,28 +344,34 @@ async function saveCarAccountingEntry(entry) {
   const entryRef = carRef.collection("accountingEntries").doc(entryId);
   const auditRef = carRef.collection("accountingAuditLogs").doc();
   const now = new Date().toISOString();
-  const data = {
+  const canonical = createTransaction({
+    ...entry,
+    transactionId: entryId,
+    activityId: carId,
     carId,
+    createdBy: normalizeText(entry.createdBy || entry.actorMemberId),
+    title: normalizeText(entry.title || entry.description),
+    payments: normalizePayments(entry),
+    splits: normalizeSplits(entry),
+    createdAt: normalizeText(entry.createdAt) || now,
+    updatedAt: now
+  });
+
+  const data = {
+    ...canonical,
     groupId: normalizeText(entry.groupId),
     messageId: entryId,
     userId: normalizeText(entry.userId),
     actorMemberId: normalizeText(entry.actorMemberId),
     actorDisplayName: normalizeText(entry.actorDisplayName),
-    payerMemberId: normalizeText(entry.payerMemberId),
+
+    // Legacy compatibility aliases. New calculations use payments/splits.
+    payerMemberId: normalizeText(entry.payerMemberId || canonical.paidBy),
     payerDisplayName: normalizeText(entry.payerDisplayName),
-
-    payments: normalizePayments(entry),
-
-    shares: Array.isArray(entry.shares) ? entry.shares : [],
-    splitStatus: normalizeText(entry.splitStatus) ||
-      (Array.isArray(entry.shares) && entry.shares.length ? "completed" : "pending"),
-    type: normalizeText(entry.type),
-    amount: Number(entry.amount),
-    description: normalizeText(entry.description),
-    source: normalizeText(entry.source) || "line_group",
-    status: "active",
-    createdAt: normalizeText(entry.createdAt) || now,
-    updatedAt: now
+    shares: canonical.splits.map(split => ({
+      ...split,
+      memberId: split.personId
+    }))
   };
 
   await ensureCarAccountingView(carId);
@@ -557,9 +583,14 @@ async function completeCarAccountingSplit(options) {
   // Completing a split must not rewrite who paid.
   payments: normalizePayments(before),
 
-  shares: Array.isArray(options.shares)
-    ? options.shares
-    : [],
+  splits: normalizeSplits({
+    splits: Array.isArray(options.splits) ? options.splits : options.shares
+  }),
+
+  // Legacy compatibility alias only.
+  shares: normalizeSplits({
+    splits: Array.isArray(options.splits) ? options.splits : options.shares
+  }).map(split => ({ ...split, memberId: split.personId })),
 
   splitStatus: "completed",
   updatedAt: now,
