@@ -3498,55 +3498,566 @@ window.copyJoinUrl =
 
 }
 
-async function copyCurrentPublicPost() {
+/* =========================
+   LINE 揪團文案
+========================= */
 
+function getRecruitRemainingText(car) {
+  const slots =
+    Array.isArray(car && car.slots)
+      ? car.slots
+      : [];
+
+  const isEmptySeat = function (seat) {
+    return !(
+      seat &&
+      (
+        seat.playerId ||
+        seat.player
+      )
+    );
+  };
+
+  if (slots.length > 0) {
+    const maleSeats =
+      slots.filter(function (seat) {
+        return (
+          seat.originalType === "male" ||
+          (
+            seat.originalType === "flexible" &&
+            seat.type === "male"
+          )
+        );
+      });
+
+    const femaleSeats =
+      slots.filter(function (seat) {
+        return (
+          seat.originalType === "female" ||
+          (
+            seat.originalType === "flexible" &&
+            seat.type === "female"
+          )
+        );
+      });
+
+    const flexibleSeats =
+      slots.filter(function (seat) {
+        return (
+          seat.originalType === "flexible" &&
+          seat.type !== "male" &&
+          seat.type !== "female"
+        );
+      });
+
+    /*
+      有男女席位的車：
+      分別顯示剩餘男／女席位。
+    */
+    if (
+      maleSeats.length > 0 ||
+      femaleSeats.length > 0
+    ) {
+      const maleNeed =
+        maleSeats.filter(isEmptySeat).length;
+
+      const femaleNeed =
+        femaleSeats.filter(isEmptySeat).length;
+
+      const parts = [];
+
+      if (maleNeed > 0) {
+        parts.push(
+          maleNeed + "男"
+        );
+      }
+
+      if (femaleNeed > 0) {
+        parts.push(
+          femaleNeed + "女"
+        );
+      }
+
+      /*
+        混合席位若仍有真正「不限位」，
+        保留顯示，避免席位數字消失。
+      */
+      const flexibleNeed =
+        flexibleSeats.filter(
+          isEmptySeat
+        ).length;
+
+      if (flexibleNeed > 0) {
+        parts.push(
+          flexibleNeed + "不限"
+        );
+      }
+
+      return parts.length
+        ? "缺 " + parts.join(" ")
+        : "已滿團";
+    }
+
+    /*
+      純不限車：
+      只顯示缺幾人。
+    */
+    const totalNeed =
+      slots.filter(isEmptySeat).length;
+
+    return totalNeed > 0
+      ? "缺 " + totalNeed + "人"
+      : "已滿團";
+  }
+
+  /*
+    舊資料沒有 slots 時的安全 fallback。
+  */
+  const total =
+    Number(car.totalPeople || 0);
+
+  const activeCount =
+    getActivePlayers(car).length;
+
+  const remaining =
+    Math.max(
+      total - activeCount,
+      0
+    );
+
+  return remaining > 0
+    ? "缺 " + remaining + "人"
+    : "已滿團";
+}
+
+function getRecruitDmText(car) {
+  if (
+    Array.isArray(car.dmList)
+  ) {
+    return car.dmList
+      .map(function (item) {
+        if (
+          typeof item === "string"
+        ) {
+          return item.trim();
+        }
+
+        if (
+          item &&
+          typeof item === "object"
+        ) {
+          return String(
+            item.displayName ||
+            item.name ||
+            item.dmName ||
+            ""
+          ).trim();
+        }
+
+        return "";
+      })
+      .filter(Boolean)
+      .join("、");
+  }
+
+  return String(
+    car.dmName || ""
+  ).trim();
+}
+
+function getRecruitStudioLocationText(
+  car
+) {
+  const studio =
+    String(
+      car.studioName ||
+      car.organizerName ||
+      car.organizer ||
+      ""
+    ).trim();
+
+  const location =
+    String(
+      car.locationName ||
+      car.location ||
+      car.address ||
+      ""
+    ).trim();
+
+  if (
+    studio &&
+    location &&
+    studio !== location
+  ) {
+    return (
+      studio +
+      "｜" +
+      location
+    );
+  }
+
+  return (
+    studio ||
+    location ||
+    ""
+  );
+}
+
+function buildRecruitmentText(
+  car,
+  options
+) {
+  const settings =
+    options || {};
+
+  const lines = [];
+
+  const scriptName =
+    String(
+      car.scriptName ||
+      car.activityName ||
+      "未命名劇本"
+    ).trim();
+
+  const date =
+    String(
+      car.gameDate || ""
+    ).trim();
+
+  const time =
+    String(
+      car.gameTime || ""
+    ).trim();
+
+  const price =
+    Number(
+      car.price || 0
+    );
+
+  const dmText =
+    getRecruitDmText(car);
+
+  const studioLocation =
+    getRecruitStudioLocationText(
+      car
+    );
+
+  const note =
+    String(
+      car.note || ""
+    ).trim();
+
+  lines.push(
+    "🎭 " + scriptName
+  );
+
+  lines.push("");
+
+  if (
+    date ||
+    time
+  ) {
+    lines.push(
+      "📅 " +
+      [date, time]
+        .filter(Boolean)
+        .join(" ")
+    );
+  }
+
+  if (price > 0) {
+    lines.push(
+      "💰 $" +
+      price.toLocaleString(
+        "zh-TW"
+      )
+    );
+  }
+
+  lines.push(
+    "👥 " +
+    getRecruitRemainingText(car)
+  );
+
+  if (
+    settings.includeDm &&
+    dmText
+  ) {
+    lines.push("");
+    lines.push(
+      "🎲 DM：" +
+      dmText
+    );
+  }
+
+  if (studioLocation) {
+    lines.push(
+      "🏠 " +
+      studioLocation
+    );
+  }
+
+  if (
+    settings.includeNote &&
+    note
+  ) {
+    lines.push(
+      "📝 備註：" +
+      note
+    );
+  }
+
+  return lines.join("\n").trim();
+}
+
+function closeRecruitmentTextModal() {
+  const old =
+    document.getElementById(
+      "recruitmentTextBackdrop"
+    );
+
+  if (old) {
+    old.remove();
+  }
+}
+
+async function confirmCopyRecruitmentText() {
   const car =
     window.currentCarData;
 
   if (!car) {
+    alert(
+      "車團資料尚未載入完成"
+    );
     return;
   }
 
-  const text = `
-🎭 ${car.scriptName}
+  const includeDm =
+    Boolean(
+      document.getElementById(
+        "recruitmentIncludeDm"
+      ) &&
+      document.getElementById(
+        "recruitmentIncludeDm"
+      ).checked
+    );
 
-📅 ${car.gameDate} ${car.gameTime}
+  const includeNote =
+    Boolean(
+      document.getElementById(
+        "recruitmentIncludeNote"
+      ) &&
+      document.getElementById(
+        "recruitmentIncludeNote"
+      ).checked
+    );
 
-🏠 ${car.location || ""}
-
-🎲 DM：
-${Array.isArray(car.dmList)
-    ? car.dmList.join("、")
-    : car.dmName || ""}
-
-目前還缺
-${getNeed(car)} 人
-
-報名：
-${getJoinUrl(car.id)}
-`;
+  const text =
+    buildRecruitmentText(
+      car,
+      {
+        includeDm,
+        includeNote
+      }
+    );
 
   try {
+    await navigator.clipboard
+      .writeText(text);
 
-    await navigator.clipboard.writeText(
-      text.trim()
-    );
+    closeRecruitmentTextModal();
 
     alert(
-      "已複製揪團資訊"
+      "✅ 已複製 LINE 揪團文案"
     );
-
   } catch (error) {
-
-    console.error(error);
-
-    alert(
-      "複製失敗"
+    console.error(
+      "複製 LINE 揪團文案失敗：",
+      error
     );
 
+    alert(
+      "複製失敗，請稍後再試"
+    );
+  }
+}
+
+function copyRecruitmentText() {
+  const car =
+    window.currentCarData;
+
+  if (!car) {
+    alert(
+      "車團資料尚未載入完成"
+    );
+    return;
   }
 
+  closeCarMenu();
+  closeRecruitmentTextModal();
+
+  const dmText =
+    getRecruitDmText(car);
+
+  const note =
+    String(
+      car.note || ""
+    ).trim();
+
+  const backdrop =
+    document.createElement(
+      "div"
+    );
+
+  backdrop.id =
+    "recruitmentTextBackdrop";
+
+  backdrop.style.cssText = [
+    "position:fixed",
+    "inset:0",
+    "z-index:9999",
+    "background:rgba(0,0,0,.45)",
+    "display:flex",
+    "align-items:center",
+    "justify-content:center",
+    "padding:20px"
+  ].join(";");
+
+  backdrop.innerHTML = `
+    <div
+      style="
+        width:min(420px,100%);
+        background:#fff;
+        border-radius:18px;
+        padding:20px;
+        box-sizing:border-box;
+        box-shadow:0 16px 50px rgba(0,0,0,.22);
+      "
+    >
+      <h3
+        style="
+          margin:0 0 16px;
+        "
+      >
+        📋 LINE 揪團文案
+      </h3>
+
+      <p
+        style="
+          margin:0 0 16px;
+          line-height:1.6;
+        "
+      >
+        劇本、日期時間、金額、缺額、
+        工作室／地點會自動帶入。
+      </p>
+
+      ${
+        dmText
+          ? `
+            <label
+              style="
+                display:flex;
+                gap:10px;
+                align-items:center;
+                margin:12px 0;
+              "
+            >
+              <input
+                type="checkbox"
+                id="recruitmentIncludeDm"
+              >
+              加入 DM
+            </label>
+          `
+          : ""
+      }
+
+      ${
+        note
+          ? `
+            <label
+              style="
+                display:flex;
+                gap:10px;
+                align-items:center;
+                margin:12px 0;
+              "
+            >
+              <input
+                type="checkbox"
+                id="recruitmentIncludeNote"
+              >
+              加入備註
+            </label>
+          `
+          : ""
+      }
+
+      <div
+        style="
+          display:flex;
+          gap:10px;
+          margin-top:20px;
+        "
+      >
+        <button
+          type="button"
+          onclick="confirmCopyRecruitmentText()"
+          style="
+            flex:1;
+            padding:12px;
+          "
+        >
+          複製文案
+        </button>
+
+        <button
+          type="button"
+          onclick="closeRecruitmentTextModal()"
+          style="
+            padding:12px;
+          "
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  `;
+
+  backdrop.addEventListener(
+    "click",
+    function (event) {
+      if (
+        event.target ===
+        backdrop
+      ) {
+        closeRecruitmentTextModal();
+      }
+    }
+  );
+
+  document.body.appendChild(
+    backdrop
+  );
 }
+
+/*
+  舊名稱保留相容，
+  避免其他地方仍呼叫它。
+*/
+async function copyCurrentPublicPost() {
+  copyRecruitmentText();
+}
+
+window.copyRecruitmentText =
+  copyRecruitmentText;
+
+window.confirmCopyRecruitmentText =
+  confirmCopyRecruitmentText;
+
+window.closeRecruitmentTextModal =
+  closeRecruitmentTextModal;
 
 async function copyCurrentGroupPost() {
 
