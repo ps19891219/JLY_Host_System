@@ -481,16 +481,126 @@ document.addEventListener(
     }
 
     syncMyProfileIdentityCache()
-      .catch(
-        function (error) {
-          console.warn(
-            "Player Profile 快取同步失敗：",
-            error
-          );
-        }
+  .then(
+    function () {
+      renderSystemAdminMode();
+    }
+  )
+  .catch(
+    function (error) {
+      console.warn(
+        "Player Profile 快取同步失敗：",
+        error
       );
+
+      renderSystemAdminMode();
+    }
+  );
   }
 );
+
+// ============================================================
+// System Admin Mode UI
+// ============================================================
+
+function renderSystemAdminMode() {
+  const card =
+    document.getElementById(
+      "systemAdminCard"
+    );
+
+  const status =
+    document.getElementById(
+      "systemAdminStatus"
+    );
+
+  const button =
+    document.getElementById(
+      "systemAdminToggleButton"
+    );
+
+  if (
+    !card ||
+    !status ||
+    !button
+  ) {
+    return;
+  }
+
+  const identity =
+    window.JLYIdentity;
+
+  if (
+    !identity ||
+    typeof identity
+      .canUseSystemAdmin !==
+        "function"
+  ) {
+    card.hidden = true;
+    return;
+  }
+
+  const canUse =
+    identity
+      .canUseSystemAdmin();
+
+  card.hidden =
+    !canUse;
+
+  if (!canUse) {
+    return;
+  }
+
+  const enabled =
+    typeof identity
+      .isSystemAdminMode ===
+        "function"
+      ? identity
+          .isSystemAdminMode()
+      : false;
+
+  status.textContent =
+    enabled
+      ? "目前身分：系統管理者"
+      : "目前身分：一般使用者";
+
+  button.textContent =
+    enabled
+      ? "關閉系統管理者模式"
+      : "開啟系統管理者模式";
+}
+
+function toggleSystemAdminModeFromProfile() {
+  const identity =
+    window.JLYIdentity;
+
+  if (
+    !identity ||
+    typeof identity
+      .toggleSystemAdminMode !==
+        "function"
+  ) {
+    alert(
+      "System Admin 模組尚未載入"
+    );
+
+    return;
+  }
+
+  const result =
+    identity
+      .toggleSystemAdminMode();
+
+  if (!result) {
+    alert(
+      "目前身分沒有系統管理者資格"
+    );
+
+    return;
+  }
+
+  renderSystemAdminMode();
+}
 
 // ============================================================
 // 對外公開
@@ -501,3 +611,9 @@ window.saveMyProfile =
 
 window.syncMyProfileIdentityCache =
   syncMyProfileIdentityCache;
+
+  window.renderSystemAdminMode =
+  renderSystemAdminMode;
+
+window.toggleSystemAdminModeFromProfile =
+  toggleSystemAdminModeFromProfile;
