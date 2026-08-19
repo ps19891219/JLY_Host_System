@@ -118,6 +118,16 @@
       );
   }
 
+  async function checkBeforeUpdate(
+  config
+) {
+  return window
+    .JLYCalendarScheduleCheck
+    .checkBeforeUpdate(
+      config
+    );
+}
+
   async function syncCreatedCar(
     config
   ) {
@@ -129,12 +139,13 @@
   }
 
   window.JLYCalendarController = {
-    getSettings,
-    saveSettings,
-    applyCreatePageDefaults,
-    checkBeforeCreate,
-    syncCreatedCar
-  };
+  getSettings,
+  saveSettings,
+  applyCreatePageDefaults,
+  checkBeforeCreate,
+  checkBeforeUpdate,
+  syncCreatedCar
+};
 
   document.addEventListener(
     "DOMContentLoaded",

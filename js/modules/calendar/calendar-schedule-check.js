@@ -244,9 +244,223 @@
     };
   }
 
-  window
-    .JLYCalendarScheduleCheck = {
-      checkBeforeCreate,
-      buildMessage
+  function buildUpdateMessage(
+  config
+) {
+  const jlyCars =
+    Array.isArray(
+      config.jlyCars
+    )
+      ? config.jlyCars
+      : [];
+
+  const googleEvents =
+    Array.isArray(
+      config.googleEvents
+    )
+      ? config.googleEvents
+      : [];
+
+  const lines = [
+    "⚠️ 修改後的日期已有其他行程",
+    ""
+  ];
+
+  if (jlyCars.length > 0) {
+    lines.push(
+      "JLY 車團"
+    );
+
+    jlyCars.forEach(
+      function (car) {
+        lines.push(
+          "🎭 " +
+          (
+            car.scriptName ||
+            "未命名劇本"
+          ) +
+          "｜" +
+          (
+            car.gameTime ||
+            "時間未填"
+          )
+        );
+      }
+    );
+
+    lines.push("");
+  }
+
+  if (
+    googleEvents.length > 0
+  ) {
+    lines.push(
+      "Google Calendar"
+    );
+
+    googleEvents.forEach(
+      function (event) {
+        lines.push(
+          "📌 " +
+          (
+            event.summary ||
+            "未命名活動"
+          ) +
+          "｜" +
+          formatGoogleEventTime(
+            event
+          )
+        );
+      }
+    );
+
+    lines.push("");
+  }
+
+  lines.push(
+    "仍要修改這台車嗎？"
+  );
+
+  return lines.join(
+    "\n"
+  );
+}
+
+async function checkBeforeUpdate(
+  config
+) {
+  const currentCarId =
+    config.currentCarId || "";
+
+  const currentEventId =
+    config.currentEventId || "";
+
+  /*
+    排除目前正在編輯的 JLY 車團本身。
+  */
+  const jlyCars =
+    (
+      Array.isArray(
+        config.jlyCars
+      )
+        ? config.jlyCars
+        : []
+    ).filter(
+      function (car) {
+        return (
+          String(
+            car.id || ""
+          ) !==
+          String(
+            currentCarId
+          )
+        );
+      }
+    );
+
+  let googleEvents = [];
+
+  let googleCheckError =
+    null;
+
+  if (
+    config.checkGoogle === true
+  ) {
+    try {
+      googleEvents =
+        await window
+          .JLYCalendarProviderGoogle
+          .listEventsForDate(
+            config.gameDate
+          );
+
+      /*
+        排除這台車自己原本的
+        Google Calendar Event。
+      */
+      googleEvents =
+        (
+          Array.isArray(
+            googleEvents
+          )
+            ? googleEvents
+            : []
+        ).filter(
+          function (event) {
+            return (
+              String(
+                event.id || ""
+              ) !==
+              String(
+                currentEventId
+              )
+            );
+          }
+        );
+    } catch (error) {
+      googleCheckError =
+        error;
+    }
+  }
+
+  if (googleCheckError) {
+    const proceedWithoutGoogle =
+      confirm(
+        "⚠️ 無法確認 Google Calendar 當天行程。\n\n" +
+        (
+          googleCheckError
+            .message ||
+          "未知錯誤"
+        ) +
+        "\n\n是否仍要繼續修改？"
+      );
+
+    if (
+      !proceedWithoutGoogle
+    ) {
+      return {
+        proceed: false,
+
+        googleEvents: [],
+
+        googleCheckError
+      };
+    }
+  }
+
+  if (
+    jlyCars.length === 0 &&
+    googleEvents.length === 0
+  ) {
+    return {
+      proceed: true,
+
+      googleEvents,
+
+      googleCheckError
     };
+  }
+
+  return {
+    proceed:
+      confirm(
+        buildUpdateMessage({
+          jlyCars,
+          googleEvents
+        })
+      ),
+
+    googleEvents,
+
+    googleCheckError
+  };
+}
+
+  window
+  .JLYCalendarScheduleCheck = {
+    checkBeforeCreate,
+    checkBeforeUpdate,
+    buildMessage,
+    buildUpdateMessage
+  };
 })();

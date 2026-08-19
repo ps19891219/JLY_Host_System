@@ -58,6 +58,42 @@ function shouldSyncEditedCarCalendar(
   );
 }
 
+async function findSameDayCarsForEdit(
+  gameDate
+) {
+  const db =
+    window.db;
+
+  if (!db) {
+    throw new Error(
+      "Firebase 尚未載入"
+    );
+  }
+
+  if (!gameDate) {
+    return [];
+  }
+
+  const snapshot =
+    await db
+      .collection("cars")
+      .where(
+        "gameDate",
+        "==",
+        gameDate
+      )
+      .get();
+
+  return snapshot.docs.map(
+    function (doc) {
+      return {
+        id: doc.id,
+        ...doc.data()
+      };
+    }
+  );
+}
+
 function editNowTime() {
   return new Date().toISOString();
 }
@@ -1178,17 +1214,29 @@ const shouldSyncCalendar =
     updatedData
   );
 
+let wantsCalendarUpdate =
+  false;
+
 let googleCalendarAuthorized =
   false;
 
-let googleCalendarAuthError =
-  null;
-
-/*
-  Google OAuth 必須靠近使用者點擊，
-  所以要在 Audit / Firestore await 前先取得授權。
-*/
 if (shouldSyncCalendar) {
+  wantsCalendarUpdate =
+    confirm(
+      [
+        "📅 這台車已同步到 Google Calendar。",
+        "",
+        "這次修改包含日期、時間、地點或其他行程資訊。",
+        "",
+        "是否同步更新 Google Calendar？",
+        "",
+        "按「確定」：JLY 與 Google Calendar 一起更新",
+        "按「取消」：這次只更新 JLY"
+      ].join("\n")
+    );
+}
+
+if (wantsCalendarUpdate) {
   try {
     if (
       !window.JLYCalendarAuth ||
@@ -1209,13 +1257,86 @@ if (shouldSyncCalendar) {
     googleCalendarAuthorized =
       true;
   } catch (error) {
-    googleCalendarAuthError =
-      error;
-
     console.warn(
       "Google Calendar 授權未完成：",
       error
     );
+
+    const continueJlyOnly =
+      confirm(
+        [
+          "⚠️ Google Calendar 授權未完成。",
+          "",
+          error && error.message
+            ? error.message
+            : "無法取得 Google 授權",
+          "",
+          "是否仍只修改 JLY 車團？",
+          "",
+          "Google Calendar 將維持原本內容。"
+        ].join("\n")
+      );
+
+    if (!continueJlyOnly) {
+      return;
+    }
+
+    wantsCalendarUpdate =
+      false;
+  }
+}
+
+if (
+  wantsCalendarUpdate &&
+  googleCalendarAuthorized &&
+  updatedData.gameDate
+) {
+  const sameDayCars =
+    await findSameDayCarsForEdit(
+      updatedData.gameDate
+    );
+
+  if (
+    !window.JLYCalendarController ||
+    typeof window
+      .JLYCalendarController
+      .checkBeforeUpdate !==
+        "function"
+  ) {
+    alert(
+      "Calendar 行程檢查模組尚未載入"
+    );
+    return;
+  }
+
+  const checkResult =
+    await window
+      .JLYCalendarController
+      .checkBeforeUpdate({
+        gameDate:
+          updatedData.gameDate,
+
+        jlyCars:
+          sameDayCars,
+
+        checkGoogle:
+          true,
+
+        currentCarId:
+          carId,
+
+        currentEventId:
+          currentEditingCar.calendar &&
+          currentEditingCar.calendar.eventId
+            ? currentEditingCar.calendar.eventId
+            : ""
+      });
+
+  if (
+    !checkResult ||
+    checkResult.proceed !== true
+  ) {
+    return;
   }
 }
 
@@ -1252,7 +1373,7 @@ await audit
   null;
 
 if (
-  shouldSyncCalendar &&
+  wantsCalendarUpdate &&
   googleCalendarAuthorized
 ) {
   if (
@@ -1295,20 +1416,6 @@ if (
 }
 
     if (
-  shouldSyncCalendar &&
-  !googleCalendarAuthorized
-) {
-  alert(
-    "車團修改完成！\n\n" +
-    "⚠️ Google Calendar 尚未更新。\n" +
-    (
-      googleCalendarAuthError &&
-      googleCalendarAuthError.message
-        ? googleCalendarAuthError.message
-        : "Google 授權未完成"
-    )
-  );
-} else if (
   calendarSyncResult &&
   calendarSyncResult.ok === false
 ) {
@@ -1324,11 +1431,19 @@ if (
     )
   );
 } else if (
-  shouldSyncCalendar &&
+  wantsCalendarUpdate &&
   googleCalendarAuthorized
 ) {
   alert(
     "車團修改完成，Google Calendar 也已更新！"
+  );
+} else if (
+  shouldSyncCalendar &&
+  !wantsCalendarUpdate
+) {
+  alert(
+    "車團修改完成！\n\n" +
+    "這次沒有更新 Google Calendar。"
   );
 } else {
   alert(
