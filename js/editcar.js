@@ -7,6 +7,57 @@ console.log("editcar.js 已成功載入！");
 
 let currentEditingCar = null;
 
+const EDIT_CALENDAR_SYNC_FIELDS = [
+  "scriptName",
+  "gameDate",
+  "gameTime",
+  "location",
+  "locationName",
+  "studioName",
+  "organizerName"
+];
+
+function hasEditCalendarChanges(
+  car,
+  updatedData
+) {
+  return EDIT_CALENDAR_SYNC_FIELDS
+    .some(
+      function (fieldName) {
+        return (
+          String(
+            car &&
+            car[fieldName] != null
+              ? car[fieldName]
+              : ""
+          ) !==
+          String(
+            updatedData &&
+            updatedData[fieldName] != null
+              ? updatedData[fieldName]
+              : ""
+          )
+        );
+      }
+    );
+}
+
+function shouldSyncEditedCarCalendar(
+  car,
+  updatedData
+) {
+  return Boolean(
+    car &&
+    car.calendar &&
+    car.calendar.syncEnabled === true &&
+    car.calendar.eventId &&
+    hasEditCalendarChanges(
+      car,
+      updatedData
+    )
+  );
+}
+
 function editNowTime() {
   return new Date().toISOString();
 }
@@ -1121,6 +1172,53 @@ const updatedData = {
     editNowTime()
 };
 
+const shouldSyncCalendar =
+  shouldSyncEditedCarCalendar(
+    currentEditingCar,
+    updatedData
+  );
+
+let googleCalendarAuthorized =
+  false;
+
+let googleCalendarAuthError =
+  null;
+
+/*
+  Google OAuth 必須靠近使用者點擊，
+  所以要在 Audit / Firestore await 前先取得授權。
+*/
+if (shouldSyncCalendar) {
+  try {
+    if (
+      !window.JLYCalendarAuth ||
+      typeof window
+        .JLYCalendarAuth
+        .requestAccessToken !==
+          "function"
+    ) {
+      throw new Error(
+        "Google Calendar 授權模組尚未載入"
+      );
+    }
+
+    await window
+      .JLYCalendarAuth
+      .requestAccessToken();
+
+    googleCalendarAuthorized =
+      true;
+  } catch (error) {
+    googleCalendarAuthError =
+      error;
+
+    console.warn(
+      "Google Calendar 授權未完成：",
+      error
+    );
+  }
+}
+
   try {
     const audit =
   window.JLYAudit;
@@ -1150,7 +1248,93 @@ await audit
       updatedData
   });
 
-    alert("車團修改完成！");
+  let calendarSyncResult =
+  null;
+
+if (
+  shouldSyncCalendar &&
+  googleCalendarAuthorized
+) {
+  if (
+    !window.JLYCalendarSync ||
+    typeof window
+      .JLYCalendarSync
+      .syncUpdatedCar !==
+        "function"
+  ) {
+    console.warn(
+      "Calendar Sync 模組尚未載入"
+    );
+  } else {
+    const nextCar = {
+      ...currentEditingCar,
+      ...updatedData,
+
+      // 保留原本 eventId / calendarId
+      calendar:
+        currentEditingCar.calendar
+    };
+
+    calendarSyncResult =
+      await window
+        .JLYCalendarSync
+        .syncUpdatedCar({
+          carId,
+
+          car:
+            nextCar,
+
+          carUrl:
+            location.origin +
+            "/pages/car-detail.html?id=" +
+            encodeURIComponent(
+              carId
+            )
+        });
+  }
+}
+
+    if (
+  shouldSyncCalendar &&
+  !googleCalendarAuthorized
+) {
+  alert(
+    "車團修改完成！\n\n" +
+    "⚠️ Google Calendar 尚未更新。\n" +
+    (
+      googleCalendarAuthError &&
+      googleCalendarAuthError.message
+        ? googleCalendarAuthError.message
+        : "Google 授權未完成"
+    )
+  );
+} else if (
+  calendarSyncResult &&
+  calendarSyncResult.ok === false
+) {
+  alert(
+    "車團修改完成！\n\n" +
+    "⚠️ Google Calendar 更新失敗。\n" +
+    (
+      calendarSyncResult.error &&
+      calendarSyncResult.error.message
+        ? calendarSyncResult
+            .error.message
+        : "未知錯誤"
+    )
+  );
+} else if (
+  shouldSyncCalendar &&
+  googleCalendarAuthorized
+) {
+  alert(
+    "車團修改完成，Google Calendar 也已更新！"
+  );
+} else {
+  alert(
+    "車團修改完成！"
+  );
+}
 
     location.href =
       "car-detail.html?id=" +
