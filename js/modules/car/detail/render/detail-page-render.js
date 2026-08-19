@@ -453,6 +453,31 @@ console.log(
   }
 
   // ------------------------------------------------------------
+  // DM Application Section
+  // ------------------------------------------------------------
+
+  function buildDmApplicationsSectionHtml(
+    car
+  ) {
+    const module =
+      window.JLYDmApplicationActions;
+
+    if (
+      !module ||
+      typeof module
+        .buildSectionHtml !==
+          "function"
+    ) {
+      return "";
+    }
+
+    return module
+      .buildSectionHtml(
+        car || {}
+      );
+  }
+
+  // ------------------------------------------------------------
   // 完整頁面
   // ------------------------------------------------------------
 
@@ -512,6 +537,10 @@ console.log(
         applications
       )}
 
+      ${buildDmApplicationsSectionHtml(
+        car
+      )}
+
       ${buildHistorySectionHtml(
         history
       )}
@@ -534,6 +563,8 @@ console.log(
     buildMatchingConfirmationSectionHtml,
 
     buildApplicationsSectionHtml,
+
+    buildDmApplicationsSectionHtml,
 
     buildHistorySectionHtml,
 

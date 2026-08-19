@@ -1,7 +1,7 @@
 "use strict";
 
 console.log(
-  "dm-application-actions.js V1 已成功載入！"
+  "dm-application-actions.js V2 已成功載入！"
 );
 
 (function () {
@@ -20,33 +20,42 @@ console.log(
       .replace(/'/g, "&#039;");
   }
 
-  function getCarId() {
-    return text(
-      new URLSearchParams(
-        location.search
-      ).get("id")
-    );
-  }
-
-  function getApplications(car) {
-    return Array.isArray(
-      car && car.dmApplications
-    )
-      ? car.dmApplications
+  function list(value) {
+    return Array.isArray(value)
+      ? value
       : [];
   }
 
-  function getPending(car) {
-    return getApplications(car)
-      .filter(function (app) {
+  function getCarId() {
+    const params =
+      new URLSearchParams(
+        location.search
+      );
+
+    return text(
+      params.get("id") ||
+      params.get("carId")
+    );
+  }
+
+  function getPendingApplications(
+    car
+  ) {
+    return list(
+      car && car.dmApplications
+    ).filter(
+      function (app) {
         return (
           app &&
           app.status === "pending"
         );
-      });
+      }
+    );
   }
 
-  function buildApplicationHtml(app) {
+  function buildApplicationCard(
+    app
+  ) {
     const id =
       esc(app.id || "");
 
@@ -78,150 +87,77 @@ console.log(
 
     return `
       <div
-        class="card"
+        class="player-card"
         data-dm-application-id="${id}"
-        style="
-          margin-top:12px;
-        "
       >
-        <h4>
-          🎭 DM 身分申請
-        </h4>
-
         <p>
-          申請人：
-          <strong>
-            ${name}
-          </strong>
+          🎭 <strong>${name}</strong>
         </p>
 
         <p>
           ${claimText}
         </p>
 
-        <div
-          style="
-            display:flex;
-            gap:8px;
-            flex-wrap:wrap;
-          "
-        >
+        <div class="row">
           <button
             type="button"
             onclick="
               JLYDmApplicationActions
-                .approve(
-                  '${id}'
-                )
+                .approve('${id}')
             "
           >
-            核准
+            ✅ 核准
           </button>
 
           <button
             type="button"
+            class="danger"
             onclick="
               JLYDmApplicationActions
-                .reject(
-                  '${id}'
-                )
+                .reject('${id}')
             "
           >
-            拒絕
+            ❌ 拒絕
           </button>
         </div>
       </div>
     `;
   }
 
-  function renderIntoDetail(car) {
-    const root =
-      document.getElementById(
-        "detailBox"
-      );
-
-    if (!root) {
-      return;
-    }
-
-    const old =
-      document.getElementById(
-        "dmApplicationReviewSection"
-      );
-
-    if (old) {
-      old.remove();
-    }
-
+  function buildSectionHtml(
+    car
+  ) {
     const pending =
-      getPending(car);
-
-    if (!pending.length) {
-      return;
-    }
-
-    const section =
-      document.createElement(
-        "section"
+      getPendingApplications(
+        car
       );
 
-    section.id =
-      "dmApplicationReviewSection";
+    if (
+      pending.length === 0
+    ) {
+      return "";
+    }
 
-    section.className =
-      "card";
+    return `
+      <div
+        class="card"
+        id="dmApplicationReviewSection"
+      >
+        <h3>
+          🎭 DM 待審核
+        </h3>
 
-    section.innerHTML = `
-      <h3>
-        🎭 DM 待審核申請
-      </h3>
+        <p class="empty-text">
+          核准後才會正式加入工作人員。
+        </p>
 
-      <p>
-        核准後才會正式加入工作人員。
-      </p>
-
-      ${pending
-        .map(buildApplicationHtml)
-        .join("")}
+        ${pending
+          .map(
+            buildApplicationCard
+          )
+          .join("")}
+      </div>
     `;
-
-    root.appendChild(
-      section
-    );
-  }
-
-  async function readCar() {
-    const carId =
-      getCarId();
-
-    if (!window.db) {
-      throw new Error(
-        "Firebase 尚未載入"
-      );
-    }
-
-    if (!carId) {
-      throw new Error(
-        "找不到車團 ID"
-      );
-    }
-
-    const snap =
-      await window.db
-        .collection("cars")
-        .doc(carId)
-        .get();
-
-    if (!snap.exists) {
-      throw new Error(
-        "找不到這台車"
-      );
-    }
-
-    return {
-      id: snap.id,
-      ...snap.data()
-    };
   }
 
   function createStaffSlot(
@@ -259,236 +195,270 @@ console.log(
     };
   }
 
+  async function refreshDetail() {
+    if (
+      window.JLYCarDetailController &&
+      typeof window
+        .JLYCarDetailController
+        .refreshPage === "function"
+    ) {
+      await window
+        .JLYCarDetailController
+        .refreshPage();
+
+      return;
+    }
+
+    if (
+      typeof window
+        .renderCarDetail === "function"
+    ) {
+      await window
+        .renderCarDetail();
+    }
+  }
+
   async function approve(
     applicationId
   ) {
+    const db =
+      window.db;
+
     const carId =
       getCarId();
 
+    if (!db) {
+      alert(
+        "Firebase 尚未載入"
+      );
+      return;
+    }
+
+    if (!carId) {
+      alert(
+        "找不到車團 ID"
+      );
+      return;
+    }
+
     try {
       const carRef =
-        window.db
+        db
           .collection("cars")
           .doc(carId);
 
-      let resultLabel =
+      let resultText =
         "DM 已加入工作人員";
 
-      await window.db
-        .runTransaction(
-          async function (
-            transaction
-          ) {
-            const snap =
-              await transaction.get(
-                carRef
-              );
+      await db.runTransaction(
+        async function (
+          transaction
+        ) {
+          const snap =
+            await transaction.get(
+              carRef
+            );
 
-            if (!snap.exists) {
-              throw new Error(
-                "找不到這台車"
-              );
-            }
-
-            const car =
-              snap.data() || {};
-
-            const applications =
-              getApplications(car)
-                .map(function (app) {
-                  return {
-                    ...app
-                  };
-                });
-
-            const index =
-              applications
-                .findIndex(
-                  function (app) {
-                    return (
-                      text(app.id) ===
-                      text(
-                        applicationId
-                      )
-                    );
-                  }
-                );
-
-            if (index < 0) {
-              throw new Error(
-                "找不到這筆 DM 申請"
-              );
-            }
-
-            const app =
-              applications[index];
-
-            if (
-              app.status !==
-                "pending"
-            ) {
-              throw new Error(
-                "這筆 DM 申請已處理"
-              );
-            }
-
-            const staffSlots =
-              Array.isArray(
-                car.staffSlots
-              )
-                ? car.staffSlots.map(
-                    function (slot) {
-                      return {
-                        ...slot
-                      };
-                    }
-                  )
-                : [];
-
-            const memberId =
-              text(
-                app.memberId ||
-                app.profileId
-              );
-
-            if (
-              staffSlots.some(
-                function (slot) {
-                  return (
-                    memberId &&
-                    text(
-                      slot.memberId
-                    ) ===
-                    memberId
-                  );
-                }
-              )
-            ) {
-              throw new Error(
-                "這位 DM 已經在工作人員名單"
-              );
-            }
-
-            let linkedExisting =
-              false;
-
-            if (
-              app.claimType ===
-                "existing_slot" &&
-              app.targetStaffId
-            ) {
-              const target =
-                staffSlots.find(
-                  function (slot) {
-                    return (
-                      text(slot.id) ===
-                      text(
-                        app.targetStaffId
-                      )
-                    );
-                  }
-                );
-
-              if (
-                target &&
-                !text(
-                  target.memberId
-                )
-              ) {
-                target.memberId =
-                  memberId;
-
-                target.source =
-                  "dm_application_claimed";
-
-                if (
-                  !text(
-                    target.displayName
-                  )
-                ) {
-                  target.displayName =
-                    text(
-                      app.displayName
-                    );
-                }
-
-                if (
-                  !text(
-                    target.label
-                  )
-                ) {
-                  target.label =
-                    "DM";
-                }
-
-                linkedExisting =
-                  true;
-
-                resultLabel =
-                  "已連結既有 DM 名單";
-              }
-            }
-
-            if (!linkedExisting) {
-              staffSlots.push(
-                createStaffSlot(
-                  app,
-                  staffSlots.length +
-                    1
-                )
-              );
-
-              resultLabel =
-                app.claimType ===
-                  "existing_slot"
-                  ? "原 DM 名單已被使用，已自動新增 DM 欄位"
-                  : "已自動新增 DM 欄位";
-            }
-
-            applications[
-              index
-            ] = {
-              ...app,
-              status:
-                "approved",
-              approvedAt:
-                new Date()
-                  .toISOString(),
-              updatedAt:
-                new Date()
-                  .toISOString()
-            };
-
-            const updateData = {
-              staffSlots,
-              dmApplications:
-                applications
-            };
-
-            if (
-              window.firebase &&
-              window.firebase.firestore &&
-              window.firebase.firestore
-                .FieldValue
-            ) {
-              updateData.updatedAt =
-                window.firebase.firestore
-                  .FieldValue
-                  .serverTimestamp();
-            }
-
-            transaction.update(
-              carRef,
-              updateData
+          if (!snap.exists) {
+            throw new Error(
+              "找不到這台車"
             );
           }
-        );
 
-      alert(
-        "✅ " + resultLabel
+          const car =
+            snap.data() || {};
+
+          const applications =
+            list(
+              car.dmApplications
+            ).map(
+              function (app) {
+                return {
+                  ...app
+                };
+              }
+            );
+
+          const index =
+            applications.findIndex(
+              function (app) {
+                return (
+                  text(app.id) ===
+                  text(
+                    applicationId
+                  )
+                );
+              }
+            );
+
+          if (index < 0) {
+            throw new Error(
+              "找不到這筆 DM 申請"
+            );
+          }
+
+          const app =
+            applications[index];
+
+          if (
+            app.status !== "pending"
+          ) {
+            throw new Error(
+              "這筆 DM 申請已經處理"
+            );
+          }
+
+          const staffSlots =
+            list(
+              car.staffSlots
+            ).map(
+              function (slot) {
+                return {
+                  ...slot
+                };
+              }
+            );
+
+          const memberId =
+            text(
+              app.memberId ||
+              app.profileId
+            );
+
+          if (
+            staffSlots.some(
+              function (slot) {
+                return (
+                  memberId &&
+                  text(
+                    slot.memberId
+                  ) === memberId
+                );
+              }
+            )
+          ) {
+            throw new Error(
+              "這位 DM 已經在工作人員名單"
+            );
+          }
+
+          let linkedExisting =
+            false;
+
+          if (
+            app.claimType ===
+              "existing_slot" &&
+            app.targetStaffId
+          ) {
+            const target =
+              staffSlots.find(
+                function (slot) {
+                  return (
+                    text(slot.id) ===
+                    text(
+                      app.targetStaffId
+                    )
+                  );
+                }
+              );
+
+            if (
+              target &&
+              !text(
+                target.memberId
+              )
+            ) {
+              target.memberId =
+                memberId;
+
+              target.source =
+                "dm_application_claimed";
+
+              if (
+                !text(
+                  target.displayName
+                )
+              ) {
+                target.displayName =
+                  text(
+                    app.displayName
+                  );
+              }
+
+              if (
+                !text(
+                  target.label
+                )
+              ) {
+                target.label =
+                  "DM";
+              }
+
+              linkedExisting =
+                true;
+
+              resultText =
+                "已連結既有 DM";
+            }
+          }
+
+          if (!linkedExisting) {
+            staffSlots.push(
+              createStaffSlot(
+                app,
+                staffSlots.length +
+                  1
+              )
+            );
+
+            resultText =
+              "已新增 DM 工作人員位置";
+          }
+
+          applications[
+            index
+          ] = {
+            ...app,
+            status:
+              "approved",
+            approvedAt:
+              new Date()
+                .toISOString(),
+            updatedAt:
+              new Date()
+                .toISOString()
+          };
+
+          const updateData = {
+            staffSlots,
+            dmApplications:
+              applications
+          };
+
+          if (
+            window.firebase &&
+            window.firebase.firestore &&
+            window.firebase.firestore
+              .FieldValue
+          ) {
+            updateData.updatedAt =
+              window.firebase.firestore
+                .FieldValue
+                .serverTimestamp();
+          }
+
+          transaction.update(
+            carRef,
+            updateData
+          );
+        }
       );
 
-      await refresh();
+      alert(
+        "✅ " + resultText
+      );
+
+      await refreshDetail();
     } catch (error) {
       console.error(
         "核准 DM 申請失敗：",
@@ -508,90 +478,101 @@ console.log(
   async function reject(
     applicationId
   ) {
+    const db =
+      window.db;
+
     const carId =
       getCarId();
 
+    if (!db || !carId) {
+      alert(
+        "車團資料尚未載入"
+      );
+      return;
+    }
+
     try {
       const carRef =
-        window.db
+        db
           .collection("cars")
           .doc(carId);
 
-      await window.db
-        .runTransaction(
-          async function (
-            transaction
-          ) {
-            const snap =
-              await transaction.get(
-                carRef
-              );
+      await db.runTransaction(
+        async function (
+          transaction
+        ) {
+          const snap =
+            await transaction.get(
+              carRef
+            );
 
-            if (!snap.exists) {
-              throw new Error(
-                "找不到這台車"
-              );
-            }
-
-            const car =
-              snap.data() || {};
-
-            const applications =
-              getApplications(car)
-                .map(function (app) {
-                  return {
-                    ...app
-                  };
-                });
-
-            const index =
-              applications
-                .findIndex(
-                  function (app) {
-                    return (
-                      text(app.id) ===
-                      text(
-                        applicationId
-                      )
-                    );
-                  }
-                );
-
-            if (index < 0) {
-              throw new Error(
-                "找不到這筆 DM 申請"
-              );
-            }
-
-            applications[
-              index
-            ] = {
-              ...applications[index],
-              status:
-                "rejected",
-              rejectedAt:
-                new Date()
-                  .toISOString(),
-              updatedAt:
-                new Date()
-                  .toISOString()
-            };
-
-            transaction.update(
-              carRef,
-              {
-                dmApplications:
-                  applications
-              }
+          if (!snap.exists) {
+            throw new Error(
+              "找不到這台車"
             );
           }
-        );
+
+          const car =
+            snap.data() || {};
+
+          const applications =
+            list(
+              car.dmApplications
+            ).map(
+              function (app) {
+                return {
+                  ...app
+                };
+              }
+            );
+
+          const index =
+            applications.findIndex(
+              function (app) {
+                return (
+                  text(app.id) ===
+                  text(
+                    applicationId
+                  )
+                );
+              }
+            );
+
+          if (index < 0) {
+            throw new Error(
+              "找不到這筆 DM 申請"
+            );
+          }
+
+          applications[
+            index
+          ] = {
+            ...applications[index],
+            status:
+              "rejected",
+            rejectedAt:
+              new Date()
+                .toISOString(),
+            updatedAt:
+              new Date()
+                .toISOString()
+          };
+
+          transaction.update(
+            carRef,
+            {
+              dmApplications:
+                applications
+            }
+          );
+        }
+      );
 
       alert(
         "已拒絕 DM 身分申請"
       );
 
-      await refresh();
+      await refreshDetail();
     } catch (error) {
       console.error(
         "拒絕 DM 申請失敗：",
@@ -608,71 +589,10 @@ console.log(
     }
   }
 
-  async function refresh() {
-    if (
-      window.JLYCarDetailController &&
-      typeof window
-        .JLYCarDetailController
-        .refreshPage ===
-          "function"
-    ) {
-      await window
-        .JLYCarDetailController
-        .refreshPage();
-    }
-
-    const car =
-      await readCar();
-
-    renderIntoDetail(
-      car
-    );
-  }
-
-  function init() {
-    refresh()
-      .catch(function (error) {
-        console.warn(
-          "DM Application Review 初始化失敗：",
-          error
-        );
-      });
-
-    document.addEventListener(
-      "jly:car-detail:refreshed",
-      function () {
-        readCar()
-          .then(
-            renderIntoDetail
-          )
-          .catch(function (
-            error
-          ) {
-            console.warn(
-              "重新渲染 DM Application 失敗：",
-              error
-            );
-          });
-      }
-    );
-  }
-
   window.JLYDmApplicationActions = {
+    getPendingApplications,
+    buildSectionHtml,
     approve,
-    reject,
-    renderIntoDetail,
-    refresh
+    reject
   };
-
-  if (
-    document.readyState ===
-      "loading"
-  ) {
-    document.addEventListener(
-      "DOMContentLoaded",
-      init
-    );
-  } else {
-    init();
-  }
 })();

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>報名審核｜JLY</title>
+  <link
+    rel="stylesheet"
+    href="../css/style.css"
+  >
+</head>
+
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>📨 報名審核</h1>
+      <p>玩家與 DM 分類查看</p>
+    </div>
+
+    <div
+      class="row"
+      style="
+        display:flex;
+        gap:10px;
+        margin-bottom:14px;
+      "
+    >
+      <button
+        id="playerReviewTab"
+        type="button"
+        onclick="setReviewType('player')"
+      >
+        🎮 玩家
+        <span id="playerReviewCount">0</span>
+      </button>
+
+      <button
+        id="dmReviewTab"
+        type="button"
+        onclick="setReviewType('dm')"
+      >
+        🎭 DM
+        <span id="dmReviewCount">0</span>
+      </button>
+    </div>
+
+    <div
+      id="registrationReviewList"
+    >
+      <div class="card">
+        載入中...
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script src="/firebase/firebase.js?v=39"></script>
+  <script src="/js/core/identity.js?v=2"></script>
+  <script src="/js/car/car-data.js?v=2"></script>
+  <script src="/js/modules/pending/pending-actions.js?v=1"></script>
+  <script src="/js/application-review.js?v=1"></script>
+</body>
+</html>

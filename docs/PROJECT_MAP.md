@@ -2,16 +2,28 @@
 
 > Status: Working Map
 >
-> Version: V2.75
+> Version: V2.76
 >
 > Last Updated: 2026-08-19
 >
+
+## V2.76 報名審核閉環 + 首頁 Pending Actions V1（2026-08-19）
+
+- 玩家與 DM 前台入口保持分離：玩家 `pages/join.html`，DM `pages/dm-join.html`；兩者 URL 同時相容 `id` / `carId`，LINE 歡迎卡正式使用 `?id=...`。
+- DM Join 不直接寫入 `staffSlots`；本人可認領既有未綁定 DM 或選擇新增本人，送出後形成 `car.dmApplications[]`、`status=pending`。
+- 車團詳情新增正式 `dm-application-actions.js`，DM 待審核直接納入 Detail Page Render，不再靠 DOM 後掛，避免被重新 Render 覆蓋。
+- DM 核准時：認領既有 DM 則補正式 `memberId`；若新增本人或原認領位置已被使用，動態新增新的 `staffSlots` DM 位置。拒絕不修改 Staff。
+- 新增 `js/modules/pending/pending-actions.js` 作為首頁／報名審核頁共用 View Core；只聚合正式來源，不建立第二份 Pending 資料。
+- 劇本村首頁 `待我處理` 第一階段分類固定顯示：`報名審核`、`帳務處理`、`媒合確認`。目前報名審核已接正式計數；0 筆仍保留入口／功能提示。
+- 新增 `pages/application-review.html` → `js/application-review.js`，報名審核進入第二層後分類為 `玩家` / `DM`，再依車團顯示待審核內容並前往正式 Car Detail 處理。
+- 首頁報名審核只讀目前 owner 的 Car，禁止把其他主揪的 pending applications 算入自己的待辦。
+- 首頁 UI 目前先以功能骨架為主，待主要功能齊全後統一 Polish。
 
 ## V2.75 LINE 入群歡迎詞 + DM / Player 雙入口（2026-08-19）
 
 - LINE Webhook 的新成員事件使用 `memberJoined`，與 Bot 自己加入群組的 `join` 事件分離。
 - 只有已綁定正式 Car 的 LINE 群組才發送歡迎卡；未綁定群組保持安靜。
-- 新增 `services/line/member-welcome-card.js`，歡迎卡固定兩個 URI 入口：上方 `🎭 我是本場 DM` → `/pages/dm-join.html?carId=...`；下方 `🎮 我要報名玩家` → `/pages/join.html?carId=...`。
+- 新增 `services/line/member-welcome-card.js`，歡迎卡固定兩個 URI 入口：上方 `🎭 我是本場 DM` → `/pages/dm-join.html?id=...`；下方 `🎮 我要報名玩家` → `/pages/join.html?id=...`。
 - `services/line/event-router.js` 新增 `memberJoined` route，先解析 group binding，再取得正式 Car，最後使用既有 LINE Reply Service 回覆 Flex Message。
 - DM 與 Player 前台入口分離，但仍共用 JLY Person / Identity 核心；歡迎卡不建立任何人員副本。
 - 新增 `tests/line/member-welcome.test.js` 驗證按鈕順序、已綁定群組歡迎、未綁定群組靜默。
@@ -1454,4 +1466,10 @@ matching
 - LINE `memberJoined` 正式接入群組歡迎流程。
 - 歡迎卡固定 DM 在上、Player 在下；兩個入口各自導向 DM Join 與 Player Join。
 - 未綁定 Car 的群組不發送活動歡迎卡。
+
+### V2.76｜2026-08-19
+
+- 完成 Player Join / DM Join → Pending Application → 報名審核 → Car Detail → 主揪核准／拒絕閉環。
+- 新增首頁 Pending Actions 分類骨架與報名審核總數；報名審核第二層再區分玩家／DM。
+- DM Approval 正式整合 Detail Page Render，核准後可綁既有 DM 或動態新增 Staff Slot。
 
