@@ -10,9 +10,10 @@ Responsibilities:
 2. Find reminders that are due
 3. Claim reminders before dispatch
 4. Record reminder sent / failed state
-5. Handle reminder status notices
-6. Prevent duplicate dispatch
-7. Keep Firestore logic outside LINE services
+5. Enable one pre-trip reminder atomically
+6. Preserve legacy notice fields without requiring status Push
+7. Prevent duplicate dispatch
+8. Keep Firestore logic outside LINE services
 
 Firestore:
 
@@ -134,6 +135,182 @@ async function getPreTripReminder(
   );
 }
 
+
+
+// ============================================================
+// Enable Pre-Trip Reminder
+// ============================================================
+
+async function enablePreTripReminder(
+  carId,
+  reminderData = {}
+) {
+  const db =
+    getFirestore();
+
+  const ref =
+    getReminderRef(
+      carId,
+      PRE_TRIP_DOCUMENT
+    );
+
+  const now =
+    new Date()
+      .toISOString();
+
+  return db.runTransaction(
+    async function (
+      transaction
+    ) {
+      const snapshot =
+        await transaction.get(
+          ref
+        );
+
+      const existing =
+        snapshot.exists
+          ? snapshot.data() || {}
+          : {};
+
+      if (
+        existing.enabled === true
+      ) {
+        return {
+          enabled: true,
+          alreadyEnabled: true,
+          reminder: {
+            id:
+              PRE_TRIP_DOCUMENT,
+            carId:
+              normalizeText(
+                carId
+              ),
+            ...existing
+          }
+        };
+      }
+
+      const next = {
+        schemaVersion:
+          Number(
+            reminderData.schemaVersion
+          ) || 1,
+
+        reminderType:
+          normalizeText(
+            reminderData.reminderType
+          ) || "pre_trip",
+
+        enabled: true,
+
+        triggerType:
+          normalizeText(
+            reminderData.triggerType
+          ) || "days_before_at_time",
+
+        offsetDays:
+          Number.isFinite(
+            Number(
+              reminderData.offsetDays
+            )
+          )
+            ? Math.max(
+                0,
+                Math.floor(
+                  Number(
+                    reminderData.offsetDays
+                  )
+                )
+              )
+            : 1,
+
+        sendTime:
+          normalizeText(
+            reminderData.sendTime
+          ) || "15:00",
+
+        timezone:
+          normalizeText(
+            reminderData.timezone
+          ) || "Asia/Taipei",
+
+        templateId:
+          normalizeText(
+            reminderData.templateId
+          ) || "pre_trip_default_v1",
+
+        customMessage:
+          normalizeText(
+            reminderData.customMessage
+          ),
+
+        targetType:
+          normalizeText(
+            reminderData.targetType
+          ) || "line_group",
+
+        scheduledAt:
+          normalizeText(
+            reminderData.scheduledAt
+          ),
+
+        status:
+          normalizeText(
+            reminderData.status
+          ) || "scheduled",
+
+        sentAt: "",
+        lastError: "",
+
+        /*
+         * V2.78:
+         * Opening from LINE uses Reply, not a separate status Push.
+         * Keep legacy notice fields non-pending so the old dispatcher
+         * cannot spend quota on an "enabled" acknowledgement.
+         */
+        noticeType: "",
+        noticeStatus:
+          "suppressed",
+
+        openedFrom:
+          normalizeText(
+            reminderData.openedFrom
+          ) || "line_group",
+
+        createdAt:
+          normalizeText(
+            existing.createdAt
+          ) || now,
+
+        updatedAt:
+          now
+      };
+
+      transaction.set(
+        ref,
+        next,
+        {
+          merge: true
+        }
+      );
+
+      return {
+        enabled: true,
+        alreadyEnabled: false,
+        reminder: {
+          id:
+            PRE_TRIP_DOCUMENT,
+          carId:
+            normalizeText(
+              carId
+            ),
+          ...existing,
+          ...next
+        }
+      };
+    }
+  );
+}
 
 // ============================================================
 // List Due Reminders
@@ -726,6 +903,7 @@ module.exports = {
   getReminderRef,
   getReminder,
   getPreTripReminder,
+  enablePreTripReminder,
 
   listDueReminders,
   claimReminder,

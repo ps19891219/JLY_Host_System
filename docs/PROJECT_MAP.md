@@ -2,10 +2,38 @@
 
 > Status: Working Map
 >
-> Version: V2.77
+> Version: V2.78
 >
-> Last Updated: 2026-08-19
+> Last Updated: 2026-08-20
 >
+
+
+## V2.78 LINE 行前通知開啟流程 + Reminder 日期重排（2026-08-20）
+
+- LINE 群組已綁定 Car 後，「🔔 行前通知」按鈕的正式語意固定為「開啟行前通知」；按鈕送出文字指令 `開啟行前通知`，不在開啟當下產生完整行前內容。
+- 開啟當下使用既有 `groupId → carId` 綁定取得 Car，僅讀取正式 `gameDate` 以計算排程；預設規則為 `offsetDays=1`、`sendTime=15:00`、`timezone=Asia/Taipei`。
+- 開啟成功以 LINE Reply 回覆 `✅ 已開啟行前通知`；不再由 Scheduler 額外 Push「已開啟／已關閉」狀態訊息，避免不必要的 LINE 主動訊息額度。
+- `cars/{carId}/reminders/preTrip` 仍只保存 Reminder 規則與生命週期，不複製劇本名稱、店家、地點、玩家等 Car 正式資料；真正發送時由 Dispatcher 重新讀取最新 Car。
+- 每台 Car 的 `preTrip` 只允許一份正式 Reminder；已開啟後再次叫出小助手時，行前通知入口顯示為已開啟／已發送狀態，不再建立第二筆提醒。
+- 預設行前提醒尾文：
+  - `大家明天見唷～～～請準時到場❤️`
+  - `有問題請提前回報，感謝🙏`
+- 正式 Car 的 `gameDate` 若在 Reminder 發送前修改，`editcar.js` 會重新計算同一份 `preTrip.scheduledAt`；只修改 `gameTime` 不改排程時間，因為正式提醒仍固定前一天 15:00，但發送內容會於發送當下取得最新 `gameTime`。
+- 若修改後的新排程時間已經過去，Reminder 改為 `action_required`／`needsHostAction=true`，不偷偷補發；主揪介面需明確提示重新確認提醒時間。
+- Reminder 已 `sent` 後，後續修改 Car 不重新啟用第二次行前通知，維持「一台車一次通知」原則。
+- DM 對日期／時間的修改若採送審流程，必須等主揪核准、正式 Car 真正更新後才觸發 Reminder 重排；送審中的草稿不得改正式提醒。
+
+### My Cars 100+ 台效能改善｜已確認設計，待下一階段實作
+
+- 問題已由未來風險升級為現況效能議題：使用者已有 100+ 台 Car，`我的車` 不應再一次抓取／Render 全部歷史 Car 與完整內部資料。
+- 正式方向採 `JLY Common List Loading Pattern`：列表為輕量 Summary / Projection，詳細頁才載單台完整 Car；正式 Car 仍只有一份，不建立資料副本。
+- `我的車` 第一版目標每頁 20 台，必須是真正 Firestore Pagination / Cursor 分批讀取，不接受「先抓全部 100+ 台再只顯示 20 台」的假分頁。
+- 每頁 20 台只保留列表必要欄位，例如 `carId`、劇本名稱、日期／時間、狀態、人數摘要、主揪／玩家關係；完整 players、applications、history、Seat、Accounting、Matching 等在進入單台 Detail 時才讀。
+- 列表 Cache 只作畫面加速，不是正式來源；返回前一頁可重用短期 Cache，但查看／編輯仍以正式 Car 為準。
+- 查看／編輯單台 Car 後，列表優先局部刷新該台 Summary，不重新載入整頁或全部歷史 Car。
+- 搜尋不可只搜尋目前載入的 20 台；分頁實作時需同步設計後端搜尋／索引策略，避免第 21 台以後被誤判為不存在。
+- 分頁後總數不可再直接使用目前頁面的 `cars.length`；需改為正式 Count／摘要策略。
+- 這套 Pattern 未來可共用到其他 Village、個人活動列表與 Accounting 歷史 View，但需先在 `我的車` 驗證後再提升為 Common Core。
 
 ## V2.77 玩家車友名單查詢修正（2026-08-19）
 
@@ -85,7 +113,7 @@
 - `POST /api/run-reminders` 以 `Authorization: Bearer <REMINDER_DISPATCH_SECRET>` 保護，只由排程器呼叫；V1 Scheduler Adapter 使用 cron-job.org，每 1 分鐘呼叫一次，排程器只負責喚醒 JLY，不保存車團或帳務資料。
 - Dispatcher 會先處理 Reminder 狀態通知，再找已到期 `preTrip`；到期後重新讀取最新 Car 與目前 active 的 `lineGroupBindings`，向正式綁定群組 Push 行前提醒。
 - Reminder 發送採 Firestore Transaction 先由 `scheduled → sending` 原子 Claim，成功後標記 `sent`／`sentAt`；人工連續執行已驗證第二次 `candidateCount=0`、`sentCount=0`，不會重複發送。
-- 後台首次由關閉改為開啟會建立 `noticeType=enabled`、`noticeStatus=pending`；開啟改關閉則建立 `noticeType=disabled`。目前由同一個每分鐘 Dispatcher 處理群組「已綁定／已關閉」通知，後續修改時間或文字不重複洗群組。
+- V2.71 曾由 Dispatcher 處理 Reminder「已綁定／已關閉」狀態 Push；V2.78 起此行為停用，開啟確認改由 LINE 按鈕事件直接 Reply。既有 `notice*` 欄位只保留 Legacy Compatibility，不再作為正式啟用通知 Runtime。
 - Firestore Collection Group 單欄位索引已啟用：`reminders.noticeStatus ASC`、`reminders.scheduledAt ASC`。
 - 實測完成：Secret 驗證、Firestore Collection Group 查詢、LINE 主動 Push、sent 防重複、cron-job.org Test Run `200 OK / success:true` 均已通過；Scheduler 已正式啟用。
 

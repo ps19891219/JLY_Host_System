@@ -102,6 +102,10 @@ const {
 } = require("./group-car-pairing-service");
 const { prepareQuickAccounting, saveResolvedQuickAccounting } = require("./quick-accounting-service");
 const { buildStoreInfo, buildTimeInfo, buildPeopleInfo } = require("./car-info-slices");
+const {
+  getReminderStatus,
+  enableGroupPreTripReminder
+} = require("./reminder-service");
 
 // ============================================================
 // Normalize Text
@@ -320,6 +324,12 @@ async function handleMessageEvent(
   const readPublicBaseUrl = dependencies.getPublicBaseUrl || getPublicBaseUrl;
   const prepareQuickEntry = dependencies.prepareQuickAccounting || prepareQuickAccounting;
   const saveResolvedQuickEntry = dependencies.saveResolvedQuickAccounting || saveResolvedQuickAccounting;
+  const readReminderStatus =
+    dependencies.getReminderStatus ||
+    getReminderStatus;
+  const enableReminder =
+    dependencies.enableGroupPreTripReminder ||
+    enableGroupPreTripReminder;
 
   // ----------------------------------------------------------
   // Non-text message
@@ -501,6 +511,122 @@ async function handleMessageEvent(
       bindResult
     };
   }
+
+  // ----------------------------------------------------------
+  // Pre-trip Reminder
+  // ----------------------------------------------------------
+
+  if (
+    messageResult.action ===
+    "assistant_reminder_enable"
+  ) {
+    if (!context.replyToken) {
+      return {
+        handled: false,
+        route:
+          "message_missing_reply_token",
+        context,
+        groupBinding
+      };
+    }
+
+    if (
+      context.source.type !== "group" ||
+      !context.source.groupId ||
+      !context.accountingCarId
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "請先將這個 LINE 群組綁定 JLY 車團。"
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_binding_required",
+        context,
+        groupBinding
+      };
+    }
+
+    let car = null;
+
+    try {
+      car =
+        await readCar(
+          context.accountingCarId
+        );
+    } catch (error) {
+      console.error(
+        "LINE reminder car lookup failed.",
+        error
+      );
+    }
+
+    if (!car) {
+      await replyWithText(
+        context.replyToken,
+        "找不到這台 JLY 車團。"
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_car_not_found",
+        context,
+        groupBinding
+      };
+    }
+
+    const reminderResult =
+      await enableReminder(
+        context.accountingCarId,
+        car,
+        dependencies
+      );
+
+    if (!reminderResult.enabled) {
+      await replyWithText(
+        context.replyToken,
+        reminderResult.reason ===
+          "car_date_required"
+          ? "⚠️ 車團尚未設定日期，無法開啟行前通知。"
+          : "行前通知開啟失敗，請稍後再試。"
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_enable_failed",
+        context,
+        groupBinding,
+        reminderResult
+      };
+    }
+
+    await replyWithText(
+      context.replyToken,
+      reminderResult.reason ===
+        "scheduled_time_passed"
+        ? (
+            "✅ 已開啟行前通知\n" +
+            "⚠️ 預設提醒時間已經過，請到車團頁面確認新的提醒時間。"
+          )
+        : "✅ 已開啟行前通知"
+    );
+
+    return {
+      handled: true,
+      route:
+        reminderResult.alreadyEnabled
+          ? "assistant_reminder_already_enabled"
+          : "assistant_reminder_enabled",
+      context,
+      groupBinding,
+      reminderResult
+    };
+  }
+
 
   // ----------------------------------------------------------
   // Group accounting command
@@ -929,9 +1055,18 @@ async function handleMessageEvent(
     context.source.type === "group"
   ) {
     let car = null;
+    let reminderStatus = null;
     if (context.accountingCarId) {
-      try { car = await readCar(context.accountingCarId); } catch (error) {
-        console.error("LINE assistant car lookup failed.", error);
+      try {
+        car = await readCar(context.accountingCarId);
+        reminderStatus =
+          await readReminderStatus(
+            context.accountingCarId,
+            car,
+            dependencies
+          );
+      } catch (error) {
+        console.error("LINE assistant car/reminder lookup failed.", error);
       }
     }
     const token = context.accountingCarId
@@ -945,7 +1080,12 @@ async function handleMessageEvent(
       [buildGroupAssistantCard(car, {
         token,
         baseUrl: readPublicBaseUrl(),
-        carId: context.accountingCarId
+        carId: context.accountingCarId,
+        reminder:
+          reminderStatus &&
+          reminderStatus.reminder
+            ? reminderStatus.reminder
+            : null
       })]
     );
   } else if (
@@ -1263,3 +1403,4 @@ module.exports = {
   routeEvents,
   createEventContext
 };
+

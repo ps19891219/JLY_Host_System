@@ -23,7 +23,7 @@ const cases = [
   ],
   [
     "JLY 提醒",
-    "assistant_reminder_menu"
+    "assistant_reminder_enable"
   ],
   [
     "JLY 車團資訊",
@@ -52,9 +52,13 @@ for (const [text, action] of cases) {
         result.action,
         action
       );
-      assert.ok(
-        result.replyText
-      );
+      if (action === "assistant_reminder_enable") {
+        assert.equal(result.replyText, "");
+      } else {
+        assert.ok(
+          result.replyText
+        );
+      }
     }
   );
 }

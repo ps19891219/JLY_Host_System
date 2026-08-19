@@ -30,7 +30,7 @@ test("group assistant card shows car identity and seven persistent entries", fun
   assert.equal(buttons(card)[2].action.text, "JLY 人員");
   assert.ok(buttons(card)[3].action.uri.includes("tab=accounting"));
   assert.ok(buttons(card)[3].action.uri.includes("signed-token"));
-  assert.equal(buttons(card)[4].action.text, "JLY 提醒");
+  assert.equal(buttons(card)[4].action.text, "開啟行前通知");
   assert.equal(
     buttons(card)[5].action.uri,
     "https://example.com/pages/car-view.html?id=car-1"

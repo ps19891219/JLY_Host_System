@@ -16,6 +16,11 @@ Responsibilities:
   "use strict";
 
 
+  const DEFAULT_CUSTOM_MESSAGE =
+    "大家明天見唷～～～請準時到場❤️\n" +
+    "有問題請提前回報，感謝🙏";
+
+
   function text(value) {
     return String(
       value == null
@@ -109,7 +114,8 @@ Responsibilities:
       text(
         config &&
         config.customMessage
-      );
+      ) ||
+      DEFAULT_CUSTOM_MESSAGE;
 
 
     lines.push(

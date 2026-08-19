@@ -6,8 +6,8 @@ Reminder Dispatch Service V1.1
 
 Responsibilities:
 
-1. Dispatch reminder status notices
-2. Dispatch due pre-trip reminders
+1. Dispatch due pre-trip reminders only
+2. Keep enable acknowledgement on LINE Reply, not Push
 3. Claim work before sending
 4. Read latest Activity data
 5. Resolve current LINE group binding
@@ -20,16 +20,16 @@ Reminder Core is independent from Scheduler provider.
 
 "use strict";
 
+
+const DEFAULT_CUSTOM_MESSAGE =
+  "大家明天見唷～～～請準時到場❤️\n" +
+  "有問題請提前回報，感謝🙏";
+
 const {
   listDueReminders,
   claimReminder,
   markReminderSent,
-  markReminderFailed,
-
-  listPendingReminderNotices,
-  claimReminderNotice,
-  markReminderNoticeSent,
-  markReminderNoticeFailed
+  markReminderFailed
 } = require(
   "../firebase/reminder-repository"
 );
@@ -179,14 +179,13 @@ function buildReminderMessage(
     normalizeText(
       reminder &&
       reminder.customMessage
-    );
+    ) ||
+    DEFAULT_CUSTOM_MESSAGE;
 
-  if (customMessage) {
-    lines.push(
-      "",
-      customMessage
-    );
-  }
+  lines.push(
+    "",
+    customMessage
+  );
 
   return lines.join("\n");
 }
@@ -595,43 +594,15 @@ async function dispatchDueReminders(
       )
     );
 
-
-  // ----------------------------------------------------------
-  // 1. Status Notices
-  // ----------------------------------------------------------
-
-  const readPendingNotices =
-    options
-      .listPendingReminderNotices ||
-    listPendingReminderNotices;
-
-  const noticeCandidates =
-    await readPendingNotices(
-      limit
-    );
-
-  const noticeResults = [];
-
-  for (
-    const candidate
-    of noticeCandidates
-  ) {
-    noticeResults.push(
-      await dispatchReminderNotice(
-        candidate,
-        options
-      )
-    );
-  }
-
-
-  // ----------------------------------------------------------
-  // 2. Due Main Reminders
-  // ----------------------------------------------------------
-
+  /*
+   * V2.78
+   * Enabling/disabling acknowledgement is a LINE Reply flow.
+   * The scheduler only sends the real due reminder.
+   * Legacy notice fields may remain in old documents, but are
+   * intentionally ignored here to avoid unnecessary Push quota.
+   */
   const readDue =
-    options
-      .listDueReminders ||
+    options.listDueReminders ||
     listDueReminders;
 
   const candidates =
@@ -654,43 +625,16 @@ async function dispatchDueReminders(
     );
   }
 
-
-  // ----------------------------------------------------------
-  // Summary
-  // ----------------------------------------------------------
-
   return {
     checkedAt:
       now,
 
-    noticeCandidateCount:
-      noticeCandidates.length,
-
-    noticeSentCount:
-      noticeResults.filter(
-        function (item) {
-          return item.sent;
-        }
-      ).length,
-
-    noticeSkippedCount:
-      noticeResults.filter(
-        function (item) {
-          return item.skipped;
-        }
-      ).length,
-
-    noticeFailedCount:
-      noticeResults.filter(
-        function (item) {
-          return (
-            !item.sent &&
-            !item.skipped
-          );
-        }
-      ).length,
-
-    noticeResults,
+    // Keep these keys for backward-compatible diagnostics.
+    noticeCandidateCount: 0,
+    noticeSentCount: 0,
+    noticeSkippedCount: 0,
+    noticeFailedCount: 0,
+    noticeResults: [],
 
     candidateCount:
       candidates.length,

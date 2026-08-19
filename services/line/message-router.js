@@ -30,7 +30,7 @@ V1 does NOT:
 - Bind group to car
 - Check permissions
 - Handle accounting
-- Handle reminders
+- Persist reminders directly
 */
 
 "use strict";
@@ -169,13 +169,13 @@ function routeMenuCommand(text) {
       };
 
     case "jly提醒":
+    case "開啟行前通知":
+    case "jly開啟行前通知":
       return {
         handled: true,
         action:
-          "assistant_reminder_menu",
-        replyText:
-          "⏰ 群組提醒入口已開啟。\n" +
-          "提醒內容與時間設定將在下一階段加入。"
+          "assistant_reminder_enable",
+        replyText: ""
       };
 
     case "jly成員座位":
@@ -398,3 +398,4 @@ module.exports = {
   isAssistantCalled,
   routeMenuCommand
 };
+

@@ -2,26 +2,35 @@
 JLY Host System
 
 Module:
-LINE Reminder Service V1
+LINE Reminder Service V1.2
 
 Responsibilities:
 
-1. Read reminder configuration
-2. Build reminder status for LINE group
-3. Keep Reminder and Activity data separated
-4. Do not send scheduled Push messages
-
-V1 Stage 2A:
-Read-only reminder status.
+1. Read pre-trip reminder configuration
+2. Enable a reminder from a bound LINE group
+3. Calculate the default schedule from current Car gameDate
+4. Keep Reminder and Activity data separated
+5. Do not send scheduled Push messages
 */
 
 "use strict";
 
 const {
-  getPreTripReminder
+  getPreTripReminder,
+  enablePreTripReminder: saveEnabledPreTripReminder
 } = require(
   "../firebase/reminder-repository"
 );
+
+const DEFAULT_SEND_TIME =
+  "15:00";
+
+const DEFAULT_OFFSET_DAYS =
+  1;
+
+const DEFAULT_CUSTOM_MESSAGE =
+  "大家明天見唷～～～請準時到場❤️\n" +
+  "有問題請提前回報，感謝🙏";
 
 
 function normalizeText(value) {
@@ -45,9 +54,90 @@ function getCarTitle(car) {
 }
 
 
-function formatScheduledAt(
-  value
+function getCarDate(car) {
+  return normalizeText(
+    car &&
+    (
+      car.gameDate ||
+      car.date ||
+      car.startDate
+    )
+  );
+}
+
+
+function calculateScheduledAt(
+  car,
+  options = {}
 ) {
+  const gameDate =
+    getCarDate(car);
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/
+      .test(gameDate)
+  ) {
+    return "";
+  }
+
+  const sendTime =
+    normalizeText(
+      options.sendTime
+    ) || DEFAULT_SEND_TIME;
+
+  if (
+    !/^\d{2}:\d{2}$/
+      .test(sendTime)
+  ) {
+    return "";
+  }
+
+  const offsetDays =
+    Number.isFinite(
+      Number(
+        options.offsetDays
+      )
+    )
+      ? Math.max(
+          0,
+          Math.floor(
+            Number(
+              options.offsetDays
+            )
+          )
+        )
+      : DEFAULT_OFFSET_DAYS;
+
+  const source =
+    `${gameDate}T${sendTime}:00+08:00`;
+
+  const date =
+    new Date(source);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  date.setTime(
+    date.getTime() -
+    (
+      offsetDays *
+      24 *
+      60 *
+      60 *
+      1000
+    )
+  );
+
+  return date.toISOString();
+}
+
+
+function formatScheduledAt(value) {
   const source =
     normalizeText(value);
 
@@ -71,22 +161,16 @@ function formatScheduledAt(
     {
       timeZone:
         "Asia/Taipei",
-
       year:
         "numeric",
-
       month:
         "2-digit",
-
       day:
         "2-digit",
-
       hour:
         "2-digit",
-
       minute:
         "2-digit",
-
       hour12:
         false
     }
@@ -130,6 +214,105 @@ async function getReminderStatus(
 }
 
 
+async function enableGroupPreTripReminder(
+  carId,
+  car,
+  dependencies = {}
+) {
+  const readReminder =
+    dependencies.getPreTripReminder ||
+    getPreTripReminder;
+
+  const saveReminder =
+    dependencies.enablePreTripReminder ||
+    saveEnabledPreTripReminder;
+
+  const existing =
+    await readReminder(
+      carId
+    );
+
+  if (
+    existing &&
+    existing.enabled === true
+  ) {
+    return {
+      enabled: true,
+      alreadyEnabled: true,
+      reminder: existing
+    };
+  }
+
+  const scheduledAt =
+    calculateScheduledAt(
+      car,
+      {
+        offsetDays:
+          DEFAULT_OFFSET_DAYS,
+        sendTime:
+          DEFAULT_SEND_TIME
+      }
+    );
+
+  if (!scheduledAt) {
+    return {
+      enabled: false,
+      alreadyEnabled: false,
+      reason:
+        "car_date_required",
+      reminder: null
+    };
+  }
+
+  const now =
+    new Date()
+      .toISOString();
+
+  const schedulePassed =
+    scheduledAt <= now;
+
+  const saved =
+    await saveReminder(
+      carId,
+      {
+        schemaVersion: 1,
+        reminderType:
+          "pre_trip",
+        triggerType:
+          "days_before_at_time",
+        offsetDays:
+          DEFAULT_OFFSET_DAYS,
+        sendTime:
+          DEFAULT_SEND_TIME,
+        timezone:
+          "Asia/Taipei",
+        templateId:
+          "pre_trip_default_v1",
+        customMessage:
+          DEFAULT_CUSTOM_MESSAGE,
+        targetType:
+          "line_group",
+        scheduledAt,
+        status:
+          schedulePassed
+            ? "action_required"
+            : "scheduled",
+        openedFrom:
+          "line_group"
+      }
+    );
+
+  return {
+    ...saved,
+    reason:
+      schedulePassed
+        ? "scheduled_time_passed"
+        : "enabled",
+    scheduledAt
+  };
+}
+
+
 function buildReminderStatusText(
   result
 ) {
@@ -139,102 +322,23 @@ function buildReminderStatusText(
       ? result
       : {};
 
-  const title =
-    normalizeText(
-      source.carTitle
-    ) || "JLY 車團";
-
   if (
     !source.configured ||
     !source.enabled
   ) {
-    return (
-      `⏰《${title}》行前提醒\n\n` +
-      "⚪ 已關閉"
-    );
-  }
-
-  return (
-    `⏰《${title}》行前提醒\n\n` +
-    "🟢 已綁定"
-  );
-
-  const scheduledAt =
-    formatScheduledAt(
-      reminder.scheduledAt
-    );
-
-  const offsetDays =
-    Number(
-      reminder.offsetDays
-    );
-
-  const sendTime =
-    normalizeText(
-      reminder.sendTime
-    );
-
-  const customMessage =
-    normalizeText(
-      reminder.customMessage
-    );
-
-  const status =
-    normalizeText(
-      reminder.status
-    );
-
-  const lines = [
-    `⏰ 《${title}》行前提醒`,
-    "",
-    "狀態：🟢 已開啟"
-  ];
-
-  if (
-    Number.isFinite(offsetDays)
-  ) {
-    lines.push(
-      offsetDays === 0
-        ? "提醒時間：活動當天"
-        : `提前：${offsetDays} 天`
-    );
-  }
-
-  if (sendTime) {
-    lines.push(
-      `發送時間：${sendTime}`
-    );
-  }
-
-  if (scheduledAt) {
-    lines.push(
-      `預計發送：${scheduledAt}`
-    );
+    return "⚪ 行前通知尚未開啟";
   }
 
   if (
-    status ===
-    "configuration_required"
+    source.reminder &&
+    normalizeText(
+      source.reminder.status
+    ) === "sent"
   ) {
-    lines.push(
-      "⚠️ 尚無法計算正式發送時間，請確認車團日期。"
-    );
+    return "✅ 行前通知已發送";
   }
 
-  if (customMessage) {
-    lines.push(
-      "",
-      "補充內容：",
-      customMessage
-    );
-  }
-
-  lines.push(
-    "",
-    "實際發送時會讀取最新車團資料。"
-  );
-
-  return lines.join("\n");
+  return "✅ 已開啟行前通知";
 }
 
 
@@ -252,7 +356,6 @@ async function buildGroupReminderReply(
 
   return {
     ...result,
-
     replyText:
       buildReminderStatusText(
         result
@@ -262,8 +365,15 @@ async function buildGroupReminderReply(
 
 
 module.exports = {
+  DEFAULT_SEND_TIME,
+  DEFAULT_OFFSET_DAYS,
+  DEFAULT_CUSTOM_MESSAGE,
+
   getReminderStatus,
+  enableGroupPreTripReminder,
   buildReminderStatusText,
   buildGroupReminderReply,
+
+  calculateScheduledAt,
   formatScheduledAt
 };

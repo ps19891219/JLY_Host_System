@@ -37,14 +37,16 @@ Responsibilities:
 
     offsetDays: 1,
 
-    sendTime: "20:00",
+    sendTime: "15:00",
 
     timezone: "Asia/Taipei",
 
     templateId:
       "pre_trip_default_v1",
 
-    customMessage: "",
+    customMessage:
+      "大家明天見唷～～～請準時到場❤️\n" +
+      "有問題請提前回報，感謝🙏",
 
     targetType:
       "line_group",

@@ -104,6 +104,174 @@ console.log(
     );
   }
 
+
+  // ============================================================
+  // 我的車分頁 V1
+  //
+  // - Firestore 真分頁：ownerId + documentId cursor
+  // - 每頁最多回傳指定筆數
+  // - 可傳入 filter 函式，會逐批掃描直到湊滿一頁或資料結束
+  // - 不建立第二份 Car 正式資料
+  // ============================================================
+
+  async function getCarsByOwnerPage(
+    ownerId,
+    options
+  ) {
+    const normalizedOwnerId =
+      normalizeId(ownerId);
+
+    if (!normalizedOwnerId) {
+      throw new Error(
+        "缺少 ownerId"
+      );
+    }
+
+    const settings =
+      options || {};
+
+    const pageSize =
+      Math.max(
+        1,
+        Math.min(
+          50,
+          Number(
+            settings.limit || 20
+          )
+        )
+      );
+
+    const filter =
+      typeof settings.filter ===
+        "function"
+        ? settings.filter
+        : null;
+
+    let cursorId =
+      normalizeId(
+        settings.cursorId
+      );
+
+    const db =
+      getDb();
+
+    const batchSize =
+      Math.max(
+        pageSize + 1,
+        24
+      );
+
+    const cars = [];
+    let hasMore = false;
+    let nextCursorId =
+      cursorId || "";
+
+    while (
+      cars.length < pageSize
+    ) {
+      let query =
+        db
+          .collection("cars")
+          .where(
+            "ownerId",
+            "==",
+            normalizedOwnerId
+          )
+          .orderBy(
+            firebase
+              .firestore
+              .FieldPath
+              .documentId()
+          )
+          .limit(
+            batchSize
+          );
+
+      if (cursorId) {
+        query =
+          query.startAfter(
+            cursorId
+          );
+      }
+
+      const snapshot =
+        await query.get();
+
+      if (
+        snapshot.empty
+      ) {
+        hasMore = false;
+        break;
+      }
+
+      const docs =
+        snapshot.docs;
+
+      let consumed = 0;
+
+      for (
+        const doc
+        of docs
+      ) {
+        consumed += 1;
+
+        const car = {
+          id: doc.id,
+          ...doc.data()
+        };
+
+        cursorId =
+          doc.id;
+
+        nextCursorId =
+          doc.id;
+
+        if (
+          !filter ||
+          filter(car)
+        ) {
+          cars.push(car);
+        }
+
+        if (
+          cars.length >=
+            pageSize
+        ) {
+          hasMore =
+            consumed <
+              docs.length ||
+            docs.length ===
+              batchSize;
+
+          break;
+        }
+      }
+
+      if (
+        cars.length >=
+          pageSize
+      ) {
+        break;
+      }
+
+      if (
+        docs.length <
+          batchSize
+      ) {
+        hasMore = false;
+        break;
+      }
+
+      hasMore = true;
+    }
+
+    return {
+      cars,
+      nextCursorId,
+      hasMore
+    };
+  }
+
   // ============================================================
 // 依多個 Car ID 取得車團
 // ============================================================
@@ -368,6 +536,7 @@ async function getCarsByPlayerId(
   window.JLYCarData = {
   getCarById,
   getCarsByOwner,
+  getCarsByOwnerPage,
   getCarsByIds,
   getCarsByPlayerId
 };

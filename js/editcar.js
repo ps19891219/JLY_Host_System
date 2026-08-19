@@ -58,42 +58,6 @@ function shouldSyncEditedCarCalendar(
   );
 }
 
-async function findSameDayCarsForEdit(
-  gameDate
-) {
-  const db =
-    window.db;
-
-  if (!db) {
-    throw new Error(
-      "Firebase 尚未載入"
-    );
-  }
-
-  if (!gameDate) {
-    return [];
-  }
-
-  const snapshot =
-    await db
-      .collection("cars")
-      .where(
-        "gameDate",
-        "==",
-        gameDate
-      )
-      .get();
-
-  return snapshot.docs.map(
-    function (doc) {
-      return {
-        id: doc.id,
-        ...doc.data()
-      };
-    }
-  );
-}
-
 function editNowTime() {
   return new Date().toISOString();
 }
@@ -293,11 +257,6 @@ function renderEditForm(car) {
       calculatedTotal ||
       0
     );
-
-  const visibility =
-    car.visibility === "public"
-      ? "public"
-      : "private";
 
   editBox.innerHTML = `
     <label for="scriptName">
@@ -546,68 +505,6 @@ function renderEditForm(car) {
         全部席位都會建立為不限位。
       </small>
     </div>
-
-    <hr>
-
-    <label>
-      車團公開設定
-    </label>
-
-    <label class="checkbox-row">
-      <input
-        type="radio"
-        name="visibility"
-        value="private"
-        ${
-          visibility === "private"
-            ? "checked"
-            : ""
-        }
-      >
-      🔒 私下揪車
-    </label>
-
-    <label class="checkbox-row">
-      <input
-        type="radio"
-        name="visibility"
-        value="public"
-        ${
-          visibility === "public"
-            ? "checked"
-            : ""
-        }
-      >
-      🌍 公開招募
-    </label>
-
-    <small>
-      公開招募會顯示在公開揪團區；私下揪車不會公開顯示。
-    </small>
-
-    <hr>
-
-    <label>
-      Google Calendar
-    </label>
-
-    <label class="checkbox-row">
-      <input
-        id="calendarSyncEnabled"
-        type="checkbox"
-        ${
-          car.calendar &&
-          car.calendar.syncEnabled === true
-            ? "checked"
-            : ""
-        }
-      >
-      📅 同步到 Google Calendar
-    </label>
-
-    <small>
-      舊車也可以在這裡補開同步。取消勾選只會停止後續同步，不會刪除 Google Calendar 既有活動。
-    </small>
 
     <hr>
 
@@ -936,6 +833,313 @@ renderEditForm(
 }
 }
 
+
+function normalizeReminderTime(value) {
+  const source =
+    String(
+      value || ""
+    ).trim();
+
+  return /^\d{2}:\d{2}$/
+    .test(source)
+      ? source
+      : "15:00";
+}
+
+function normalizeReminderOffset(value) {
+  const number =
+    Number(value);
+
+  return Number.isFinite(number)
+    ? Math.max(
+        0,
+        Math.floor(number)
+      )
+    : 1;
+}
+
+function calculateEditReminderScheduledAt(
+  gameDate,
+  sendTime,
+  offsetDays
+) {
+  const dateText =
+    String(
+      gameDate || ""
+    ).trim();
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/
+      .test(dateText)
+  ) {
+    return "";
+  }
+
+  const timeText =
+    normalizeReminderTime(
+      sendTime
+    );
+
+  const date =
+    new Date(
+      `${dateText}T${timeText}:00+08:00`
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  date.setTime(
+    date.getTime() -
+    (
+      normalizeReminderOffset(
+        offsetDays
+      ) *
+      24 *
+      60 *
+      60 *
+      1000
+    )
+  );
+
+  return date.toISOString();
+}
+
+function formatEditReminderTime(
+  value
+) {
+  const date =
+    new Date(
+      value || 0
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat(
+    "zh-TW",
+    {
+      timeZone:
+        "Asia/Taipei",
+      month:
+        "2-digit",
+      day:
+        "2-digit",
+      hour:
+        "2-digit",
+      minute:
+        "2-digit",
+      hour12:
+        false
+    }
+  ).format(date);
+}
+
+async function reschedulePreTripReminderAfterCarEdit(
+  carId,
+  previousCar,
+  updatedData
+) {
+  const oldDate =
+    String(
+      previousCar &&
+      previousCar.gameDate ||
+      ""
+    ).trim();
+
+  const newDate =
+    String(
+      updatedData &&
+      updatedData.gameDate ||
+      ""
+    ).trim();
+
+  const oldTime =
+    String(
+      previousCar &&
+      previousCar.gameTime ||
+      ""
+    ).trim();
+
+  const newTime =
+    String(
+      updatedData &&
+      updatedData.gameTime ||
+      ""
+    ).trim();
+
+  if (
+    oldDate === newDate &&
+    oldTime === newTime
+  ) {
+    return {
+      checked: false,
+      rescheduled: false
+    };
+  }
+
+  const reminderRef =
+    window.db
+      .collection("cars")
+      .doc(carId)
+      .collection("reminders")
+      .doc("preTrip");
+
+  const snapshot =
+    await reminderRef.get();
+
+  if (!snapshot.exists) {
+    return {
+      checked: true,
+      rescheduled: false,
+      reason:
+        "reminder_not_found"
+    };
+  }
+
+  const reminder =
+    snapshot.data() || {};
+
+  if (
+    reminder.enabled !== true
+  ) {
+    return {
+      checked: true,
+      rescheduled: false,
+      reason:
+        "reminder_disabled"
+    };
+  }
+
+  /*
+   * A Car gets one pre-trip notification.
+   * If it was already sent, later Car edits do not re-arm it.
+   */
+  if (
+    String(
+      reminder.status || ""
+    ).trim() === "sent"
+  ) {
+    return {
+      checked: true,
+      rescheduled: false,
+      reason:
+        "already_sent",
+      contentChanged:
+        oldTime !== newTime
+    };
+  }
+
+  /*
+   * gameTime changes only affect the content that will be read
+   * at dispatch time. scheduledAt changes only when gameDate does.
+   */
+  if (
+    oldDate === newDate
+  ) {
+    return {
+      checked: true,
+      rescheduled: false,
+      contentChanged:
+        oldTime !== newTime,
+      reason:
+        "content_only"
+    };
+  }
+
+  const sendTime =
+    normalizeReminderTime(
+      reminder.sendTime
+    );
+
+  const offsetDays =
+    normalizeReminderOffset(
+      reminder.offsetDays
+    );
+
+  const scheduledAt =
+    calculateEditReminderScheduledAt(
+      newDate,
+      sendTime,
+      offsetDays
+    );
+
+  const now =
+    new Date()
+      .toISOString();
+
+  const schedulePassed =
+    Boolean(
+      scheduledAt &&
+      scheduledAt <= now
+    );
+
+  const updateData = {
+    scheduledAt,
+
+    status:
+      !scheduledAt
+        ? "configuration_required"
+        : (
+            schedulePassed
+              ? "action_required"
+              : "scheduled"
+          ),
+
+    needsHostAction:
+      schedulePassed,
+
+    rescheduleReason:
+      schedulePassed
+        ? "scheduled_time_passed"
+        : "car_date_changed",
+
+    previousScheduledAt:
+      String(
+        reminder.scheduledAt || ""
+      ).trim(),
+
+    rescheduledAt:
+      now,
+
+    updatedAt:
+      now,
+
+    /*
+     * Date-change acknowledgement belongs to the host UI.
+     * Do not request a LINE Push status notice.
+     */
+    noticeType: "",
+    noticeStatus:
+      "suppressed"
+  };
+
+  await reminderRef.set(
+    updateData,
+    {
+      merge: true
+    }
+  );
+
+  return {
+    checked: true,
+    rescheduled: true,
+    schedulePassed,
+    scheduledAt,
+    previousScheduledAt:
+      updateData.previousScheduledAt
+  };
+}
+
 async function saveEditCar() {
   const db = window.db;
   const carId = getEditCarId();
@@ -1245,14 +1449,6 @@ const updatedData = {
 
   note,
 
-  visibility:
-    getEditRadioValue(
-      "visibility",
-      currentEditingCar.visibility === "public"
-        ? "public"
-        : "private"
-    ),
-
   peopleMode,
 
   maleSlots,
@@ -1283,49 +1479,23 @@ const updatedData = {
     editNowTime()
 };
 
-const hadCalendarSync =
-  !!(
-    currentEditingCar.calendar &&
-    currentEditingCar.calendar.syncEnabled === true &&
-    currentEditingCar.calendar.eventId
-  );
-
-const wantsCalendarSync =
-  document.getElementById(
-    "calendarSyncEnabled"
-  ).checked === true;
-
-const calendarFieldsChanged =
-  hasEditCalendarChanges(
+const shouldSyncCalendar =
+  shouldSyncEditedCarCalendar(
     currentEditingCar,
     updatedData
   );
 
-const needsCalendarCreate =
-  wantsCalendarSync &&
-  !hadCalendarSync;
-
-const needsCalendarUpdate =
-  wantsCalendarSync &&
-  hadCalendarSync &&
-  calendarFieldsChanged;
-
-const needsCalendarDisable =
-  !wantsCalendarSync &&
-  currentEditingCar.calendar &&
-  currentEditingCar.calendar.syncEnabled === true;
-
 let googleCalendarAuthorized =
   false;
 
+let googleCalendarAuthError =
+  null;
+
 /*
-  第一次補開同步，或既有同步車需要更新時，
-  才需要 Google 授權。
+  Google OAuth 必須靠近使用者點擊，
+  所以要在 Audit / Firestore await 前先取得授權。
 */
-if (
-  needsCalendarCreate ||
-  needsCalendarUpdate
-) {
+if (shouldSyncCalendar) {
   try {
     if (
       !window.JLYCalendarAuth ||
@@ -1346,94 +1516,13 @@ if (
     googleCalendarAuthorized =
       true;
   } catch (error) {
+    googleCalendarAuthError =
+      error;
+
     console.warn(
       "Google Calendar 授權未完成：",
       error
     );
-
-    const continueJlyOnly =
-      confirm(
-        [
-          "⚠️ Google Calendar 授權未完成。",
-          "",
-          error && error.message
-            ? error.message
-            : "無法取得 Google 授權",
-          "",
-          "是否仍只修改 JLY 車團？",
-          "",
-          "Google Calendar 將維持原本內容。"
-        ].join("\n")
-      );
-
-    if (!continueJlyOnly) {
-      return;
-    }
-  }
-}
-
-/*
-  第一次補建或更新 Calendar Event 前，
-  都先檢查修改後日期的其他行程。
-*/
-if (
-  googleCalendarAuthorized &&
-  (
-    needsCalendarCreate ||
-    needsCalendarUpdate
-  ) &&
-  updatedData.gameDate
-) {
-  const sameDayCars =
-    await findSameDayCarsForEdit(
-      updatedData.gameDate
-    );
-
-  if (
-    !window.JLYCalendarController ||
-    typeof window
-      .JLYCalendarController
-      .checkBeforeUpdate !==
-        "function"
-  ) {
-    alert(
-      "Calendar 行程檢查模組尚未載入"
-    );
-    return;
-  }
-
-  const checkResult =
-    await window
-      .JLYCalendarController
-      .checkBeforeUpdate({
-        gameDate:
-          updatedData.gameDate,
-
-        jlyCars:
-          sameDayCars,
-
-        checkGoogle:
-          true,
-
-        currentCarId:
-          carId,
-
-        currentEventId:
-          hadCalendarSync &&
-          currentEditingCar.calendar
-            ? (
-                currentEditingCar
-                  .calendar.eventId ||
-                ""
-              )
-            : ""
-      });
-
-  if (
-    !checkResult ||
-    checkResult.proceed !== true
-  ) {
-    return;
   }
 }
 
@@ -1466,172 +1555,99 @@ await audit
       updatedData
   });
 
-  let calendarSyncResult =
+  let reminderSyncResult =
     null;
 
-  /*
-    舊車第一次勾選：
-    建立新的 Google Calendar Event。
-  */
-  if (
-    needsCalendarCreate &&
-    googleCalendarAuthorized
-  ) {
-    if (
-      !window.JLYCalendarController ||
-      typeof window
-        .JLYCalendarController
-        .syncCreatedCar !==
-          "function"
-    ) {
-      calendarSyncResult = {
-        ok: false,
-        error: new Error(
-          "Calendar Controller 尚未載入"
-        )
-      };
-    } else {
-      const settings =
-        window.JLYCalendarController
-          .getSettings();
+  try {
+    reminderSyncResult =
+      await reschedulePreTripReminderAfterCarEdit(
+        carId,
+        currentEditingCar,
+        updatedData
+      );
+  } catch (reminderError) {
+    console.error(
+      "行前提醒重新排程失敗：",
+      reminderError
+    );
 
-      const nextCar = {
-        ...currentEditingCar,
-        ...updatedData
-      };
-
-      calendarSyncResult =
-        await window
-          .JLYCalendarController
-          .syncCreatedCar({
-            carId,
-
-            car:
-              nextCar,
-
-            carUrl:
-              location.origin +
-              "/pages/car-detail.html?id=" +
-              encodeURIComponent(
-                carId
-              ),
-
-            durationMinutes:
-              (
-                currentEditingCar
-                  .calendar &&
-                currentEditingCar
-                  .calendar
-                  .eventDurationMinutes
-              ) ||
-              settings
-                .defaultDurationMinutes ||
-              60,
-
-            titleTemplate:
-              settings.titleTemplate,
-
-            calendarId:
-              settings.calendarId ||
-              "primary"
-          });
-    }
+    reminderSyncResult = {
+      checked: true,
+      rescheduled: false,
+      reason:
+        "reschedule_failed",
+      error:
+        reminderError
+    };
   }
 
-  /*
-    原本已同步，而且 Calendar 相關資料有修改：
-    更新原本 Event，不建立第二筆。
-  */
+  let calendarSyncResult =
+  null;
+
+if (
+  shouldSyncCalendar &&
+  googleCalendarAuthorized
+) {
   if (
-    needsCalendarUpdate &&
-    googleCalendarAuthorized
+    !window.JLYCalendarSync ||
+    typeof window
+      .JLYCalendarSync
+      .syncUpdatedCar !==
+        "function"
   ) {
-    if (
-      !window.JLYCalendarSync ||
-      typeof window
-        .JLYCalendarSync
-        .syncUpdatedCar !==
-          "function"
-    ) {
-      calendarSyncResult = {
-        ok: false,
-        error: new Error(
-          "Calendar Sync 模組尚未載入"
-        )
-      };
-    } else {
-      const nextCar = {
-        ...currentEditingCar,
-        ...updatedData,
+    console.warn(
+      "Calendar Sync 模組尚未載入"
+    );
+  } else {
+    const nextCar = {
+      ...currentEditingCar,
+      ...updatedData,
 
-        calendar:
-          currentEditingCar.calendar
-      };
+      // 保留原本 eventId / calendarId
+      calendar:
+        currentEditingCar.calendar
+    };
 
-      calendarSyncResult =
-        await window
-          .JLYCalendarSync
-          .syncUpdatedCar({
-            carId,
-
-            car:
-              nextCar,
-
-            carUrl:
-              location.origin +
-              "/pages/car-detail.html?id=" +
-              encodeURIComponent(
-                carId
-              )
-          });
-    }
-  }
-
-  /*
-    原本有同步，這次取消勾選：
-    只停止後續同步，保留既有 eventId / eventUrl，
-    不刪除 Google Calendar 裡的活動。
-  */
-  if (needsCalendarDisable) {
-    try {
-      if (
-        !window.JLYCalendarData ||
-        typeof window
-          .JLYCalendarData
-          .updateCarCalendar !==
-            "function"
-      ) {
-        throw new Error(
-          "Calendar Data 模組尚未載入"
-        );
-      }
-
+    calendarSyncResult =
       await window
-        .JLYCalendarData
-        .updateCarCalendar(
+        .JLYCalendarSync
+        .syncUpdatedCar({
           carId,
-          {
-            syncEnabled: false,
-            syncStatus:
-              "not_synced",
-            lastError: ""
-          }
-        );
-    } catch (error) {
-      calendarSyncResult = {
-        ok: false,
-        error
-      };
-    }
+
+          car:
+            nextCar,
+
+          carUrl:
+            location.origin +
+            "/pages/car-detail.html?id=" +
+            encodeURIComponent(
+              carId
+            )
+        });
   }
+}
 
     if (
+  shouldSyncCalendar &&
+  !googleCalendarAuthorized
+) {
+  alert(
+    "車團修改完成！\n\n" +
+    "⚠️ Google Calendar 尚未更新。\n" +
+    (
+      googleCalendarAuthError &&
+      googleCalendarAuthError.message
+        ? googleCalendarAuthError.message
+        : "Google 授權未完成"
+    )
+  );
+} else if (
   calendarSyncResult &&
   calendarSyncResult.ok === false
 ) {
   alert(
     "車團修改完成！\n\n" +
-    "⚠️ Google Calendar 處理失敗。\n" +
+    "⚠️ Google Calendar 更新失敗。\n" +
     (
       calendarSyncResult.error &&
       calendarSyncResult.error.message
@@ -1641,43 +1657,50 @@ await audit
     )
   );
 } else if (
-  needsCalendarCreate &&
-  googleCalendarAuthorized
-) {
-  alert(
-    "車團修改完成，已新增到 Google Calendar！"
-  );
-} else if (
-  needsCalendarUpdate &&
+  shouldSyncCalendar &&
   googleCalendarAuthorized
 ) {
   alert(
     "車團修改完成，Google Calendar 也已更新！"
-  );
-} else if (
-  needsCalendarDisable
-) {
-  alert(
-    "車團修改完成！\n\n" +
-    "已停止這台車後續的 Google Calendar 同步。\n" +
-    "Google Calendar 既有活動不會被刪除。"
-  );
-} else if (
-  (
-    needsCalendarCreate ||
-    needsCalendarUpdate
-  ) &&
-  !googleCalendarAuthorized
-) {
-  alert(
-    "車團修改完成！\n\n" +
-    "Google Calendar 這次沒有更新。"
   );
 } else {
   alert(
     "車團修改完成！"
   );
 }
+
+
+    if (
+      reminderSyncResult &&
+      reminderSyncResult.rescheduled
+    ) {
+      if (
+        reminderSyncResult.schedulePassed
+      ) {
+        alert(
+          "⚠️ 行前提醒需要確認\n\n" +
+          "新的「活動前一天提醒時間」已經過了。\n" +
+          "系統不會自動補發，請到車團行前提醒設定重新確認。"
+        );
+      } else {
+        alert(
+          "🔔 行前提醒時間已更新\n\n" +
+          "新提醒時間：" +
+          formatEditReminderTime(
+            reminderSyncResult.scheduledAt
+          )
+        );
+      }
+    } else if (
+      reminderSyncResult &&
+      reminderSyncResult.reason ===
+        "reschedule_failed"
+    ) {
+      alert(
+        "⚠️ 車團已修改，但行前提醒時間更新失敗。\n" +
+        "請回到車團詳細頁確認提醒設定。"
+      );
+    }
 
     location.href =
       "car-detail.html?id=" +
