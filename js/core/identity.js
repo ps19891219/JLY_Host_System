@@ -17,6 +17,18 @@ console.log(
   const LINKED_PLAYER_IDS_KEY =
     "linkedPlayerIds";
 
+    const SYSTEM_ADMIN_MODE_KEY =
+  "jlySystemAdminMode";
+
+// V1 開發階段：
+// 暫時只允許目前 Owner 的正式 Player Profile
+// 使用 System Admin Mode。
+// 未來 Account / Permission Core 建立後，
+// 這裡改由正式 Permission 判斷。
+const SYSTEM_ADMIN_PROFILE_IDS = [
+  "f89pkJbkmFLu4ZOw2fXh"
+];
+
   // ============================================================
   // 基本工具
   // ============================================================
@@ -387,6 +399,84 @@ console.log(
   }
 
   // ============================================================
+// System Admin Mode
+// ============================================================
+
+function canUseSystemAdmin() {
+  const profileId =
+    getCurrentPlayerProfileId();
+
+  if (!profileId) {
+    return false;
+  }
+
+  return SYSTEM_ADMIN_PROFILE_IDS
+    .includes(profileId);
+}
+
+function isSystemAdminMode() {
+  if (!canUseSystemAdmin()) {
+    return false;
+  }
+
+  return (
+    sessionStorage.getItem(
+      SYSTEM_ADMIN_MODE_KEY
+    ) === "true"
+  );
+}
+
+function setSystemAdminMode(
+  enabled
+) {
+  if (
+    enabled &&
+    !canUseSystemAdmin()
+  ) {
+    console.warn(
+      "目前 Identity 沒有 System Admin 資格"
+    );
+
+    sessionStorage.removeItem(
+      SYSTEM_ADMIN_MODE_KEY
+    );
+
+    return false;
+  }
+
+  if (enabled) {
+    sessionStorage.setItem(
+      SYSTEM_ADMIN_MODE_KEY,
+      "true"
+    );
+  } else {
+    sessionStorage.removeItem(
+      SYSTEM_ADMIN_MODE_KEY
+    );
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "jly:admin-mode-changed",
+      {
+        detail: {
+          enabled:
+            Boolean(enabled)
+        }
+      }
+    )
+  );
+
+  return true;
+}
+
+function toggleSystemAdminMode() {
+  return setSystemAdminMode(
+    !isSystemAdminMode()
+  );
+}
+
+  // ============================================================
   // 對外公開
   // ============================================================
 
@@ -409,6 +499,11 @@ console.log(
 
     getAllPlayerIdentityIds,
 
-    syncFromPlayerProfile
+    syncFromPlayerProfile,
+
+canUseSystemAdmin,
+isSystemAdminMode,
+setSystemAdminMode,
+toggleSystemAdminMode
   };
 })();
