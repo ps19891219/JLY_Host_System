@@ -2,10 +2,25 @@
 
 > Status: Working Map
 >
-> Version: V2.73
+> Version: V2.75
 >
 > Last Updated: 2026-08-19
 >
+
+## V2.75 LINE 入群歡迎詞 + DM / Player 雙入口（2026-08-19）
+
+- LINE Webhook 的新成員事件使用 `memberJoined`，與 Bot 自己加入群組的 `join` 事件分離。
+- 只有已綁定正式 Car 的 LINE 群組才發送歡迎卡；未綁定群組保持安靜。
+- 新增 `services/line/member-welcome-card.js`，歡迎卡固定兩個 URI 入口：上方 `🎭 我是本場 DM` → `/pages/dm-join.html?carId=...`；下方 `🎮 我要報名玩家` → `/pages/join.html?carId=...`。
+- `services/line/event-router.js` 新增 `memberJoined` route，先解析 group binding，再取得正式 Car，最後使用既有 LINE Reply Service 回覆 Flex Message。
+- DM 與 Player 前台入口分離，但仍共用 JLY Person / Identity 核心；歡迎卡不建立任何人員副本。
+- 新增 `tests/line/member-welcome.test.js` 驗證按鈕順序、已綁定群組歡迎、未綁定群組靜默。
+
+## V2.74 Player Join / DM Join V1（2026-08-19）
+
+- 玩家與 DM 使用不同前台入口，但共用 JLY Person / Identity。
+- 新增 `pages/dm-join.html` / `js/dm-join.js` 作為本場 DM 身分連結入口；DM 寫入既有 `car.staffSlots[]`，不占玩家 Seat。
+- DM Join V1 是已確定 DM 的本人身分連結，不等同公開徵 DM。
 
 ## V2.73 車團權限、Audit、Edit Calendar 與公開設定整合（2026-08-19）
 
@@ -1433,4 +1448,10 @@ matching
 - `js/modules/car/detail/core/` 從 Reserved／未歸類提升為已確認 Runtime；`config/permissions.js` 保留 Config 身分，不與 Runtime Permission 混用。
 - 補記 `carRelations.assistRecruiting` 與個人揪團頁 Host + Assist Car 合併關係。
 - 工程交付改採保留完整專案路徑的小型 ZIP；Vercel 驗收固定先 Test、再精準 Git、Push、部署後實測。
+
+### V2.75｜2026-08-19
+
+- LINE `memberJoined` 正式接入群組歡迎流程。
+- 歡迎卡固定 DM 在上、Player 在下；兩個入口各自導向 DM Join 與 Player Join。
+- 未綁定 Car 的群組不發送活動歡迎卡。
 

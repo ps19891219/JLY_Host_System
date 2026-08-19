@@ -35,6 +35,9 @@ const {
   buildGroupAssistantCard,
   buildAccountingMenuCard
 } = require("./group-assistant-card");
+const {
+  buildMemberWelcomeCard
+} = require("./member-welcome-card");
 const { getCarById } = require("../firebase/line-accounting-authorization-repository");
 const {
   createGroupAssistantToken,
@@ -100,11 +103,6 @@ const {
 const { prepareQuickAccounting, saveResolvedQuickAccounting } = require("./quick-accounting-service");
 const { buildStoreInfo, buildTimeInfo, buildPeopleInfo } = require("./car-info-slices");
 
-const {
-  buildGroupReminderReply
-} = require(
-  "./reminder-service"
-);
 // ============================================================
 // Normalize Text
 // ============================================================
@@ -217,7 +215,25 @@ function createEventContext(event) {
     message:
       normalizeMessage(
         event
+      ),
+
+    joinedMembers:
+      Array.isArray(
+        event &&
+        event.joined &&
+        event.joined.members
       )
+        ? event.joined.members
+            .map(function (member) {
+              return {
+                type: normalizeText(member && member.type),
+                userId: normalizeText(member && member.userId)
+              };
+            })
+            .filter(function (member) {
+              return Boolean(member.userId);
+            })
+        : []
   };
 }
 
@@ -496,105 +512,6 @@ async function handleMessageEvent(
     const car = await readCar(context.accountingCarId),builders={assistant_store_info:buildStoreInfo,assistant_time_info:buildTimeInfo,assistant_people_info:buildPeopleInfo};
     await replyWithText(context.replyToken,builders[messageResult.action](car||{}));
     return { handled: true, route: messageResult.action, context, groupBinding };
-  }
-
-    // ----------------------------------------------------------
-  // Pre-trip reminder status
-  // ----------------------------------------------------------
-
-  if (
-    messageResult.action ===
-    "assistant_reminder_menu"
-  ) {
-    if (!context.replyToken) {
-      return {
-        handled: false,
-        route:
-          "message_missing_reply_token",
-        context,
-        groupBinding
-      };
-    }
-
-    if (
-      context.source.type !== "group" ||
-      !context.source.groupId ||
-      !context.accountingCarId
-    ) {
-      await replyWithText(
-        context.replyToken,
-        "請先將這個 LINE 群組綁定 JLY 車團。"
-      );
-
-      return {
-        handled: true,
-        route:
-          "assistant_reminder_binding_required",
-        context,
-        groupBinding
-      };
-    }
-
-    try {
-      const car =
-        await readCar(
-          context.accountingCarId
-        );
-
-      if (!car) {
-        await replyWithText(
-          context.replyToken,
-          "找不到這台 JLY 車團，請確認群組綁定狀態。"
-        );
-
-        return {
-          handled: true,
-          route:
-            "assistant_reminder_car_not_found",
-          context,
-          groupBinding
-        };
-      }
-
-      const reminderResult =
-        await buildGroupReminderReply(
-          context.accountingCarId,
-          car
-        );
-
-      await replyWithText(
-        context.replyToken,
-        reminderResult.replyText
-      );
-
-      return {
-        handled: true,
-        route:
-          "assistant_reminder_menu",
-        context,
-        groupBinding,
-        reminderResult
-      };
-
-    } catch (error) {
-      console.error(
-        "LINE reminder lookup failed.",
-        error
-      );
-
-      await replyWithText(
-        context.replyToken,
-        "行前提醒目前讀取失敗，請稍後再試。"
-      );
-
-      return {
-        handled: true,
-        route:
-          "assistant_reminder_failed",
-        context,
-        groupBinding
-      };
-    }
   }
 
   if (messageResult.action === "accounting_quick_create") {
@@ -1073,6 +990,120 @@ async function handleMessageEvent(
   };
 }
 
+async function handleMemberJoinedEvent(
+  context,
+  dependencies = {}
+) {
+  const resolveBinding =
+    dependencies.resolveGroupBinding ||
+    resolveGroupBinding;
+
+  const readCar =
+    dependencies.getCarById ||
+    getCarById;
+
+  const replyWithMessages =
+    dependencies.sendReplyMessage ||
+    sendReplyMessage;
+
+  const readPublicBaseUrl =
+    dependencies.getPublicBaseUrl ||
+    getPublicBaseUrl;
+
+  if (
+    context.source.type !== "group" ||
+    !context.source.groupId ||
+    !context.replyToken
+  ) {
+    return {
+      handled: false,
+      route: "member_joined_unsupported_source",
+      context
+    };
+  }
+
+  let groupBinding = null;
+
+  try {
+    groupBinding =
+      await resolveBinding(
+        context.source.groupId
+      );
+  } catch (error) {
+    console.error(
+      "LINE member welcome binding lookup failed.",
+      error
+    );
+
+    return {
+      handled: false,
+      route: "member_joined_binding_error",
+      context
+    };
+  }
+
+  if (
+    !groupBinding ||
+    groupBinding.bound !== true ||
+    !groupBinding.binding ||
+    !groupBinding.binding.carId
+  ) {
+    return {
+      handled: false,
+      route: "member_joined_unbound_group",
+      context,
+      groupBinding
+    };
+  }
+
+  const carId =
+    normalizeText(
+      groupBinding.binding.carId
+    );
+
+  let car = null;
+
+  try {
+    car = await readCar(carId);
+  } catch (error) {
+    console.error(
+      "LINE member welcome car lookup failed.",
+      error
+    );
+  }
+
+  if (!car) {
+    return {
+      handled: false,
+      route: "member_joined_car_not_found",
+      context,
+      groupBinding
+    };
+  }
+
+  await replyWithMessages(
+    context.replyToken,
+    [
+      buildMemberWelcomeCard(
+        car,
+        {
+          baseUrl:
+            readPublicBaseUrl(),
+          carId
+        }
+      )
+    ]
+  );
+
+  return {
+    handled: true,
+    route: "member_joined_welcome",
+    context,
+    groupBinding,
+    carId
+  };
+}
+
 function shortenActorId(value) {
   const id = normalizeText(value);
   if (id.length <= 12) {
@@ -1149,6 +1180,12 @@ async function routeEvent(
           "join",
         context
       };
+
+    case "memberJoined":
+      return handleMemberJoinedEvent(
+        context,
+        dependencies
+      );
 
     case "leave":
       return {
