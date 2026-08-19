@@ -2,10 +2,18 @@
 
 > Status: Working Map
 >
-> Version: V2.76
+> Version: V2.77
 >
 > Last Updated: 2026-08-19
 >
+
+## V2.77 玩家車友名單查詢修正（2026-08-19）
+
+- 修正 `pages/join.html` 玩家已核准後雖出現「查看車友」按鈕，但 `approved_only` 模式仍被舊 placeholder 邏輯擋住的問題。
+- `js/join.js` 現在於 `guestListVisibility=approved_only` 時，以目前報名頁記住的玩家名稱確認本人已存在正式 `car.players[]` 後允許查看車友。
+- 車友顯示名稱相容 `playerName`、`name`、`displayName`，避免正式玩家資料只有 `playerName` 時顯示未命名。
+- 移除舊 `showGuestList()`「功能開發中」placeholder，只保留 `toggleGuestList()` 正式展開／收合名單流程。
+- `pages/join.html` 將 `join.js` cache version 升至 `v=3`，避免 LINE 內建瀏覽器繼續讀舊版腳本。
 
 ## V2.76 報名審核閉環 + 首頁 Pending Actions V1（2026-08-19）
 
@@ -1472,4 +1480,9 @@ matching
 - 完成 Player Join / DM Join → Pending Application → 報名審核 → Car Detail → 主揪核准／拒絕閉環。
 - 新增首頁 Pending Actions 分類骨架與報名審核總數；報名審核第二層再區分玩家／DM。
 - DM Approval 正式整合 Detail Page Render，核准後可綁既有 DM 或動態新增 Staff Slot。
+
+### V2.77｜2026-08-19
+
+- 玩家報名頁「查看車友」正式接回 `car.players[]`；公開模式可直接查看，`approved_only` 僅核准玩家可查看。
+- 移除舊車友名單 placeholder，並補 `playerName` 顯示相容。
 

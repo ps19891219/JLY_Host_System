@@ -78,13 +78,55 @@ function getNeedText(car) {
   return need > 0 ? "缺" + need + "人" : "已滿";
 }
 
+function isCurrentApprovedPlayer(car) {
+  const myName =
+    String(
+      localStorage.getItem(
+        "joinPlayerName"
+      ) || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (!myName) {
+    return false;
+  }
+
+  return getPlayers(car)
+    .some(function (player) {
+      const playerName =
+        String(
+          player.playerName ||
+          player.name ||
+          player.displayName ||
+          ""
+        )
+          .trim()
+          .toLowerCase();
+
+      return (
+        playerName &&
+        playerName === myName
+      );
+    });
+}
+
 function canShowGuestList(car) {
-  const mode = getGuestListVisibility(car);
+  const mode =
+    getGuestListVisibility(car);
 
-  if (mode === "public") return true;
+  if (mode === "public") {
+    return true;
+  }
 
-  // LINE 串接前，先不判斷「是否已核准本人」
-  // 之後會改成：如果目前登入玩家已在 players 裡，才回傳 true
+  if (
+    mode === "approved_only"
+  ) {
+    return isCurrentApprovedPlayer(
+      car
+    );
+  }
+
   return false;
 }
 
@@ -109,7 +151,7 @@ function renderGuestList(car) {
           : players.map(function (player) {
               return `
                 <p>
-                  👤 ${player.name || "未命名"}
+                  👤 ${player.playerName || player.name || player.displayName || "未命名"}
                   ｜${getPositionText(player)}
                   ${player.isCrossPlay ? "｜反串" : ""}
                 </p>
@@ -372,14 +414,6 @@ function toggleGuestList() {
 }
 
 window.toggleGuestList = toggleGuestList;
-
-window.showGuestList = showGuestList;
-
-function showGuestList() {
-    alert("👥 車友名單功能開發中");
-}
-
-window.showGuestList = showGuestList;
 window.renderJoinForm = renderJoinForm;
 window.submitJoin = submitJoin;
 
