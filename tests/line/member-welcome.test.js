@@ -67,7 +67,7 @@ test(
 
     assert.match(
       buttons[0].action.uri,
-      /dm-join\.html\?carId=car-1/
+      /dm-join\.html\?id=car-1/
     );
 
     assert.equal(
@@ -77,7 +77,7 @@ test(
 
     assert.match(
       buttons[1].action.uri,
-      /join\.html\?carId=car-1/
+      /join\.html\?id=car-1/
     );
   }
 );

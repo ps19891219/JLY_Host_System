@@ -46,10 +46,10 @@ function buildMemberWelcomeCard(
   const title = getCarTitle(car);
 
   const dmUrl =
-    `${baseUrl}/pages/dm-join.html?carId=${carId}`;
+    `${baseUrl}/pages/dm-join.html?id=${carId}`;
 
   const playerUrl =
-    `${baseUrl}/pages/join.html?carId=${carId}`;
+    `${baseUrl}/pages/join.html?id=${carId}`;
 
   return {
     type: "flex",

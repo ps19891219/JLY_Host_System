@@ -268,4 +268,11 @@ async function confirmDmJoin() {
 window.startDmLineLogin = startDmLineLogin;
 window.confirmDmJoin = confirmDmJoin;
 
-document.addEventListener("DOMContentLoaded", loadDmJoinPage);
+if (document.readyState === "loading") {
+  document.addEventListener(
+    "DOMContentLoaded",
+    loadDmJoinPage
+  );
+} else {
+  loadDmJoinPage();
+}
