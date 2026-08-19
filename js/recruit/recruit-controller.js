@@ -65,9 +65,23 @@ function filterRecruitCars(
 
   return cars.filter(
     function (car) {
-      return (
+      if (!car) {
+        return false;
+      }
+
+      const isRecruiting =
         render.getStatus(car) ===
-        "招募中"
+        "招募中";
+
+      const isPublic =
+        String(
+          car.visibility || ""
+        ).trim() ===
+        "public";
+
+      return (
+        isRecruiting &&
+        isPublic
       );
     }
   );
