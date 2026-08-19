@@ -1154,6 +1154,17 @@ window.saveEditCar =
 window.toggleEditPeopleMode =
   toggleEditPeopleMode;
 
+// ============================================================
+// System Admin Mode 即時切換
+// ============================================================
+
+window.addEventListener(
+  "jly:admin-mode-changed",
+  function () {
+    loadEditCar();
+  }
+);
+
   function initializeEditCarPage() {
   if (window.db) {
     loadEditCar();
