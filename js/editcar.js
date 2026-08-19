@@ -294,6 +294,11 @@ function renderEditForm(car) {
       0
     );
 
+  const visibility =
+    car.visibility === "public"
+      ? "public"
+      : "private";
+
   editBox.innerHTML = `
     <label for="scriptName">
       劇本名稱
@@ -541,6 +546,44 @@ function renderEditForm(car) {
         全部席位都會建立為不限位。
       </small>
     </div>
+
+    <hr>
+
+    <label>
+      車團公開設定
+    </label>
+
+    <label class="checkbox-row">
+      <input
+        type="radio"
+        name="visibility"
+        value="private"
+        ${
+          visibility === "private"
+            ? "checked"
+            : ""
+        }
+      >
+      🔒 私下揪車
+    </label>
+
+    <label class="checkbox-row">
+      <input
+        type="radio"
+        name="visibility"
+        value="public"
+        ${
+          visibility === "public"
+            ? "checked"
+            : ""
+        }
+      >
+      🌍 公開招募
+    </label>
+
+    <small>
+      公開招募會顯示在公開揪團區；私下揪車不會公開顯示。
+    </small>
 
     <hr>
 
@@ -1177,6 +1220,14 @@ const updatedData = {
       : Number(priceValue),
 
   note,
+
+  visibility:
+    getEditRadioValue(
+      "visibility",
+      currentEditingCar.visibility === "public"
+        ? "public"
+        : "private"
+    ),
 
   peopleMode,
 
