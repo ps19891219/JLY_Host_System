@@ -1122,11 +1122,33 @@ const updatedData = {
 };
 
   try {
-    await db
-      .collection("cars")
-      .doc(carId)
-      .update(updatedData);
+    const audit =
+  window.JLYAudit;
 
+if (
+  !audit ||
+  typeof audit
+    .updateCarWithAudit !==
+      "function"
+) {
+  throw new Error(
+    "Audit Core 尚未載入"
+  );
+}
+
+await audit
+  .updateCarWithAudit({
+    carId,
+
+    actionType:
+      "car_edit",
+
+    source:
+      "editcar",
+
+    updateData
+  });
+  
     alert("車團修改完成！");
 
     location.href =
