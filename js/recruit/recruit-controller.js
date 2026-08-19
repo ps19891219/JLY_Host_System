@@ -265,6 +265,20 @@ const allCars =
     mergedCars
   );
 
+  if (
+  window.JLYRecruitBatchShare &&
+  typeof window
+    .JLYRecruitBatchShare
+    .setCars ===
+      "function"
+) {
+  window
+    .JLYRecruitBatchShare
+    .setCars(
+      allCars
+    );
+}
+
 /*
   如果 Tabs 模組存在，
   將三組資料交給它管理。
