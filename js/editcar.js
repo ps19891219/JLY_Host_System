@@ -1146,9 +1146,10 @@ await audit
     source:
       "editcar",
 
-    updateData
+    updateData:
+      updatedData
   });
-  
+
     alert("車團修改完成！");
 
     location.href =
