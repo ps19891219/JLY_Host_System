@@ -4,7 +4,16 @@ let currentCar = null;
 let currentCarId = null;
 
 function getCarId() {
-  return new URLSearchParams(location.search).get("id");
+  const params =
+    new URLSearchParams(
+      location.search
+    );
+
+  return (
+    params.get("id") ||
+    params.get("carId") ||
+    ""
+  );
 }
 
 function nowTime() {
