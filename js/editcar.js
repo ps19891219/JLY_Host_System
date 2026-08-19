@@ -688,13 +688,88 @@ async function loadEditCar() {
 
   console.log("④ 準備 render");
   currentEditingCar = {
-    id: carDoc.id,
-    ...carDoc.data()
-  };
+  id: carDoc.id,
+  ...carDoc.data()
+};
 
-  renderEditForm(
+// ============================================================
+// 編輯權限檢查
+// ============================================================
+
+const permissions =
+  window.JLYPermissions;
+
+if (
+  !permissions ||
+  typeof permissions.canEditCar !==
+    "function"
+) {
+  console.error(
+    "JLYPermissions 尚未載入"
+  );
+
+  editBox.innerHTML =
+    "權限模組尚未載入";
+
+  return;
+}
+
+const ownerId =
+  String(
+    currentEditingCar.ownerId || ""
+  ).trim();
+
+// 舊車尚未建立 ownerId 時，
+// V1 暫時維持原本可編輯行為。
+// 避免歷史車突然全部被鎖住。
+const isLegacyCar =
+  !ownerId;
+
+const canEdit =
+  isLegacyCar ||
+  permissions.canEditCar(
     currentEditingCar
   );
+
+if (!canEdit) {
+  editBox.innerHTML = `
+    <div
+      style="
+        padding: 24px;
+        text-align: center;
+      "
+    >
+      <div
+        style="
+          font-size: 32px;
+          margin-bottom: 12px;
+        "
+      >
+        🔒
+      </div>
+
+      <strong>
+        目前身分沒有編輯這台車的權限
+      </strong>
+
+      <p
+        style="
+          margin-top: 10px;
+          color: #666;
+        "
+      >
+        如果你是系統管理者，
+        可以使用右上角切換身分。
+      </p>
+    </div>
+  `;
+
+  return;
+}
+
+renderEditForm(
+  currentEditingCar
+);
 } catch (error) {
   console.error(
     "讀取車團失敗：",
@@ -725,6 +800,43 @@ async function saveEditCar() {
     alert("車團資料尚未載入");
     return;
   }
+
+  const permissions =
+  window.JLYPermissions;
+
+if (
+  !permissions ||
+  typeof permissions.canEditCar !==
+    "function"
+) {
+  alert(
+    "權限模組尚未載入"
+  );
+
+  return;
+}
+
+const ownerId =
+  String(
+    currentEditingCar.ownerId || ""
+  ).trim();
+
+const isLegacyCar =
+  !ownerId;
+
+const canEdit =
+  isLegacyCar ||
+  permissions.canEditCar(
+    currentEditingCar
+  );
+
+if (!canEdit) {
+  alert(
+    "目前身分沒有編輯這台車的權限"
+  );
+
+  return;
+}
 
   const scriptName =
     document
