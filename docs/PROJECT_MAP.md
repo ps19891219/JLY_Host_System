@@ -2,10 +2,24 @@
 
 > Status: Working Map
 >
-> Version: V2.72
+> Version: V2.73
 >
-> Last Updated: 2026-08-18
+> Last Updated: 2026-08-19
 >
+
+## V2.73 車團權限、Audit、Edit Calendar 與公開設定整合（2026-08-19）
+
+- 車團編輯新增正式 Permission Gate：目前 Runtime 位於 `js/modules/car/detail/core/permissions.js`，依 `JLYIdentity` 判斷目前操作者；一般模式維持 owner 權限，System Admin Mode 可作最終支援／修復 Override。
+- System Admin 是暫時操作身分，不取代原本玩家／主揪資料；切換後仍使用原操作者 Identity，正式資料必須留下實際操作者與權限來源。
+- 新增 `js/modules/car/detail/core/audit.js` 作為車團修改 Audit Runtime；`editcar.js` 透過 `updateCarWithAudit()` 讓 Car 更新與 `cars/{carId}/auditLogs/{auditId}` 在同一 Firestore Transaction 完成，保存 actor、actorMode、authorityReason、changedFields、before／after 與時間。
+- `js/common/system-admin-switcher.js` 為跨頁右上角 System Admin 身分切換 UI；`editcar.js` 監聽 `jly:admin-mode-changed`，切換後立即重新判斷編輯權限，不必返回首頁。
+- `pages/editcar.html` 已接入 Identity、Permission、Audit、System Admin Switcher 與 Google Calendar Runtime；編輯頁不再只有基本 Car 表單。
+- Edit Calendar 正式支援舊資料升級：編輯頁固定提供 Google Calendar 同步選項，不要求車團建立當下已有 `calendar` 新欄位。
+- Calendar Lifecycle：未同步車勾選後先檢查目標日期行程，再建立新 Event；已同步車修改日期／時間／地點等同步欄位時，排除自己原 Event 後做衝突檢查，再更新原 `eventId`；取消勾選只停止後續同步，V1 不主動刪除既有 Google Event。
+- `calendar-schedule-check.js`／`calendar-controller.js` 新增 Edit 專用 `checkBeforeUpdate()` 路徑，避免沿用 Create 文案，也避免把目前車團／目前 Event 當成自己的衝突。
+- 編輯車團新增 `visibility = private / public`；舊車缺少欄位時採安全預設 `private`，避免只因進入新版編輯頁就意外公開。
+- 個人揪團關係正式使用 `players/{playerId}/carRelations/{carId}.assistRecruiting`；公開頁可從「我主揪」與「我協助揪團」兩種關係合併 Car，Relation 仍只是個人與 Car 的關係資料，不複製 Car。
+- 開發交付規範補充：多檔修改以保留 `JLY_Host_System/` 完整資料夾層級的小型 ZIP 交付；固定流程為 `npm test` → Git commit / push → Vercel 部署 → 線上實機驗收。
 
 ## V2.72 Accounting V1 正式資料鏈修復（2026-08-18）
 
@@ -182,7 +196,7 @@ JLY_Host_System/
 | `index.html` | 首頁統計與導航 | `js/app.js` |
 | `pages/mycar.html` | 我的車團、篩選與招募分享 | `js/mycar.js` |
 | `pages/createcar.html` | 建立車團 | `js/createcar.js`、`js/core/identity.js` |
-| `pages/editcar.html` | 編輯車團 | `js/editcar.js`、`js/seat.js` |
+| `pages/editcar.html` | 編輯車團、公開設定、Calendar 補建／更新 | `js/editcar.js`、`js/seat.js`、`js/core/identity.js`、`js/modules/car/detail/core/permissions.js`、`js/modules/car/detail/core/audit.js`、`js/common/system-admin-switcher.js`、`js/modules/calendar/` |
 | `pages/car-detail.html` | 主揪車團詳情與管理 | Car Detail V3、Seat、Staff、Member Picker、Calendar、相容層 |
 | `pages/car-view.html` | 玩家端車團資訊 | `js/car/car-view.js`、`js/car/car-view-render.js` |
 | `pages/join.html` | 車團公開報名 | `js/join.js` |
@@ -306,6 +320,16 @@ pages/car-detail.html
 - `js/car/car-detail.js`：Legacy Candidate，目前未見 HTML 載入。
 - `js/cardetail-v2-backup-20260801.js.js`：Backup Only。
 
+#### 5.4.1 Car Permission / Audit Runtime
+
+目前 `js/modules/car/detail/core/` 已不再是純預留空目錄：
+
+- `permissions.js`：車團編輯權限 Runtime，依 `JLYIdentity` 判斷 owner 與 System Admin Override，對外提供 `window.JLYPermissions`。
+- `audit.js`：車團正式修改 Audit Runtime，對外提供 `window.JLYAudit`；目前 Edit Car 透過它在同一 Transaction 寫入 Car 與 `auditLogs`。
+- `config/permissions.js` 仍屬 Config／規則定義預留，與上述 Runtime 不是同一責任；未完成 Dependency Audit 前不可互相取代或刪除。
+- 目前 Permission／Audit 放在 `car/detail/core/`，但已被 `pages/editcar.html` 使用；若未來更多 Car 頁面共用，需另做分類 Audit 再決定是否提升至更上層 Car Core，現在不為了整理而搬檔。
+
+
 ### 5.5 Member Picker
 
 `js/modules/member/` 提供 Member 結構與選擇器：
@@ -373,7 +397,35 @@ selectedSlotId / create formal car
 - `calendar-detail-actions.js`：車團詳情操作。
 - `calendar-controller.js`：功能設定與控制。
 
-主要整合點為建立車團與車團詳情。同步功能應由設定開關控制，未授權時不可假設可用。
+主要整合點為建立車團、編輯車團與車團詳情。同步功能應由設定開關控制，未授權時不可假設可用。
+
+Edit Calendar V1 規則：
+
+```text
+未同步／舊車
+  ↓ 編輯頁勾選同步
+Schedule Check（排除目前 Car）
+  ↓
+syncCreatedCar()
+  ↓
+保存 calendar.eventId
+
+已同步車
+  ↓ 修改 Calendar 相關欄位
+Schedule Check（排除目前 Car + 原 eventId）
+  ↓
+syncUpdatedCar()
+  ↓
+更新原 Google Event，不建立分身
+
+已同步車
+  ↓ 取消同步
+calendar.syncEnabled = false
+  ↓
+停止後續自動同步；V1 保留既有 Google Event
+```
+
+舊資料缺少新版 `calendar` 欄位時，不得因此永久失去 Calendar 功能；編輯頁需提供安全補建入口。
 
 ### 5.9 個人招募頁
 
@@ -387,6 +439,13 @@ selectedSlotId / create formal car
 - `recruit-share.js`
 
 `pages/mycar.html` 管理分享連結；`pages/recruit.html` 透過 Token 顯示公開招募內容。
+
+個人揪團關係補充：
+
+- `js/car/car-relations.js` 管理 `players/{playerId}/carRelations/{carId}`。
+- `assistRecruiting=true` 表示該使用者協助這台車揪團，不代表 Car ownership 轉移。
+- `recruit-controller.js` 會合併頁主「我主揪的 Car」與 Relation 中的「協助揪團 Car」，同一 Car 去重後再進招募狀態篩選。
+- Car Relation 僅保存關係旗標與識別，不複製劇本名稱、日期、地點等正式 Car 資料。
 
 ### 5.10 通知、報表與 Studio
 
@@ -693,7 +752,9 @@ Scheduler 安全規則：
 
 ```text
 Car
+├─ ownerId
 ├─ scriptName
+├─ visibility = private / public
 ├─ gameDate / gameTime
 ├─ location
 ├─ organizer / owner identity
@@ -711,7 +772,30 @@ Car
 └─ updatedAt
 ```
 
-### 7.4 Player / Member 概念模型
+### 7.4 Car Audit / Relation 補充
+
+```text
+cars/{carId}/auditLogs/{auditId}
+├─ entityType / entityId
+├─ actionType / source
+├─ actorId / actorProfileId / actorName
+├─ actorMode
+├─ authorityReason
+├─ changedFields[]
+├─ before
+├─ after
+└─ createdAt
+
+players/{playerId}/carRelations/{carId}
+├─ playerId
+├─ carId
+├─ assistRecruiting
+└─ updatedAt
+```
+
+Audit 是正式操作軌跡，不取代 Car；Relation 是 Person ↔ Car 關係，不取代 Car 或 Membership 正式內容。
+
+### 7.5 Player / Member 概念模型
 
 ```text
 Player Profile
@@ -726,7 +810,7 @@ Player Profile
 
 工程方向是逐步以 `memberId` 作為人員唯一識別，將玩家、主揪、DM 與 Staff 視為共用 Member，再以參與關係、角色及權限區分；現有資料尚未保證全部完成統一。
 
-### 7.5 Matching 概念模型
+### 7.6 Matching 概念模型
 
 ```text
 matching
@@ -807,6 +891,9 @@ matching
 - `js/notification/`（Reminder Runtime 已啟用）與空的 `js/modules/notification/`（仍不可混用）
 - `js/report/` 與空的 `js/modules/report/`
 - `js/studio/` 與空的 `js/modules/studio/`
+- `config/permissions.js` 與 `js/modules/car/detail/core/permissions.js` 名稱相近但責任不同：前者為 Config 預留／定義，後者為目前 Car Permission Runtime；未完成依賴稽核前不得視為 Duplicate。
+- `js/modules/car/detail/core/` 已由預留目錄升級為 Current Runtime（`permissions.js`、`audit.js`）；舊 Map 若仍標示空／Reserved，應以本版為準。
+- `js/common/system-admin-switcher.js` 已成為身分切換 Runtime；若未來擴至全站，需檢查所有頁面載入點，不可只靠單頁複製。
 
 只有在完成以下檢查後才能標示 Deprecated 或刪除：
 
@@ -833,7 +920,7 @@ matching
 | 首頁統計 | `index.html`、`js/app.js` |
 | 我的車團 | `pages/mycar.html`、`js/mycar.js`、`js/car/car-data.js` |
 | 建立車團 | `pages/createcar.html`、`js/createcar.js`、Calendar 模組 |
-| 編輯車團 | `pages/editcar.html`、`js/editcar.js`、`js/seat.js` |
+| 編輯車團 | `pages/editcar.html`、`js/editcar.js`、`js/seat.js`、`js/core/identity.js`、Car Permission／Audit、`js/modules/calendar/` |
 | 車團詳情 | `pages/car-detail.html`、`js/modules/car/detail/`、`js/cardetail.js` |
 | 座位與拖曳 | `js/car/seat/`、`js/seat.js` |
 | 玩家端車團頁 | `pages/car-view.html`、`js/car/car-view*.js` |
@@ -841,8 +928,10 @@ matching
 | 時間媒合 | `pages/matching*.html`、`js/matching/` |
 | Staff／DM | `js/modules/staff/`、Member Picker |
 | 玩家身分 | `js/core/identity.js`、`js/myprofile.js` |
-| 個人招募 | `pages/recruit.html`、`js/recruit/` |
-| Google Calendar | `js/modules/calendar/` |
+| 個人招募 | `pages/recruit.html`、`js/recruit/`、`js/car/car-relations.js`、`js/car/car-data.js` |
+| Google Calendar | `js/modules/calendar/`、`pages/createcar.html`、`pages/editcar.html` |
+| System Admin／車團權限 | `js/core/identity.js`、`js/common/system-admin-switcher.js`、`js/modules/car/detail/core/permissions.js` |
+| 車團 Audit | `js/modules/car/detail/core/audit.js`、`js/editcar.js`、`cars/{carId}/auditLogs` |
 | LINE 登入 | `js/line.js`、`js/line-callback.js` |
 | LINE Bot | `api/line-webhook.js`、`services/line/` |
 | LINE 行前提醒 | `js/notification/`、`services/firebase/reminder-repository.js`、`services/line/reminder-*.js`、`services/line/line-push.js`、`api/run-reminders.js` |
@@ -871,21 +960,21 @@ matching
 - 每次清理 Legacy 前，先建立可回復的 Git Stable Point。
 - 不應把「資料夾存在」視為「功能已完成」。
 - 不應把「文件標為 Legacy」視為可安全刪除，必須以依賴稽核與流程測試確認。
+- 多檔交付／覆蓋時使用小型 ZIP，ZIP 內保留從 `JLY_Host_System/` 開始的完整資料夾層級，只包含本輪需要新增／覆蓋的正式檔案。
+- Vercel 線上驗收流程固定為：`npm test` 全綠 → 精準 `git add` 本輪檔案 → commit / push → 等待 Vercel 部署 → 線上實測。避免使用 `git add .` 把修復包、暫存檔或未分類檔案一起提交。
+- 每次新增、拆分、搬移、啟用預留目錄或改變 Runtime Entry Point，除了更新功能本身，也要順便檢查 Project Map 的「未歸類／Reserved／Legacy Candidate」是否已過期。
+
 
 ---
 
 ## 14. 建議下一步
 
-1. 觀察 Reminder Scheduler 第一批正式自動執行 History；若穩定則維持每 1 分鐘 V1 排程，未來可替換 Scheduler Adapter 而不改 Reminder Core。
-2. 修正 `pages/players.html` 的 Script 入口並驗證玩家資料庫。
-3. 經使用者核准後，將 JLY Rich Menu 套用至 LINE Official Account 並用手機驗證。
-4. 定義記帳資料模型、權限與第一版操作流程。
-5. 為 LINE Webhook／Group Binding 增加 Firebase Repository 與 Webhook Handler 整合測試。
-6. 定義已綁定車團後可執行的 LINE 業務指令與權限規則。
-7. 建立 Firestore Collection 與 Security Rules 的正式文件。
-8. 完成 Car Detail Transitional Runtime 依賴稽核。
-9. 補寫 Coding Rule、Database Rule、Roadmap 與 Version History。
-
+1. 完成 Edit Car 與 Create Car 選項對齊後的 UI Polish，並確認 `visibility`、Calendar、車友名單等資料不產生舊欄位副本。
+2. 盤點「我的車／個人揪團」批次操作目前實際 Runtime；已存在的批次 UI、角色分頁、協助揪團 Relation 先歸類，尚未確認的 Batch LINE Share 不先標成完成。
+3. 持續掃描 Project Map 中仍標示 Reserved／🟡／Legacy Candidate 的路徑；只有取得目前 HTML Runtime／Git 檔案證據後才升級為 Current。
+4. 修正 `pages/players.html` 的 Script 入口並驗證玩家資料庫。
+5. 觀察 Reminder Scheduler 與 Accounting V1 正式資料鏈；跨村擴充仍以既有 Core 為準，不另建重複核心。
+6. 建立 Firestore Collection／Security Rules 正式文件，並逐步補寫 Coding Rule、Database Rule、Roadmap 與 Version History。
 ---
 
 ## 15. 更新紀錄
@@ -1333,4 +1422,15 @@ matching
 - 實測 LINE 主動 Push 與 Firestore Claim 防重複成功；第二次 Dispatcher 不會再次發送同一 Reminder。
 - cron-job.org Scheduler Adapter 已正式建立並改為每 1 分鐘執行；Test Run 已驗證 `200 OK / success=true`。
 - 首次開啟／關閉提醒會建立 pending 狀態通知，由同一 Dispatcher 在下一輪排程向已綁定 LINE 群組發送；一般修改設定不重複通知。
+
+### V2.73｜2026-08-19
+
+- 啟用 `js/modules/car/detail/core/permissions.js` 與 `audit.js`，補齊車團 Owner／System Admin 編輯權限及不可省略的修改 Audit。
+- `js/common/system-admin-switcher.js` 納入 Current Runtime；Edit Car 監聽身分切換並立即重新判斷權限。
+- Edit Car 新增 `visibility=private/public` 修改，舊資料缺欄位安全回退 private。
+- Edit Calendar 支援既有 Event 更新、衝突檢查、自身 Event 排除，以及舊車第一次從編輯頁補建 Google Calendar Event。
+- Calendar 取消勾選定位為停止後續同步，V1 不刪除 Google 既有 Event。
+- `js/modules/car/detail/core/` 從 Reserved／未歸類提升為已確認 Runtime；`config/permissions.js` 保留 Config 身分，不與 Runtime Permission 混用。
+- 補記 `carRelations.assistRecruiting` 與個人揪團頁 Host + Assist Car 合併關係。
+- 工程交付改採保留完整專案路徑的小型 ZIP；Vercel 驗收固定先 Test、再精準 Git、Push、部署後實測。
 
