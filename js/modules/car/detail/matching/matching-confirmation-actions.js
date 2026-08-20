@@ -29,6 +29,160 @@ console.log(
 (function () {
   "use strict";
 
+  let membershipViewSyncLoadPromise =
+    null;
+
+  function buildActivePlayerIds(
+    players
+  ) {
+    return Array.from(
+      new Set(
+        (
+          Array.isArray(players)
+            ? players
+            : []
+        )
+          .filter(
+            function (player) {
+              const status =
+                String(
+                  player &&
+                  player.status ||
+                  ""
+                ).trim();
+
+              return ![
+                "已取消",
+                "取消",
+                "cancelled",
+                "canceled"
+              ].includes(
+                status
+              );
+            }
+          )
+          .map(
+            function (player) {
+              return String(
+                player &&
+                (
+                  player.playerId ||
+                  player.id ||
+                  player.profileId
+                ) ||
+                ""
+              ).trim();
+            }
+          )
+          .filter(Boolean)
+      )
+    );
+  }
+
+  async function ensureMembershipViewSync() {
+    if (
+      window
+        .JLYMembershipViewSync
+    ) {
+      return window
+        .JLYMembershipViewSync;
+    }
+
+    if (
+      membershipViewSyncLoadPromise
+    ) {
+      return membershipViewSyncLoadPromise;
+    }
+
+    membershipViewSyncLoadPromise =
+      new Promise(
+        function (
+          resolve,
+          reject
+        ) {
+          const script =
+            document.createElement(
+              "script"
+            );
+
+          script.src =
+            "/js/data-view/membership-view-sync.js?v=1";
+
+          script.async =
+            true;
+
+          script.onload =
+            function () {
+              if (
+                window
+                  .JLYMembershipViewSync
+              ) {
+                resolve(
+                  window
+                    .JLYMembershipViewSync
+                );
+                return;
+              }
+
+              reject(
+                new Error(
+                  "Membership View Sync 未初始化"
+                )
+              );
+            };
+
+          script.onerror =
+            reject;
+
+          document.head
+            .appendChild(
+              script
+            );
+        }
+      );
+
+    return membershipViewSyncLoadPromise;
+  }
+
+  async function syncKnownMembershipMutation(
+    beforeCar,
+    afterCar,
+    playerIds,
+    changedFields
+  ) {
+    try {
+      const syncModule =
+        await ensureMembershipViewSync();
+
+      return await syncModule
+        .sync({
+          beforeCar,
+          afterCar,
+          playerIds:
+            Array.isArray(
+              playerIds
+            )
+              ? playerIds
+              : [],
+          changedFields:
+            Array.isArray(
+              changedFields
+            )
+              ? changedFields
+              : []
+        });
+    } catch (error) {
+      console.warn(
+        "同步 Membership View 失敗：",
+        error
+      );
+
+      return [];
+    }
+  }
+
+
+
   function getCarId() {
     if (
       typeof window.getCarId ===
@@ -103,53 +257,6 @@ console.log(
       (
         player.playerId ||
         player.id
-      )
-    );
-  }
-
-
-  // ------------------------------------------------------------
-  // Player Query Index V1
-  // players[] 仍是正式資料；playerIds 僅供 Firestore 查詢使用。
-  // 已取消玩家不放入索引。
-  // ------------------------------------------------------------
-
-  function buildActivePlayerIds(players) {
-    const source =
-      Array.isArray(players)
-        ? players
-        : [];
-
-    return Array.from(
-      new Set(
-        source
-          .filter(function (player) {
-            const status =
-              String(
-                (player && player.status) ||
-                ""
-              ).trim().toLowerCase();
-
-            return (
-              status !== "已取消" &&
-              status !== "取消" &&
-              status !== "cancelled" &&
-              status !== "canceled"
-            );
-          })
-          .map(function (player) {
-            return String(
-              
-              (player && (
-                player.playerId ||
-                player.id ||
-                player.profileId
-              )) ||
-              ""
-
-            ).trim();
-          })
-          .filter(Boolean)
       )
     );
   }
@@ -338,6 +445,12 @@ console.log(
           .collection("cars")
           .doc(carId);
 
+      let viewBeforeCar =
+        null;
+
+      let viewAfterCar =
+        null;
+
       await db.runTransaction(
         async function (
           transaction
@@ -449,22 +562,50 @@ console.log(
               ""
           });
 
+          const updateData = {
+            matchingConfirmation:
+              confirmation,
+
+            history,
+
+            updatedAt:
+              firebase.firestore
+                .FieldValue
+                .serverTimestamp()
+          };
+
+          viewBeforeCar = {
+            id: carId,
+            ...car
+          };
+
+          viewAfterCar = {
+            id: carId,
+            ...car,
+            ...updateData
+          };
+
           transaction.update(
             carRef,
-            {
-              matchingConfirmation:
-                confirmation,
-
-              history,
-
-              updatedAt:
-                firebase.firestore
-                  .FieldValue
-                  .serverTimestamp()
-            }
+            updateData
           );
         }
       );
+
+      if (
+        viewBeforeCar &&
+        viewAfterCar
+      ) {
+        await syncKnownMembershipMutation(
+          viewBeforeCar,
+          viewAfterCar,
+          [],
+          [
+            "matchingConfirmation",
+            "history"
+          ]
+        );
+      }
 
       await refreshPage();
     } catch (error) {
@@ -559,6 +700,15 @@ console.log(
       if (!confirmed) {
         return;
       }
+
+      let viewBeforeCar =
+        null;
+
+      let viewAfterCar =
+        null;
+
+      let viewRemovedPlayerId =
+        "";
 
       await db.runTransaction(
         async function (
@@ -724,36 +874,81 @@ console.log(
             confirmation
           );
 
+          const updateData = {
+            players:
+              nextPlayers,
+
+            playerIds:
+              buildActivePlayerIds(
+                nextPlayers
+              ),
+
+            slots:
+              nextSlots,
+
+            matchingConfirmation:
+              confirmation,
+
+            history,
+
+            updatedAt:
+              firebase.firestore
+                .FieldValue
+                .serverTimestamp()
+          };
+
+          viewBeforeCar = {
+            id: carId,
+            ...car
+          };
+
+          viewAfterCar = {
+            id: carId,
+            ...car,
+            ...updateData
+          };
+
+          viewRemovedPlayerId =
+            (
+              targetPlayer &&
+              (
+                targetPlayer.playerId ||
+                targetPlayer.id ||
+                targetPlayer.profileId
+              )
+            ) ||
+            (
+              targetConfirmation &&
+              targetConfirmation.playerId
+            ) ||
+            playerId;
+
           transaction.update(
             carRef,
-            {
-              players:
-                nextPlayers,
-
-              playerIds:
-                buildActivePlayerIds(
-                  nextPlayers
-                ),
-
-              playerIdsIndexVersion:
-                1,
-
-              slots:
-                nextSlots,
-
-              matchingConfirmation:
-                confirmation,
-
-              history,
-
-              updatedAt:
-                firebase.firestore
-                  .FieldValue
-                  .serverTimestamp()
-            }
+            updateData
           );
         }
       );
+
+      if (
+        viewBeforeCar &&
+        viewAfterCar
+      ) {
+        await syncKnownMembershipMutation(
+          viewBeforeCar,
+          viewAfterCar,
+          [
+            viewRemovedPlayerId
+          ],
+          [
+            "players",
+            "playerIds",
+            "slots",
+            "matchingConfirmation",
+            "history"
+          ]
+        );
+      }
 
       await refreshPage();
     } catch (error) {
@@ -811,6 +1006,12 @@ console.log(
         db
           .collection("cars")
           .doc(carId);
+
+      let viewBeforeCar =
+        null;
+
+      let viewAfterCar =
+        null;
 
       await db.runTransaction(
         async function (
@@ -1031,64 +1232,94 @@ console.log(
             ==============================
           */
 
+          const updateData = {
+            gameDate:
+              selectedDate,
+
+            gameTime:
+              selectedTime,
+
+            status:
+              "開團中",
+
+            planningStatus:
+              "scheduled",
+
+            "matching.status":
+              "completed",
+
+            "matching.currentStep":
+              4,
+
+            "matching.selectedDate":
+              selectedDate,
+
+            "matching.selectedTime":
+              selectedTime,
+
+            "matching.selectedSlotId":
+              selectedSlotId,
+
+            "matching.completedAt":
+              matching.completedAt ||
+              timestamp,
+
+            "matching.updatedAt":
+              timestamp,
+
+            matchingConfirmation:
+              confirmation,
+
+            history,
+
+            updatedAt:
+              firebase.firestore
+                .FieldValue
+                .serverTimestamp()
+          };
+
+          viewBeforeCar = {
+            id: carId,
+            ...car
+          };
+
+          viewAfterCar = {
+            id: carId,
+            ...car,
+            gameDate:
+              selectedDate,
+            gameTime:
+              selectedTime,
+            status:
+              "開團中",
+            planningStatus:
+              "scheduled",
+            matching:
+              {
+                ...matching,
+                status:
+                  "completed",
+                currentStep:
+                  4,
+                selectedDate,
+                selectedTime,
+                selectedSlotId,
+                completedAt:
+                  matching.completedAt ||
+                  timestamp,
+                updatedAt:
+                  timestamp
+              },
+            matchingConfirmation:
+              confirmation,
+            history,
+            updatedAt:
+              timestamp
+          };
+
           transaction.update(
             carRef,
-            {
-              gameDate:
-                selectedDate,
-
-              gameTime:
-                selectedTime,
-
-              status:
-                "開團中",
-
-              planningStatus:
-                "scheduled",
-
-              /*
-                保留完整 matching 歷史，
-                只將流程標記為完成。
-              */
-
-              "matching.status":
-                "completed",
-
-              "matching.currentStep":
-                4,
-
-              "matching.selectedDate":
-                selectedDate,
-
-              "matching.selectedTime":
-                selectedTime,
-
-              "matching.selectedSlotId":
-                selectedSlotId,
-
-              "matching.completedAt":
-                matching.completedAt ||
-                timestamp,
-
-              "matching.updatedAt":
-                timestamp,
-
-              /*
-                玩家確認資料也保留在 DB，
-                UI 因為 completed
-                不再顯示黃色提醒。
-              */
-
-              matchingConfirmation:
-                confirmation,
-
-              history,
-
-              updatedAt:
-                firebase.firestore
-                  .FieldValue
-                  .serverTimestamp()
-            }
+            updateData
           );
         }
       );
@@ -1099,6 +1330,26 @@ console.log(
         完成後應直接呈現成
         一般「開團中」車團。
       */
+
+      if (
+        viewBeforeCar &&
+        viewAfterCar
+      ) {
+        await syncKnownMembershipMutation(
+          viewBeforeCar,
+          viewAfterCar,
+          [],
+          [
+            "gameDate",
+            "gameTime",
+            "status",
+            "planningStatus",
+            "matching",
+            "matchingConfirmation",
+            "history"
+          ]
+        );
+      }
 
       await refreshPage();
 

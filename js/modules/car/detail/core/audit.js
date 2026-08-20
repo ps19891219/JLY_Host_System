@@ -213,29 +213,28 @@ console.log(
   }
 
 
+
   // ============================================================
-  // Cloud View Store V1A
+  // JLY Cloud View Core V1 Phase C
   // ============================================================
 
-  let cloudCarViewLoadPromise =
+  let viewRuntimeLoadPromise =
     null;
 
-  function ensureCloudCarView() {
+  function ensureViewRuntime() {
     if (
-      window.JLYCloudCarView
+      window.JLYViewRuntimeLoader
     ) {
-      return Promise.resolve(
-        window.JLYCloudCarView
-      );
+      return window
+        .JLYViewRuntimeLoader
+        .ensure();
     }
 
-    if (
-      cloudCarViewLoadPromise
-    ) {
-      return cloudCarViewLoadPromise;
+    if (viewRuntimeLoadPromise) {
+      return viewRuntimeLoadPromise;
     }
 
-    cloudCarViewLoadPromise =
+    viewRuntimeLoadPromise =
       new Promise(
         function (
           resolve,
@@ -247,35 +246,38 @@ console.log(
             );
 
           script.src =
-            "/js/data-view/cloud-car-view.js?v=1";
+            "/js/data-view/view-runtime-loader.js?v=1";
 
           script.async =
             true;
 
           script.onload =
-            function () {
-              if (
-                window.JLYCloudCarView
-              ) {
+            async function () {
+              try {
+                if (
+                  !window
+                    .JLYViewRuntimeLoader
+                ) {
+                  throw new Error(
+                    "View Runtime Loader 未初始化"
+                  );
+                }
+
                 resolve(
-                  window.JLYCloudCarView
+                  await window
+                    .JLYViewRuntimeLoader
+                    .ensure()
                 );
-
-                return;
+              } catch (error) {
+                reject(error);
               }
-
-              reject(
-                new Error(
-                  "Cloud Car View 模組未初始化"
-                )
-              );
             };
 
           script.onerror =
             function () {
               reject(
                 new Error(
-                  "Cloud Car View 模組載入失敗"
+                  "View Runtime Loader 載入失敗"
                 )
               );
             };
@@ -287,7 +289,7 @@ console.log(
         }
       );
 
-    return cloudCarViewLoadPromise;
+    return viewRuntimeLoadPromise;
   }
 
 
@@ -360,8 +362,14 @@ console.log(
     let auditRecord =
       null;
 
+    let beforeCarForView =
+      null;
+
     let nextCarForView =
       null;
+
+    let changedFieldsForView =
+      [];
 
     await db.runTransaction(
       async function (
@@ -390,6 +398,19 @@ console.log(
             beforeCar,
             updateData
           );
+
+        beforeCarForView = {
+          ...beforeCar
+        };
+
+        changedFieldsForView =
+          Array.isArray(
+            changes.changedFields
+          )
+            ? [
+                ...changes.changedFields
+              ]
+            : [];
 
         nextCarForView = {
           ...beforeCar,
@@ -452,31 +473,41 @@ console.log(
     );
 
     /*
-      Shadow Write：
-      正式 Car + Audit 成功後才更新 View。
-      View 失敗只記錄 warning，不回滾正式修改。
-      等所有 mutation path 都接入後，
-      下一階段才會讓 UI 改讀 Cloud View。
+      Phase C：
+      Transaction 本來就已經讀到 beforeCar。
+      直接使用 before + updateData 更新衍生 View，
+      禁止為了 View 再對 Core 做一次 get()。
     */
     if (nextCarForView) {
       try {
-        const cloudView =
-          await ensureCloudCarView();
+        const runtime =
+          await ensureViewRuntime();
+
+        const coordinator =
+          runtime &&
+          runtime.coordinator;
 
         if (
-          cloudView &&
-          typeof cloudView
-            .writeFromCar ===
+          coordinator &&
+          typeof coordinator
+            .updateCarViews ===
               "function"
         ) {
-          await cloudView
-            .writeFromCar(
-              nextCarForView
-            );
+          await coordinator
+            .updateCarViews({
+              beforeCar:
+                beforeCarForView,
+
+              afterCar:
+                nextCarForView,
+
+              changedFields:
+                changedFieldsForView
+            });
         }
       } catch (viewError) {
         console.warn(
-          "Audit 完成，但 Cloud Car View Shadow Write 失敗：",
+          "Audit 完成，但 JLY View 更新失敗：",
           viewError
         );
       }

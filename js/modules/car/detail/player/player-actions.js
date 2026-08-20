@@ -36,6 +36,160 @@ console.log(
 (function () {
   "use strict";
 
+  let membershipViewSyncLoadPromise =
+    null;
+
+  function buildActivePlayerIds(
+    players
+  ) {
+    return Array.from(
+      new Set(
+        (
+          Array.isArray(players)
+            ? players
+            : []
+        )
+          .filter(
+            function (player) {
+              const status =
+                String(
+                  player &&
+                  player.status ||
+                  ""
+                ).trim();
+
+              return ![
+                "已取消",
+                "取消",
+                "cancelled",
+                "canceled"
+              ].includes(
+                status
+              );
+            }
+          )
+          .map(
+            function (player) {
+              return String(
+                player &&
+                (
+                  player.playerId ||
+                  player.id ||
+                  player.profileId
+                ) ||
+                ""
+              ).trim();
+            }
+          )
+          .filter(Boolean)
+      )
+    );
+  }
+
+  async function ensureMembershipViewSync() {
+    if (
+      window
+        .JLYMembershipViewSync
+    ) {
+      return window
+        .JLYMembershipViewSync;
+    }
+
+    if (
+      membershipViewSyncLoadPromise
+    ) {
+      return membershipViewSyncLoadPromise;
+    }
+
+    membershipViewSyncLoadPromise =
+      new Promise(
+        function (
+          resolve,
+          reject
+        ) {
+          const script =
+            document.createElement(
+              "script"
+            );
+
+          script.src =
+            "/js/data-view/membership-view-sync.js?v=1";
+
+          script.async =
+            true;
+
+          script.onload =
+            function () {
+              if (
+                window
+                  .JLYMembershipViewSync
+              ) {
+                resolve(
+                  window
+                    .JLYMembershipViewSync
+                );
+                return;
+              }
+
+              reject(
+                new Error(
+                  "Membership View Sync 未初始化"
+                )
+              );
+            };
+
+          script.onerror =
+            reject;
+
+          document.head
+            .appendChild(
+              script
+            );
+        }
+      );
+
+    return membershipViewSyncLoadPromise;
+  }
+
+  async function syncKnownMembershipMutation(
+    beforeCar,
+    afterCar,
+    playerIds,
+    changedFields
+  ) {
+    try {
+      const syncModule =
+        await ensureMembershipViewSync();
+
+      return await syncModule
+        .sync({
+          beforeCar,
+          afterCar,
+          playerIds:
+            Array.isArray(
+              playerIds
+            )
+              ? playerIds
+              : [],
+          changedFields:
+            Array.isArray(
+              changedFields
+            )
+              ? changedFields
+              : []
+        });
+    } catch (error) {
+      console.warn(
+        "同步 Membership View 失敗：",
+        error
+      );
+
+      return [];
+    }
+  }
+
+
+
   // ------------------------------------------------------------
   // 共用工具
   // ------------------------------------------------------------
@@ -149,53 +303,6 @@ console.log(
           ).trim();
         })
         .filter(Boolean)
-    );
-  }
-
-
-  // ------------------------------------------------------------
-  // Player Query Index V1
-  // players[] 仍是正式資料；playerIds 僅供 Firestore 查詢使用。
-  // 已取消玩家不放入索引。
-  // ------------------------------------------------------------
-
-  function buildActivePlayerIds(players) {
-    const source =
-      Array.isArray(players)
-        ? players
-        : [];
-
-    return Array.from(
-      new Set(
-        source
-          .filter(function (player) {
-            const status =
-              String(
-                (player && player.status) ||
-                ""
-              ).trim().toLowerCase();
-
-            return (
-              status !== "已取消" &&
-              status !== "取消" &&
-              status !== "cancelled" &&
-              status !== "canceled"
-            );
-          })
-          .map(function (player) {
-            return String(
-              
-              (player && (
-                player.playerId ||
-                player.id ||
-                player.profileId
-              )) ||
-              ""
-
-            ).trim();
-          })
-          .filter(Boolean)
-      )
     );
   }
 
@@ -538,9 +645,6 @@ console.log(
             players
           ),
 
-        playerIdsIndexVersion:
-          1,
-
         slots:
           cleanedSlots,
 
@@ -564,6 +668,29 @@ console.log(
 
       await carRef.update(
         updateData
+      );
+
+      await syncKnownMembershipMutation(
+        {
+          id: carId,
+          ...carData
+        },
+        {
+          id: carId,
+          ...carData,
+          ...updateData
+        },
+        [
+          getPlayerId(
+            targetPlayer
+          )
+        ],
+        [
+          "players",
+          "playerIds",
+          "slots",
+          "history"
+        ]
       );
 
       closeEditor();

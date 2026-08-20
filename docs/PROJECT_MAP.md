@@ -2,10 +2,122 @@
 
 > Status: Working Map
 >
-> Version: V2.78
+> Version: V2.82
 >
 > Last Updated: 2026-08-20
 >
+
+## V2.82 JLY Cloud View Core V1｜Firestore Read Architecture（2026-08-20）
+
+### 正式資料原則
+
+- Firestore Core 保持唯一正式資料來源。
+- 正常 UI / Mobile / LINE 優先讀「已整理好的線上 View」，不得每次開頁重新掃 Core 組畫面。
+- View 是 Read Model / Projection，不是第二份正式 Core。
+- 正式資料發生建立、修改、刪除或狀態改變時，才更新受影響的 View。
+- Bootstrap / Repair / Audit 可以明確讀 Core；正常 UI 不得偷偷 fallback 成 full collection scan。
+
+### Cloud View Core
+
+目前新增／建立中的資料層：
+
+```text
+js/data-view/
+├─ view-core.js
+├─ view-impact-resolver.js
+├─ view-mutation-coordinator.js
+├─ view-runtime-loader.js
+├─ cloud-car-view.js
+├─ mycar-view.js
+├─ mycar-view-bootstrap.js
+├─ mycar-view-checker.js
+├─ mycar-view-alias.js
+├─ membership-view-sync.js
+├─ home-view.js
+└─ accounting-view-adapter.js
+```
+
+### MyCar View
+
+正式方向由 V2.78 原本「每頁重新 Firestore Pagination」升級為 Prepared View：
+
+```text
+myCarViews/{viewerId}
+```
+
+View 保存「我的車」所需 compact read model：
+- 我主揪的
+- 我是玩家
+- linkedPlayerIds / Historical Player IDs 關係
+- Car list summary
+- Tab / Search / Pagination 可於已載入 View 內處理
+
+正常頁面目標：
+
+```text
+進入我的車
+→ 讀 myCarViews/{viewerId}
+→ Tab / Search / Pagination 不再重新 query Cars
+```
+
+舊 `getCarsByOwner*` / `getCarsByPlayerId()` 保留作 migration / repair / bootstrap，
+View-first 完成後不可再作正常 MyCar UI 主路徑。
+
+### Membership Mutation
+
+已接：
+- Application 核准玩家
+- Player Editor 新增／編輯
+- Player Actions 移除
+- Matching Confirmation 玩家保留／移除／完成
+- Player Manual Add 既有玩家補位的 slots View 更新
+
+Players 正式變更時同步維護 `playerIds` Query Index。
+
+### Viewer Alias
+
+新增：
+
+```text
+myCarViewAliases/{aliasId}
+```
+
+用途：
+將 current identity / Player Profile / linkedPlayerIds / Historical IDs
+指向同一個已 bootstrap 的 `myCarViews/{viewerId}`。
+
+Alias 只在 Membership 真正修改時查詢；
+正常開 MyCar / 切 Tab / 搜尋 / 分頁不查 Alias。
+
+### Staff / DM
+
+- Staff 正式資料仍為 `car.staffSlots[]`。
+- Staff / DM 不等於玩家，不寫入 `playerIds`，也不應出現在「我是玩家」。
+- `staff-actions.js` 的 staffSlots mutation 已接 Car Detail View 更新。
+- `dm-application-actions.js` 仍有 direct staffSlots write path，Car Detail 正式切 View-first 前需再接入。
+
+### Accounting
+
+Accounting Core 與 View 分離：
+- Transaction / Split / Settlement / Pending Action 為正式 Core。
+- 正常帳務畫面讀 Accounting View。
+- 帳務變更時才增量更新 View。
+- Full rebuild 僅允許 bootstrap / repair / audit / migration。
+
+### 已確認的額外 Reads 高風險
+
+`player-search.js` 目前搜尋名字仍會：
+
+```text
+collection("players").get()
+```
+
+這會隨 Players Collection 成長而線性增加 Reads。
+
+後續必須建立 Player Search Index / normalizedSearchNames migration，
+完成後移除正常搜尋流程的 full Players Collection scan。
+
+
 
 
 ## V2.78 LINE 行前通知開啟流程 + Reminder 日期重排（2026-08-20）
@@ -23,7 +135,7 @@
 - Reminder 已 `sent` 後，後續修改 Car 不重新啟用第二次行前通知，維持「一台車一次通知」原則。
 - DM 對日期／時間的修改若採送審流程，必須等主揪核准、正式 Car 真正更新後才觸發 Reminder 重排；送審中的草稿不得改正式提醒。
 
-### My Cars 100+ 台效能改善｜已確認設計，待下一階段實作
+### My Cars 100+ 台效能改善｜V2.82 已由 Prepared MyCar View 方向取代
 
 - 問題已由未來風險升級為現況效能議題：使用者已有 100+ 台 Car，`我的車` 不應再一次抓取／Render 全部歷史 Car 與完整內部資料。
 - 正式方向採 `JLY Common List Loading Pattern`：列表為輕量 Summary / Projection，詳細頁才載單台完整 Car；正式 Car 仍只有一份，不建立資料副本。

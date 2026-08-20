@@ -2,107 +2,73 @@ console.log("cardetail.js 已成功載入！");
 
 const MYCAR_NAVIGATION_IDS_KEY = "mycarNavigationIds";
 
+
 // ============================================================
-// Cloud View Store V1A
-// Shadow Write only.
+// JLY Cloud View Core V1 Phase C
 //
-// 目前只在「正式修改」之後更新 View。
-// 一般頁面讀取尚未切換到 View，避免 View 尚未覆蓋所有
-// mutation path 時出現 stale data。
+// 正式資料修改後直接使用「已知 before + updateData」更新 View。
+// 禁止為了更新 View 再讀一次 Core。
 // ============================================================
 
-let jlyCloudCarViewLoadPromise =
+let jlyViewRuntimeLoadPromise =
   null;
 
-function ensureJLYCloudCarView() {
+function ensureJLYViewRuntime() {
   if (
-    window.JLYCloudCarView
+    window.JLYViewRuntimeLoader
   ) {
-    return Promise.resolve(
-      window.JLYCloudCarView
-    );
+    return window
+      .JLYViewRuntimeLoader
+      .ensure();
   }
 
   if (
-    jlyCloudCarViewLoadPromise
+    jlyViewRuntimeLoadPromise
   ) {
-    return jlyCloudCarViewLoadPromise;
+    return jlyViewRuntimeLoadPromise;
   }
 
-  jlyCloudCarViewLoadPromise =
+  jlyViewRuntimeLoadPromise =
     new Promise(
-      function (
-        resolve,
-        reject
-      ) {
-        const existing =
-          document.querySelector(
-            'script[data-jly-cloud-car-view="1"]'
-          );
-
-        if (existing) {
-          existing.addEventListener(
-            "load",
-            function () {
-              resolve(
-                window.JLYCloudCarView
-              );
-            },
-            {
-              once: true
-            }
-          );
-
-          existing.addEventListener(
-            "error",
-            reject,
-            {
-              once: true
-            }
-          );
-
-          return;
-        }
-
+      function (resolve, reject) {
         const script =
           document.createElement(
             "script"
           );
 
         script.src =
-          "/js/data-view/cloud-car-view.js?v=1";
+          "/js/data-view/view-runtime-loader.js?v=1";
 
         script.async =
           true;
 
-        script.dataset
-          .jlyCloudCarView =
-          "1";
-
         script.onload =
-          function () {
-            if (
-              window.JLYCloudCarView
-            ) {
+          async function () {
+            try {
+              if (
+                !window
+                  .JLYViewRuntimeLoader
+              ) {
+                throw new Error(
+                  "View Runtime Loader 未初始化"
+                );
+              }
+
               resolve(
-                window.JLYCloudCarView
+                await window
+                  .JLYViewRuntimeLoader
+                  .ensure()
               );
-
-              return;
+            } catch (error) {
+              reject(error);
             }
-
-            reject(
-              new Error(
-                "Cloud Car View 模組載入後未初始化"
-              )
-            );
           };
 
         script.onerror =
           function () {
             reject(
               new Error(
-                "Cloud Car View 模組載入失敗"
+                "View Runtime Loader 載入失敗"
               )
             );
           };
@@ -114,57 +80,96 @@ function ensureJLYCloudCarView() {
       }
     );
 
-  return jlyCloudCarViewLoadPromise;
+  return jlyViewRuntimeLoadPromise;
 }
 
-async function syncJLYCloudCarViewFromCore(
+function mergeKnownCarMutation(
+  beforeCar,
+  updateData,
+  carId
+) {
+  const before =
+    beforeCar &&
+    typeof beforeCar === "object"
+      ? beforeCar
+      : {};
+
+  const updates =
+    updateData &&
+    typeof updateData === "object"
+      ? updateData
+      : {};
+
+  return {
+    ...before,
+    ...updates,
+    id:
+      String(
+        carId ||
+        before.id ||
+        ""
+      ).trim()
+  };
+}
+
+async function syncJLYViewsFromKnownMutation(
+  beforeCar,
+  updateData,
+  changedFields,
   carId
 ) {
   try {
-    const module =
-      await ensureJLYCloudCarView();
+    const runtime =
+      await ensureJLYViewRuntime();
+
+    const coordinator =
+      runtime &&
+      runtime.coordinator;
 
     if (
-      !module ||
-      typeof module
-        .syncFromCore !==
+      !coordinator ||
+      typeof coordinator
+        .updateCarViews !==
           "function"
     ) {
-      return false;
+      return [];
     }
 
-    await module
-      .syncFromCore(
+    const afterCar =
+      mergeKnownCarMutation(
+        beforeCar,
+        updateData,
         carId
       );
 
-    return true;
+    return await coordinator
+      .updateCarViews({
+        beforeCar:
+          beforeCar || null,
+
+        afterCar,
+
+        changedFields:
+          Array.isArray(
+            changedFields
+          )
+            ? changedFields
+            : Object.keys(
+                updateData || {}
+              )
+      });
   } catch (error) {
     /*
-      V1A 是 Shadow Write：
-      View 失敗不能阻止正式 Car 修改。
+      View 是衍生資料。
+      View 更新失敗不能回滾已成功的正式 Core 修改。
     */
     console.warn(
-      "Cloud Car View Shadow Sync 失敗：",
+      "JLY View 同步失敗：",
       error
     );
 
-    return false;
+    return [];
   }
-}
-
-
-// 左右滑是否已初始化
-let swipeNavigationInitialized = false;
-
-/* =========================
-   基礎工具
-========================= */
-
-function getCarId() {
-  return new URLSearchParams(
-    location.search
-  ).get("id");
 }
 
 function nowTime() {
@@ -1205,7 +1210,48 @@ async function returnToPlanning() {
           .serverTimestamp()
     });
 
-    await syncJLYCloudCarViewFromCore(
+    await syncJLYViewsFromKnownMutation(
+      car,
+      {
+        gameDate: "",
+        gameTime: "",
+        status: "規劃中",
+        planningStatus:
+          "unscheduled",
+        calendar:
+          nextCalendar,
+        matching:
+          nextMatching,
+        matchingConfirmation:
+          null,
+        returnedToPlanningAt:
+          nowTime(),
+        previousSchedule: {
+          gameDate:
+            originalDate ===
+            "未設定"
+              ? ""
+              : originalDate,
+          gameTime:
+            originalTime ===
+            "未設定"
+              ? ""
+              : originalTime,
+          returnedAt:
+            nowTime()
+        },
+        history
+      },
+      [
+        "gameDate",
+        "gameTime",
+        "status",
+        "planningStatus",
+        "calendar",
+        "matching",
+        "matchingConfirmation",
+        "history"
+      ],
       carId
     );
 
@@ -1304,7 +1350,21 @@ async function finishCar() {
       updatedAt: nowTime()
     });
 
-    await syncJLYCloudCarViewFromCore(
+    await syncJLYViewsFromKnownMutation(
+      {
+        id: carId,
+        ...car
+      },
+      {
+        status: "已結束",
+        endedAt: nowTime(),
+        history
+      },
+      [
+        "status",
+        "endedAt",
+        "history"
+      ],
       carId
     );
 
@@ -1380,7 +1440,25 @@ async function cancelCar() {
       updatedAt: nowTime()
     });
 
-    await syncJLYCloudCarViewFromCore(
+    await syncJLYViewsFromKnownMutation(
+      {
+        id: carId,
+        ...car
+      },
+      {
+        status: "已取消",
+        cancelReason:
+          reasonText,
+        cancelledAt:
+          nowTime(),
+        history
+      },
+      [
+        "status",
+        "cancelReason",
+        "cancelledAt",
+        "history"
+      ],
       carId
     );
 
@@ -1669,9 +1747,30 @@ async function saveSeatSlotsToFirestore(
       updatedAt: nowTime()
     });
 
-  await syncJLYCloudCarViewFromCore(
+  await syncJLYViewsFromKnownMutation(
+    window.currentCarData
+      ? {
+          ...window.currentCarData,
+          id: carId
+        }
+      : {
+          id: carId
+        },
+    {
+      slots
+    },
+    [
+      "slots"
+    ],
     carId
   );
+
+  if (
+    window.currentCarData
+  ) {
+    window.currentCarData.slots =
+      slots;
+  }
 
   console.log(
     "✅ Seat Engine 已同步 Firestore",
@@ -3019,7 +3118,17 @@ async function saveSingleFieldEdit(
     .doc(carId)
     .update(updateData);
 
-  await syncJLYCloudCarViewFromCore(
+  await syncJLYViewsFromKnownMutation(
+    currentCar || {
+      id: carId
+    },
+    {
+      [fieldName]:
+        value
+    },
+    [
+      fieldName
+    ],
     carId
   );
 

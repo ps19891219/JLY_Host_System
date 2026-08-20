@@ -26,6 +26,143 @@ const MYCAR_DATA_SNAPSHOT_KEY =
 const MYCAR_DATA_SNAPSHOT_TTL_MS =
   60 * 1000;
 
+const MYCAR_VIEW_FIRST_FLAG_KEY =
+  "jlyMyCarViewFirstV1";
+
+let myCarViewModulePromise =
+  null;
+
+function isMyCarViewFirstEnabled() {
+  return (
+    localStorage.getItem(
+      MYCAR_VIEW_FIRST_FLAG_KEY
+    ) === "1"
+  );
+}
+
+function loadMyCarViewScript(
+  src,
+  marker
+) {
+  return new Promise(
+    function (
+      resolve,
+      reject
+    ) {
+      const existing =
+        document.querySelector(
+          `script[data-jly-mycar-view="${marker}"]`
+        );
+
+      if (existing) {
+        if (
+          existing.dataset
+            .jlyMyCarViewReady ===
+            "1"
+        ) {
+          resolve();
+          return;
+        }
+
+        existing.addEventListener(
+          "load",
+          resolve,
+          { once: true }
+        );
+
+        existing.addEventListener(
+          "error",
+          reject,
+          { once: true }
+        );
+
+        return;
+      }
+
+      const script =
+        document.createElement(
+          "script"
+        );
+
+      script.src = src;
+      script.async = false;
+      script.dataset
+        .jlyMyCarView =
+        marker;
+
+      script.onload =
+        function () {
+          script.dataset
+            .jlyMyCarViewReady =
+            "1";
+          resolve();
+        };
+
+      script.onerror =
+        reject;
+
+      document.head
+        .appendChild(
+          script
+        );
+    }
+  );
+}
+
+async function ensureMyCarViewModule() {
+  if (window.JLYMyCarView) {
+    return window.JLYMyCarView;
+  }
+
+  if (myCarViewModulePromise) {
+    return myCarViewModulePromise;
+  }
+
+  myCarViewModulePromise =
+    (async function () {
+      await loadMyCarViewScript(
+        "/js/data-view/mycar-view.js?v=4",
+        "mycar-view"
+      );
+
+      if (!window.JLYMyCarView) {
+        throw new Error(
+          "MyCar View 模組未初始化"
+        );
+      }
+
+      return window.JLYMyCarView;
+    })();
+
+  try {
+    return await myCarViewModulePromise;
+  } catch (error) {
+    myCarViewModulePromise = null;
+    throw error;
+  }
+}
+
+async function loadMyCarPreparedView(
+  ownerId
+) {
+  const module =
+    await ensureMyCarViewModule();
+
+  const view =
+    await module.read(
+      ownerId
+    );
+
+  if (!view) {
+    throw new Error(
+      "mycar_view_not_bootstrapped"
+    );
+  }
+
+  return view;
+}
+
+
 const MYCAR_RETURN_MARKER_KEY =
   "mycarReturnFromCarDetail";
 
@@ -1123,34 +1260,67 @@ async function renderMyCars(
       - 超過 TTL 會重新抓正式 Car
       - Player 車仍走 V2.80 playerIds indexed query
     */
-    const snapshot =
-      await loadMyCarDataSnapshot(
-        ownerId,
-        playerProfileId
-      );
+    if (
+      isMyCarViewFirstEnabled()
+    ) {
+      /*
+        Phase G：
+        正式 View-first 開啟後，
+        正常 MyCar UI 只讀一份
+        myCarViews/{viewerId}。
 
-    const hostCars =
-      snapshot.hostCars || [];
+        此分支沒有 Cars Query fallback。
+        View 不存在或壞掉時直接報錯，
+        避免表面正常、背後偷偷重新掃 Core。
+      */
+      const preparedView =
+        await loadMyCarPreparedView(
+          ownerId
+        );
 
-    const playerCars =
-      snapshot.playerCars || [];
+      cars =
+        Array.isArray(
+          preparedView.cars
+        )
+          ? preparedView.cars
+              .slice()
+          : [];
+    } else {
+      /*
+        Migration Safety：
+        Phase G 安裝後預設仍走 V2.81，
+        直到 Bootstrap + Consistency
+        明確通過才開啟 View-first。
+      */
+      const snapshot =
+        await loadMyCarDataSnapshot(
+          ownerId,
+          playerProfileId
+        );
 
-    cars =
-      Array.from(
-        new Map(
-          [
-            ...hostCars,
-            ...playerCars
-          ].map(
-            function (car) {
-              return [
-                car.id,
-                car
-              ];
-            }
-          )
-        ).values()
-      );
+      const hostCars =
+        snapshot.hostCars || [];
+
+      const playerCars =
+        snapshot.playerCars || [];
+
+      cars =
+        Array.from(
+          new Map(
+            [
+              ...hostCars,
+              ...playerCars
+            ].map(
+              function (car) {
+                return [
+                  car.id,
+                  car
+                ];
+              }
+            )
+          ).values()
+        );
+    }
 
     const currentFilter =
       buildCurrentCarFilter();
@@ -1294,11 +1464,23 @@ async function renderMyCars(
       error
     );
 
+    const message =
+      error &&
+      error.message ===
+        "mycar_view_not_bootstrapped"
+        ? "MyCar View 尚未建立，請先執行一次 Bootstrap。"
+        : (
+            error &&
+            error.message
+              ? error.message
+              : "未知錯誤"
+          );
+
     list.innerHTML =
       '<div class="card">' +
       '<h3>讀取失敗</h3>' +
       '<p>' +
-      error.message +
+      message +
       '</p>' +
       '</div>';
 
@@ -1568,3 +1750,32 @@ window.goMyCarNextPage =
 
 window.clearMyCarSearch =
   clearMyCarSearch;
+
+
+window.JLYMyCarViewFirst = {
+  isEnabled:
+    isMyCarViewFirstEnabled,
+
+  enable:
+    function () {
+      localStorage.setItem(
+        MYCAR_VIEW_FIRST_FLAG_KEY,
+        "1"
+      );
+
+      sessionStorage.removeItem(
+        MYCAR_DATA_SNAPSHOT_KEY
+      );
+
+      return true;
+    },
+
+  disable:
+    function () {
+      localStorage.removeItem(
+        MYCAR_VIEW_FIRST_FLAG_KEY
+      );
+
+      return true;
+    }
+};

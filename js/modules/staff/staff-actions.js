@@ -6,6 +6,122 @@ console.log(
   "use strict";
 
   // ============================================================
+  // JLY Cloud View Core V1 Phase F
+  // Staff Slot Mutation → Car Detail View
+  // ============================================================
+
+  let jlyStaffViewRuntimePromise =
+    null;
+
+  async function ensureJLYStaffViewRuntime() {
+    if (
+      window.JLYViewRuntimeLoader
+    ) {
+      return window
+        .JLYViewRuntimeLoader
+        .ensure();
+    }
+
+    if (
+      jlyStaffViewRuntimePromise
+    ) {
+      return jlyStaffViewRuntimePromise;
+    }
+
+    jlyStaffViewRuntimePromise =
+      new Promise(
+        function (
+          resolve,
+          reject
+        ) {
+          const script =
+            document.createElement(
+              "script"
+            );
+
+          script.src =
+            "/js/data-view/view-runtime-loader.js?v=1";
+
+          script.async =
+            true;
+
+          script.onload =
+            async function () {
+              try {
+                if (
+                  !window
+                    .JLYViewRuntimeLoader
+                ) {
+                  throw new Error(
+                    "View Runtime Loader 未初始化"
+                  );
+                }
+
+                resolve(
+                  await window
+                    .JLYViewRuntimeLoader
+                    .ensure()
+                );
+              } catch (error) {
+                reject(error);
+              }
+            };
+
+          script.onerror =
+            reject;
+
+          document.head
+            .appendChild(
+              script
+            );
+        }
+      );
+
+    return jlyStaffViewRuntimePromise;
+  }
+
+  async function syncStaffSlotsView(
+    beforeCar,
+    afterCar
+  ) {
+    try {
+      const runtime =
+        await ensureJLYStaffViewRuntime();
+
+      const coordinator =
+        runtime &&
+        runtime.coordinator;
+
+      if (
+        !coordinator ||
+        typeof coordinator
+          .updateCarViews !==
+            "function"
+      ) {
+        return [];
+      }
+
+      return await coordinator
+        .updateCarViews({
+          beforeCar,
+          afterCar,
+          changedFields: [
+            "staffSlots"
+          ]
+        });
+    } catch (error) {
+      console.warn(
+        "Staff View 同步失敗：",
+        error
+      );
+
+      return [];
+    }
+  }
+
+
+
+  // ============================================================
   // 基礎工具
   // ============================================================
 
@@ -549,6 +665,10 @@ console.log(
           .serverTimestamp();
     }
 
+    const beforeCar = {
+      ...car
+    };
+
     await db
       .collection("cars")
       .doc(car.id)
@@ -557,8 +677,19 @@ console.log(
     car.staffSlots =
       normalizedSlots;
 
+    const afterCar = {
+      ...car,
+      staffSlots:
+        normalizedSlots
+    };
+
     window.currentCarData =
       car;
+
+    await syncStaffSlotsView(
+      beforeCar,
+      afterCar
+    );
 
     return normalizedSlots;
   }
