@@ -150,6 +150,53 @@ console.log(
     ).trim();
   }
 
+
+  // ------------------------------------------------------------
+  // Player Query Index V1
+  // players[] 仍是正式資料；playerIds 僅供 Firestore 查詢使用。
+  // 已取消玩家不放入索引。
+  // ------------------------------------------------------------
+
+  function buildActivePlayerIds(players) {
+    const source =
+      Array.isArray(players)
+        ? players
+        : [];
+
+    return Array.from(
+      new Set(
+        source
+          .filter(function (player) {
+            const status =
+              String(
+                (player && player.status) ||
+                ""
+              ).trim().toLowerCase();
+
+            return (
+              status !== "已取消" &&
+              status !== "取消" &&
+              status !== "cancelled" &&
+              status !== "canceled"
+            );
+          })
+          .map(function (player) {
+            return String(
+              
+              (player && (
+                player.playerId ||
+                player.id ||
+                player.profileId
+              )) ||
+              ""
+
+            ).trim();
+          })
+          .filter(Boolean)
+      )
+    );
+  }
+
   function normalizePosition(value) {
     const text =
       String(
@@ -949,6 +996,15 @@ console.log(
 
       await carRef.update({
         players,
+
+        playerIds:
+          buildActivePlayerIds(
+            players
+          ),
+
+        playerIdsIndexVersion:
+          1,
+
         applications,
         slots:
           nextSlots,

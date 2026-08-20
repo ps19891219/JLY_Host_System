@@ -323,25 +323,296 @@ async function getCarsByIds(
 }
 
 // ============================================================
-// 取得指定玩家參與的車團
+// Player Query Index V1
 //
-// 玩家身分來源：
-// car.players[].playerId
+// players[] 仍是正式參與資料。
+// playerIds 僅是 Firestore Query Index，不建立第二份玩家資料。
 //
-// 只保留：
-// - playerId 相符
-// - 該玩家紀錄不是已取消
+// 舊車第一次升級時會做一次 backfill：
+// - 掃描既有 cars
+// - 從 players[] 重建 playerIds
+// - 完成後在本機留下 migration flag
+//
+// 若 migration / indexed query 失敗，會安全回退舊版掃描，
+// 不會因此讓歷史「我是玩家」車團消失。
 // ============================================================
 
-async function getCarsByPlayerId(
+const PLAYER_IDS_INDEX_VERSION =
+  1;
+
+const PLAYER_IDS_MIGRATION_KEY =
+  "jly_car_player_ids_index_v1_done";
+
+function isCancelledPlayerStatus(
+  value
+) {
+  const status =
+    String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return (
+    status === "已取消" ||
+    status === "取消" ||
+    status === "cancelled" ||
+    status === "canceled"
+  );
+}
+
+function getPlayerStableId(
+  player
+) {
+  const source =
+    player &&
+    typeof player === "object"
+      ? player
+      : {};
+
+  return normalizeId(
+    source.playerId ||
+    source.id ||
+    source.profileId
+  );
+}
+
+function buildActivePlayerIds(
+  players
+) {
+  const source =
+    Array.isArray(players)
+      ? players
+      : [];
+
+  return Array.from(
+    new Set(
+      source
+        .filter(function (player) {
+          return (
+            player &&
+            !isCancelledPlayerStatus(
+              player.status
+            )
+          );
+        })
+        .map(
+          getPlayerStableId
+        )
+        .filter(Boolean)
+    )
+  );
+}
+
+function sameIdArray(
+  left,
+  right
+) {
+  const a =
+    Array.isArray(left)
+      ? [...left]
+          .map(normalizeId)
+          .filter(Boolean)
+          .sort()
+      : [];
+
+  const b =
+    Array.isArray(right)
+      ? [...right]
+          .map(normalizeId)
+          .filter(Boolean)
+          .sort()
+      : [];
+
+  return (
+    a.length === b.length &&
+    a.every(
+      function (value, index) {
+        return value === b[index];
+      }
+    )
+  );
+}
+
+function getLocalStorageSafe() {
+  try {
+    return window.localStorage ||
+      null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isPlayerIdsMigrationDone() {
+  const storage =
+    getLocalStorageSafe();
+
+  if (!storage) {
+    return false;
+  }
+
+  return (
+    storage.getItem(
+      PLAYER_IDS_MIGRATION_KEY
+    ) === "1"
+  );
+}
+
+function markPlayerIdsMigrationDone() {
+  const storage =
+    getLocalStorageSafe();
+
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(
+    PLAYER_IDS_MIGRATION_KEY,
+    "1"
+  );
+}
+
+async function backfillPlayerIdsIndex() {
+  const db =
+    getDb();
+
+  const snapshot =
+    await db
+      .collection("cars")
+      .get();
+
+  if (snapshot.empty) {
+    markPlayerIdsMigrationDone();
+
+    return {
+      scanned: 0,
+      updated: 0
+    };
+  }
+
+  let batch =
+    db.batch();
+
+  let batchCount =
+    0;
+
+  let scanned =
+    0;
+
+  let updated =
+    0;
+
+  async function commitBatch() {
+    if (batchCount === 0) {
+      return;
+    }
+
+    await batch.commit();
+
+    batch =
+      db.batch();
+
+    batchCount =
+      0;
+  }
+
+  for (
+    const doc
+    of snapshot.docs
+  ) {
+    scanned += 1;
+
+    const car =
+      doc.data() ||
+      {};
+
+    const nextPlayerIds =
+      buildActivePlayerIds(
+        car.players
+      );
+
+    const version =
+      Number(
+        car.playerIdsIndexVersion ||
+        0
+      );
+
+    if (
+      version ===
+        PLAYER_IDS_INDEX_VERSION &&
+      sameIdArray(
+        car.playerIds,
+        nextPlayerIds
+      )
+    ) {
+      continue;
+    }
+
+    batch.update(
+      doc.ref,
+      {
+        playerIds:
+          nextPlayerIds,
+
+        playerIdsIndexVersion:
+          PLAYER_IDS_INDEX_VERSION
+      }
+    );
+
+    updated += 1;
+    batchCount += 1;
+
+    if (
+      batchCount >= 400
+    ) {
+      await commitBatch();
+    }
+  }
+
+  await commitBatch();
+
+  markPlayerIdsMigrationDone();
+
+  console.log(
+    "✅ Player IDs Index backfill 完成",
+    {
+      scanned,
+      updated
+    }
+  );
+
+  return {
+    scanned,
+    updated
+  };
+}
+
+async function ensurePlayerIdsIndex() {
+  if (
+    isPlayerIdsMigrationDone()
+  ) {
+    return true;
+  }
+
+  try {
+    await backfillPlayerIdsIndex();
+
+    return true;
+  } catch (error) {
+    console.warn(
+      "Player IDs Index backfill 失敗，暫時使用舊版相容查詢：",
+      error
+    );
+
+    return false;
+  }
+}
+
+async function resolveTargetPlayerIds(
   playerId
 ) {
   const db =
     getDb();
-
-  // ============================================================
-  // 收集所有可能屬於目前使用者的 Player ID
-  // ============================================================
 
   const identityIds =
     window.JLYIdentity &&
@@ -374,14 +645,8 @@ async function getCarsByPlayerId(
     );
   }
 
-  // ============================================================
-  // Firebase Player Profile 的 linkedPlayerIds
-  //
-  // 不只讀一個 Profile，
-  // 而是把目前已知的所有 Identity 都檢查一次。
-  // ============================================================
-
-  const firebaseLinkedPlayerIds = [];
+  const firebaseLinkedPlayerIds =
+    [];
 
   for (
     const identityId
@@ -427,106 +692,227 @@ async function getCarsByPlayerId(
     }
   }
 
-  // ============================================================
-  // 最終玩家 Identity 集合
-  // ============================================================
+  return Array.from(
+    new Set([
+      ...initialPlayerIds,
+      ...firebaseLinkedPlayerIds
+    ])
+  )
+    .map(normalizeId)
+    .filter(Boolean);
+}
 
-  const targetPlayerIds =
-    Array.from(
-      new Set([
-        ...initialPlayerIds,
-        ...firebaseLinkedPlayerIds
-      ])
+function carMatchesPlayerIds(
+  car,
+  targetPlayerIds
+) {
+  const targetSet =
+    new Set(
+      targetPlayerIds
+        .map(normalizeId)
+        .filter(Boolean)
+    );
+
+  const players =
+    Array.isArray(
+      car && car.players
     )
-      .map(normalizeId)
-      .filter(Boolean);
+      ? car.players
+      : [];
 
-  console.log(
-    "🎮 玩家身分 IDs：",
-    targetPlayerIds
+  return players.some(
+    function (player) {
+      if (
+        !player ||
+        isCancelledPlayerStatus(
+          player.status
+        )
+      ) {
+        return false;
+      }
+
+      return targetSet.has(
+        getPlayerStableId(
+          player
+        )
+      );
+    }
   );
+}
 
-  // ============================================================
-  // 讀取 Cars
-  //
-  // 舊資料不是所有車都有統一索引，
-  // 所以 V1 仍完整讀 cars 再比對。
-  // ============================================================
+async function legacyScanCarsByPlayerIds(
+  targetPlayerIds
+) {
+  const db =
+    getDb();
 
   const snapshot =
     await db
       .collection("cars")
       .get();
 
-  const matchedCars =
-    snapshot.docs
-      .map(
+  return snapshot.docs
+    .map(
+      function (doc) {
+        return {
+          id: doc.id,
+          ...doc.data()
+        };
+      }
+    )
+    .filter(
+      function (car) {
+        return carMatchesPlayerIds(
+          car,
+          targetPlayerIds
+        );
+      }
+    );
+}
+
+function chunkIds(
+  ids,
+  size
+) {
+  const chunks = [];
+
+  for (
+    let index = 0;
+    index < ids.length;
+    index += size
+  ) {
+    chunks.push(
+      ids.slice(
+        index,
+        index + size
+      )
+    );
+  }
+
+  return chunks;
+}
+
+// ============================================================
+// 取得指定玩家參與的車團
+//
+// V2.80：
+// - 正常路徑使用 playerIds array-contains-any
+// - Identity 仍包含 currentPlayerId / profileId / linkedPlayerIds
+// - 查詢結果仍以正式 players[] 驗證，避免 stale index 誤判
+// - migration/query 失敗時安全 fallback
+// ============================================================
+
+async function getCarsByPlayerId(
+  playerId
+) {
+  const db =
+    getDb();
+
+  const targetPlayerIds =
+    await resolveTargetPlayerIds(
+      playerId
+    );
+
+  console.log(
+    "🎮 玩家身分 IDs：",
+    targetPlayerIds
+  );
+
+  const indexReady =
+    await ensurePlayerIdsIndex();
+
+  if (!indexReady) {
+    const fallbackCars =
+      await legacyScanCarsByPlayerIds(
+        targetPlayerIds
+      );
+
+    console.log(
+      "🎮 使用相容模式找到玩家車團：",
+      fallbackCars.length
+    );
+
+    return fallbackCars;
+  }
+
+  try {
+    const carMap =
+      new Map();
+
+    /*
+      array-contains-any 的查詢值數量有限制。
+      這裡保守以 10 個 Identity 為一組，
+      linkedPlayerIds 再多也可以分批查詢。
+    */
+    const chunks =
+      chunkIds(
+        targetPlayerIds,
+        10
+      );
+
+    for (
+      const ids
+      of chunks
+    ) {
+      if (
+        ids.length === 0
+      ) {
+        continue;
+      }
+
+      const snapshot =
+        await db
+          .collection("cars")
+          .where(
+            "playerIds",
+            "array-contains-any",
+            ids
+          )
+          .get();
+
+      snapshot.docs.forEach(
         function (doc) {
-          return {
+          const car = {
             id: doc.id,
             ...doc.data()
           };
-        }
-      )
-      .filter(
-        function (car) {
-          const players =
-            Array.isArray(
-              car.players
+
+          if (
+            carMatchesPlayerIds(
+              car,
+              targetPlayerIds
             )
-              ? car.players
-              : [];
-
-          return players.some(
-            function (player) {
-              if (!player) {
-                return false;
-              }
-
-              const currentPlayerId =
-                normalizeId(
-                  player.playerId ||
-                  player.id ||
-                  player.profileId
-                );
-
-              if (
-                !currentPlayerId ||
-                !targetPlayerIds
-                  .includes(
-                    currentPlayerId
-                  )
-              ) {
-                return false;
-              }
-
-              const status =
-                String(
-                  player.status ||
-                  ""
-                ).trim();
-
-              return (
-                status !==
-                  "已取消" &&
-                status !==
-                  "取消" &&
-                status !==
-                  "cancelled" &&
-                status !==
-                  "canceled"
-              );
-            }
-          );
+          ) {
+            carMap.set(
+              doc.id,
+              car
+            );
+          }
         }
       );
+    }
 
-  console.log(
-    "🎮 找到玩家車團：",
-    matchedCars.length
-  );
+    const matchedCars =
+      Array.from(
+        carMap.values()
+      );
 
-  return matchedCars;
+    console.log(
+      "🎮 Indexed Query 找到玩家車團：",
+      matchedCars.length
+    );
+
+    return matchedCars;
+  } catch (error) {
+    console.warn(
+      "Indexed Player Query 失敗，暫時回退相容模式：",
+      error
+    );
+
+    return legacyScanCarsByPlayerIds(
+      targetPlayerIds
+    );
+  }
 }
 
   // ============================================================
@@ -538,6 +924,10 @@ async function getCarsByPlayerId(
   getCarsByOwner,
   getCarsByOwnerPage,
   getCarsByIds,
-  getCarsByPlayerId
+  getCarsByPlayerId,
+
+  // V2.80 migration / diagnostics
+  backfillPlayerIdsIndex,
+  buildActivePlayerIds
 };
 })();
