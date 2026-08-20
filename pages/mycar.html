@@ -16,7 +16,7 @@
 
   <link
     rel="stylesheet"
-    href="../css/mycar.css?v=5"
+    href="../css/mycar.css?v=6"
   >
 
   <link
@@ -114,13 +114,24 @@
 
   <!-- 搜尋 -->
   <div class="sticky-search">
+    <div class="mycar-search-box">
+      <input
+        id="searchInput"
+        placeholder="搜尋劇本、日期、地點、工作室、DM"
+        autocomplete="off"
+      >
 
-    <input
-      id="searchInput"
-      placeholder="搜尋劇本、日期、地點、工作室、DM"
-      autocomplete="off"
-    >
-
+      <button
+        id="clearSearchButton"
+        class="mycar-search-clear"
+        type="button"
+        aria-label="清除搜尋"
+        title="清除搜尋"
+        hidden
+      >
+        ×
+      </button>
+    </div>
   </div>
 
   <!-- 分頁 -->
@@ -331,7 +342,7 @@
 <script src="../js/car/car-relations.js"></script>
 <script src="../js/recruit/recruit-share-data.js"></script>
 <script src="../js/recruit/recruit-share.js"></script>
-<script src="/js/mycar.js?v=43"></script>
+<script src="/js/mycar.js?v=44"></script>
 
 <script>
   function toggleMyCarMenu() {

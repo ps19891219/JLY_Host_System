@@ -20,6 +20,248 @@ const MYCAR_VIEW_STATE_KEY =
 const MYCAR_NAVIGATION_IDS_KEY =
   "mycarNavigationIds";
 
+const MYCAR_DATA_SNAPSHOT_KEY =
+  "mycarDataSnapshotV2";
+
+const MYCAR_DATA_SNAPSHOT_TTL_MS =
+  60 * 1000;
+
+const MYCAR_RETURN_MARKER_KEY =
+  "mycarReturnFromCarDetail";
+
+function clearSavedMyCarViewState() {
+  try {
+    sessionStorage.removeItem(
+      MYCAR_VIEW_STATE_KEY
+    );
+  } catch (error) {
+    console.warn(
+      "清除我的車狀態失敗：",
+      error
+    );
+  }
+}
+
+function shouldRestoreMyCarViewState() {
+  const referrer =
+    String(
+      document.referrer || ""
+    );
+
+  const fromCarPage =
+    /\/pages\/(car-detail|car-view|editcar)\.html/i
+      .test(referrer);
+
+  const marker =
+    sessionStorage.getItem(
+      MYCAR_RETURN_MARKER_KEY
+    ) === "1";
+
+  return (
+    fromCarPage &&
+    marker
+  );
+}
+
+function markMyCarDetailNavigation() {
+  sessionStorage.setItem(
+    MYCAR_RETURN_MARKER_KEY,
+    "1"
+  );
+}
+
+function consumeMyCarReturnMarker() {
+  sessionStorage.removeItem(
+    MYCAR_RETURN_MARKER_KEY
+  );
+}
+
+function readMyCarDataSnapshot(
+  ownerId
+) {
+  try {
+    const raw =
+      sessionStorage.getItem(
+        MYCAR_DATA_SNAPSHOT_KEY
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const snapshot =
+      JSON.parse(raw);
+
+    if (
+      !snapshot ||
+      snapshot.ownerId !== ownerId ||
+      !Array.isArray(
+        snapshot.hostCars
+      ) ||
+      !Array.isArray(
+        snapshot.playerCars
+      )
+    ) {
+      return null;
+    }
+
+    const savedAt =
+      Number(
+        snapshot.savedAt || 0
+      );
+
+    if (
+      !savedAt ||
+      Date.now() - savedAt >
+        MYCAR_DATA_SNAPSHOT_TTL_MS
+    ) {
+      return null;
+    }
+
+    return snapshot;
+  } catch (error) {
+    console.warn(
+      "讀取我的車資料快照失敗：",
+      error
+    );
+
+    return null;
+  }
+}
+
+function saveMyCarDataSnapshot(
+  ownerId,
+  hostCars,
+  playerCars
+) {
+  try {
+    sessionStorage.setItem(
+      MYCAR_DATA_SNAPSHOT_KEY,
+      JSON.stringify({
+        ownerId,
+        savedAt:
+          Date.now(),
+        hostCars:
+          Array.isArray(hostCars)
+            ? hostCars
+            : [],
+        playerCars:
+          Array.isArray(playerCars)
+            ? playerCars
+            : []
+      })
+    );
+  } catch (error) {
+    console.warn(
+      "儲存我的車資料快照失敗：",
+      error
+    );
+  }
+}
+
+async function loadMyCarDataSnapshot(
+  ownerId,
+  playerProfileId
+) {
+  const cached =
+    readMyCarDataSnapshot(
+      ownerId
+    );
+
+  if (cached) {
+    return cached;
+  }
+
+  const hostPromise =
+    window.JLYCarData
+      .getCarsByOwner(
+        ownerId
+      );
+
+  const playerPromise =
+    typeof window.JLYCarData
+      .getCarsByPlayerId ===
+        "function"
+      ? window.JLYCarData
+          .getCarsByPlayerId(
+            playerProfileId ||
+            ownerId
+          )
+      : Promise.resolve([]);
+
+  const results =
+    await Promise.all([
+      hostPromise,
+      playerPromise
+    ]);
+
+  const snapshot = {
+    ownerId,
+    savedAt:
+      Date.now(),
+    hostCars:
+      results[0] || [],
+    playerCars:
+      results[1] || []
+  };
+
+  saveMyCarDataSnapshot(
+    ownerId,
+    snapshot.hostCars,
+    snapshot.playerCars
+  );
+
+  return snapshot;
+}
+
+function updateSearchClearButton() {
+  const input =
+    document.getElementById(
+      "searchInput"
+    );
+
+  const button =
+    document.getElementById(
+      "clearSearchButton"
+    );
+
+  if (!button) {
+    return;
+  }
+
+  button.hidden =
+    !input ||
+    !input.value;
+}
+
+function clearMyCarSearch() {
+  const input =
+    document.getElementById(
+      "searchInput"
+    );
+
+  if (!input) {
+    return;
+  }
+
+  input.value = "";
+
+  clearTimeout(
+    searchDebounceTimer
+  );
+
+  resetMyCarPagination();
+  updateSearchClearButton();
+  saveMyCarViewState(0);
+
+  renderMyCars({
+    restoreScroll:
+      false
+  });
+
+  input.focus();
+}
+
 /* =========================
    清單狀態
 ========================= */
@@ -870,160 +1112,111 @@ async function renderMyCars(
     let cursorForNext = "";
 
     /*
-      搜尋與「我是玩家」目前仍需相容舊資料。
-      舊 cars 沒有 playerIds / search index，
-      因此這兩種情況先走 legacy query，
-      但畫面仍只 Render 20 台。
+      V2.81：先建立一份短效期的「我的車排序快照」，
+      再依正式排序切成每頁 20 台。
+
+      這避免原本 documentId cursor 先切 20 台、
+      每頁再各自 sort，造成第 1 / 2 / 3 頁時間線斷裂。
+
+      快照只保留 60 秒並放在 sessionStorage：
+      - 翻頁與從單台車返回時不重複讀整批資料
+      - 超過 TTL 會重新抓正式 Car
+      - Player 車仍走 V2.80 playerIds indexed query
     */
-    const needsLegacyPlayerRead =
-      currentTab ===
-        "active" &&
-      currentActiveRoleTab !==
-        "host";
+    const snapshot =
+      await loadMyCarDataSnapshot(
+        ownerId,
+        playerProfileId
+      );
 
-    if (
-      keyword ||
-      needsLegacyPlayerRead
-    ) {
-      const hostCars =
-        await window
-          .JLYCarData
-          .getCarsByOwner(
-            ownerId
-          );
+    const hostCars =
+      snapshot.hostCars || [];
 
-      const playerCars =
-        needsLegacyPlayerRead &&
-        typeof window
-          .JLYCarData
-          .getCarsByPlayerId ===
-            "function"
-          ? await window
-              .JLYCarData
-              .getCarsByPlayerId(
-                playerProfileId ||
-                ownerId
-              )
-          : [];
+    const playerCars =
+      snapshot.playerCars || [];
 
-      cars =
-        Array.from(
-          new Map(
-            [
-              ...hostCars,
-              ...playerCars
-            ].map(
-              function (car) {
-                return [
-                  car.id,
-                  car
-                ];
-              }
+    cars =
+      Array.from(
+        new Map(
+          [
+            ...hostCars,
+            ...playerCars
+          ].map(
+            function (car) {
+              return [
+                car.id,
+                car
+              ];
+            }
+          )
+        ).values()
+      );
+
+    const currentFilter =
+      buildCurrentCarFilter();
+
+    cars =
+      cars.filter(
+        function (car) {
+          if (
+            !currentFilter(
+              car
             )
-          ).values()
-        );
-
-      const currentFilter =
-        buildCurrentCarFilter();
-
-      cars =
-        cars.filter(
-          function (car) {
-            if (
-              !currentFilter(
-                car
-              )
-            ) {
-              return false;
-            }
-
-            if (
-              currentTab ===
-                "active" &&
-              currentActiveRoleTab ===
-                "player" &&
-              !isMyPlayerCar(
-                car
-              )
-            ) {
-              return false;
-            }
-
-            return carMatchesKeyword(
-              car,
-              keyword
-            );
+          ) {
+            return false;
           }
-        );
 
-      cars =
-        sortCars(
-          cars,
-          keyword
-        );
-
-      const start =
-        currentPageIndex *
-        MYCAR_PAGE_SIZE;
-
-      const pageCars =
-        cars.slice(
-          start,
-          start +
-            MYCAR_PAGE_SIZE
-        );
-
-      hasMore =
-        start +
-          MYCAR_PAGE_SIZE <
-        cars.length;
-
-      cars =
-        pageCars;
-
-      cursorForNext =
-        hasMore
-          ? String(
-              currentPageIndex +
-              1
+          if (
+            currentTab ===
+              "active" &&
+            currentActiveRoleTab ===
+              "player" &&
+            !isMyPlayerCar(
+              car
             )
-          : "";
-    } else {
-      const pageResult =
-        await window
-          .JLYCarData
-          .getCarsByOwnerPage(
-            ownerId,
-            {
-              limit:
-                MYCAR_PAGE_SIZE,
+          ) {
+            return false;
+          }
 
-              cursorId:
-                getCurrentPageCursorId(),
-
-              filter:
-                buildCurrentCarFilter()
-            }
+          return carMatchesKeyword(
+            car,
+            keyword
           );
+        }
+      );
 
-      cars =
-        sortCars(
-          pageResult.cars ||
-            [],
-          ""
-        );
+    cars =
+      sortCars(
+        cars,
+        keyword
+      );
 
-      hasMore =
-        pageResult.hasMore ===
-          true;
+    const start =
+      currentPageIndex *
+      MYCAR_PAGE_SIZE;
 
-      cursorForNext =
-        String(
-          pageResult
-            .nextCursorId ||
-          ""
-        );
-    }
+    const pageCars =
+      cars.slice(
+        start,
+        start +
+          MYCAR_PAGE_SIZE
+      );
+
+    hasMore =
+      start +
+        MYCAR_PAGE_SIZE <
+      cars.length;
+
+    cars =
+      pageCars;
+
+    cursorForNext =
+      hasMore
+        ? String(
+            currentPageIndex +
+            1
+          )
+        : "";
 
     visibleCarIds =
       cars.map(
@@ -1128,8 +1321,37 @@ document.addEventListener(
         "searchInput"
       );
 
+    const clearButton =
+      document.getElementById(
+        "clearSearchButton"
+      );
+
+    const restorePreviousState =
+      shouldRestoreMyCarViewState();
+
     const savedState =
-      getSavedMyCarState();
+      restorePreviousState
+        ? getSavedMyCarState()
+        : null;
+
+    if (!restorePreviousState) {
+      clearSavedMyCarViewState();
+
+      currentTab = "all";
+      currentActiveRoleTab =
+        "all";
+      resetMyCarPagination();
+
+      if (searchInput) {
+        searchInput.value = "";
+      }
+
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "auto"
+      });
+    }
 
     if (
       savedState &&
@@ -1204,25 +1426,32 @@ document.addEventListener(
     }
 
     restoreTabButtons();
-
     restoreActiveRoleTabs();
-
     updateBatchToolbar();
+    updateSearchClearButton();
 
     renderMyCars({
       restoreScroll:
         false
     }).then(
       function () {
-        restoreScrollPosition();
+        if (
+          restorePreviousState
+        ) {
+          restoreScrollPosition();
+        }
       }
     );
 
-        if (searchInput) {
+    consumeMyCarReturnMarker();
+
+    if (searchInput) {
       searchInput
         .addEventListener(
           "input",
           function () {
+            updateSearchClearButton();
+
             clearTimeout(
               searchDebounceTimer
             );
@@ -1245,6 +1474,13 @@ document.addEventListener(
               );
           }
         );
+    }
+
+    if (clearButton) {
+      clearButton.addEventListener(
+        "click",
+        clearMyCarSearch
+      );
     }
 
     const carList =
@@ -1272,6 +1508,8 @@ document.addEventListener(
           if (!card) {
             return;
           }
+
+          markMyCarDetailNavigation();
 
           saveMyCarViewState(
             window.scrollY
@@ -1327,3 +1565,6 @@ window.goMyCarPreviousPage =
 
 window.goMyCarNextPage =
   goMyCarNextPage;
+
+window.clearMyCarSearch =
+  clearMyCarSearch;

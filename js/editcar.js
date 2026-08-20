@@ -274,76 +274,61 @@ function renderEditForm(car) {
     >
 
     ${
-  isPlanning
-    ? `
-      <div
-        style="
-          margin: 14px 0 18px;
-          padding: 16px;
-          border: 1px solid #f1d48a;
-          border-radius: 14px;
-          background: #fffaf0;
-        "
-      >
-        <div
-          style="
-            font-weight: 700;
-            margin-bottom: 6px;
-          "
-        >
-          🟡 日期待安排
-        </div>
+      isPlanning
+        ? `
+          <div
+            style="
+              margin: 14px 0 18px;
+              padding: 14px;
+              border: 1px solid #f1d48a;
+              border-radius: 14px;
+              background: #fffaf0;
+              color: #6f5b22;
+              line-height: 1.6;
+            "
+          >
+            🟡 目前是規劃中。直接填妥日期與時間並儲存，
+            就會轉為招募中，不需要先經過媒合。
+          </div>
+        `
+        : ""
+    }
 
-        <div
-          style="
-            color: #777;
-            font-size: 14px;
-            line-height: 1.6;
-          "
-        >
-          這台車目前在規劃中。<br>
-          日期與時間之後可從車團詳細頁安排。
-        </div>
-      </div>
+    <label for="gameDate">
+      日期
+    </label>
 
-      <input
-        id="gameDate"
-        type="hidden"
-        value=""
-      >
+    <input
+      id="gameDate"
+      type="date"
+      value="${escapeEditHtml(
+        car.gameDate || ""
+      )}"
+    >
 
-      <input
-        id="gameTime"
-        type="hidden"
-        value=""
-      >
-    `
-    : `
-      <label for="gameDate">
-        日期
-      </label>
+    <label for="gameTime">
+      時間
+    </label>
 
-      <input
-        id="gameDate"
-        type="date"
-        value="${escapeEditHtml(
-          car.gameDate || ""
-        )}"
-      >
+    <input
+      id="gameTime"
+      type="time"
+      value="${escapeEditHtml(
+        car.gameTime || ""
+      )}"
+    >
 
-      <label for="gameTime">
-        時間
-      </label>
-
-      <input
-        id="gameTime"
-        type="time"
-        value="${escapeEditHtml(
-          car.gameTime || ""
-        )}"
-      >
-    `
-}
+    <small
+      style="
+        display:block;
+        margin-top:-6px;
+        margin-bottom:14px;
+        color:#777;
+        line-height:1.5;
+      "
+    >
+      日期與時間需一起設定；兩者都清空即可退回規劃中。
+    </small>
 
     <label for="locationName">
       地點
@@ -533,6 +518,35 @@ function renderEditForm(car) {
       >
       我參加
     </label>
+
+    <hr>
+
+    <label class="checkbox-row">
+      <input
+        id="calendarSyncEnabled"
+        type="checkbox"
+        ${
+          car.calendar &&
+          car.calendar.syncEnabled === true
+            ? "checked"
+            : ""
+        }
+      >
+      同步 Google Calendar
+    </label>
+
+    <small
+      style="
+        display:block;
+        margin-bottom:14px;
+        color:#777;
+        line-height:1.5;
+      "
+    >
+      已同步的車修改劇本名稱、日期、時間、地點或工作室時，
+      會更新同一筆行程。第一次開啟同步時，若找到名稱與時間相符的既有行程，
+      可選擇由 JLY 接管，避免重複建立。
+    </small>
 
     <button
       type="button"
@@ -1140,6 +1154,292 @@ async function reschedulePreTripReminderAfterCarEdit(
   };
 }
 
+
+function normalizeCalendarMatchText(
+  value
+) {
+  return String(
+    value || ""
+  )
+    .toLowerCase()
+    .replace(
+      /[\s【】\[\]（）()\-－_｜|:：·・]/g,
+      ""
+    )
+    .replace(
+      /^(劇本|活動)/,
+      ""
+    );
+}
+
+function getGoogleEventLocalTime(
+  event
+) {
+  const value =
+    event &&
+    event.start &&
+    event.start.dateTime
+      ? event.start.dateTime
+      : "";
+
+  if (!value) {
+    return "";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return (
+    String(
+      date.getHours()
+    ).padStart(2, "0") +
+    ":" +
+    String(
+      date.getMinutes()
+    ).padStart(2, "0")
+  );
+}
+
+function findAdoptableCalendarEvents(
+  events,
+  scriptName,
+  gameTime
+) {
+  const targetName =
+    normalizeCalendarMatchText(
+      scriptName
+    );
+
+  const targetTime =
+    String(
+      gameTime || ""
+    ).trim();
+
+  return (
+    Array.isArray(events)
+      ? events
+      : []
+  ).filter(
+    function (event) {
+      const privateData =
+        event &&
+        event.extendedProperties &&
+        event.extendedProperties.private
+          ? event.extendedProperties.private
+          : {};
+
+      /*
+        已經由 JLY 管理的事件不可被另一台車誤接管。
+      */
+      if (
+        String(
+          privateData.carId || ""
+        ).trim() ||
+        String(
+          privateData.source || ""
+        ).trim().toUpperCase() ===
+          "JLY"
+      ) {
+        return false;
+      }
+
+      const eventName =
+        normalizeCalendarMatchText(
+          event.summary
+        );
+
+      if (
+        !eventName ||
+        !targetName ||
+        (
+          eventName !== targetName &&
+          !eventName.includes(
+            targetName
+          ) &&
+          !targetName.includes(
+            eventName
+          )
+        )
+      ) {
+        return false;
+      }
+
+      return (
+        getGoogleEventLocalTime(
+          event
+        ) === targetTime
+      );
+    }
+  );
+}
+
+async function findExistingCalendarEventToAdopt(
+  scriptName,
+  gameDate,
+  gameTime
+) {
+  if (
+    !gameDate ||
+    !gameTime ||
+    !window
+      .JLYCalendarProviderGoogle ||
+    typeof window
+      .JLYCalendarProviderGoogle
+      .listEventsForDate !==
+        "function"
+  ) {
+    return null;
+  }
+
+  const events =
+    await window
+      .JLYCalendarProviderGoogle
+      .listEventsForDate(
+        gameDate
+      );
+
+  const matches =
+    findAdoptableCalendarEvents(
+      events,
+      scriptName,
+      gameTime
+    );
+
+  if (
+    matches.length !== 1
+  ) {
+    return null;
+  }
+
+  const match =
+    matches[0];
+
+  const useExisting =
+    confirm(
+      [
+        "📅 找到一筆可能是同一場的既有 Google Calendar 行程：",
+        "",
+        match.summary ||
+          scriptName,
+        gameDate +
+          " " +
+          gameTime,
+        "",
+        "要讓 JLY 接管並更新這一筆嗎？",
+        "",
+        "確定：使用這一筆，不建立重複行程",
+        "取消：建立新的 JLY 行程"
+      ].join("\\n")
+    );
+
+  return useExisting
+    ? match
+    : null;
+}
+
+async function adoptExistingCalendarEvent(
+  config
+) {
+  const event =
+    await window
+      .JLYCalendarProviderGoogle
+      .updateEvent({
+        carId:
+          config.carId,
+
+        car:
+          config.car,
+
+        eventId:
+          config.event.id,
+
+        calendarId:
+          config.calendarId ||
+          "primary",
+
+        durationMinutes:
+          config.durationMinutes ||
+          60,
+
+        carUrl:
+          config.carUrl
+      });
+
+  const nextCalendar =
+    await window
+      .JLYCalendarData
+      .updateCarCalendar(
+        config.carId,
+        {
+          provider:
+            "google",
+
+          syncEnabled:
+            true,
+
+          calendarId:
+            config.calendarId ||
+            "primary",
+
+          eventId:
+            event.id ||
+            config.event.id,
+
+          eventUrl:
+            event.htmlLink ||
+            config.event.htmlLink ||
+            "",
+
+          eventDurationMinutes:
+            Number(
+              config.durationMinutes ||
+              60
+            ),
+
+          syncStatus:
+            "synced",
+
+          adoptedExistingEvent:
+            true,
+
+          adoptedAt:
+            editNowTime(),
+
+          lastSyncAt:
+            editNowTime(),
+
+          lastError:
+            ""
+        }
+      );
+
+  return {
+    ok: true,
+    adopted: true,
+    event,
+    calendar:
+      nextCalendar
+  };
+}
+
+function invalidateMyCarDataSnapshot() {
+  try {
+    sessionStorage.removeItem(
+      "mycarDataSnapshotV2"
+    );
+  } catch (error) {
+    // 不阻擋儲存
+  }
+}
+
 async function saveEditCar() {
   const db = window.db;
   const carId = getEditCarId();
@@ -1254,44 +1554,44 @@ if (!canEdit) {
   return;
 }
 
-const isPlanning =
+const wasPlanning =
   currentEditingCar.status ===
     "規劃中" ||
   currentEditingCar
     .planningStatus ===
-    "unscheduled" ||
-  !currentEditingCar.gameDate;
+      "unscheduled" ||
+  !currentEditingCar.gameDate ||
+  !currentEditingCar.gameTime;
 
-/*
-  規劃中的車允許沒有日期與時間。
-  正式車才需要日期與時間。
-*/
+const hasDate =
+  Boolean(gameDate);
+
+const hasTime =
+  Boolean(gameTime);
+
 if (
-  !isPlanning &&
-  !gameDate
+  hasDate !== hasTime
 ) {
-  alert("請選擇日期");
+  alert(
+    "日期與時間需要一起設定。\n\n" +
+    "如果要退回規劃中，請把日期與時間都清空。"
+  );
+
   return;
 }
 
-if (
-  !isPlanning &&
-  !gameTime
-) {
-  alert("請選擇時間");
-  return;
-}
+const hasSchedule =
+  hasDate &&
+  hasTime;
+
+const isPlanning =
+  !hasSchedule;
 
 /*
   地點改成選填。
   規劃中或尚未確認工作室時，
   都可以之後再補。
 */
-
-  if (!locationName) {
-    alert("請輸入地點");
-    return;
-  }
 
   const peopleMode =
     getEditRadioValue(
@@ -1398,7 +1698,11 @@ if (
     (
       isPlanning
         ? "更新規劃中車團資料；"
-        : "更新正式車團資料；"
+        : (
+            wasPlanning
+              ? "規劃完成並轉為招募中；"
+              : "更新正式車團資料；"
+          )
     ) +
     "人數配置：" +
     `${maleSlots}男／` +
@@ -1409,8 +1713,41 @@ if (
     editNowTime()
 });
 
+const preservedFormalStatus =
+  String(
+    currentEditingCar.status || ""
+  ).trim();
+
+const protectedStatus =
+  [
+    "已取消",
+    "cancelled",
+    "canceled",
+    "已封存",
+    "archived"
+  ].includes(
+    preservedFormalStatus
+  );
+
+const nextStatus =
+  isPlanning
+    ? "規劃中"
+    : (
+        protectedStatus
+          ? preservedFormalStatus
+          : (
+              wasPlanning
+                ? "招募中"
+                : preservedFormalStatus ||
+                  "招募中"
+            )
+      );
+
 const updatedData = {
   scriptName,
+
+  activityName:
+    scriptName,
 
   gameDate:
     isPlanning
@@ -1423,9 +1760,7 @@ const updatedData = {
       : gameTime,
 
   status:
-    isPlanning
-      ? "規劃中"
-      : currentEditingCar.status,
+    nextStatus,
 
   planningStatus:
     isPlanning
@@ -1479,11 +1814,50 @@ const updatedData = {
     editNowTime()
 };
 
-const shouldSyncCalendar =
-  shouldSyncEditedCarCalendar(
+const hadCalendarSync =
+  Boolean(
+    currentEditingCar.calendar &&
+    currentEditingCar.calendar
+      .syncEnabled === true &&
+    currentEditingCar.calendar
+      .eventId
+  );
+
+const calendarInput =
+  document.getElementById(
+    "calendarSyncEnabled"
+  );
+
+const wantsCalendarSync =
+  Boolean(
+    calendarInput &&
+    calendarInput.checked &&
+    hasSchedule
+  );
+
+const calendarFieldsChanged =
+  hasEditCalendarChanges(
     currentEditingCar,
     updatedData
   );
+
+const needsCalendarCreate =
+  wantsCalendarSync &&
+  !hadCalendarSync;
+
+const needsCalendarUpdate =
+  wantsCalendarSync &&
+  hadCalendarSync &&
+  calendarFieldsChanged;
+
+const needsCalendarRemoveForPlanning =
+  hadCalendarSync &&
+  !hasSchedule;
+
+const needsCalendarDisable =
+  !wantsCalendarSync &&
+  hadCalendarSync &&
+  hasSchedule;
 
 let googleCalendarAuthorized =
   false;
@@ -1491,11 +1865,39 @@ let googleCalendarAuthorized =
 let googleCalendarAuthError =
   null;
 
+let adoptableCalendarEvent =
+  null;
+
+const needsGoogleAction =
+  needsCalendarCreate ||
+  needsCalendarUpdate ||
+  needsCalendarRemoveForPlanning;
+
+if (
+  needsCalendarRemoveForPlanning
+) {
+  const removeConfirmed =
+    confirm(
+      [
+        "📅 你正在清空這台車的日期與時間。",
+        "",
+        "這台車目前有同步 Google Calendar。",
+        "退回規劃中後，原本的 Google Calendar 行程也會移除。",
+        "",
+        "確定繼續嗎？"
+      ].join("\\n")
+    );
+
+  if (!removeConfirmed) {
+    return;
+  }
+}
+
 /*
-  Google OAuth 必須靠近使用者點擊，
-  所以要在 Audit / Firestore await 前先取得授權。
+  Google OAuth 必須緊接使用者點擊，
+  所以在 Audit / Firestore await 前取得授權。
 */
-if (shouldSyncCalendar) {
+if (needsGoogleAction) {
   try {
     if (
       !window.JLYCalendarAuth ||
@@ -1515,14 +1917,42 @@ if (shouldSyncCalendar) {
 
     googleCalendarAuthorized =
       true;
+
+    if (
+      needsCalendarCreate
+    ) {
+      adoptableCalendarEvent =
+        await findExistingCalendarEventToAdopt(
+          scriptName,
+          gameDate,
+          gameTime
+        );
+    }
   } catch (error) {
     googleCalendarAuthError =
       error;
 
     console.warn(
-      "Google Calendar 授權未完成：",
+      "Google Calendar 授權或既有行程檢查未完成：",
       error
     );
+
+    const continueJlyOnly =
+      confirm(
+        [
+          "⚠️ Google Calendar 這次無法完成同步。",
+          "",
+          error && error.message
+            ? error.message
+            : "Google 授權未完成",
+          "",
+          "是否仍只儲存 JLY 車團？"
+        ].join("\\n")
+      );
+
+    if (!continueJlyOnly) {
+      return;
+    }
   }
 }
 
@@ -1582,92 +2012,251 @@ await audit
   }
 
   let calendarSyncResult =
-  null;
+    null;
 
-if (
-  shouldSyncCalendar &&
-  googleCalendarAuthorized
-) {
+  const calendarSettings =
+    window.JLYCalendarController &&
+    typeof window
+      .JLYCalendarController
+      .getSettings ===
+        "function"
+      ? window
+          .JLYCalendarController
+          .getSettings()
+      : {
+          calendarId:
+            "primary",
+          defaultDurationMinutes:
+            60
+        };
+
+  const calendarId =
+    (
+      currentEditingCar.calendar &&
+      currentEditingCar.calendar
+        .calendarId
+    ) ||
+    calendarSettings.calendarId ||
+    "primary";
+
+  const durationMinutes =
+    (
+      currentEditingCar.calendar &&
+      currentEditingCar.calendar
+        .eventDurationMinutes
+    ) ||
+    calendarSettings
+      .defaultDurationMinutes ||
+    60;
+
+  const nextCar = {
+    ...currentEditingCar,
+    ...updatedData
+  };
+
+  const carUrl =
+    location.origin +
+    "/pages/car-detail.html?id=" +
+    encodeURIComponent(
+      carId
+    );
+
   if (
-    !window.JLYCalendarSync ||
+    googleCalendarAuthorized &&
+    needsCalendarCreate
+  ) {
+    if (
+      adoptableCalendarEvent
+    ) {
+      calendarSyncResult =
+        await adoptExistingCalendarEvent({
+          carId,
+          car:
+            nextCar,
+          event:
+            adoptableCalendarEvent,
+          calendarId,
+          durationMinutes,
+          carUrl
+        });
+    } else if (
+      window.JLYCalendarSync &&
+      typeof window
+        .JLYCalendarSync
+        .syncCreatedCar ===
+          "function"
+    ) {
+      calendarSyncResult =
+        await window
+          .JLYCalendarSync
+          .syncCreatedCar({
+            carId,
+            car:
+              nextCar,
+            calendarId,
+            durationMinutes,
+            carUrl
+          });
+    }
+  } else if (
+    googleCalendarAuthorized &&
+    needsCalendarUpdate &&
+    window.JLYCalendarSync &&
     typeof window
       .JLYCalendarSync
-      .syncUpdatedCar !==
+      .syncUpdatedCar ===
         "function"
   ) {
-    console.warn(
-      "Calendar Sync 模組尚未載入"
-    );
-  } else {
-    const nextCar = {
-      ...currentEditingCar,
-      ...updatedData,
-
-      // 保留原本 eventId / calendarId
-      calendar:
-        currentEditingCar.calendar
-    };
+    nextCar.calendar =
+      currentEditingCar.calendar;
 
     calendarSyncResult =
       await window
         .JLYCalendarSync
         .syncUpdatedCar({
           carId,
-
           car:
             nextCar,
-
-          carUrl:
-            location.origin +
-            "/pages/car-detail.html?id=" +
-            encodeURIComponent(
-              carId
-            )
+          carUrl
         });
-  }
-}
+  } else if (
+    googleCalendarAuthorized &&
+    needsCalendarRemoveForPlanning &&
+    window.JLYCalendarSync &&
+    typeof window
+      .JLYCalendarSync
+      .removeSyncedEvent ===
+        "function"
+  ) {
+    calendarSyncResult =
+      await window
+        .JLYCalendarSync
+        .removeSyncedEvent({
+          car:
+            currentEditingCar
+        });
 
     if (
-  shouldSyncCalendar &&
-  !googleCalendarAuthorized
-) {
-  alert(
-    "車團修改完成！\n\n" +
-    "⚠️ Google Calendar 尚未更新。\n" +
-    (
-      googleCalendarAuthError &&
-      googleCalendarAuthError.message
-        ? googleCalendarAuthError.message
-        : "Google 授權未完成"
-    )
-  );
-} else if (
-  calendarSyncResult &&
-  calendarSyncResult.ok === false
-) {
-  alert(
-    "車團修改完成！\n\n" +
-    "⚠️ Google Calendar 更新失敗。\n" +
-    (
-      calendarSyncResult.error &&
-      calendarSyncResult.error.message
-        ? calendarSyncResult
-            .error.message
-        : "未知錯誤"
-    )
-  );
-} else if (
-  shouldSyncCalendar &&
-  googleCalendarAuthorized
-) {
-  alert(
-    "車團修改完成，Google Calendar 也已更新！"
-  );
-} else {
-  alert(
-    "車團修改完成！"
-  );
-}
+      calendarSyncResult &&
+      calendarSyncResult.ok !== false &&
+      window.JLYCalendarData &&
+      typeof window
+        .JLYCalendarData
+        .updateCarCalendar ===
+          "function"
+    ) {
+      await window
+        .JLYCalendarData
+        .updateCarCalendar(
+          carId,
+          {
+            syncEnabled:
+              false,
+            eventId:
+              "",
+            eventUrl:
+              "",
+            syncStatus:
+              "not_synced",
+            lastSyncAt:
+              editNowTime(),
+            lastError:
+              ""
+          }
+        );
+    }
+  } else if (
+    needsCalendarDisable &&
+    window.JLYCalendarData &&
+    typeof window
+      .JLYCalendarData
+      .updateCarCalendar ===
+        "function"
+  ) {
+    await window
+      .JLYCalendarData
+      .updateCarCalendar(
+        carId,
+        {
+          syncEnabled:
+            false,
+          syncStatus:
+            "disabled",
+          lastSyncAt:
+            editNowTime(),
+          lastError:
+            ""
+        }
+      );
+  }
+
+    if (
+      needsGoogleAction &&
+      !googleCalendarAuthorized
+    ) {
+      alert(
+        "車團修改完成！\\n\\n" +
+        "⚠️ Google Calendar 這次沒有更新。\\n" +
+        (
+          googleCalendarAuthError &&
+          googleCalendarAuthError.message
+            ? googleCalendarAuthError.message
+            : "Google 授權未完成"
+        )
+      );
+    } else if (
+      calendarSyncResult &&
+      calendarSyncResult.ok === false
+    ) {
+      alert(
+        "車團修改完成！\\n\\n" +
+        "⚠️ Google Calendar 處理失敗。\\n" +
+        (
+          calendarSyncResult.error &&
+          calendarSyncResult.error.message
+            ? calendarSyncResult
+                .error.message
+            : "未知錯誤"
+        )
+      );
+    } else if (
+      calendarSyncResult &&
+      calendarSyncResult.adopted
+    ) {
+      alert(
+        "車團修改完成！\\n\\n" +
+        "📅 已接管原本的 Google Calendar 行程，之後會由 JLY 持續更新。"
+      );
+    } else if (
+      needsCalendarRemoveForPlanning &&
+      googleCalendarAuthorized
+    ) {
+      alert(
+        "車團已退回規劃中，Google Calendar 原行程也已移除。"
+      );
+    } else if (
+      (
+        needsCalendarCreate ||
+        needsCalendarUpdate
+      ) &&
+      googleCalendarAuthorized
+    ) {
+      alert(
+        "車團修改完成，Google Calendar 也已同步！"
+      );
+    } else if (
+      needsCalendarDisable
+    ) {
+      alert(
+        "車團修改完成！\\n\\n" +
+        "已停止這台車後續的 Google Calendar 同步。\\n" +
+        "既有 Google 行程不會被刪除。"
+      );
+    } else {
+      alert(
+        "車團修改完成！"
+      );
+    }
 
 
     if (
@@ -1701,6 +2290,8 @@ if (
         "請回到車團詳細頁確認提醒設定。"
       );
     }
+
+    invalidateMyCarDataSnapshot();
 
     location.href =
       "car-detail.html?id=" +

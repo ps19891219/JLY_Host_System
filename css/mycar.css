@@ -160,6 +160,42 @@ body {
   border-color: #777;
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
 }
+
+.mycar-search-box {
+  position: relative;
+}
+
+.mycar-search-box input {
+  padding-right: 46px;
+}
+
+.mycar-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 50%;
+  background: #eeeeee;
+  color: #555555;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 32px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.mycar-search-clear[hidden] {
+  display: none;
+}
+
+.mycar-search-clear:active {
+  transform: translateY(-50%) scale(.94);
+}
 /* ==============================
    固定分頁
 ============================== */

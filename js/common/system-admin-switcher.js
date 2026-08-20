@@ -72,27 +72,35 @@ console.log(
     style.textContent = `
       #${SWITCHER_ID} {
         position: fixed;
-        top: 12px;
-        right: 12px;
+        right: 14px;
+        bottom:
+          calc(
+            84px +
+            env(safe-area-inset-bottom, 0px)
+          );
         z-index: 9998;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 42px;
+        height: 42px;
+        margin: 0;
+        padding: 0;
 
         border: 1px solid
           rgba(0, 0, 0, .12);
+        border-radius: 50%;
 
-        border-radius: 999px;
-
-        padding: 8px 12px;
-
-        font-size: 13px;
-        font-weight: 700;
-
+        font-size: 18px;
         line-height: 1;
 
         cursor: pointer;
 
         box-shadow:
-          0 4px 14px
-          rgba(0, 0, 0, .12);
+          0 5px 18px
+          rgba(0, 0, 0, .16);
 
         backdrop-filter:
           blur(8px);
@@ -107,12 +115,12 @@ console.log(
 
       #${SWITCHER_ID}:active {
         transform:
-          scale(.97);
+          scale(.93);
       }
 
       #${SWITCHER_ID}[data-admin-mode="false"] {
         background:
-          rgba(255, 255, 255, .94);
+          rgba(255, 255, 255, .96);
 
         color:
           #444;
@@ -127,17 +135,16 @@ console.log(
       }
 
       @media (
-        max-width: 600px
+        min-width: 721px
       ) {
         #${SWITCHER_ID} {
-          top: 8px;
-          right: 8px;
-
-          padding:
-            8px 10px;
-
-          font-size:
-            12px;
+          right:
+            max(
+              18px,
+              calc(
+                (100vw - 720px) / 2 + 18px
+              )
+            );
         }
       }
     `;
@@ -205,8 +212,15 @@ console.log(
 
     button.textContent =
       enabled
-        ? "🛠 系統管理者"
-        : "👤 一般模式";
+        ? "🛠"
+        : "👤";
+
+    button.setAttribute(
+      "aria-label",
+      enabled
+        ? "目前為系統管理者模式"
+        : "目前為一般模式"
+    );
 
     button.title =
       enabled
