@@ -2,6 +2,158 @@ console.log("cardetail.js 已成功載入！");
 
 const MYCAR_NAVIGATION_IDS_KEY = "mycarNavigationIds";
 
+// ============================================================
+// Cloud View Store V1A
+// Shadow Write only.
+//
+// 目前只在「正式修改」之後更新 View。
+// 一般頁面讀取尚未切換到 View，避免 View 尚未覆蓋所有
+// mutation path 時出現 stale data。
+// ============================================================
+
+let jlyCloudCarViewLoadPromise =
+  null;
+
+function ensureJLYCloudCarView() {
+  if (
+    window.JLYCloudCarView
+  ) {
+    return Promise.resolve(
+      window.JLYCloudCarView
+    );
+  }
+
+  if (
+    jlyCloudCarViewLoadPromise
+  ) {
+    return jlyCloudCarViewLoadPromise;
+  }
+
+  jlyCloudCarViewLoadPromise =
+    new Promise(
+      function (
+        resolve,
+        reject
+      ) {
+        const existing =
+          document.querySelector(
+            'script[data-jly-cloud-car-view="1"]'
+          );
+
+        if (existing) {
+          existing.addEventListener(
+            "load",
+            function () {
+              resolve(
+                window.JLYCloudCarView
+              );
+            },
+            {
+              once: true
+            }
+          );
+
+          existing.addEventListener(
+            "error",
+            reject,
+            {
+              once: true
+            }
+          );
+
+          return;
+        }
+
+        const script =
+          document.createElement(
+            "script"
+          );
+
+        script.src =
+          "/js/data-view/cloud-car-view.js?v=1";
+
+        script.async =
+          true;
+
+        script.dataset
+          .jlyCloudCarView =
+          "1";
+
+        script.onload =
+          function () {
+            if (
+              window.JLYCloudCarView
+            ) {
+              resolve(
+                window.JLYCloudCarView
+              );
+
+              return;
+            }
+
+            reject(
+              new Error(
+                "Cloud Car View 模組載入後未初始化"
+              )
+            );
+          };
+
+        script.onerror =
+          function () {
+            reject(
+              new Error(
+                "Cloud Car View 模組載入失敗"
+              )
+            );
+          };
+
+        document.head
+          .appendChild(
+            script
+          );
+      }
+    );
+
+  return jlyCloudCarViewLoadPromise;
+}
+
+async function syncJLYCloudCarViewFromCore(
+  carId
+) {
+  try {
+    const module =
+      await ensureJLYCloudCarView();
+
+    if (
+      !module ||
+      typeof module
+        .syncFromCore !==
+          "function"
+    ) {
+      return false;
+    }
+
+    await module
+      .syncFromCore(
+        carId
+      );
+
+    return true;
+  } catch (error) {
+    /*
+      V1A 是 Shadow Write：
+      View 失敗不能阻止正式 Car 修改。
+    */
+    console.warn(
+      "Cloud Car View Shadow Sync 失敗：",
+      error
+    );
+
+    return false;
+  }
+}
+
+
 // 左右滑是否已初始化
 let swipeNavigationInitialized = false;
 
@@ -1053,6 +1205,10 @@ async function returnToPlanning() {
           .serverTimestamp()
     });
 
+    await syncJLYCloudCarViewFromCore(
+      carId
+    );
+
     if (
       window.currentCarData
     ) {
@@ -1148,6 +1304,10 @@ async function finishCar() {
       updatedAt: nowTime()
     });
 
+    await syncJLYCloudCarViewFromCore(
+      carId
+    );
+
     alert("已標記為已結束");
 
     renderCarDetail();
@@ -1219,6 +1379,10 @@ async function cancelCar() {
       history,
       updatedAt: nowTime()
     });
+
+    await syncJLYCloudCarViewFromCore(
+      carId
+    );
 
     alert(
       "已取消車團，紀錄已保留"
@@ -1504,6 +1668,10 @@ async function saveSeatSlotsToFirestore(
       slots,
       updatedAt: nowTime()
     });
+
+  await syncJLYCloudCarViewFromCore(
+    carId
+  );
 
   console.log(
     "✅ Seat Engine 已同步 Firestore",
@@ -2850,6 +3018,10 @@ async function saveSingleFieldEdit(
     .collection("cars")
     .doc(carId)
     .update(updateData);
+
+  await syncJLYCloudCarViewFromCore(
+    carId
+  );
 
   if (
     window.currentCarData

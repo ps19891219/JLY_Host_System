@@ -212,6 +212,85 @@ console.log(
     };
   }
 
+
+  // ============================================================
+  // Cloud View Store V1A
+  // ============================================================
+
+  let cloudCarViewLoadPromise =
+    null;
+
+  function ensureCloudCarView() {
+    if (
+      window.JLYCloudCarView
+    ) {
+      return Promise.resolve(
+        window.JLYCloudCarView
+      );
+    }
+
+    if (
+      cloudCarViewLoadPromise
+    ) {
+      return cloudCarViewLoadPromise;
+    }
+
+    cloudCarViewLoadPromise =
+      new Promise(
+        function (
+          resolve,
+          reject
+        ) {
+          const script =
+            document.createElement(
+              "script"
+            );
+
+          script.src =
+            "/js/data-view/cloud-car-view.js?v=1";
+
+          script.async =
+            true;
+
+          script.onload =
+            function () {
+              if (
+                window.JLYCloudCarView
+              ) {
+                resolve(
+                  window.JLYCloudCarView
+                );
+
+                return;
+              }
+
+              reject(
+                new Error(
+                  "Cloud Car View 模組未初始化"
+                )
+              );
+            };
+
+          script.onerror =
+            function () {
+              reject(
+                new Error(
+                  "Cloud Car View 模組載入失敗"
+                )
+              );
+            };
+
+          document.head
+            .appendChild(
+              script
+            );
+        }
+      );
+
+    return cloudCarViewLoadPromise;
+  }
+
+
   // ============================================================
   // Car Mutation + Audit
   //
@@ -281,6 +360,9 @@ console.log(
     let auditRecord =
       null;
 
+    let nextCarForView =
+      null;
+
     await db.runTransaction(
       async function (
         transaction
@@ -308,6 +390,12 @@ console.log(
             beforeCar,
             updateData
           );
+
+        nextCarForView = {
+          ...beforeCar,
+          ...updateData,
+          id: carId
+        };
 
         auditRecord = {
           auditId:
@@ -362,6 +450,37 @@ console.log(
         );
       }
     );
+
+    /*
+      Shadow Write：
+      正式 Car + Audit 成功後才更新 View。
+      View 失敗只記錄 warning，不回滾正式修改。
+      等所有 mutation path 都接入後，
+      下一階段才會讓 UI 改讀 Cloud View。
+    */
+    if (nextCarForView) {
+      try {
+        const cloudView =
+          await ensureCloudCarView();
+
+        if (
+          cloudView &&
+          typeof cloudView
+            .writeFromCar ===
+              "function"
+        ) {
+          await cloudView
+            .writeFromCar(
+              nextCarForView
+            );
+        }
+      } catch (viewError) {
+        console.warn(
+          "Audit 完成，但 Cloud Car View Shadow Write 失敗：",
+          viewError
+        );
+      }
+    }
 
     return auditRecord;
   }
