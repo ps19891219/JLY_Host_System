@@ -2,6 +2,9 @@ console.log("cardetail.js 已成功載入！");
 
 const MYCAR_NAVIGATION_IDS_KEY = "mycarNavigationIds";
 
+// Prevent duplicate mobile swipe listeners when Car Detail rerenders.
+let swipeNavigationInitialized = false;
+
 
 // ============================================================
 // JLY Cloud View Core V1 Phase C

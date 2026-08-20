@@ -13,6 +13,7 @@ test("Car Detail carries carId from MyCar card URL into the Core loader", () => 
 
   assert.match(cardSource, /car-detail\.html\?id=\$\{car\.id\}/);
   assert.match(detailSource, /function getCarId\(\)\s*\{[\s\S]*new URLSearchParams\([\s\S]*location\.search[\s\S]*\.get\("id"\)/);
+  assert.match(detailSource, /let swipeNavigationInitialized\s*=\s*false/);
   assert.match(detailSource, /const carId\s*=\s*getCarId\(\)/);
   assert.match(loaderSource, /collection\("cars"\)\s*\.doc\(carId\)\s*\.get\(\)/);
 });
@@ -20,5 +21,5 @@ test("Car Detail carries carId from MyCar card URL into the Core loader", () => 
 test("Car Detail deploys the repaired runtime cache version", () => {
   const html = read("pages/car-detail.html");
 
-  assert.match(html, /\/js\/cardetail\.js\?v=60/);
+  assert.match(html, /\/js\/cardetail\.js\?v=61/);
 });

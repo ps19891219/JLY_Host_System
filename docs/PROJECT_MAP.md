@@ -2,10 +2,16 @@
 
 > Status: Working Map
 >
-> Version: V2.84
+> Version: V2.85
 >
 > Last Updated: 2026-08-20
 >
+
+## V2.85 Car Detail Mobile Swipe Runtime 修復（2026-08-20）
+
+- 補回 Transitional Runtime `js/cardetail.js` 的 `swipeNavigationInitialized` 狀態宣告，避免 Detail render 啟用手機左右滑動導覽時因未定義變數中止。
+- 此修復與 V2.84 同屬先前 Cloud View 整理時誤刪的基礎宣告；未改動 Car Core、MyCar View-first 或任何資料。
+
 
 ## V2.84 Car Detail Runtime 緊急修復（2026-08-20）
 
