@@ -2,10 +2,52 @@
 
 > Status: Working Map
 >
-> Version: V2.82
+> Version: V2.83
 >
 > Last Updated: 2026-08-20
 >
+
+## V2.83 JLY Cloud View Core V1｜MyCar View-first 正式封版（2026-08-20）
+
+### 封版驗證結果
+
+- MyCar Bootstrap 與 Consistency Check 已完成一次正式驗證：`hostReadDocuments=105`、`playerReadDocuments=50`、`uniqueCars=105`、`Core Count=105`、`View Count=105`、`Missing In View=0`、`Stale In View=0`。
+- 上述 Bootstrap 已完成，不得因正常開頁、重新整理、切 Tab、搜尋或分頁再次執行。
+- MyCar View-first 已成為唯一正常 Runtime，不再由瀏覽器 localStorage 開關決定；`pages/mycar.html` 正常開啟只讀 `myCarViews/{viewerId}`。
+- 「全部／規劃中／開團中／已結束」、「我主揪的／我是玩家」、搜尋、排序與分頁均使用同一份已載入 Prepared View，不重新 Query `cars`。
+- View 不存在、Schema／viewerId／資料格式不符或讀取失敗時，頁面明確要求人工 Repair；禁止靜默回退 `getCarsByOwner()`、`getCarsByPlayerId()` 或 Cars Collection Scan。
+
+### Runtime 與維護工具邊界
+
+```text
+正常 MyCar Runtime
+myCarViews/{viewerId}
+        ↓ 一份 Prepared View
+MyCar UI / Tab / Search / Sort / Pagination
+
+明確維護 Runtime（不可由正常頁面觸發）
+Bootstrap / Consistency Checker / Repair / Migration / Audit
+        ↓
+允許依維護目的讀取 Core
+```
+
+- Core 是唯一正式資料；Prepared View 是可重建的線上 Read Model，不是第二份 Core。
+- 正常 mutation 使用已知 `beforeCar + updateData/afterCar`，經 View Mutation Coordinator 只更新受影響 View；禁止為了判斷剛才的修改再讀一次完整 Core。
+- Car 建立與媒合完成 write path 已補接共同 `syncCarViewsFromKnownMutation()`；使用剛完成寫入的已知資料增量更新 MyCar View。
+- Application 核准、Player Editor、Player Actions、Matching Confirmation 與既有 Member 補位維持 Membership View Sync；`players[]` 改變時同步重建 `playerIds` Query Index。
+- `playerIds` 只作 Query Index，不是 Player Core；Staff／DM 正式關係仍為 `staffSlots[]`，不得寫入 `playerIds` 或出現在「我是玩家」。
+- Viewer Alias 使用 `myCarViewAliases/{aliasId}` 將 current identity、Player Profile ID、`linkedPlayerIds` 與 historical IDs 導向已建立的 Viewer View。若 Viewer 尚未有 View，Core mutation 正常完成，但不得偷偷掃 Core 建立 View。
+
+### 下一階段排程（本輪不實作）
+
+1. Player Search Index（移除正常搜尋的 `collection("players").get()`）。
+2. Car Detail View-first。
+3. Accounting View。
+4. Home / Pending View。
+5. Calendar / Notification / LINE Read Audit。
+6. 全系統 Runtime Firestore Audit。
+
+本節為 MyCar Cloud View V1 的正式封版基準；後續不得以舊 MyCar Cars Query 方案重新取代正常 Runtime。
 
 ## V2.82 JLY Cloud View Core V1｜Firestore Read Architecture（2026-08-20）
 
@@ -19,7 +61,7 @@
 
 ### Cloud View Core
 
-目前新增／建立中的資料層：
+目前已建立的資料層：
 
 ```text
 js/data-view/
@@ -52,7 +94,7 @@ View 保存「我的車」所需 compact read model：
 - Car list summary
 - Tab / Search / Pagination 可於已載入 View 內處理
 
-正常頁面目標：
+V2.83 起正常頁面正式 Runtime：
 
 ```text
 進入我的車
@@ -60,8 +102,7 @@ View 保存「我的車」所需 compact read model：
 → Tab / Search / Pagination 不再重新 query Cars
 ```
 
-舊 `getCarsByOwner*` / `getCarsByPlayerId()` 保留作 migration / repair / bootstrap，
-View-first 完成後不可再作正常 MyCar UI 主路徑。
+舊 `getCarsByOwner*` / `getCarsByPlayerId()` 只可由明確 migration / repair / bootstrap 工具使用，不是正常 MyCar UI 路徑。
 
 ### Membership Mutation
 
@@ -1093,7 +1134,7 @@ matching
 | 要修改的功能 | 建議先看 |
 |---|---|
 | 首頁統計 | `index.html`、`js/app.js` |
-| 我的車團 | `pages/mycar.html`、`js/mycar.js`、`js/car/car-data.js` |
+| 我的車團 | `pages/mycar.html`、`js/mycar.js`、`js/data-view/mycar-view.js`；維護時才看 Bootstrap／Checker／Alias／Membership Sync |
 | 建立車團 | `pages/createcar.html`、`js/createcar.js`、Calendar 模組 |
 | 編輯車團 | `pages/editcar.html`、`js/editcar.js`、`js/seat.js`、`js/core/identity.js`、Car Permission／Audit、`js/modules/calendar/` |
 | 車團詳情 | `pages/car-detail.html`、`js/modules/car/detail/`、`js/cardetail.js` |
@@ -1142,14 +1183,16 @@ matching
 
 ---
 
-## 14. 建議下一步
+## 14. 正式下一階段排程
 
-1. 完成 Edit Car 與 Create Car 選項對齊後的 UI Polish，並確認 `visibility`、Calendar、車友名單等資料不產生舊欄位副本。
-2. 盤點「我的車／個人揪團」批次操作目前實際 Runtime；已存在的批次 UI、角色分頁、協助揪團 Relation 先歸類，尚未確認的 Batch LINE Share 不先標成完成。
-3. 持續掃描 Project Map 中仍標示 Reserved／🟡／Legacy Candidate 的路徑；只有取得目前 HTML Runtime／Git 檔案證據後才升級為 Current。
-4. 修正 `pages/players.html` 的 Script 入口並驗證玩家資料庫。
-5. 觀察 Reminder Scheduler 與 Accounting V1 正式資料鏈；跨村擴充仍以既有 Core 為準，不另建重複核心。
-6. 建立 Firestore Collection／Security Rules 正式文件，並逐步補寫 Coding Rule、Database Rule、Roadmap 與 Version History。
+1. Player Search Index。
+2. Car Detail View-first。
+3. Accounting View。
+4. Home / Pending View。
+5. Calendar / Notification / LINE Read Audit。
+6. 全系統 Runtime Firestore Audit。
+
+上述項目不得混入 V2.83 MyCar Cloud View V1 封版提交；其他既有 UI Polish、Legacy Audit 與文件缺口保留在各自後續任務處理。
 ---
 
 ## 15. 更新紀錄
@@ -1625,4 +1668,3 @@ matching
 
 - 玩家報名頁「查看車友」正式接回 `car.players[]`；公開模式可直接查看，`approved_only` 僅核准玩家可查看。
 - 移除舊車友名單 placeholder，並補 `playerName` 顯示相容。
-

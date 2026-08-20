@@ -20,24 +20,11 @@ const MYCAR_VIEW_STATE_KEY =
 const MYCAR_NAVIGATION_IDS_KEY =
   "mycarNavigationIds";
 
-const MYCAR_DATA_SNAPSHOT_KEY =
-  "mycarDataSnapshotV2";
-
-const MYCAR_DATA_SNAPSHOT_TTL_MS =
-  60 * 1000;
-
-const MYCAR_VIEW_FIRST_FLAG_KEY =
-  "jlyMyCarViewFirstV1";
-
 let myCarViewModulePromise =
   null;
 
 function isMyCarViewFirstEnabled() {
-  return (
-    localStorage.getItem(
-      MYCAR_VIEW_FIRST_FLAG_KEY
-    ) === "1"
-  );
+  return true;
 }
 
 function loadMyCarViewScript(
@@ -159,6 +146,18 @@ async function loadMyCarPreparedView(
     );
   }
 
+  if (
+    Number(view.schemaVersion) < 4 ||
+    view.viewType !== "mycar_index" ||
+    String(view.viewerId || "").trim() !==
+      String(ownerId || "").trim() ||
+    !Array.isArray(view.cars)
+  ) {
+    throw new Error(
+      "mycar_view_invalid"
+    );
+  }
+
   return view;
 }
 
@@ -211,144 +210,6 @@ function consumeMyCarReturnMarker() {
   sessionStorage.removeItem(
     MYCAR_RETURN_MARKER_KEY
   );
-}
-
-function readMyCarDataSnapshot(
-  ownerId
-) {
-  try {
-    const raw =
-      sessionStorage.getItem(
-        MYCAR_DATA_SNAPSHOT_KEY
-      );
-
-    if (!raw) {
-      return null;
-    }
-
-    const snapshot =
-      JSON.parse(raw);
-
-    if (
-      !snapshot ||
-      snapshot.ownerId !== ownerId ||
-      !Array.isArray(
-        snapshot.hostCars
-      ) ||
-      !Array.isArray(
-        snapshot.playerCars
-      )
-    ) {
-      return null;
-    }
-
-    const savedAt =
-      Number(
-        snapshot.savedAt || 0
-      );
-
-    if (
-      !savedAt ||
-      Date.now() - savedAt >
-        MYCAR_DATA_SNAPSHOT_TTL_MS
-    ) {
-      return null;
-    }
-
-    return snapshot;
-  } catch (error) {
-    console.warn(
-      "讀取我的車資料快照失敗：",
-      error
-    );
-
-    return null;
-  }
-}
-
-function saveMyCarDataSnapshot(
-  ownerId,
-  hostCars,
-  playerCars
-) {
-  try {
-    sessionStorage.setItem(
-      MYCAR_DATA_SNAPSHOT_KEY,
-      JSON.stringify({
-        ownerId,
-        savedAt:
-          Date.now(),
-        hostCars:
-          Array.isArray(hostCars)
-            ? hostCars
-            : [],
-        playerCars:
-          Array.isArray(playerCars)
-            ? playerCars
-            : []
-      })
-    );
-  } catch (error) {
-    console.warn(
-      "儲存我的車資料快照失敗：",
-      error
-    );
-  }
-}
-
-async function loadMyCarDataSnapshot(
-  ownerId,
-  playerProfileId
-) {
-  const cached =
-    readMyCarDataSnapshot(
-      ownerId
-    );
-
-  if (cached) {
-    return cached;
-  }
-
-  const hostPromise =
-    window.JLYCarData
-      .getCarsByOwner(
-        ownerId
-      );
-
-  const playerPromise =
-    typeof window.JLYCarData
-      .getCarsByPlayerId ===
-        "function"
-      ? window.JLYCarData
-          .getCarsByPlayerId(
-            playerProfileId ||
-            ownerId
-          )
-      : Promise.resolve([]);
-
-  const results =
-    await Promise.all([
-      hostPromise,
-      playerPromise
-    ]);
-
-  const snapshot = {
-    ownerId,
-    savedAt:
-      Date.now(),
-    hostCars:
-      results[0] || [],
-    playerCars:
-      results[1] || []
-  };
-
-  saveMyCarDataSnapshot(
-    ownerId,
-    snapshot.hostCars,
-    snapshot.playerCars
-  );
-
-  return snapshot;
 }
 
 function updateSearchClearButton() {
@@ -1170,21 +1031,6 @@ async function renderMyCars(
     return;
   }
 
-  if (
-    !window.JLYCarData ||
-    typeof window
-      .JLYCarData
-      .getCarsByOwnerPage !==
-        "function"
-  ) {
-    list.innerHTML =
-      '<div class="card">' +
-      '<h3>Car Data 分頁模組尚未載入</h3>' +
-      '</div>';
-
-    return;
-  }
-
   const ownerId =
     window.JLYIdentity &&
     typeof window
@@ -1197,21 +1043,6 @@ async function renderMyCars(
       : String(
           localStorage.getItem(
             "currentPlayerId"
-          ) || ""
-        ).trim();
-
-  const playerProfileId =
-    window.JLYIdentity &&
-    typeof window
-      .JLYIdentity
-      .getCurrentPlayerProfileId ===
-        "function"
-      ? window
-          .JLYIdentity
-          .getCurrentPlayerProfileId()
-      : String(
-          localStorage.getItem(
-            "currentPlayerProfileId"
           ) || ""
         ).trim();
 
@@ -1249,78 +1080,20 @@ async function renderMyCars(
     let cursorForNext = "";
 
     /*
-      V2.81：先建立一份短效期的「我的車排序快照」，
-      再依正式排序切成每頁 20 台。
+      Cloud View Core V1 正式 Runtime：
+      正常 MyCar UI 永遠只讀
+      myCarViews/{viewerId}。
 
-      這避免原本 documentId cursor 先切 20 台、
-      每頁再各自 sort，造成第 1 / 2 / 3 頁時間線斷裂。
-
-      快照只保留 60 秒並放在 sessionStorage：
-      - 翻頁與從單台車返回時不重複讀整批資料
-      - 超過 TTL 會重新抓正式 Car
-      - Player 車仍走 V2.80 playerIds indexed query
+      View 不存在、版本不符或格式錯誤時直接報錯，
+      不得退回 Cars / Player Cars Query。
     */
-    if (
-      isMyCarViewFirstEnabled()
-    ) {
-      /*
-        Phase G：
-        正式 View-first 開啟後，
-        正常 MyCar UI 只讀一份
-        myCarViews/{viewerId}。
+    const preparedView =
+      await loadMyCarPreparedView(
+        ownerId
+      );
 
-        此分支沒有 Cars Query fallback。
-        View 不存在或壞掉時直接報錯，
-        避免表面正常、背後偷偷重新掃 Core。
-      */
-      const preparedView =
-        await loadMyCarPreparedView(
-          ownerId
-        );
-
-      cars =
-        Array.isArray(
-          preparedView.cars
-        )
-          ? preparedView.cars
-              .slice()
-          : [];
-    } else {
-      /*
-        Migration Safety：
-        Phase G 安裝後預設仍走 V2.81，
-        直到 Bootstrap + Consistency
-        明確通過才開啟 View-first。
-      */
-      const snapshot =
-        await loadMyCarDataSnapshot(
-          ownerId,
-          playerProfileId
-        );
-
-      const hostCars =
-        snapshot.hostCars || [];
-
-      const playerCars =
-        snapshot.playerCars || [];
-
-      cars =
-        Array.from(
-          new Map(
-            [
-              ...hostCars,
-              ...playerCars
-            ].map(
-              function (car) {
-                return [
-                  car.id,
-                  car
-                ];
-              }
-            )
-          ).values()
-        );
-    }
+    cars =
+      preparedView.cars.slice();
 
     const currentFilter =
       buildCurrentCarFilter();
@@ -1466,9 +1239,11 @@ async function renderMyCars(
 
     const message =
       error &&
-      error.message ===
-        "mycar_view_not_bootstrapped"
-        ? "MyCar View 尚未建立，請先執行一次 Bootstrap。"
+      [
+        "mycar_view_not_bootstrapped",
+        "mycar_view_invalid"
+      ].includes(error.message)
+        ? "MyCar View 無法使用，請由管理者執行人工 Repair。"
         : (
             error &&
             error.message
@@ -1758,24 +1533,13 @@ window.JLYMyCarViewFirst = {
 
   enable:
     function () {
-      localStorage.setItem(
-        MYCAR_VIEW_FIRST_FLAG_KEY,
-        "1"
-      );
-
-      sessionStorage.removeItem(
-        MYCAR_DATA_SNAPSHOT_KEY
-      );
-
       return true;
     },
 
   disable:
     function () {
-      localStorage.removeItem(
-        MYCAR_VIEW_FIRST_FLAG_KEY
+      throw new Error(
+        "mycar_view_first_is_required"
       );
-
-      return true;
     }
 };

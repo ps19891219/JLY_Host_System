@@ -846,6 +846,16 @@ planningStatus:
     const carId =
       await persistCar(car);
 
+    await window
+      .syncCarViewsFromKnownMutation(
+        null,
+        {
+          id: carId,
+          ...car
+        },
+        Object.keys(car)
+      );
+
     let calendarResult = null;
 
     /*

@@ -22,6 +22,49 @@ const db = firebase.firestore();
 // 給其他 JS 使用
 window.db = db;
 
+let jlyViewRuntimePromise = null;
+
+async function ensureJlyViewRuntime() {
+  if (window.JLYViewRuntimeLoader) {
+    return window.JLYViewRuntimeLoader.ensure();
+  }
+
+  if (!jlyViewRuntimePromise) {
+    jlyViewRuntimePromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/js/data-view/view-runtime-loader.js?v=2";
+      script.async = true;
+      script.onload = async () => {
+        try {
+          resolve(await window.JLYViewRuntimeLoader.ensure());
+        } catch (error) {
+          reject(error);
+        }
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  return jlyViewRuntimePromise;
+}
+
+async function syncCarViewsFromKnownMutation(beforeCar, afterCar, changedFields) {
+  try {
+    const runtime = await ensureJlyViewRuntime();
+    return await runtime.coordinator.updateCarViews({
+      beforeCar: beforeCar || null,
+      afterCar: afterCar || null,
+      changedFields: Array.isArray(changedFields) ? changedFields : []
+    });
+  } catch (error) {
+    // Core 已成功寫入時不可讓使用者重送同一個建立／修改動作。
+    // View 失敗必須由明確 Repair 處理，不在這裡重掃 Core。
+    console.error("Car View 增量同步失敗，需人工 Repair：", error);
+    return [{ type: "car_view", ok: false, repairRequired: true, error }];
+  }
+}
+
 // 儲存車團
 async function saveCarToFirebase(car) {
   const now = new Date().toISOString();
@@ -84,5 +127,6 @@ async function autoSaveMasterData(collectionName, name, extraData = {}) {
 
 window.saveCarToFirebase = saveCarToFirebase;
 window.autoSaveMasterData = autoSaveMasterData;
+window.syncCarViewsFromKnownMutation = syncCarViewsFromKnownMutation;
 
 console.log("Firebase 初始化完成！");

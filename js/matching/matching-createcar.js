@@ -2362,6 +2362,20 @@
         .doc(carId)
         .update(updateData);
 
+      await window
+        .syncCarViewsFromKnownMutation(
+          {
+            id: carId,
+            ...sourceCar
+          },
+          {
+            id: carId,
+            ...sourceCar,
+            ...updateData
+          },
+          Object.keys(updateData)
+        );
+
       location.href =
         "/pages/car-detail.html?id=" +
         encodeURIComponent(
