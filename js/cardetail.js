@@ -172,6 +172,16 @@ async function syncJLYViewsFromKnownMutation(
   }
 }
 
+/* =========================
+   Car Detail URL
+========================= */
+
+function getCarId() {
+  return new URLSearchParams(
+    location.search
+  ).get("id");
+}
+
 function nowTime() {
   return new Date().toISOString();
 }

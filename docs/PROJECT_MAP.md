@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V2.83
+> Version: V2.84
 >
 > Last Updated: 2026-08-20
 >
+
+## V2.84 Car Detail Runtime 緊急修復（2026-08-20）
+
+- 修復 Transitional Runtime `js/cardetail.js` 遺失 `getCarId()`，導致 Car Detail 在依 URL `?id={carId}` 讀取 Core Car 前即中止的 regression。
+- `pages/car-detail.html` 繼續由 `js/modules/car/detail/controller/detail-loader.js` 依 `carId` 讀取 `cars/{carId}`；本次沒有導入 Car Detail Prepared View、Migration 或資料修改。
+- MyCar View-first、MyCar Bootstrap／Repair 邊界與 Cloud View Core V1 封版內容均未變更。
+
 
 ## V2.83 JLY Cloud View Core V1｜MyCar View-first 正式封版（2026-08-20）
 
