@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -142,7 +142,7 @@ test("Car Detail controller 不再從 pairwise obligations 重算誰欠誰", () 
 
   assert.equal(controller.includes("netSettlementFromObligations(dashboard.obligationsByPair)"), false);
   assert.equal(controller.includes("dashboard.settlementTransfers"), true);
-  assert.equal(repository.includes("VIEW_SCHEMA_VERSION = 6"), true);
+  assert.equal(repository.includes("VIEW_SCHEMA_VERSION = 7"), true);
   assert.equal(repository.includes("summarySourceVersion"), true);
 });
 
@@ -168,3 +168,4 @@ test("玩家車團帳務 API 不再混用 legacy getCarAccountingView", () => {
   assert.equal(contextApi.includes("recentEntries"), true);
   assert.equal(contextApi.includes("activeEntryCount"), true);
 });
+

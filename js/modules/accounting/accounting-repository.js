@@ -7,7 +7,7 @@
   }
 
   const viewName = "activityCurrent";
-  const VIEW_SCHEMA_VERSION = 6;
+  const VIEW_SCHEMA_VERSION = 7;
   const SUMMARY_VERSION = 2;
 
   function text(value) {

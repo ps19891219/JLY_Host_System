@@ -1,4 +1,4 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -41,7 +41,7 @@ test("原始應收應付與互抵後總額分開顯示", () => {
   assert.match(render, />誰欠我</);
   assert.match(render, />互抵後總額</);
   assert.match(repository, /obligationsByPair/);
-  assert.match(repository, /VIEW_SCHEMA_VERSION = 6/);
+  assert.match(repository, /VIEW_SCHEMA_VERSION = 7/);
 });
 
 test("淨額付款由付款方申報並由收款方確認", () => {
@@ -111,7 +111,7 @@ test("主揪可在管理視角代未啟用系統的付款人登記彙總付款",
 test("淨額付清後由全車 balance 重新產生剩餘結算方案", () => {
   assert.match(repository, /applyConfirmedSettlements/);
   assert.match(repository, /buildSettlementPlan\(currentBalance\)/);
-  assert.match(repository, /VIEW_SCHEMA_VERSION = 6/);
+  assert.match(repository, /VIEW_SCHEMA_VERSION = 7/);
   assert.match(repository, /SUMMARY_VERSION = 2/);
   assert.doesNotMatch(
     repository,
