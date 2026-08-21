@@ -1,5 +1,7 @@
 "use strict";
 
+const pairwise = require("../../shared/accounting/pairwise-obligation");
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -600,16 +602,16 @@ function buildActivityAccountingSummary(
   // ----------------------------------------------------------
 
   const settlementTransfers =
-    buildSettlementPlan(
-      memberSummaries.map(
-        item => ({
-          personId:
-            item.personId,
-
-          netAmount:
-            item.currentNetAmount
-        })
-      )
+    pairwise.applySettlements(
+      pairwise.aggregatePairwiseObligations(
+        (transactions || []).filter(
+          item =>
+            item &&
+            item.status !== "deleted"
+        ),
+        []
+      ),
+      settlements || []
     );
 
   const outstandingAmount =
@@ -637,12 +639,28 @@ function buildActivityAccountingSummary(
      * Compatibility alias.
      *
      * Old UI may still read obligationsByPair.
-     * It now represents the optimized activity settlement plan.
+     * It now represents pairwise obligations after same-pair offset and confirmed settlements.
      */
-    obligationsByPair:
+    pairwiseObligations:
       settlementTransfers,
 
-    settlementTransfers,
+    obligationsByPair:
+      settlementTransfers.map(
+        item => ({
+          fromPersonId: item.fromPersonId,
+          toPersonId: item.toPersonId,
+          amount: item.amount
+        })
+      ),
+
+    settlementTransfers:
+      settlementTransfers.map(
+        item => ({
+          fromPersonId: item.fromPersonId,
+          toPersonId: item.toPersonId,
+          amount: item.amount
+        })
+      ),
 
     outstandingAmount
   };

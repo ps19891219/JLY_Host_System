@@ -9,6 +9,10 @@ const {
   getTransactionSettlementStatus
 } = require("./settlement");
 
+const pairwise = require(
+  "../../shared/accounting/pairwise-obligation"
+);
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -490,10 +494,21 @@ function createTransaction(
         input.createdAt
       ) ||
       now,
-
     updatedAt:
-      now
+      now,
+
+    responsibilityModel:
+      splitStatus === "completed"
+        ? pairwise.MODEL
+        : ""
   };
+
+  result.obligations =
+    splitStatus === "completed"
+      ? pairwise.buildTransactionObligations(result)
+      : [];
+
+  return result;
 }
 
 // ============================================================

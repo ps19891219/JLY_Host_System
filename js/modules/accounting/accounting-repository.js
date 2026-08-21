@@ -186,7 +186,21 @@
 
     const originalBalance = buildSettlementBalances(active);
     const currentBalance = applyConfirmedSettlements(originalBalance, settlements);
-    const settlementTransfers = buildSettlementPlan(currentBalance);
+
+    const pairwise =
+      typeof window !== "undefined"
+        ? window.JLYPairwiseObligation
+        : null;
+
+    const settlementTransfers =
+      pairwise &&
+      typeof pairwise.aggregatePairwiseObligations === "function" &&
+      typeof pairwise.applySettlements === "function"
+        ? pairwise.applySettlements(
+            pairwise.aggregatePairwiseObligations(active, []),
+            settlements
+          )
+        : buildSettlementPlan(currentBalance);
 
     return {
       schemaVersion: VIEW_SCHEMA_VERSION,
@@ -196,9 +210,26 @@
       balanceByPerson: [...currentBalance]
         .map(([personId, balance]) => ({ personId, balance: number(balance) }))
         .filter(item => item.balance),
-      settlementTransfers,
-      // Legacy compatibility. It now contains the global optimized settlement plan.
-      obligationsByPair: settlementTransfers,
+
+      pairwiseObligations:
+        settlementTransfers,
+
+      settlementTransfers:
+        settlementTransfers.map(item => ({
+          fromPersonId: item.fromPersonId,
+          toPersonId: item.toPersonId,
+          amount: item.amount
+        })),
+
+      // Legacy compatibility: keep the historic simple transfer shape
+      // while the rich pairwise metadata remains available separately.
+      obligationsByPair:
+        settlementTransfers.map(item => ({
+          fromPersonId: item.fromPersonId,
+          toPersonId: item.toPersonId,
+          amount: item.amount
+        })),
+
       activeNetSettlements: (settlements || []).filter(item => item && item.status === "payment_claimed"),
       pendingCounts: actionCounts(actions),
       updatedAt: now || new Date().toISOString()
@@ -293,8 +324,9 @@
       pendingActions: actions.docs.map(doc => ({ pendingActionId: doc.id, ...doc.data() })),
       pendingCounts: view.pendingCounts || actionCounts([]),
       balanceByPerson: view.balanceByPerson || [],
+      pairwiseObligations: view.pairwiseObligations || [],
       settlementTransfers: view.settlementTransfers || view.obligationsByPair || [],
-      obligationsByPair: view.settlementTransfers || view.obligationsByPair || [],
+      obligationsByPair: view.obligationsByPair || view.settlementTransfers || [],
       activeNetSettlements: view.activeNetSettlements || []
     };
   }
