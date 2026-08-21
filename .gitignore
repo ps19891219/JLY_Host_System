@@ -9,3 +9,15 @@ node_modules/
 *firebase-admin*.json
 .vercel
 .env*
+
+# Local work / backups
+_accounting_wip_backup/
+_audit/
+_local_notes/
+apply_visibility_fix.ps1
+js/editcar.js.visibility-backup-*
+_PRETRIP_REMINDER_CURRENT.txt
+_PRETRIP_REMINDER_UTF8.txt
+*覆蓋說明*.txt
+js/editcar.js.visibility-backup-*
+*覆蓋說明*.txt
