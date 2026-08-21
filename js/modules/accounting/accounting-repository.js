@@ -192,13 +192,24 @@
         ? window.JLYPairwiseObligation
         : null;
 
-    const settlementTransfers =
+    const grossObligations =
       pairwise &&
-      typeof pairwise.aggregatePairwiseObligations === "function" &&
+      typeof pairwise.buildTransactionObligations === "function" &&
       typeof pairwise.applySettlements === "function"
         ? pairwise.applySettlements(
-            pairwise.aggregatePairwiseObligations(active, []),
+            active.flatMap(item =>
+              pairwise.buildTransactionObligations(item)
+            ),
             settlements
+          )
+        : [];
+
+    const settlementTransfers =
+      pairwise &&
+      typeof pairwise.aggregatePairwiseObligations === "function"
+        ? pairwise.aggregatePairwiseObligations(
+            [],
+            grossObligations
           )
         : buildSettlementPlan(currentBalance);
 
@@ -210,6 +221,8 @@
       balanceByPerson: [...currentBalance]
         .map(([personId, balance]) => ({ personId, balance: number(balance) }))
         .filter(item => item.balance),
+
+      grossObligations,
 
       pairwiseObligations:
         settlementTransfers,
@@ -324,6 +337,7 @@
       pendingActions: actions.docs.map(doc => ({ pendingActionId: doc.id, ...doc.data() })),
       pendingCounts: view.pendingCounts || actionCounts([]),
       balanceByPerson: view.balanceByPerson || [],
+      grossObligations: view.grossObligations || view.pairwiseObligations || view.settlementTransfers || view.obligationsByPair || [],
       pairwiseObligations: view.pairwiseObligations || [],
       settlementTransfers: view.settlementTransfers || view.obligationsByPair || [],
       obligationsByPair: view.obligationsByPair || view.settlementTransfers || [],

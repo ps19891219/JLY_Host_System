@@ -601,17 +601,18 @@ function buildActivityAccountingSummary(
   // Global Settlement Plan
   // ----------------------------------------------------------
 
-  const settlementTransfers =
+  const grossObligations =
     pairwise.applySettlements(
-      pairwise.aggregatePairwiseObligations(
-        (transactions || []).filter(
-          item =>
-            item &&
-            item.status !== "deleted"
-        ),
-        []
+      active.flatMap(item =>
+        pairwise.buildTransactionObligations(item)
       ),
       settlements || []
+    );
+
+  const settlementTransfers =
+    pairwise.aggregatePairwiseObligations(
+      [],
+      grossObligations
     );
 
   const outstandingAmount =
@@ -641,6 +642,8 @@ function buildActivityAccountingSummary(
      * Old UI may still read obligationsByPair.
      * It now represents pairwise obligations after same-pair offset and confirmed settlements.
      */
+    grossObligations,
+
     pairwiseObligations:
       settlementTransfers,
 
