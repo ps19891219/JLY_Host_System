@@ -1,4 +1,4 @@
-console.log("editcar.js 已成功載入！");
+﻿console.log("editcar.js 已成功載入！");
 
 // ============================================================
 // JLY Host System
@@ -257,6 +257,10 @@ function renderEditForm(car) {
       calculatedTotal ||
       0
     );
+  const visibility =
+    car.visibility === "public"
+      ? "public"
+      : "private";
 
   editBox.innerHTML = `
     <label for="scriptName">
@@ -493,7 +497,46 @@ function renderEditForm(car) {
 
     <hr>
 
+        <hr>
+
+    <label>
+      車團公開設定
+    </label>
+
     <label class="checkbox-row">
+      <input
+        type="radio"
+        name="visibility"
+        value="private"
+        ${
+          visibility === "private"
+            ? "checked"
+            : ""
+        }
+      >
+      🔒 私下揪車
+    </label>
+
+    <label class="checkbox-row">
+      <input
+        type="radio"
+        name="visibility"
+        value="public"
+        ${
+          visibility === "public"
+            ? "checked"
+            : ""
+        }
+      >
+      🌍 公開招募
+    </label>
+
+    <small>
+      公開招募會顯示在公開揪團區；私下揪車不會公開顯示。
+    </small>
+
+    <hr>
+<label class="checkbox-row">
       <input
         id="isHost"
         type="checkbox"
@@ -1783,6 +1826,14 @@ const updatedData = {
       : Number(priceValue),
 
   note,
+
+  visibility:
+    getEditRadioValue(
+      "visibility",
+      currentEditingCar.visibility === "public"
+        ? "public"
+        : "private"
+    ),
 
   peopleMode,
 
