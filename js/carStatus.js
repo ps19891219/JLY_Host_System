@@ -162,6 +162,120 @@ function getNeedText(car) {
   const total =
     getTotal(car);
 
+  const seatSummary =
+    car &&
+    car.seatSummary &&
+    typeof car.seatSummary ===
+      "object"
+      ? car.seatSummary
+      : null;
+
+  if (
+    seatSummary &&
+    (
+      Number(
+        seatSummary.totalSeatCount ||
+        0
+      ) > 0 ||
+      Number(
+        seatSummary.maleTotal ||
+        0
+      ) > 0 ||
+      Number(
+        seatSummary.femaleTotal ||
+        0
+      ) > 0 ||
+      Number(
+        seatSummary.flexibleTotal ||
+        0
+      ) > 0
+    )
+  ) {
+    const maleTotal =
+      Number(
+        seatSummary.maleTotal ||
+        maleSlots ||
+        0
+      );
+
+    const femaleTotal =
+      Number(
+        seatSummary.femaleTotal ||
+        femaleSlots ||
+        0
+      );
+
+    const flexibleTotal =
+      Number(
+        seatSummary.flexibleTotal ||
+        flexibleSlots ||
+        0
+      );
+
+    const maleNeed =
+      Math.max(
+        maleTotal -
+        Number(
+          seatSummary.maleOccupied ||
+          0
+        ),
+        0
+      );
+
+    const femaleNeed =
+      Math.max(
+        femaleTotal -
+        Number(
+          seatSummary.femaleOccupied ||
+          0
+        ),
+        0
+      );
+
+    const flexibleNeed =
+      Math.max(
+        flexibleTotal -
+        Number(
+          seatSummary.flexibleOccupied ||
+          0
+        ),
+        0
+      );
+
+    if (
+      maleNeed === 0 &&
+      femaleNeed === 0 &&
+      flexibleNeed === 0
+    ) {
+      return "已滿";
+    }
+
+    const parts = [];
+
+    if (maleNeed > 0) {
+      parts.push(
+        maleNeed + "男"
+      );
+    }
+
+    if (femaleNeed > 0) {
+      parts.push(
+        femaleNeed + "女"
+      );
+    }
+
+    if (flexibleNeed > 0) {
+      parts.push(
+        flexibleNeed + "不限"
+      );
+    }
+
+    return (
+      "缺" +
+      parts.join("")
+    );
+  }
+
   const maleCount =
     activePlayers.filter(
       function (player) {

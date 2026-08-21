@@ -108,7 +108,7 @@ async function ensureMyCarViewModule() {
   myCarViewModulePromise =
     (async function () {
       await loadMyCarViewScript(
-        "/js/data-view/mycar-view.js?v=4",
+        "/js/data-view/mycar-view.js?v=5",
         "mycar-view"
       );
 
