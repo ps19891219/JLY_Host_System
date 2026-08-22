@@ -294,6 +294,12 @@
 .accounting-entry-summary > div:last-child { justify-items: end; text-align: right; }
 .accounting-settlement-list { display: grid; gap: 7px; }
 .accounting-settlement-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px; border-radius: 9px; background: #f7f4ef; font-size: .9rem; }
+.accounting-settlement-history { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid #eee8df; }
+.accounting-settlement-history ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.accounting-settlement-history li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #f7f4ef; }
+.accounting-settlement-history li span { display: grid; gap: 3px; }
+.accounting-settlement-history li small { color: #77716a; }
+.accounting-settlement-history li b { color: #397b68; white-space: nowrap; }
 
 .accounting-entry-summary > div {
   display: grid;

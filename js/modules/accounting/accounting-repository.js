@@ -695,6 +695,18 @@
     };
   }
 
+  async function loadSettlementHistory(carId, pageSize) {
+    const snapshot = await requireDb()
+      .collection("cars")
+      .doc(carId)
+      .collection("accountingSettlements")
+      .orderBy("updatedAt", "desc")
+      .limit(pageSize || 20)
+      .get();
+
+    return snapshot.docs.map(doc => ({ settlementId: doc.id, ...doc.data() }));
+  }
+
   function netTransferAmount(items, from, to) {
     return (items || [])
       .filter(item => item.fromPersonId === from && item.toPersonId === to)
@@ -882,6 +894,7 @@
     loadPendingDrafts,
     transitionDraft,
     loadTransactionPage,
+    loadSettlementHistory,
     createQuickTransaction,
     completeSplit,
     saveSettlement,

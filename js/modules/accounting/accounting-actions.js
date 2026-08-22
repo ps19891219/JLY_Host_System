@@ -24,7 +24,7 @@
     if(detailsToggle&&details)detailsToggle.addEventListener("click",async()=>{
   const opening=details.hidden;
 
-  if(opening&&config.onViewAll){
+  if(opening&&detailsToggle.dataset.detailsLoaded!=="true"&&config.onViewAll){
     detailsToggle.disabled=true;
     detailsToggle.textContent="載入帳務明細…";
 

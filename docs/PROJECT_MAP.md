@@ -2,10 +2,23 @@
 
 > Status: Working Map
 >
-> Version: V2.85
+> Version: V2.86
 >
-> Last Updated: 2026-08-20
+> Last Updated: 2026-08-22
 >
+
+## V2.86 Accounting V1 三項 Regression 收口（2026-08-22）
+
+- 本節是既有 JLY Accounting 藍圖的正式現況更新，不另建第二份 Accounting 架構文件。
+- 正式顯示規則固定為：「我欠誰」＝原始尚未結清應付；「誰欠我」＝原始尚未結清應收；「互抵後總額」＝相同兩位 Person 之間依正式 `fromPersonId / toPersonId` 雙向互抵後的付款或收款結果。
+- `shared/accounting/pairwise-obligation.js` 與 Accounting View 負責正式 Pairwise 方向及金額；Renderer 只依既有 `fromPersonId / toPersonId` 顯示「付款／收款」，不得在 UI 重算或跨第三人重新配對。
+- Car Detail 的帳務摘要與明細維持同一套正式資料：摘要先顯示，詳細 Transaction／Split 預設收合；使用者第一次展開時才分頁讀取 `accountingEntries`，並按需讀取最近的 `accountingSettlements` 付款／收款／核銷歷史。收合後再次展開不重複查詢。
+- Transaction、Split、Settlement 與付款／收款歷史不因結清而刪除；結清只影響目前待處理與摘要金額。詳細帳目仍是唯讀核對區，彙總付款操作保留在「互抵後總額」。
+- 劇本費／工作室帳務確認為既有 Script Village Activity Fee Extension，並非第二套 Accounting Core：`activity-fee-controller.js` 從正式 Car 自動取得工作室名稱、固定總人數與每人金額，使用 `固定總人數 × 每人劇本費` 建立／同步基本費；玩家待收與店家待付維持兩條獨立金流，既有訂金、尾款、退款及額外費用接線保留。
+- 本輪只修改 UI 語意、正式明細按需接線、Runtime cache version 與測試；未修改 Accounting Core 計算、Firestore Schema 或正式資料，無 Migration。
+- 本輪 Runtime 修改：`accounting-render.js`、`accounting-actions.js`、`accounting-controller.js`、`accounting-repository.js`、`pages/car-detail.html`、`css/pages/accounting.css`；測試由 `tests/accounting/accounting-ui.test.js` 覆蓋。
+- 尚未處理且不得混入本輪：代付、訪客 Person、完整 Pending Action 擴充及其他後續 Accounting Web 功能。
+- Automated tests：`189 tests / 189 pass / 0 fail`；本輪新增兩項 UI／接線回歸測試，既有 187 項未刪除、未放寬。Git commit 仍須依提交授權流程另行補記。
 
 ## V2.85 Car Detail Mobile Swipe Runtime 修復（2026-08-20）
 
@@ -250,14 +263,14 @@ collection("players").get()
 - 個人揪團關係正式使用 `players/{playerId}/carRelations/{carId}.assistRecruiting`；公開頁可從「我主揪」與「我協助揪團」兩種關係合併 Car，Relation 仍只是個人與 Car 的關係資料，不複製 Car。
 - 開發交付規範補充：多檔修改以保留 `JLY_Host_System/` 完整資料夾層級的小型 ZIP 交付；固定流程為 `npm test` → Git commit / push → Vercel 部署 → 線上實機驗收。
 
-## V2.72 Accounting V1 正式資料鏈修復（2026-08-18）
+## V2.72 Accounting V1 正式資料鏈修復（2026-08-18；現況由 V2.86 取代舊顯示語意）
 
 - Accounting 正式來源維持 `cars/{carId}/accountingEntries/{transactionId}`；LINE、Car Detail 與群組帳務網頁只作輸入／View，不建立第二份 Transaction。
 - 正式 Split 使用 `splits[].personId`；`shares`／`memberId` 僅保留 Legacy Compatibility。
-- 車團「誰欠誰」統一改為全車淨額：每位成員 `實際付款總額 - 最終應負擔總額`，先形成應收池／應付池，再產生全車最佳化 `settlementTransfers`；不再以每筆 Split 的付款人建立一對一欠款。
-- `accountingViews/activityCurrent` 定位為可重建 View／Cache，升級至 `schemaVersion=6`、`summaryVersion=2`；以最新 Transaction／Settlement `updatedAt` 組成 `summarySourceVersion`，來源變更即重建。
-- Car Detail 的 `accounting-repository.js` 不再維護獨立 pairwise obligation 真相；分帳、付款申報、收款確認只更新正式資料並使 View 失效，下一次載入由正式 Transaction／Settlement 重建。
-- `accounting-controller.js` 與 `accounting-render.js` 改讀全車 `settlementTransfers`；「我欠誰／誰欠我」均代表全車互抵後結果。
+- 此版曾短暫採全車應收池／應付池最佳化；目前正式規則已由 V2.86 修正為一對一 Person 責任，同一對 Person 才可雙向互抵，禁止跨第三人重新配對。
+- `accountingViews/activityCurrent` 定位為可重建 View／Cache；目前正式版本為 `schemaVersion=7`、`summaryVersion=2`，以最新 Transaction／Settlement `updatedAt` 組成 `summarySourceVersion`，來源變更才重建。
+- `accounting-repository.js` 由唯一正式 Transaction／Settlement 建立 View，`shared/accounting/pairwise-obligation.js` 保存一對一責任；UI 不建立第二份債務資料。
+- `accounting-controller.js` 與 `accounting-render.js` 分開呈現原始 `grossObligations` 與互抵後 `settlementTransfers`；「我欠誰／誰欠我」不是互抵後淨額，只有「互抵後總額」呈現同一對 Person 的淨結果。
 - `api/group-assistant-context.js` 僅接受 `summaryVersion >= 2` 的快取；`js/group-assistant.js` 顯示成員金額時優先讀取核銷後 `currentNetAmount`，LINE 車團帳務網頁／玩家查看因此讀取同一份新版全車淨額摘要。
 - 修正 `services/firebase/car-accounting-repository.js` 的多人付款正規化：正式 `payments[].personId` 不再被舊 `memberId` filter 誤刪。
 
@@ -853,7 +866,7 @@ cars/{carId}/accountingAuditLogs/{auditId}
 
 稽核紀錄包含操作類型、帳目 ID、操作者 LINE userId、權限依據、修改前資料、修改後資料與時間。一般成員無法由 LINE 指令查看，主揪與系統管理者可使用 `JLY 異動紀錄`。
 
-### 6.6 Accounting Core V1（施工中）
+### 6.6 Accounting Core V1（目前正式基準；後續能力仍分階段施工）
 
 Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇本村專用帳本。劇本車是第一個正式 Activity 實作，現階段停止擴充 LINE 帳務功能，既有 LINE Messaging API、Webhook、群組事件與 `groupId → carId` 綁定只保留為未來快速記帳入口。
 
@@ -865,6 +878,9 @@ Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇
 - `services/accounting/pending-action.js`：依帳務狀態產生具責任人的待分帳、待付款、待確認收款與退回待辦。
 - `services/accounting/compatibility.js`：將具正式身分的既有帳目原地映射成 Transaction，並為現行帳務快照提供暫時欄位別名。
 - `services/firebase/activity-accounting-repository.js`：以同一個 Firestore Transaction 寫入正式 Transaction，並同步完成舊待辦、產生下一階段 Pending Action。
+- `shared/accounting/pairwise-obligation.js`：從正式 Transaction／Split 產生一對一 Person 責任，並只在相同兩位 Person 間套用 Settlement 與雙向互抵；禁止跨第三人最佳化。
+- `js/modules/accounting/accounting-repository.js`：維護 `accountingViews/activityCurrent` 衍生 View、原始應收應付、互抵後 Settlement Transfer，以及按需讀取正式 Transaction／Settlement 歷史。
+- `js/modules/accounting/accounting-render.js`：只呈現 View 已決定的正式方向；「我欠誰／誰欠我」顯示原始尚未結清金額，「互抵後總額」顯示同一對 Person 的淨付款／收款方向。
 - `js/modules/accounting/activity-fee-data.js`：劇本費計畫、玩家代收、店家付款與車團暫存餘額的純計算規則。
 - `js/modules/accounting/activity-fee-repository.js`：劇本費計畫、玩家收款與外部店家訂金／尾款／退款的 Firestore 讀寫及稽核。
 - `js/modules/accounting/activity-fee-controller.js`：Car Detail 劇本費與店家核銷介面；工作室、固定玩家人數與每人劇本費資料完整時自動建立／同步基本劇本費，現階段由主揪管理，LINE 入口未擴充。
@@ -886,6 +902,10 @@ cars/{carId}/accountingPendingActions/{pendingActionId}
 ```
 
 Pending Action 是流程與責任人資料，不是第二份金額來源。完成的待辦改為 `status=completed` 並保留 `history`，不刪除；Transaction 內只保存目前有效的 `pendingActionIds`，供低讀取量首頁摘要使用。
+
+Car Detail 明細預設收合，第一次展開才分頁讀取正式 `accountingEntries` 並讀取最近 `accountingSettlements`；Transaction、Split、付款／收款及 Settlement 歷史不因結清消失。劇本費與工作室核銷仍由 Script Village Activity Fee Extension 負責，玩家收款與工作室付款不得合併成同一狀態。
+
+後續待辦仍包含代付、訪客 Person 與完整 Pending Action 擴充；它們不是目前已完成基準，不得在未驗收前標記完成。
 
 早期帳目若缺少正式 `createdBy`／`paidBy` Person ID，必須保留原資料並標記 `identity_resolution_required`；不可把 LINE userId 當作 Person ID，也不可用顯示名稱猜測。完成身分解析前不產生個人 Pending Action。
 

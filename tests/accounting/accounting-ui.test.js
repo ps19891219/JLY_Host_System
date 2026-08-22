@@ -42,6 +42,30 @@ test("原始應收應付與互抵後總額分開顯示", () => {
   assert.match(render, />互抵後總額</);
   assert.match(repository, /obligationsByPair/);
   assert.match(repository, /VIEW_SCHEMA_VERSION = 7/);
+  assert.match(render, /原始尚未結清應付/);
+  assert.match(render, /原始尚未結清應收/);
+  assert.match(render, /const payable=item\.fromPersonId===personId/);
+  assert.match(render, /direction=payable\?"付款":"收款"/);
+  assert.doesNotMatch(render, /<small>全車互抵後<\/small>/);
+});
+
+test("互抵後明細依正式方向顯示付款或收款", () => {
+  const context = { window: {} };
+  vm.runInNewContext(render, context);
+  const html = context.window.JLYAccountingRender.buildDashboardHtml({
+    members: [], membersById: new Map(), memberNames: new Map([["p2", "燕餃"]]),
+    transactions: [{ transactionId: "t1", title: "晚餐", amount: 100, paidBy: "p1", splitStatus: "completed", splits: [] }],
+    currentPersonId: "p1", viewPersonId: "p1", isManager: false, managementMode: false,
+    counts: { total: 0, paymentConfirmation: 0 },
+    personalSettlement: { payable: 60, receivable: 0, transfers: [{ fromPersonId: "p1", toPersonId: "p2", amount: 60 }] },
+    personalObligations: { payable: [{ fromPersonId: "p1", toPersonId: "p2", amount: 100 }], receivable: [], payableTotal: 100, receivableTotal: 0 },
+    activeNetSettlements: [], settlementHistory: [], detailMode: false, detailHasMore: false,
+    getFilterState: () => "payment_due"
+  });
+
+  assert.match(html, /<strong>付款<\/strong>｜付給 <strong>燕餃<\/strong>/);
+  assert.match(html, /同一對 Person 互抵後/);
+  assert.match(html, /原始尚未結清應付/);
 });
 
 test("淨額付款由付款方申報並由收款方確認", () => {
@@ -68,8 +92,21 @@ test("主揪只能代未使用系統的收款人確認淨額付款", () => {
 
 test("詳細帳目不再提供逐筆付款與代理確認", () => {
   assert.match(render, /已列入彙總/);
+  assert.match(render, /已付款，待確認/);
+  assert.match(render, /付款申報已退回/);
+  assert.match(render, /split\.confirmedAt/);
   assert.doesNotMatch(render, /canConfirmForReceiver/);
   assert.doesNotMatch(actions, /accounting-settlement-row button/);
+});
+
+test("展開帳務明細按需讀取正式 Transaction 與 Settlement 歷史", () => {
+  assert.match(repository, /function loadSettlementHistory/);
+  assert.match(repository, /collection\("accountingSettlements"\)/);
+  assert.match(controller, /repository\.loadSettlementHistory\(carId,20\)/);
+  assert.match(render, /付款／收款與核銷紀錄/);
+  assert.match(render, /model\.settlementHistory/);
+  assert.match(render, /data-details-loaded=/);
+  assert.match(actions, /detailsToggle\.dataset\.detailsLoaded!=="true"/);
 });
 
 test("結算小視窗沿用已載入的個人淨額，不另外查詢資料", () => {
