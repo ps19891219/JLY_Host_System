@@ -2,10 +2,23 @@
 
 > Status: Working Map
 >
-> Version: V2.86
+> Version: V2.87
 >
 > Last Updated: 2026-08-22
 >
+
+## V2.87 Studio Accounting V1 店家帳務收口（2026-08-22）
+
+- 本節續寫既有 JLY Accounting Core 藍圖；Studio Accounting 仍是 Activity Fee 的工作室 View，不建立第二份 Transaction、Split 或 Settlement。
+- KEEP：工作室名稱由正式 Car 的 `studioName / organizerName / organizer` 帶入；基本劇本費固定使用 `totalPeople × car.price`；玩家繳費 `accountingFeeCollections` 與店家收付款 `accountingExternalPayments` 維持兩條獨立金流；額外費用仍沿用 `accountingFeePlans/scriptFee.feeItems[]` 與既有分攤邏輯。
+- 店家摘要正式規則：沒有額外費用時只顯示「劇本費用／已付款／待付款」；存在正式額外費用時才增加「額外費用／總額」。付款與退款只改變已付／待付，不改寫基本費或費用總額。
+- 店家收付款改為 append-only 顯示：可分次登記預付、尾款等付款，退款使用獨立 `kind=refund` 紀錄；原付款、退款、時間及 `accountingFeeAuditLogs` 歷史預設收合並永久保留。
+- 「新增額外費用」移除重複的固定費用類型選單，名稱改為自由輸入；工作室低頻操作收進右上 `⋯`，包含新增額外費用、新增付款與新增收款，玩家繳費維持獨立收合區。
+- 未連結 JLY 的外部工作室沿用主揪人工登記／核銷與 Audit，不建立等待不存在工作室帳號的 Pending Action，也不形成跨 Activity 工作室餘額。
+- PARTIAL：正式工作室 Identity 的「付款方申報 → 工作室確認」雙方 Settlement 尚無可安全沿用的 Activity Fee 狀態／權限接線；為避免主揪直接替已連結工作室 settled，已連結工作室暫停新增收付款操作，留待正式 Settlement Schema／Identity 決策後完成。
+- TODO：折扣／減免 Event、錯誤更正 before/after Audit 與工作室正式 Pending Action 尚無既有正式模型；本輪未自行新增 Schema、未 Migration、未讀寫正式 Firestore 資料。
+- Runtime 更新：`activity-fee-data.js`、`activity-fee-repository.js`、`activity-fee-controller.js`、`css/pages/accounting.css`、`pages/car-detail.html`；測試由 `activity-fee.test.js` 與 `accounting-ui.test.js` 覆蓋。
+- Automated tests：`191 tests / 191 pass / 0 fail`；新增 Studio 摘要條件、額外費用、分次付款、退款與玩家／店家金流分離測試。Git commit 仍須依提交授權流程另行補記。
 
 ## V2.86 Accounting V1 三項 Regression 收口（2026-08-22）
 

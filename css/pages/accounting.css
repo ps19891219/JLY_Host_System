@@ -316,13 +316,23 @@
 }
 
 .accounting-fee-section { display: grid; gap: 14px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #e8e1d8; scroll-margin-top: 18px; }
-.accounting-fee-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.accounting-fee-summary { display: grid; grid-template-columns: repeat(auto-fit,minmax(92px,1fr)); gap: 8px; }
 .accounting-fee-summary span { display: grid; gap: 4px; padding: 11px; border-radius: 11px; background: #f7f4ef; font-size: .84rem; }
 .accounting-fee-summary-action { cursor: pointer; border: 1px solid transparent; }
 .accounting-fee-summary-action::after { content: "點擊登記"; color: #6d766f; font-size: .72rem; }
 .accounting-fee-summary-action:focus-visible,
 .accounting-fee-summary-action[aria-expanded="true"] { outline: none; border-color: #3f846f; background: #eef8f4; }
 .accounting-fee-summary b { font-size: 1rem; color: #397b68; }
+.accounting-studio-heading { align-items: flex-start; }
+.accounting-fee-menu-wrap { position: relative; }
+.accounting-fee-menu-button { min-width: 44px; min-height: 44px; border: 0; border-radius: 12px; background: #3f846f; color: #fff; font-size: 1.35rem; font-weight: 800; }
+.accounting-fee-menu { position: absolute; z-index: 5; top: 48px; right: 0; display: grid; width: min(230px,75vw); padding: 7px; border: 1px solid #ddd5cc; border-radius: 12px; background: #fff; box-shadow: 0 10px 26px rgba(40,47,44,.16); }
+.accounting-fee-menu[hidden] { display: none; }
+.accounting-fee-menu button { min-height: 42px; padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; text-align: left; font: inherit; }
+.accounting-fee-menu button:hover { background: #f2f7f5; }
+.accounting-fee-menu button:disabled { color: #aaa; cursor: not-allowed; }
+.accounting-fee-notice { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff7df; color: #6e5b25; font-size: .84rem; }
+.accounting-fee-subsummary { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #eef6f3; color: #356f5f; }
 .accounting-fee-members { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .accounting-fee-members li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #f7f4ef; }
 .accounting-fee-details { display: grid; gap: 10px; }

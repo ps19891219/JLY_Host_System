@@ -43,3 +43,21 @@ test("custom additional fee must allocate its complete amount",()=>{
   const plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:2,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z");
   assert.throws(()=>fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"custom",allocations:[{personId:"p1",amount:100}]},"host"),/fee_allocation_total_mismatch/);
 });
+
+test("studio summary shows three fields normally and five fields only with extras",()=>{
+  let plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:6,playerFee:1150,playerIds:["a","b","c","d","e","f"]},"host","2026-08-22T01:00:00.000Z");
+  let summary=fee.summarize(plan,[],[]);
+  assert.equal(summary.vendorBaseAmount,6900);assert.equal(summary.vendorExtraAmount,0);assert.deepEqual(Array.from(fee.studioSummaryItems(summary),item=>item.label),["劇本費用","已付款","待付款"]);
+  plan=fee.addFeeItem(plan,{title:"DM 指定費",amount:500,allocationType:"equal"},"host","2026-08-22T02:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"場地費",amount:300,allocationType:"equal"},"host","2026-08-22T03:00:00.000Z");
+  summary=fee.summarize(plan,[],[]);
+  assert.equal(summary.vendorExtraAmount,800);assert.equal(summary.vendorTotal,7700);assert.deepEqual(Array.from(fee.studioSummaryItems(summary),item=>item.label),["劇本費用","額外費用","總額","已付款","待付款"]);
+});
+
+test("split studio payments and refunds preserve fee total and player collection independence",()=>{
+  const plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:6,playerFee:1150,playerIds:["a","b","c","d","e","f"]},"host","2026-08-22T01:00:00.000Z");
+  const paid=fee.summarize(plan,[{personId:"a",kind:"payment",amount:1150}],[{kind:"payment",amount:2000},{kind:"payment",amount:4900}]);
+  assert.equal(paid.vendorTotal,6900);assert.equal(paid.vendorPaid,6900);assert.equal(paid.vendorOutstanding,0);assert.equal(paid.memberCollected,1150);assert.equal(paid.memberOutstanding,5750);
+  const refunded=fee.summarize(plan,[{personId:"a",kind:"payment",amount:1150}],[{kind:"payment",amount:2000},{kind:"payment",amount:4900},{kind:"refund",amount:300}]);
+  assert.equal(refunded.vendorTotal,6900);assert.equal(refunded.vendorPaid,6600);assert.equal(refunded.vendorOutstanding,300);assert.equal(refunded.memberCollected,1150);
+});
