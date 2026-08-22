@@ -333,6 +333,13 @@
 .accounting-fee-menu button:disabled { color: #aaa; cursor: not-allowed; }
 .accounting-fee-notice { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff7df; color: #6e5b25; font-size: .84rem; }
 .accounting-fee-subsummary { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #eef6f3; color: #356f5f; }
+.accounting-accordion-toggle { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 10px 4px; border: 0; border-bottom: 1px solid #e8e1d8; border-radius: 0; background: transparent; color: #2d322f; text-align: left; font: inherit; font-weight: 700; }
+.accounting-accordion-toggle small { color: #6d766f; font-size: .82rem; font-weight: 500; }
+.accounting-accordion-toggle i { color: #79817c; font-style: normal; transition: transform .18s ease; }
+.accounting-accordion-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+.accounting-accordion-toggle + .accounting-fee-details { padding: 10px 0 4px; }
+.accounting-fee-record-action { display: grid; justify-items: end; gap: 6px; }
+.accounting-fee-record-action button { min-height: 34px; padding: 6px 10px; border: 0; border-radius: 9px; background: #3f846f; color: #fff; font: inherit; font-size: .8rem; font-weight: 700; }
 .accounting-fee-members { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .accounting-fee-members li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #f7f4ef; }
 .accounting-fee-details { display: grid; gap: 10px; }
@@ -365,6 +372,7 @@
 }
 
 .accounting-details-toggle { width: 100%; min-height: 46px; border: 1px solid #ddd6cd; border-radius: 12px; background: #f7f4ef; color: #4d4944; font: inherit; font-weight: 700; }
+.accounting-details-toggle.accounting-accordion-toggle { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 10px; padding: 10px 4px; border: 0; border-bottom: 1px solid #e8e1d8; border-radius: 0; background: transparent; color: #2d322f; text-align: left; }
 #accountingDetails { display: grid; gap: 12px; }
 #accountingDetails[hidden] { display: none; }
 .accounting-attention { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; align-items: center; padding: 13px 15px; border: 1px solid #e7b45c; border-radius: 13px; background: #fff4d9; color: #5e4318; text-align: left; font: inherit; }

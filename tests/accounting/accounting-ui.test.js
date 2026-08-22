@@ -161,9 +161,9 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeRepository, /accountingFeeCollections/);
   assert.match(feeRepository, /accountingExternalPayments/);
   assert.match(feeRepository, /accountingFeeAuditLogs/);
-  assert.match(feeController, /玩家繳費｜待收/);
+  assert.match(feeController, /<span>玩家繳費<\/span><small>待收/);
   assert.match(feeController, /data-summary-key/);
-  assert.match(feeController, /項目名稱，例如：預付訂金/);
+  assert.match(feeController, /付款項目，例如：預付訂金/);
   assert.match(feeController, /＋ 新增額外費用/);
   assert.match(feeController, /id="feeItemForm" class="accounting-quick-form" hidden/);
   assert.match(feeController, /id="memberFeeForm" class="accounting-quick-form" hidden/);
@@ -173,6 +173,8 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /data-details-toggle="feeDetails"/);
   assert.match(feeController, /id="studioPaymentDetails" class="accounting-fee-details" hidden/);
   assert.match(feeController, /id="studioAuditDetails" class="accounting-fee-details" hidden/);
+  assert.equal((feeController.match(/accounting-accordion-toggle/g)||[]).length,4);
+  assert.match(feeController, /details\.hidden=!details\.hidden/);
   assert.match(feeController, /data-fee-cancel/);
   assert.match(feeController, /person\.outstanding/);
   assert.match(feeController, /summary\.vendorOutstanding/);
@@ -182,7 +184,14 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.doesNotMatch(feeController, /name="category"/);
   assert.match(feeController, /studioSummaryItems/);
   assert.match(feeController, /工作室收付款/);
-  assert.match(feeController, /主揪人工核銷/);
+  assert.match(feeController, /等待人工核銷/);
+  assert.match(feeController, /data-vendor-settle/);
+  assert.match(feeController, /settleVendorPayment/);
+  assert.match(feeRepository, /vendor_payment_manually_settled/);
+  assert.match(feeRepository, /pendingActionIds:\[\]/);
+  assert.match(feeRepository, /createdBy:actorPersonId/);
+  assert.match(feeRepository, /paidBy:kind!=="refund"/);
+  assert.doesNotMatch(feeController, /id="vendorPaymentForm"[^]*?<select name="personId"/);
   assert.match(feeController, /玩家均分/);
   assert.match(feeController, /指定玩家支付/);
   assert.match(feeController, /主揪支付/);

@@ -2,10 +2,21 @@
 
 > Status: Working Map
 >
-> Version: V2.87
+> Version: V2.88
 >
 > Last Updated: 2026-08-22
 >
+
+## V2.88 Studio Accounting V1 實機驗收修正（2026-08-22）
+
+- Car Detail 店家帳務的「費用項目／玩家繳費／工作室收付款／核銷紀錄」改為四列精簡 Accordion；全部預設收合，點擊同一列切換展開／收起，既有內容、金額與操作不刪除。
+- 未連結 JLY 的外部工作室付款沿用 `accountingExternalPayments`，新付款明確保存 `createdBy` 與 `paidBy`，兩者概念保持分離；一般「新增付款」固定以目前登入 Person 為實際付款人，不提供任意 Person 下拉選單。
+- 未連結工作室的新付款先記錄 `settlementStatus=payment_claimed`，但不建立無責任人的 Pending Action；主揪可在工作室收付款明細執行「人工核銷」，原付款原地轉為 `settled` 並於 `accountingFeeAuditLogs` 保存 `vendor_payment_manually_settled`、操作者、before／after、時間與 `manager_for_unlinked_vendor` 權限來源。
+- 舊 `accountingExternalPayments` 若沒有 Settlement 欄位，維持 Historical Compatibility 並視為既有已核銷歷史，不批次回填、不 Migration。已連結正式工作室的雙方 Settlement 仍維持安全停止，不自行建立 Identity／Settlement Schema。
+- 本輪只對 Script Village Activity Fee Extension 增加相容欄位與 UI；沒有建立新 Collection、沒有改動 Common Accounting Core、Pairwise、Transaction、Split、Obligation 或既有 Settlement。
+- Future：QR Code 定位為同一筆 Settlement 的短效安全 Action Entry；未來由正式收款方掃描 Token 後開啟同一 Accounting Web 確認收款，不建立 QR 帳務副本、不在 URL 裸露核銷權限。本輪不建立 QR Runtime。
+- Runtime 更新：`activity-fee-repository.js`、`activity-fee-controller.js`、`css/pages/accounting.css`、`pages/car-detail.html`；新增 `activity-fee-repository.test.js`，並同步 `accounting-ui.test.js`。
+- Automated tests：`193 tests / 193 pass / 0 fail`；原有 191 項無 regression，新增未綁定工作室付款身分／無孤兒 Pending 與人工核銷歷史兩項測試。Git commit／push／deployment 依授權流程暫停。
 
 ## V2.87 Studio Accounting V1 店家帳務收口（2026-08-22）
 
