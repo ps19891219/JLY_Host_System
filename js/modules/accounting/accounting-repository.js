@@ -204,12 +204,16 @@
           )
         : [];
 
+    const delegated = typeof window !== "undefined" ? window.JLYDelegatedPayment : null;
+    const reimbursementObligations = delegated && typeof delegated.buildReimbursementObligation === "function"
+      ? (settlements || []).map(item => delegated.buildReimbursementObligation(item)).filter(Boolean)
+      : [];
     const settlementTransfers =
       pairwise &&
       typeof pairwise.aggregatePairwiseObligations === "function"
         ? pairwise.aggregatePairwiseObligations(
             [],
-            grossObligations
+            [...grossObligations, ...reimbursementObligations]
           )
         : buildSettlementPlan(currentBalance);
 
@@ -731,7 +735,8 @@
       const to = String(input.toPersonId || "");
       const amount = Number(input.amount) || 0;
       const managerClaim = input.action === "manager_claim";
-      const allowed = input.actorPersonId === from || (
+      const delegatedClaim = input.action === "delegated_claim";
+      const allowed = input.actorPersonId === from || delegatedClaim || (
         managerClaim &&
         input.actorPersonId === input.managerPersonId &&
         !input.targetUsesSystem
@@ -750,7 +755,10 @@
         throw new Error("net_settlement_amount_changed");
       }
 
-      const record = {
+      const delegatedApi = window.JLYDelegatedPayment;
+      const record = delegatedClaim && delegatedApi
+        ? delegatedApi.createClaim({ settlementId:id, activityId:carId, debtorPersonId:from, paidBy:input.actorPersonId, receiverPersonId:to, amount, reimbursementRequired:input.reimbursementRequired === true })
+        : {
         settlementId: id,
         activityId: carId,
         carId,
@@ -801,6 +809,45 @@
     });
   }
 
+  async function createDelegatedRequest(carId, input) {
+    const db=requireDb(),root=db.collection("cars").doc(carId),now=new Date().toISOString();
+    const id=`delegate-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    const request=window.JLYDelegatedPayment.createRequest({...input,requestId:id,activityId:carId},now);
+    const ref=root.collection("accountingDelegatedPayments").doc(id),actionRef=root.collection("accountingPendingActions").doc(`delegate_acceptance-${id}`);
+    await ensureActivityView(root);
+    await db.runTransaction(async transaction=>{
+      const viewSnapshot=await transaction.get(root.collection("accountingViews").doc(viewName));
+      const view=viewSnapshot.data()||{};
+      if(netTransferAmount(view.settlementTransfers||view.obligationsByPair,request.debtorPersonId,request.receiverPersonId)<request.amount)throw new Error("net_settlement_amount_changed");
+      transaction.set(ref,request,{merge:false});
+      transaction.set(actionRef,{pendingActionId:`delegate_acceptance-${id}`,actionType:"delegated_payment_acceptance",responsiblePersonId:request.delegatePersonId,requestId:id,transactionId:`delegated:${id}`,activityId:carId,carId,status:"pending",createdAt:now,updatedAt:now,completedAt:"",debtorPersonId:request.debtorPersonId,receiverPersonId:request.receiverPersonId,amount:request.amount,reimbursementRequired:request.reimbursementRequired,history:[{status:"pending",actorPersonId:request.requestedBy,at:now}]},{merge:false});
+      transaction.set(root.collection("accountingViews").doc(viewName),{schemaVersion:0,updatedAt:now},{merge:true});
+    });
+    return request;
+  }
+
+  async function transitionDelegatedRequest(carId, requestId, action, actorPersonId) {
+    const db=requireDb(),root=db.collection("cars").doc(carId),now=new Date().toISOString();
+    const ref=root.collection("accountingDelegatedPayments").doc(requestId),pendingRef=root.collection("accountingPendingActions").doc(`delegate_acceptance-${requestId}`);
+    await ensureActivityView(root);
+    await db.runTransaction(async transaction=>{
+      const [requestSnapshot,pendingSnapshot,viewSnapshot]=await Promise.all([transaction.get(ref),transaction.get(pendingRef),transaction.get(root.collection("accountingViews").doc(viewName))]);
+      if(!requestSnapshot.exists)throw new Error("delegated_payment_request_not_found");
+      const next=window.JLYDelegatedPayment.transitionRequest(requestSnapshot.data(),action,actorPersonId,now);
+      const view=viewSnapshot.data()||{};
+      if(action==="accept"&&netTransferAmount(view.settlementTransfers||view.obligationsByPair,next.debtorPersonId,next.receiverPersonId)<next.amount)throw new Error("net_settlement_amount_changed");
+      transaction.set(ref,next,{merge:false});
+      if(pendingSnapshot.exists)transaction.set(pendingRef,{...pendingSnapshot.data(),status:"completed",completedAt:now,updatedAt:now,history:[...(pendingSnapshot.data().history||[]),{status:"completed",action,actorPersonId,at:now}]},{merge:false});
+      if(action==="accept"){
+        const settlementId=`net-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+        const claim=window.JLYDelegatedPayment.createClaim({settlementId,activityId:carId,debtorPersonId:next.debtorPersonId,paidBy:actorPersonId,receiverPersonId:next.receiverPersonId,amount:next.amount,delegatedRequestId:requestId,reimbursementRequired:next.reimbursementRequired},now);
+        transaction.set(root.collection("accountingSettlements").doc(settlementId),claim,{merge:false});
+        transaction.set(root.collection("accountingPendingActions").doc(`net_confirmation-${settlementId}`),{pendingActionId:`net_confirmation-${settlementId}`,actionType:"payment_confirmation",responsiblePersonId:next.receiverPersonId,settlementId,transactionId:`delegated:${requestId}`,activityId:carId,carId,status:"pending",createdAt:now,updatedAt:now,completedAt:"",history:[{status:"pending",actorPersonId,at:now}]},{merge:false});
+      }
+      transaction.set(root.collection("accountingViews").doc(viewName),{schemaVersion:0,updatedAt:now},{merge:true});
+    });
+  }
+
   async function transitionNetSettlement(carId, settlementId, action, actorPersonId, authority) {
     const db = requireDb();
     const root = db.collection("cars").doc(carId);
@@ -828,7 +875,7 @@
       let next;
 
       if (action === "withdraw") {
-        if (actorPersonId !== record.fromPersonId) throw new Error("net_settlement_not_allowed");
+        if (actorPersonId !== (record.paymentClaimedBy || record.fromPersonId)) throw new Error("net_settlement_not_allowed");
         next = {
           ...record,
           status: "withdrawn",
@@ -899,6 +946,8 @@
     completeSplit,
     saveSettlement,
     claimNetSettlement,
-    transitionNetSettlement
+    transitionNetSettlement,
+    createDelegatedRequest,
+    transitionDelegatedRequest
   };
 })();

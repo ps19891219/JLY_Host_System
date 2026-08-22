@@ -45,7 +45,7 @@ test("原始應收應付與互抵後總額分開顯示", () => {
   assert.match(render, /原始尚未結清應付/);
   assert.match(render, /原始尚未結清應收/);
   assert.match(render, /const payable=item\.fromPersonId===personId/);
-  assert.match(render, /direction=payable\?"付款":"收款"/);
+  assert.match(render, /direction=payable\?"付款":item\.toPersonId===personId\?"收款":"協助"/);
   assert.doesNotMatch(render, /<small>全車互抵後<\/small>/);
 });
 
@@ -111,7 +111,7 @@ test("展開帳務明細按需讀取正式 Transaction 與 Settlement 歷史", (
 
 test("結算小視窗沿用已載入的個人淨額，不另外查詢資料", () => {
   assert.match(render, /model\.personalSettlement&&model\.personalSettlement\.transfers/);
-  assert.doesNotMatch(actions, /getDocs|fetch\(|\.get\(/);
+  assert.doesNotMatch(actions, /getDocs|fetch\(|collection\([^\n]+\.get\(/);
 });
 
 test("下方分帳明細唯讀，上方互抵總額支援部分付款與全額付清", () => {

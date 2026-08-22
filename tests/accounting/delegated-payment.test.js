@@ -1,0 +1,23 @@
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const delegated = require("../../shared/accounting/delegated-payment");
+
+const base = { settlementId:"s1", activityId:"car1", debtorPersonId:"B", paidBy:"A", receiverPersonId:"S", amount:500 };
+test("主動代付保留原債務人與實際付款人",()=>{const x=delegated.createClaim(base,"t1");assert.equal(x.fromPersonId,"B");assert.equal(x.paidBy,"A");assert.equal(x.delegatedPayment,true);});
+test("主動代付直接進待收款確認，不需原債務人批准",()=>assert.equal(delegated.createClaim(base).status,"payment_claimed"));
+test("代付支援部分金額",()=>assert.equal(delegated.createClaim({...base,amount:300}).amount,300));
+test("同一責任可建立多次獨立部分付款",()=>assert.notEqual(delegated.createClaim({...base,settlementId:"s1"}).settlementId,delegated.createClaim({...base,settlementId:"s2"}).settlementId));
+test("不允許零或負數代付",()=>assert.throws(()=>delegated.createClaim({...base,amount:0}),/amount_invalid/));
+test("不允許付款對象等於原債務人",()=>assert.throws(()=>delegated.createClaim({...base,receiverPersonId:"B"}),/receiver_invalid/));
+test("請人代付由債務人建立",()=>assert.equal(delegated.createRequest({requestId:"r1",activityId:"car1",debtorPersonId:"B",delegatePersonId:"A",receiverPersonId:"S",requestedBy:"B",amount:500}).status,"pending_acceptance"));
+test("請人代付不能指定自己",()=>assert.throws(()=>delegated.createRequest({requestId:"r1",activityId:"car1",debtorPersonId:"B",delegatePersonId:"B",receiverPersonId:"S",requestedBy:"B",amount:500}),/delegate_must_differ/));
+test("只有被指定代付者可接受",()=>{const r=delegated.createRequest({requestId:"r1",activityId:"car1",debtorPersonId:"B",delegatePersonId:"A",receiverPersonId:"S",requestedBy:"B",amount:500});assert.throws(()=>delegated.transitionRequest(r,"accept","B"),/not_allowed/);});
+test("被指定者可接受",()=>{const r=delegated.createRequest({requestId:"r1",activityId:"car1",debtorPersonId:"B",delegatePersonId:"A",receiverPersonId:"S",requestedBy:"B",amount:500});assert.equal(delegated.transitionRequest(r,"accept","A").status,"accepted");});
+test("被指定者可拒絕",()=>{const r=delegated.createRequest({requestId:"r1",activityId:"car1",debtorPersonId:"B",delegatePersonId:"A",receiverPersonId:"S",requestedBy:"B",amount:500});assert.equal(delegated.transitionRequest(r,"reject","A").status,"rejected");});
+test("接受前不產生付款紀錄",()=>{const r=delegated.createRequest({requestId:"r1",activityId:"car1",debtorPersonId:"B",delegatePersonId:"A",receiverPersonId:"S",requestedBy:"B",amount:500});assert.equal(r.settlementId,undefined);});
+test("代付預設不產生 reimbursement",()=>{const s={...delegated.createClaim(base),status:"settled"};assert.equal(delegated.buildReimbursementObligation(s),null);});
+test("明確同意且結清後才產生 reimbursement",()=>{const s={...delegated.createClaim({...base,reimbursementRequired:true}),status:"settled"};const o=delegated.buildReimbursementObligation(s);assert.equal(o.fromPersonId,"B");assert.equal(o.toPersonId,"A");});
+test("未結清不產生 reimbursement",()=>assert.equal(delegated.buildReimbursementObligation(delegated.createClaim({...base,reimbursementRequired:true})),null));
+test("reimbursement 不增加 Activity 支出",()=>{const s={...delegated.createClaim({...base,reimbursementRequired:true}),status:"settled"};assert.equal(delegated.buildReimbursementObligation(s).affectsActivityExpense,false);});
+test("代付 Audit 保留實際付款人與原債務人",()=>{const s=delegated.createClaim(base,"t1");assert.deepEqual({actor:s.history[0].actorPersonId,debtor:s.history[0].debtorPersonId},{actor:"A",debtor:"B"});});

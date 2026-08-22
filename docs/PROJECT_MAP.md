@@ -2,10 +2,22 @@
 
 > Status: Working Map
 >
-> Version: V2.88
+> Version: V2.89
 >
 > Last Updated: 2026-08-22
 >
+
+## V2.89 Delegated Payment V1 Runtime（2026-08-22）
+
+- 新增 `shared/accounting/delegated-payment.js` 作為跨 Activity 的代付 Domain；正式區分原債務人 `debtorPersonId/fromPersonId`、實際付款人 `paidBy/paymentClaimedBy` 與收款人 `toPersonId`，不改寫 Transaction、Split 或原始 Pairwise Obligation。
+- 「幫他代付」可由正式 Activity Member 主動申報部分金額，不需要原債務人批准；付款仍進入既有 `accountingSettlements` 的 `payment_claimed → 收款方確認 → settled` 流程，核銷時只降低原本同一對 Person 的責任。
+- 「請人代付」使用 `accountingDelegatedPayments/{requestId}` 保存請求、接受／拒絕、金額、雙方 Person ID 與 Audit History；被指定者的 `delegated_payment_acceptance` 保存於既有 `accountingPendingActions`，接受前不視為付款，拒絕或接受後完成該 Pending。
+- 代付支援部分與多次付款；建立請求、接受請求及主動代付都以目前 View 的同一對 Person 未結清金額作上限，禁止跨第三 Person 自動最佳化。
+- reimbursement 預設不產生；只有請求明確保存 `reimbursementRequired=true`、被指定者接受且代付款正式 settled 後，才從 Settlement 歷史衍生 `obligationType=reimbursement` 的一對一責任。該責任 `affectsActivityExpense=false`，不增加 Activity 支出。
+- Car Detail Accounting Web 在互抵後明細提供低頻「幫他代付／請人代付」操作，待接受請求顯示於既有「待處理」區；沒有新增 LINE Notification 或手機 Push。
+- Runtime 更新：`shared/accounting/delegated-payment.js`、`accounting-repository.js`、`accounting-render.js`、`accounting-actions.js`、`pages/car-detail.html`；測試新增 `delegated-payment.test.js`。
+- Schema：新增未來新資料使用的 `accountingDelegatedPayments` 子集合及 Settlement 代付相容欄位；不 Migration 舊資料、不批次修改正式 Car／Settlement、不讀寫 Production Firestore。
+- Automated tests：`210 tests / 210 pass / 0 fail`；保留原 193 項並新增 17 項 Delegated Payment Domain／Audit／reimbursement 測試。
 
 ## V2.88 Studio Accounting V1 實機驗收修正（2026-08-22）
 
@@ -903,6 +915,7 @@ Accounting Core 定位為跨 Activity 的共用帳務領域，不是 LINE 或劇
 - `services/accounting/compatibility.js`：將具正式身分的既有帳目原地映射成 Transaction，並為現行帳務快照提供暫時欄位別名。
 - `services/firebase/activity-accounting-repository.js`：以同一個 Firestore Transaction 寫入正式 Transaction，並同步完成舊待辦、產生下一階段 Pending Action。
 - `shared/accounting/pairwise-obligation.js`：從正式 Transaction／Split 產生一對一 Person 責任，並只在相同兩位 Person 間套用 Settlement 與雙向互抵；禁止跨第三人最佳化。
+- `shared/accounting/delegated-payment.js`：代付／請人代付的正式 Domain、接受／拒絕與有條件 reimbursement；不建立 Activity 支出副本。
 - `js/modules/accounting/accounting-repository.js`：維護 `accountingViews/activityCurrent` 衍生 View、原始應收應付、互抵後 Settlement Transfer，以及按需讀取正式 Transaction／Settlement 歷史。
 - `js/modules/accounting/accounting-render.js`：只呈現 View 已決定的正式方向；「我欠誰／誰欠我」顯示原始尚未結清金額，「互抵後總額」顯示同一對 Person 的淨付款／收款方向。
 - `js/modules/accounting/activity-fee-data.js`：劇本費計畫、玩家代收、店家付款與車團暫存餘額的純計算規則。
