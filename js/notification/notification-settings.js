@@ -220,6 +220,22 @@ Responsibilities:
         config
       );
 
+    const sharedSchedule =
+      window.JLYReminderSchedule;
+
+    if (
+      sharedSchedule &&
+      typeof sharedSchedule
+        .calculateScheduledAt ===
+          "function"
+    ) {
+      return sharedSchedule
+        .calculateScheduledAt(
+          car,
+          settings
+        );
+    }
+
     const gameDate =
       getCarDate(car);
 

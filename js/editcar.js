@@ -891,81 +891,6 @@ renderEditForm(
 }
 
 
-function normalizeReminderTime(value) {
-  const source =
-    String(
-      value || ""
-    ).trim();
-
-  return /^\d{2}:\d{2}$/
-    .test(source)
-      ? source
-      : "15:00";
-}
-
-function normalizeReminderOffset(value) {
-  const number =
-    Number(value);
-
-  return Number.isFinite(number)
-    ? Math.max(
-        0,
-        Math.floor(number)
-      )
-    : 1;
-}
-
-function calculateEditReminderScheduledAt(
-  gameDate,
-  sendTime,
-  offsetDays
-) {
-  const dateText =
-    String(
-      gameDate || ""
-    ).trim();
-
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/
-      .test(dateText)
-  ) {
-    return "";
-  }
-
-  const timeText =
-    normalizeReminderTime(
-      sendTime
-    );
-
-  const date =
-    new Date(
-      `${dateText}T${timeText}:00+08:00`
-    );
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  date.setTime(
-    date.getTime() -
-    (
-      normalizeReminderOffset(
-        offsetDays
-      ) *
-      24 *
-      60 *
-      60 *
-      1000
-    )
-  );
-
-  return date.toISOString();
-}
-
 function formatEditReminderTime(
   value
 ) {
@@ -1034,9 +959,24 @@ async function reschedulePreTripReminderAfterCarEdit(
       ""
     ).trim();
 
+  const oldStatus =
+    String(
+      previousCar &&
+      previousCar.status ||
+      ""
+    ).trim();
+
+  const newStatus =
+    String(
+      updatedData &&
+      updatedData.status ||
+      ""
+    ).trim();
+
   if (
     oldDate === newDate &&
-    oldTime === newTime
+    oldTime === newTime &&
+    oldStatus === newStatus
   ) {
     return {
       checked: false,
@@ -1066,135 +1006,42 @@ async function reschedulePreTripReminderAfterCarEdit(
   const reminder =
     snapshot.data() || {};
 
+  const scheduleCore =
+    window.JLYReminderSchedule;
+
   if (
-    reminder.enabled !== true
+    !scheduleCore ||
+    typeof scheduleCore
+      .buildRescheduleUpdate !==
+        "function"
   ) {
-    return {
-      checked: true,
-      rescheduled: false,
-      reason:
-        "reminder_disabled"
-    };
+    throw new Error(
+      "Reminder Schedule Core 尚未載入"
+    );
   }
 
-  /*
-   * A Car gets one pre-trip notification.
-   * If it was already sent, later Car edits do not re-arm it.
-   */
+  const result =
+    scheduleCore
+      .buildRescheduleUpdate(
+        previousCar,
+        updatedData,
+        reminder,
+        new Date().toISOString()
+      );
+
   if (
-    String(
-      reminder.status || ""
-    ).trim() === "sent"
+    result.rescheduled &&
+    result.updateData
   ) {
-    return {
-      checked: true,
-      rescheduled: false,
-      reason:
-        "already_sent",
-      contentChanged:
-        oldTime !== newTime
-    };
+    await reminderRef.set(
+      result.updateData,
+      {
+        merge: true
+      }
+    );
   }
 
-  /*
-   * gameTime changes only affect the content that will be read
-   * at dispatch time. scheduledAt changes only when gameDate does.
-   */
-  if (
-    oldDate === newDate
-  ) {
-    return {
-      checked: true,
-      rescheduled: false,
-      contentChanged:
-        oldTime !== newTime,
-      reason:
-        "content_only"
-    };
-  }
-
-  const sendTime =
-    normalizeReminderTime(
-      reminder.sendTime
-    );
-
-  const offsetDays =
-    normalizeReminderOffset(
-      reminder.offsetDays
-    );
-
-  const scheduledAt =
-    calculateEditReminderScheduledAt(
-      newDate,
-      sendTime,
-      offsetDays
-    );
-
-  const now =
-    new Date()
-      .toISOString();
-
-  const schedulePassed =
-    Boolean(
-      scheduledAt &&
-      scheduledAt <= now
-    );
-
-  const updateData = {
-    scheduledAt,
-
-    status:
-      !scheduledAt
-        ? "configuration_required"
-        : (
-            schedulePassed
-              ? "action_required"
-              : "scheduled"
-          ),
-
-    needsHostAction:
-      schedulePassed,
-
-    rescheduleReason:
-      schedulePassed
-        ? "scheduled_time_passed"
-        : "car_date_changed",
-
-    previousScheduledAt:
-      String(
-        reminder.scheduledAt || ""
-      ).trim(),
-
-    rescheduledAt:
-      now,
-
-    updatedAt:
-      now,
-
-    /*
-     * Date-change acknowledgement belongs to the host UI.
-     * Do not request a LINE Push status notice.
-     */
-    noticeType: "",
-    noticeStatus:
-      "suppressed"
-  };
-
-  await reminderRef.set(
-    updateData,
-    {
-      merge: true
-    }
-  );
-
-  return {
-    checked: true,
-    rescheduled: true,
-    schedulePassed,
-    scheduledAt,
-    previousScheduledAt:
-      updateData.previousScheduledAt
-  };
+  return result;
 }
 
 

@@ -26,6 +26,55 @@ console.log("membership-view-sync.js 已成功載入！");
     );
   }
 
+  function getCarPlayerIds(car) {
+    const source =
+      car && typeof car === "object"
+        ? car
+        : {};
+
+    const indexedIds =
+      Array.isArray(source.playerIds)
+        ? source.playerIds
+        : [];
+
+    const playerIds =
+      (
+        Array.isArray(source.players)
+          ? source.players
+          : []
+      ).map(
+        function (player) {
+          const status =
+            text(player && player.status);
+
+          if (
+            [
+              "已取消",
+              "取消",
+              "cancelled",
+              "canceled"
+            ].includes(status)
+          ) {
+            return "";
+          }
+
+          return text(
+            player &&
+            (
+              player.playerId ||
+              player.id ||
+              player.profileId
+            )
+          );
+        }
+      );
+
+    return unique([
+      ...indexedIds,
+      ...playerIds
+    ]);
+  }
+
   function loadScript(
     src,
     marker
@@ -171,9 +220,18 @@ console.log("membership-view-sync.js 已成功載入！");
         ? settings.changedFields
         : [];
 
+    /*
+     * A seat summary is visible in every current member's MyCar View.
+     * Update the bounded set of known member aliases from before/after;
+     * do not scan Cars or MyCar Views.
+     */
     const playerIds =
       unique(
-        settings.playerIds
+        [
+          ...(settings.playerIds || []),
+          ...getCarPlayerIds(beforeCar),
+          ...getCarPlayerIds(afterCar)
+        ]
       );
 
     try {

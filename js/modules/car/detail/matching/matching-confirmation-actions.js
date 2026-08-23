@@ -106,7 +106,7 @@ console.log(
             );
 
           script.src =
-            "/js/data-view/membership-view-sync.js?v=1";
+            "/js/data-view/membership-view-sync.js?v=2";
 
           script.async =
             true;

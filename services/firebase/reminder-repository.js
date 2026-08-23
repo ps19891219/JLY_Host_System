@@ -316,6 +316,32 @@ async function enablePreTripReminder(
 // List Due Reminders
 // ============================================================
 
+function buildDueReminderQuery(
+  db,
+  nowIso,
+  limit
+) {
+  return db
+    .collectionGroup(
+      REMINDER_COLLECTION
+    )
+    .where(
+      "status",
+      "==",
+      "scheduled"
+    )
+    .where(
+      "scheduledAt",
+      "<=",
+      nowIso
+    )
+    .orderBy(
+      "scheduledAt",
+      "asc"
+    )
+    .limit(limit);
+}
+
 async function listDueReminders(
   nowIso,
   limit = 30
@@ -340,19 +366,11 @@ async function listDueReminders(
     );
 
   const snapshot =
-    await db
-      .collectionGroup(
-        REMINDER_COLLECTION
-      )
-      .where(
-        "scheduledAt",
-        "<=",
-        normalizedNow
-      )
-      .limit(
-        safeLimit
-      )
-      .get();
+    await buildDueReminderQuery(
+      db,
+      normalizedNow,
+      safeLimit
+    ).get();
 
   return snapshot.docs
     .map(
@@ -381,9 +399,6 @@ async function listDueReminders(
           item.id ===
             PRE_TRIP_DOCUMENT &&
           item.enabled === true &&
-          normalizeText(
-            item.status
-          ) === "scheduled" &&
           Boolean(
             normalizeText(
               item.carId
@@ -905,6 +920,7 @@ module.exports = {
   getPreTripReminder,
   enablePreTripReminder,
 
+  buildDueReminderQuery,
   listDueReminders,
   claimReminder,
   markReminderSent,

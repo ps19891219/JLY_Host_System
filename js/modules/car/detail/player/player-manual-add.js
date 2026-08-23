@@ -74,7 +74,7 @@ console.log(
             );
 
           script.src =
-            "/js/data-view/view-runtime-loader.js?v=1";
+            "/js/data-view/view-runtime-loader.js?v=2";
 
           script.async =
             true;

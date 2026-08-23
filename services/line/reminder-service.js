@@ -22,6 +22,11 @@ const {
   "../firebase/reminder-repository"
 );
 
+const reminderSchedule =
+  require(
+    "../../shared/notification/reminder-schedule"
+  );
+
 const DEFAULT_SEND_TIME =
   "15:00";
 
@@ -70,70 +75,11 @@ function calculateScheduledAt(
   car,
   options = {}
 ) {
-  const gameDate =
-    getCarDate(car);
-
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/
-      .test(gameDate)
-  ) {
-    return "";
-  }
-
-  const sendTime =
-    normalizeText(
-      options.sendTime
-    ) || DEFAULT_SEND_TIME;
-
-  if (
-    !/^\d{2}:\d{2}$/
-      .test(sendTime)
-  ) {
-    return "";
-  }
-
-  const offsetDays =
-    Number.isFinite(
-      Number(
-        options.offsetDays
-      )
-    )
-      ? Math.max(
-          0,
-          Math.floor(
-            Number(
-              options.offsetDays
-            )
-          )
-        )
-      : DEFAULT_OFFSET_DAYS;
-
-  const source =
-    `${gameDate}T${sendTime}:00+08:00`;
-
-  const date =
-    new Date(source);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  date.setTime(
-    date.getTime() -
-    (
-      offsetDays *
-      24 *
-      60 *
-      60 *
-      1000
-    )
-  );
-
-  return date.toISOString();
+  return reminderSchedule
+    .calculateScheduledAt(
+      car,
+      options
+    );
 }
 
 

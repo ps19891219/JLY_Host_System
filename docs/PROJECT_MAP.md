@@ -2,10 +2,22 @@
 
 > Status: Working Map
 >
-> Version: V2.90
+> Version: V2.91
 >
 > Last Updated: 2026-08-23
 >
+
+## V2.91 Reminder Due Queue + MyCar Seat Projection Sync（2026-08-23）
+
+- Reminder 正式規則仍為每台 Car 明確開啟一份 `cars/{carId}/reminders/preTrip`；開啟當下依 `gameDate`、`offsetDays=1`、`sendTime=15:00`、`Asia/Taipei` 先算好 `scheduledAt`，Scheduler 只喚醒 due-job Dispatcher，不以瀏覽器 Timer 或 Cars full scan 判斷提醒。
+- 修正 Reminder starvation：舊 Repository 先以 `scheduledAt <= now` 取前 30 筆後才在記憶體排除 `sent`，歷史已寄送文件可能長期佔滿 limit，使新到期提醒無法進入 Dispatcher。V2.91 改為 Firestore query 先限制 `status=scheduled AND scheduledAt<=now`、按 `scheduledAt` 排序後再 limit；正式複合 Collection Group index 定義於 `firestore.indexes.json`，Firebase 設定入口為 `firebase.json`。
+- 新增 `shared/notification/reminder-schedule.js` 作為 Browser／Server 共用的純 Schedule Core；LINE 開啟提醒、Car Detail 設定與 Edit Car 日期重排共用同一個 Asia/Taipei 計算規則。Activity 日期修改會更新同一份 schedule；Activity 取消／結束會將尚未寄送的 schedule 改為 `cancelled` 並清空 `scheduledAt`；既有 Firestore Transaction Claim 仍負責 duplicate protection。
+- Scheduler Adapter 維持 cron-job.org → `POST /api/run-reminders`；Dispatcher 只讀已到期、尚未處理的 Reminder，再依 `carId` 讀單台最新 Car 與 active LINE binding。沒有新增 browser polling、Cars full scan 或第二套雲端排程平台。
+- MyCar stale seat summary 根因為 `view-impact-resolver.js` 未把 `players`、`playerIds`、`slots` 與 capacity 欄位列入 MyCar impact；玩家核准／移除雖更新正式 Car 與 Car Detail View，MyCar Prepared View 被 Resolver 跳過。V2.91 將正式 Membership／Seat／Capacity mutation 接回既有 MyCar projection。
+- `membership-view-sync.js` 會以 mutation 已知的 before／after `playerIds` 與 `players[]` 解析這台 Car 的既有 Viewer Alias，增量更新 Owner 與所有已建立的 member MyCar Views；不掃 Cars、不掃 `myCarViews`，Staff／DM 不會混入 Player Membership。
+- MyCar 卡片的男女位、總人數與反串結果仍由正式 `slots[]`（以 `originalType` 判斷座位本質）建立 `seatSummary`；不新增第二份 count、不在 UI 手動加減，也不複製 Seat Engine 的寫入責任。
+- Runtime／cache entry 更新：`pages/car-detail.html` 載入 Common Reminder Schedule Core；`pages/editcar.html` 使用 `editcar.js?v=29`；View Runtime Loader 升級 Resolver cache version，Membership mutation loaders 升級 `membership-view-sync.js?v=2`。
+- Regression coverage：Reminder 15:00／Asia-Taipei、建立、日期重排、取消、防重複、due-only query；MyCar 玩家加入／移除、固定男女位、總人數、反串與所有已知 member views 同步。本輪不讀寫 Production Firestore、不 Migration、不 Push／Deploy。
 
 ## V2.90 Accounting Core Stabilization V1（2026-08-23）
 

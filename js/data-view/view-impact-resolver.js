@@ -14,6 +14,8 @@ console.log("view-impact-resolver.js 已成功載入！");
   const MYCAR_FIELDS = new Set([
     "scriptName", "gameDate", "gameTime", "status",
     "studioName", "location", "address", "ownerId",
+    "players", "playerIds", "slots", "maleSlots",
+    "femaleSlots", "flexibleSlots", "totalPeople",
     "updatedAt"
   ]);
 
