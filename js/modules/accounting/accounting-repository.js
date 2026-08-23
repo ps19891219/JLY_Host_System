@@ -904,12 +904,34 @@
       transaction.set(ref,next,{merge:false});
       if(pendingSnapshot.exists)transaction.set(pendingRef,{...pendingSnapshot.data(),status:"completed",completedAt:now,updatedAt:now,history:[...(pendingSnapshot.data().history||[]),{status:"completed",action,actorPersonId,at:now}]},{merge:false});
       if(action==="accept"){
-        const settlementId=`net-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-        const claim=window.JLYDelegatedPayment.createClaim({settlementId,activityId:carId,debtorPersonId:next.debtorPersonId,paidBy:actorPersonId,receiverPersonId:next.receiverPersonId,amount:next.amount,delegatedRequestId:requestId,reimbursementRequired:next.reimbursementRequired},now);
-        transaction.set(root.collection("accountingSettlements").doc(settlementId),claim,{merge:false});
-        transaction.set(root.collection("accountingPendingActions").doc(`net_confirmation-${settlementId}`),{pendingActionId:`net_confirmation-${settlementId}`,actionType:"payment_confirmation",responsiblePersonId:next.receiverPersonId,settlementId,transactionId:`delegated:${requestId}`,activityId:carId,carId,status:"pending",createdAt:now,updatedAt:now,completedAt:"",history:[{status:"pending",actorPersonId,at:now}]},{merge:false});
+        transaction.set(root.collection("accountingPendingActions").doc(`delegate_payment-${requestId}`),{pendingActionId:`delegate_payment-${requestId}`,actionType:"delegated_payment_due",responsiblePersonId:next.delegatePersonId,delegatePersonId:next.delegatePersonId,requestId,transactionId:`delegated:${requestId}`,activityId:carId,carId,status:"pending",createdAt:now,updatedAt:now,completedAt:"",debtorPersonId:next.debtorPersonId,receiverPersonId:next.receiverPersonId,amount:next.amount,history:[{status:"accepted",actorPersonId,at:now}]},{merge:false});
       }
       transaction.set(root.collection("accountingViews").doc(viewName),{schemaVersion:0,updatedAt:now},{merge:true});
+    });
+  }
+
+  async function claimAcceptedDelegatedRequest(carId, requestId, actorPersonId, requestedAmount) {
+    const db=requireDb(),root=db.collection("cars").doc(carId),now=new Date().toISOString();
+    const requestRef=root.collection("accountingDelegatedPayments").doc(requestId),pendingRef=root.collection("accountingPendingActions").doc(`delegate_payment-${requestId}`),viewRef=root.collection("accountingViews").doc(viewName);
+    await ensureActivityView(root);
+    await db.runTransaction(async transaction=>{
+      const [requestSnapshot,pendingSnapshot,viewSnapshot,carSnapshot]=await Promise.all([transaction.get(requestRef),transaction.get(pendingRef),transaction.get(viewRef),transaction.get(root)]);
+      if(!requestSnapshot.exists)throw new Error("delegated_payment_request_not_found");
+      if(!carSnapshot.exists)throw new Error("activity_not_found");
+      window.JLYDelegatedPayment.requireActivityMember(actorPersonId,activityMemberIds(carSnapshot.data()));
+      const request=requestSnapshot.data();
+      if(request.status!=="accepted"||actorPersonId!==request.delegatePersonId)throw new Error("delegated_payment_request_action_not_allowed");
+      const amount=Math.round(Number(requestedAmount)||0);
+      if(amount<=0||amount>Number(request.amount||0))throw new Error("delegated_payment_amount_invalid");
+      const view=viewSnapshot.data()||{};
+      if(netTransferAmount(view.settlementTransfers||view.obligationsByPair,request.debtorPersonId,request.receiverPersonId)<amount)throw new Error("net_settlement_amount_changed");
+      const settlementId=`net-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      const claim=window.JLYDelegatedPayment.createClaim({settlementId,activityId:carId,debtorPersonId:request.debtorPersonId,paidBy:actorPersonId,receiverPersonId:request.receiverPersonId,amount,delegatedRequestId:requestId,reimbursementRequired:false},now);
+      transaction.set(root.collection("accountingSettlements").doc(settlementId),claim,{merge:false});
+      transaction.set(requestRef,{...request,status:"payment_claimed",claimedAmount:amount,settlementId,paymentClaimedAt:now,updatedAt:now,history:[...(request.history||[]),{action:"payment_claimed",actorPersonId,amount,at:now}]},{merge:false});
+      if(pendingSnapshot.exists)transaction.set(pendingRef,{...pendingSnapshot.data(),status:"completed",completedAt:now,updatedAt:now,history:[...(pendingSnapshot.data().history||[]),{status:"completed",actorPersonId,at:now}]},{merge:false});
+      transaction.set(root.collection("accountingPendingActions").doc(`net_confirmation-${settlementId}`),{pendingActionId:`net_confirmation-${settlementId}`,actionType:"payment_confirmation",responsiblePersonId:request.receiverPersonId,settlementId,requestId,transactionId:`delegated:${requestId}`,activityId:carId,carId,status:"pending",createdAt:now,updatedAt:now,completedAt:"",history:[{status:"pending",actorPersonId,at:now}]},{merge:false});
+      transaction.set(viewRef,{schemaVersion:0,updatedAt:now},{merge:true});
     });
   }
 
@@ -1014,6 +1036,7 @@
     transitionNetSettlement,
     createDelegatedRequest,
     transitionDelegatedRequest,
+    claimAcceptedDelegatedRequest,
     activityMemberIds
   };
 })();

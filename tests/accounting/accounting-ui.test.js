@@ -71,8 +71,8 @@ test("互抵後明細依正式方向顯示付款或收款", () => {
 });
 
 test("淨額付款由付款方申報並由收款方確認", () => {
-  assert.match(render, />送出部分付款<\/button>/);
-  assert.match(render, />全部付清<\/button>/);
+  assert.match(render, />確認支付<\/button>/);
+  assert.match(render, /data-payment-sheet-toggle>付款<\/button>/);
   assert.match(render, />確認收款<\/button>/);
   assert.match(actions, /onNetSettlement/);
   assert.match(repository, /status:\s*"payment_claimed"/);
@@ -151,8 +151,8 @@ test("結算小視窗沿用已載入的個人淨額，不另外查詢資料", ()
 
 test("下方分帳明細唯讀，上方互抵總額支援部分付款與全額付清", () => {
   assert.match(render, /accounting-net-amount/);
-  assert.match(render, />送出部分付款</);
-  assert.match(render, />全部付清</);
+  assert.match(render, />確認支付</);
+  assert.match(render, /本次支付/);
   assert.doesNotMatch(render, /已列入彙總/);
   assert.match(render, /accounting-split-list/);
   assert.doesNotMatch(render, /accounting-settlement-row[^`]*data-action/);
@@ -198,7 +198,7 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /<span>玩家繳費<\/span><small>待收/);
   assert.doesNotMatch(feeController, /data-summary-key/);
   assert.match(feeController, /付款項目，例如：預付訂金/);
-  assert.match(feeController, /＋ 新增額外費用/);
+  assert.match(feeController, />新增額外費用<\/button>/);
   assert.match(feeController, /id="feeItemForm" class="accounting-quick-form" hidden/);
   assert.match(feeController, /id="memberFeeForm" class="accounting-quick-form" hidden/);
   assert.match(feeController, /id="vendorPaymentForm" class="accounting-quick-form" hidden/);

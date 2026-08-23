@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const views = new Set(["overview", "transactions", "people", "studio", "history"]);
+  const views = new Set(["overview", "transactions", "people", "history"]);
   const personSubviews = new Set(["ledger", "payable", "receivable", "processing", "payment"]);
 
   function text(value) { return String(value || "").trim(); }
@@ -14,6 +14,7 @@
   }
   function normalize(input, currentPersonId) {
     const state = Object.assign(initial(currentPersonId), input || {});
+    if (state.view === "studio") state.view = "overview";
     if (!views.has(state.view)) state.view = "overview";
     if (!personSubviews.has(state.subview)) state.subview = "ledger";
     state.personId = text(state.personId || currentPersonId);
@@ -36,7 +37,8 @@
     if (type === "payment_confirmation") return normalize({ view: "people", personId: text(item.receiverPersonId || item.toPersonId || item.responsiblePersonId || currentPersonId), subview: "processing", settlementId: text(item.settlementId || sourceId), sourceType: "settlement", sourceId }, currentPersonId);
     if (type === "payment_due" || type === "settlement_rejected") return normalize({ view: "people", personId: text(item.responsiblePersonId || item.fromPersonId || item.debtorPersonId || currentPersonId), subview: "payable", settlementId: text(item.settlementId), sourceType: item.settlementId ? "settlement" : "obligation", sourceId }, currentPersonId);
     if (type === "delegated_payment_acceptance") return normalize({ view: "people", personId: text(item.responsiblePersonId || item.delegatePersonId || currentPersonId), subview: "processing", requestId: text(item.requestId || sourceId), sourceType: "delegated_request", sourceId }, currentPersonId);
-    if (type.indexOf("studio") >= 0 || type.indexOf("vendor") >= 0 || text(item.sourceType).indexOf("studio") >= 0) return normalize({ view: "studio", subview: "payment", sourceType: "studio_payment", sourceId }, currentPersonId);
+    if (type === "delegated_payment_due") return normalize({ view: "people", personId: text(item.responsiblePersonId || item.delegatePersonId || currentPersonId), subview: "processing", requestId: text(item.requestId || sourceId), sourceType: "delegated_payment_due", sourceId }, currentPersonId);
+    if (type.indexOf("studio") >= 0 || type.indexOf("vendor") >= 0 || text(item.sourceType).indexOf("studio") >= 0) return normalize({ view: "overview", subview: "payment", sourceType: "studio_payment", sourceId }, currentPersonId);
     return normalize({ view: "people", personId: text(item.responsiblePersonId || currentPersonId), subview: "processing", sourceType: text(item.sourceType || "pending"), sourceId }, currentPersonId);
   }
 

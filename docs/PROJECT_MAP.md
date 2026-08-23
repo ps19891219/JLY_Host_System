@@ -2,10 +2,20 @@
 
 > Status: Working Map
 >
-> Version: V2.97
+> Version: V2.98
 >
 > Last Updated: 2026-08-24
 >
+
+## V2.98 Accounting UX Consolidation（2026-08-24）
+
+- Activity Accounting 正式改為「店家帳務固定上層＋玩家帳務四分頁」。店家費用、店家總應收／已支付／還要付與四個收合明細不再是玩家 Tab；玩家分頁只保留總覽／逐筆帳目／人物明細／歷史紀錄。既有 `studio` Navigation State 會安全正規化至總覽，店家 Pending／劇本金額仍透過同一 Navigation State 精準定位固定店家卡。
+- 店家主畫面移除大型「新增付款」，右上選單統一為「新增額外費用／支付店家／登記玩家繳費／記錄店家退款」。調整紀錄以正式 Activity Member 顯示名稱解析操作者；無法解析時只顯示主揪／系統使用者，不向 UI 暴露 UUID。
+- 我的帳務摘要壓縮為「我欠誰／誰欠我／互抵後」三格，點擊仍導向目前 Person 的人物明細；付款操作收進指定 Person Pair 的第二層 Payment Sheet，支援本次金額（部分／分次）、一般付款、次要選單的幫他代付與請人代付，不增加工程名詞按鈕。
+- Delegated request lifecycle 正式校正為 `pending_acceptance → accepted → payment_claimed → settled`。接受只完成原接受待辦並建立責任人為 delegate 的 `delegated_payment_due`；delegate 另按付款時才建立正式 Settlement 與收款確認 Pending。`accepted ≠ paid`，原債務人／實際付款人／收款人語意保持分離。
+- Full directed transfer 與 reimbursement 超額代墊仍為 **INCOMPLETE / BLOCKED**；LINE 還款文字指令仍為 Future。本輪不改 Firestore Schema、不 Migration、不建立第二套 Ledger；LINE 仍讀同一 canonical Settlement 狀態。
+- LINE Accounting 不新增指令或第二套 Action；只同步 Pending 文案，使 `delegated_payment_acceptance` 顯示待回覆、`delegated_payment_due` 顯示已接受待付款，避免 accepted 後仍顯示成未接受。
+- Runtime cache entry：`accounting.css?v=18`、`accounting-repository.js?v=18`、`accounting-render.js?v=19`、`accounting-navigation.js?v=2`、`accounting-actions.js?v=11`、`accounting-controller.js?v=22`、`activity-fee-controller.js?v=11`、`group-assistant.js?v=12`。
 
 ## V2.97 Accounting UI Focus Pass 1（2026-08-24）
 

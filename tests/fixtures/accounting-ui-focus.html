@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Accounting UI Focus Browser Regression</title>
-  <link rel="stylesheet" href="/css/pages/accounting.css?v=17">
+  <link rel="stylesheet" href="/css/pages/accounting.css?v=18">
   <style>body{margin:0;padding:12px;background:#fffaf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{display:grid;gap:20px;max-width:680px;margin:auto}.fixture-card{padding:14px;background:#fff;border-radius:18px}#browserRuntimeResult{position:fixed;right:8px;bottom:8px;padding:8px;background:#fff;border:1px solid #ddd}</style>
 </head>
 <body>
@@ -13,7 +13,8 @@
     <section id="entryMount" class="fixture-card"></section>
   </main>
   <output id="browserRuntimeResult">RUNNING</output>
-  <script src="/js/modules/accounting/accounting-render.js?v=18"></script>
+  <script src="/js/modules/accounting/accounting-render.js?v=19"></script>
+  <script src="/js/modules/accounting/accounting-actions.js?v=11"></script>
   <script src="/js/modules/accounting/activity-fee-data.js"></script>
   <script>
     window.JLYActivityFeeRepository = {
@@ -46,7 +47,7 @@
       cancelVendorPayment: async function () {}
     };
   </script>
-  <script src="/js/modules/accounting/activity-fee-controller.js?v=10"></script>
+  <script src="/js/modules/accounting/activity-fee-controller.js?v=11"></script>
   <script>
     (async function () {
       var members = [
@@ -72,21 +73,32 @@
           ]
         }],
         currentPersonId: "payer", viewPersonId: "payer", isManager: false, managementMode: false,
-        counts: { total: 0, paymentConfirmation: 0 }, personalSettlement: { payable: 0, receivable: 0, transfers: [] },
-        personalObligations: { payable: [], receivable: [], payableTotal: 0, receivableTotal: 0 },
+        counts: { total: 1, paymentConfirmation: 0 }, personalSettlement: { payable: 125, receivable: 0, transfers: [{ fromPersonId: "payer", toPersonId: "member-shijie", amount: 125 }] },
+        personalObligations: { payable: [{ fromPersonId: "payer", toPersonId: "member-shijie", amount: 125 }], receivable: [], payableTotal: 125, receivableTotal: 0 },
+        netSettlement: { transfers: [{ fromPersonId: "payer", toPersonId: "member-shijie", amount: 125 }] },
+        pendingActions: [{ actionType: "delegated_payment_due", responsiblePersonId: "payer", requestId: "req-1", receiverPersonId: "member-shijie", amount: 80 }], pendingDrafts: [],
         activeNetSettlements: [], settlementHistory: [], detailMode: true, detailHasMore: false,
         getFilterState: function () { return "settled"; }
       });
       document.getElementById("entryMount").innerHTML = html;
+      window.JLYAccountingActions.bind({
+        section: document.getElementById("entryMount"), transactions: [],
+        onSave: async function () {}, onSplit: async function () {}, onSettlement: async function () {},
+        onNetSettlement: async function () {}, onViewAll: async function () {}, onLoadMore: async function () {}, onReload: function () {}
+      });
       var totals = document.querySelectorAll(".accounting-store-totals span");
       var entry = document.querySelector('[data-transaction-id="drink-350"]');
       var okay = totals.length === 3 &&
         Array.from(totals).filter(function (node) { return node.textContent.indexOf("店家總應收") >= 0; }).length === 1 &&
-        document.querySelector(".accounting-studio-add-payment") &&
+        !document.querySelector(".accounting-studio-add-payment") &&
+        ["新增額外費用", "支付店家", "登記玩家繳費", "記錄店家退款"].every(function (label) { return document.getElementById("studioFeeMenu").textContent.indexOf(label) >= 0; }) &&
+        document.getElementById("studioAuditDetails").textContent.indexOf("86369a39-4fec-46ad-9afc-a60558dc8a9c") < 0 &&
         entry && entry.textContent.indexOf("付款人：小霙") >= 0 &&
         entry.textContent.indexOf("分帳完成") >= 0 &&
         entry.textContent.indexOf("已列入彙總") < 0 &&
         entry.textContent.indexOf("同一成員有 2 筆分帳資料") >= 0 &&
+        document.querySelector('[data-payment-sheet-toggle]') &&
+        document.querySelector('[data-action="pay_accepted_delegate"]') &&
         document.documentElement.scrollWidth <= window.innerWidth;
       document.getElementById("browserRuntimeResult").textContent = okay ? "PASS" : "FAIL";
     })().catch(function (error) {
