@@ -2,10 +2,19 @@
 
 > Status: Working Map
 >
-> Version: V2.92
+> Version: V2.93
 >
 > Last Updated: 2026-08-23
 >
+
+## V2.93 Activity Accounting Navigation Calibration（2026-08-23）
+
+- 修正 V2.92 手機 Runtime 只看得到單一大型 active Tab 的 Regression：`css/pages/accounting.css` 現在以 scoped `width:auto / min-width:max-content` 覆蓋全域按鈕寬度，Car Detail 帳務固定顯示可橫向滑動的 `總覽／逐筆明細／人物明細／工作室帳務／歷史紀錄` 五個入口。
+- 新增 Current UI 模組 `js/modules/accounting/accounting-navigation.js`，只負責 Car Detail Accounting 的 View Navigation State（target view、Person、人物子分頁與 canonical source id）；它不是 Firebase Schema、Prepared View 或第二份帳務資料。`pages/car-detail.html` 在 Controller 前載入此模組。
+- `總覽` 恢復目前 Person 的 `我要支付／我要收回／處理後還要支付／處理後還待收回`，來源仍是既有 gross Obligation 與 Pairwise Projection。`人物明細` 改為 `帳目／待付／待收／處理中` 按鈕式子分頁，不建立 balance 欄位。
+- Pending Action 現在是正式 Action Index：待分帳定位指定 Transaction、待付款定位指定 Person 的待付、待確認與 Delegated request 定位處理中、Studio 待付款定位付款表單。導覽沿用 source id，不再只收合 Pending 或近似捲動到某個大區塊。
+- 工作室帳務 View 的主畫面校正為 `總費用／還要付／＋新增付款／付款紀錄`；既有費用、玩家收款、Audit 與低頻修正能力仍沿用 Activity Fee Runtime，未修改 Studio Accounting Core。
+- 本輪只校正 Car Detail Render／Navigation；Transaction、Split、Pairwise、Settlement、LINE canonical/scoped read 與受限操作均未修改。自動測試基準更新為 `241 pass / 0 fail`；目前是 DOM + Navigation State integration coverage，仍不等同真實手機 Browser E2E。
 
 ## V2.92 Activity Accounting Experience V1（2026-08-23）
 
