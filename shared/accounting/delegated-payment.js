@@ -16,6 +16,13 @@
     if (!left || !right || left === right) throw new Error(error);
   };
 
+  function requireActivityMember(personId, activityMemberIds) {
+    const actor = text(personId);
+    const members = new Set((activityMemberIds || []).map(text).filter(Boolean));
+    if (!actor || !members.has(actor)) throw new Error("delegated_payment_activity_member_required");
+    return actor;
+  }
+
   function createRequest(input = {}, now = new Date().toISOString()) {
     const requestId = text(input.requestId);
     const activityId = text(input.activityId || input.carId);
@@ -84,5 +91,5 @@
     };
   }
 
-  return { MODEL, createRequest, transitionRequest, createClaim, buildReimbursementObligation };
+  return { MODEL, createRequest, transitionRequest, createClaim, buildReimbursementObligation, requireActivityMember };
 });

@@ -2,10 +2,22 @@
 
 > Status: Working Map
 >
-> Version: V2.89
+> Version: V2.90
 >
-> Last Updated: 2026-08-22
+> Last Updated: 2026-08-23
 >
+
+## V2.90 Accounting Core Stabilization V1（2026-08-23）
+
+- Studio Accounting 右上操作選單維持既有三個 Action，並由 `css/pages/accounting.css` 的 scoped `.accounting-fee-menu button` 明確覆寫深色文字；不修改全站 `button` 規則，disabled 狀態仍使用灰色。此修復解決正式手機站白底 Popover 內白字不可見的 regression。
+- `services/accounting/transaction.js` 修正 completed Transaction 的 return 順序；正式 Transaction 現在會保存由 Split／Payment 產生的 `obligations[]`、`sourceTransactionId` 與 `responsibilityModel=pairwise_v1`，舊資料仍由 Pairwise 相容讀取，不 Migration、不回寫正式資料。
+- Accounting Runtime 移除跨 Person 最佳化的 degraded fallback：Repository 缺少 Pairwise Engine 時回報 `accounting_pairwise_engine_unavailable`，Controller 缺少正式 `settlementTransfers` 時回報 `accounting_pairwise_view_unavailable`；不得以 `balanceByPerson` 偷偷重新配對第三人。舊 helper 暫保留供 Legacy Audit，但不再是正式 Runtime fallback。
+- Delegated Payment Repository 在主動代付、建立請人代付與接受／拒絕前，會重新讀取該 Car 並驗證實際操作者／被指定者屬於正式 Activity Membership；不能只靠前端按鈕或傳入 `delegated_claim` 取得權限。被指定者接受／拒絕的 Domain 限制保持不變。
+- Settlement History 依正式 `debtorPersonId/fromPersonId`、`paidBy/paymentClaimedBy`、`receiverPersonId/toPersonId` 呈現；一般付款顯示「A 付款給 B」，第三人代付顯示「C 代 A 支付給 B」，舊資料缺 `paidBy` 時安全回退一般付款顯示。
+- Delegated Payment 已進 Runtime，但目前正式狀態仍為 **INCOMPLETE**：本輪只穩定 Membership 權限與歷史方向；reimbursement 持久化／管理 UI、完整管理與歷史頁、以及 accepted 後另行付款流程均未施工。現行「接受並申報已付款」保持不變。
+- Studio Accounting 仍是 Script Village Activity Fee Extension；`accountingExternalPayments.settlementStatus` 是 Extension-level 平行核銷狀態，尚未完全統一進 Common `accountingSettlements`。已連結 JLY Studio 雙方 Settlement、Studio Pending、折扣及錯誤更正完整 Audit 仍未完成。
+- Runtime 修改：`services/accounting/transaction.js`、`shared/accounting/delegated-payment.js`、`js/modules/accounting/accounting-repository.js`、`accounting-controller.js`、`accounting-render.js`、`css/pages/accounting.css`；`pages/car-detail.html` 同步更新上述資產 cache version。Regression tests 更新 `accounting-core.test.js`、`accounting-view-chain.test.js`、`accounting-ui.test.js`、`delegated-payment.test.js`。
+- Automated tests：`217 tests / 217 pass / 0 fail`；本輪未讀寫 Production Firestore、未 Migration、未 Push／Deploy。
 
 ## V2.89 Delegated Payment V1 Runtime（2026-08-22）
 
@@ -32,7 +44,7 @@
 
 ## V2.87 Studio Accounting V1 店家帳務收口（2026-08-22）
 
-- 本節續寫既有 JLY Accounting Core 藍圖；Studio Accounting 仍是 Activity Fee 的工作室 View，不建立第二份 Transaction、Split 或 Settlement。
+- 本節續寫既有 JLY Accounting Core 藍圖；Studio Accounting 是 Activity Fee 的工作室 View，不建立第二份 Common Transaction／Split；但目前 `accountingExternalPayments.settlementStatus` 仍是 Extension-level 平行核銷狀態，尚未完全接入 Common `accountingSettlements`。
 - KEEP：工作室名稱由正式 Car 的 `studioName / organizerName / organizer` 帶入；基本劇本費固定使用 `totalPeople × car.price`；玩家繳費 `accountingFeeCollections` 與店家收付款 `accountingExternalPayments` 維持兩條獨立金流；額外費用仍沿用 `accountingFeePlans/scriptFee.feeItems[]` 與既有分攤邏輯。
 - 店家摘要正式規則：沒有額外費用時只顯示「劇本費用／已付款／待付款」；存在正式額外費用時才增加「額外費用／總額」。付款與退款只改變已付／待付，不改寫基本費或費用總額。
 - 店家收付款改為 append-only 顯示：可分次登記預付、尾款等付款，退款使用獨立 `kind=refund` 紀錄；原付款、退款、時間及 `accountingFeeAuditLogs` 歷史預設收合並永久保留。
@@ -942,7 +954,7 @@ Pending Action 是流程與責任人資料，不是第二份金額來源。完�
 
 Car Detail 明細預設收合，第一次展開才分頁讀取正式 `accountingEntries` 並讀取最近 `accountingSettlements`；Transaction、Split、付款／收款及 Settlement 歷史不因結清消失。劇本費與工作室核銷仍由 Script Village Activity Fee Extension 負責，玩家收款與工作室付款不得合併成同一狀態。
 
-後續待辦仍包含代付、訪客 Person 與完整 Pending Action 擴充；它們不是目前已完成基準，不得在未驗收前標記完成。
+Delegated Payment 已由 V2.89 接入 Runtime，並於 V2.90 完成基礎權限與歷史方向穩定化，但整體仍為 INCOMPLETE；後續待辦是 reimbursement 正式持久化／管理 UI、Delegated Payment 完整管理與歷史頁、訪客 Person 與完整 Pending Action 擴充。不得把「代付整體尚未開始」或「代付已完整完成」列為目前基準。
 
 早期帳目若缺少正式 `createdBy`／`paidBy` Person ID，必須保留原資料並標記 `identity_resolution_required`；不可把 LINE userId 當作 Person ID，也不可用顯示名稱猜測。完成身分解析前不產生個人 Pending Action。
 

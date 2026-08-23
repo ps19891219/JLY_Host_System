@@ -56,6 +56,41 @@ test("payer own share is already settled and does not create a payment action", 
   assert.equal(actions[0].responsiblePersonId,"friend");
 });
 
+test("completed transaction persists formal pairwise obligations", () => {
+  const transaction = createTransaction({
+    transactionId: "tx-obligation",
+    activityId: "car-1",
+    createdBy: "creator",
+    paidBy: "receiver",
+    title: "晚餐",
+    amount: 600,
+    splitStatus: "completed",
+    splits: [
+      { personId: "receiver", amount: 300 },
+      { personId: "debtor", amount: 300 }
+    ]
+  });
+
+  assert.equal(Array.isArray(transaction.obligations), true);
+  assert.equal(transaction.obligations.length, 1);
+  assert.deepEqual(
+    {
+      fromPersonId: transaction.obligations[0].fromPersonId,
+      toPersonId: transaction.obligations[0].toPersonId,
+      amount: transaction.obligations[0].amount,
+      sourceTransactionId: transaction.obligations[0].sourceTransactionId,
+      responsibilityModel: transaction.obligations[0].responsibilityModel
+    },
+    {
+      fromPersonId: "debtor",
+      toPersonId: "receiver",
+      amount: 300,
+      sourceTransactionId: "tx-obligation",
+      responsibilityModel: "pairwise_v1"
+    }
+  );
+});
+
 test(
   "transaction supports multiple actual payers",
   () => {

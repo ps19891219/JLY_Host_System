@@ -328,7 +328,7 @@
 .accounting-fee-menu-button { min-width: 44px; min-height: 44px; border: 0; border-radius: 12px; background: #3f846f; color: #fff; font-size: 1.35rem; font-weight: 800; }
 .accounting-fee-menu { position: absolute; z-index: 5; top: 48px; right: 0; display: grid; width: min(230px,75vw); padding: 7px; border: 1px solid #ddd5cc; border-radius: 12px; background: #fff; box-shadow: 0 10px 26px rgba(40,47,44,.16); }
 .accounting-fee-menu[hidden] { display: none; }
-.accounting-fee-menu button { min-height: 42px; padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; text-align: left; font: inherit; }
+.accounting-fee-menu button { min-height: 42px; padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; color: #2d322f; text-align: left; font: inherit; }
 .accounting-fee-menu button:hover { background: #f2f7f5; }
 .accounting-fee-menu button:disabled { color: #aaa; cursor: not-allowed; }
 .accounting-fee-notice { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff7df; color: #6e5b25; font-size: .84rem; }

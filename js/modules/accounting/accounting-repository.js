@@ -18,6 +18,22 @@
     return Math.round(Number(value) || 0);
   }
 
+  function activityMemberIds(car) {
+    const source = car || {};
+    if (window.JLYAccountingData && typeof window.JLYAccountingData.collectActivityMembers === "function") {
+      return window.JLYAccountingData.collectActivityMembers(source).map(item => text(item.personId));
+    }
+    const ids = new Set([text(source.ownerId)]);
+    const add = item => {
+      const nested = item && (item.memberSnapshot || item.member || item.player) || {};
+      const id = text(item && (item.personId || item.memberId || item.playerId || item.profileId || item.id) || nested.personId || nested.memberId || nested.playerId || nested.profileId || nested.id);
+      if (id) ids.add(id);
+    };
+    (source.players || []).forEach(add);
+    (source.staffSlots || []).forEach(add);
+    return [...ids].filter(Boolean);
+  }
+
   function actionCounts(actions) {
     const result = {
       total: 0,
@@ -208,14 +224,13 @@
     const reimbursementObligations = delegated && typeof delegated.buildReimbursementObligation === "function"
       ? (settlements || []).map(item => delegated.buildReimbursementObligation(item)).filter(Boolean)
       : [];
-    const settlementTransfers =
-      pairwise &&
-      typeof pairwise.aggregatePairwiseObligations === "function"
-        ? pairwise.aggregatePairwiseObligations(
-            [],
-            [...grossObligations, ...reimbursementObligations]
-          )
-        : buildSettlementPlan(currentBalance);
+    if (!pairwise || typeof pairwise.aggregatePairwiseObligations !== "function") {
+      throw new Error("accounting_pairwise_engine_unavailable");
+    }
+    const settlementTransfers = pairwise.aggregatePairwiseObligations(
+      [],
+      [...grossObligations, ...reimbursementObligations]
+    );
 
     return {
       schemaVersion: VIEW_SCHEMA_VERSION,
@@ -729,14 +744,21 @@
     await ensureActivityView(root);
 
     await db.runTransaction(async transaction => {
-      const snapshot = await transaction.get(viewRef);
+      const [snapshot, carSnapshot] = await Promise.all([
+        transaction.get(viewRef),
+        transaction.get(root)
+      ]);
       const view = snapshot.data() || {};
       const from = String(input.fromPersonId || "");
       const to = String(input.toPersonId || "");
       const amount = Number(input.amount) || 0;
       const managerClaim = input.action === "manager_claim";
       const delegatedClaim = input.action === "delegated_claim";
-      const allowed = input.actorPersonId === from || delegatedClaim || (
+      if (delegatedClaim) {
+        if (!carSnapshot.exists) throw new Error("activity_not_found");
+        window.JLYDelegatedPayment.requireActivityMember(input.actorPersonId, activityMemberIds(carSnapshot.data()));
+      }
+      const allowed = input.actorPersonId === from || (delegatedClaim && input.actorPersonId !== from && input.actorPersonId !== to) || (
         managerClaim &&
         input.actorPersonId === input.managerPersonId &&
         !input.targetUsesSystem
@@ -816,8 +838,12 @@
     const ref=root.collection("accountingDelegatedPayments").doc(id),actionRef=root.collection("accountingPendingActions").doc(`delegate_acceptance-${id}`);
     await ensureActivityView(root);
     await db.runTransaction(async transaction=>{
-      const viewSnapshot=await transaction.get(root.collection("accountingViews").doc(viewName));
+      const [viewSnapshot,carSnapshot]=await Promise.all([transaction.get(root.collection("accountingViews").doc(viewName)),transaction.get(root)]);
       const view=viewSnapshot.data()||{};
+      if(!carSnapshot.exists)throw new Error("activity_not_found");
+      const memberIds=activityMemberIds(carSnapshot.data());
+      window.JLYDelegatedPayment.requireActivityMember(request.requestedBy,memberIds);
+      window.JLYDelegatedPayment.requireActivityMember(request.delegatePersonId,memberIds);
       if(netTransferAmount(view.settlementTransfers||view.obligationsByPair,request.debtorPersonId,request.receiverPersonId)<request.amount)throw new Error("net_settlement_amount_changed");
       transaction.set(ref,request,{merge:false});
       transaction.set(actionRef,{pendingActionId:`delegate_acceptance-${id}`,actionType:"delegated_payment_acceptance",responsiblePersonId:request.delegatePersonId,requestId:id,transactionId:`delegated:${id}`,activityId:carId,carId,status:"pending",createdAt:now,updatedAt:now,completedAt:"",debtorPersonId:request.debtorPersonId,receiverPersonId:request.receiverPersonId,amount:request.amount,reimbursementRequired:request.reimbursementRequired,history:[{status:"pending",actorPersonId:request.requestedBy,at:now}]},{merge:false});
@@ -831,8 +857,10 @@
     const ref=root.collection("accountingDelegatedPayments").doc(requestId),pendingRef=root.collection("accountingPendingActions").doc(`delegate_acceptance-${requestId}`);
     await ensureActivityView(root);
     await db.runTransaction(async transaction=>{
-      const [requestSnapshot,pendingSnapshot,viewSnapshot]=await Promise.all([transaction.get(ref),transaction.get(pendingRef),transaction.get(root.collection("accountingViews").doc(viewName))]);
+      const [requestSnapshot,pendingSnapshot,viewSnapshot,carSnapshot]=await Promise.all([transaction.get(ref),transaction.get(pendingRef),transaction.get(root.collection("accountingViews").doc(viewName)),transaction.get(root)]);
       if(!requestSnapshot.exists)throw new Error("delegated_payment_request_not_found");
+      if(!carSnapshot.exists)throw new Error("activity_not_found");
+      window.JLYDelegatedPayment.requireActivityMember(actorPersonId,activityMemberIds(carSnapshot.data()));
       const next=window.JLYDelegatedPayment.transitionRequest(requestSnapshot.data(),action,actorPersonId,now);
       const view=viewSnapshot.data()||{};
       if(action==="accept"&&netTransferAmount(view.settlementTransfers||view.obligationsByPair,next.debtorPersonId,next.receiverPersonId)<next.amount)throw new Error("net_settlement_amount_changed");
@@ -948,6 +976,7 @@
     claimNetSettlement,
     transitionNetSettlement,
     createDelegatedRequest,
-    transitionDelegatedRequest
+    transitionDelegatedRequest,
+    activityMemberIds
   };
 })();

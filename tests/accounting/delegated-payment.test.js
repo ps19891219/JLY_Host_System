@@ -1,7 +1,10 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const delegated = require("../../shared/accounting/delegated-payment");
+const repositorySource = fs.readFileSync(path.join(__dirname,"../../js/modules/accounting/accounting-repository.js"),"utf8");
 
 const base = { settlementId:"s1", activityId:"car1", debtorPersonId:"B", paidBy:"A", receiverPersonId:"S", amount:500 };
 test("主動代付保留原債務人與實際付款人",()=>{const x=delegated.createClaim(base,"t1");assert.equal(x.fromPersonId,"B");assert.equal(x.paidBy,"A");assert.equal(x.delegatedPayment,true);});
@@ -21,3 +24,12 @@ test("明確同意且結清後才產生 reimbursement",()=>{const s={...delegate
 test("未結清不產生 reimbursement",()=>assert.equal(delegated.buildReimbursementObligation(delegated.createClaim({...base,reimbursementRequired:true})),null));
 test("reimbursement 不增加 Activity 支出",()=>{const s={...delegated.createClaim({...base,reimbursementRequired:true}),status:"settled"};assert.equal(delegated.buildReimbursementObligation(s).affectsActivityExpense,false);});
 test("代付 Audit 保留實際付款人與原債務人",()=>{const s=delegated.createClaim(base,"t1");assert.deepEqual({actor:s.history[0].actorPersonId,debtor:s.history[0].debtorPersonId},{actor:"A",debtor:"B"});});
+test("正式 Activity Member 可進行代付",()=>{assert.equal(delegated.requireActivityMember("A",["A","B","S"]),"A");const claim=delegated.createClaim(base);assert.deepEqual({debtor:claim.debtorPersonId,payer:claim.paidBy,receiver:claim.toPersonId},{debtor:"B",payer:"A",receiver:"S"});});
+test("非 Activity Member 不可只靠 delegated_claim 取得權限",()=>assert.throws(()=>delegated.requireActivityMember("outsider",["A","B","S"]),/activity_member_required/));
+test("Repository 對主動代付與請人代付都重新讀取 Activity Membership",()=>{
+  assert.match(repositorySource,/transaction\.get\(root\)/);
+  assert.match(repositorySource,/requireActivityMember\(input\.actorPersonId, activityMemberIds\(carSnapshot\.data\(\)\)\)/);
+  assert.match(repositorySource,/requireActivityMember\(request\.delegatePersonId,memberIds\)/);
+  assert.match(repositorySource,/requireActivityMember\(actorPersonId,activityMemberIds\(carSnapshot\.data\(\)\)\)/);
+  assert.doesNotMatch(repositorySource,/input\.actorPersonId === from \|\| delegatedClaim \|\|/);
+});

@@ -117,16 +117,25 @@ test("確認核銷只降低目前待結清，不改寫歷史實付與負擔", ()
   assert.equal(summary.outstandingAmount, 500);
 });
 
-test("Car Detail 可直接由 balanceByPerson 產生全車最佳化方案", () => {
-  const result = accountingData.netSettlementFromBalances([
-    { personId: "A", balance: 600 },
-    { personId: "B", balance: -300 },
-    { personId: "C", balance: -300 }
+test("Pairwise degraded path 不得把 A→B、B→C 改成 A→C", () => {
+  const result = accountingData.netSettlementFromObligations([
+    { fromPersonId: "A", toPersonId: "B", amount: 100 },
+    { fromPersonId: "B", toPersonId: "C", amount: 100 }
   ]);
-
   assert.deepEqual(result.transfers, [
-    { fromPersonId: "B", toPersonId: "A", amount: 300 },
-    { fromPersonId: "C", toPersonId: "A", amount: 300 }
+    { fromPersonId: "A", toPersonId: "B", amount: 100 },
+    { fromPersonId: "B", toPersonId: "C", amount: 100 }
+  ]);
+  assert.equal(result.transfers.some(item => item.fromPersonId === "A" && item.toPersonId === "C"), false);
+});
+
+test("Pairwise 仍允許同一對 Person 雙向抵銷", () => {
+  const result = accountingData.netSettlementFromObligations([
+    { fromPersonId: "A", toPersonId: "B", amount: 100 },
+    { fromPersonId: "B", toPersonId: "A", amount: 40 }
+  ]);
+  assert.deepEqual(result.transfers, [
+    { fromPersonId: "A", toPersonId: "B", amount: 60 }
   ]);
 });
 
@@ -142,8 +151,12 @@ test("Car Detail controller 不再從 pairwise obligations 重算誰欠誰", () 
 
   assert.equal(controller.includes("netSettlementFromObligations(dashboard.obligationsByPair)"), false);
   assert.equal(controller.includes("dashboard.settlementTransfers"), true);
+  assert.equal(controller.includes("netSettlementFromBalances(dashboard.balanceByPerson"), false);
+  assert.equal(controller.includes("accounting_pairwise_view_unavailable"), true);
   assert.equal(repository.includes("VIEW_SCHEMA_VERSION = 7"), true);
   assert.equal(repository.includes("summarySourceVersion"), true);
+  assert.equal(repository.includes(": buildSettlementPlan(currentBalance)"), false);
+  assert.equal(repository.includes("accounting_pairwise_engine_unavailable"), true);
 });
 
 test("Car Detail 明細直接讀 canonical accountingEntries，不以 activityCurrent recentTransactions 當正式歷史", () => {

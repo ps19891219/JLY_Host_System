@@ -404,7 +404,7 @@ function createTransaction(
   // Result
   // ----------------------------------------------------------
 
-  return {
+  const result = {
     transactionId,
 
     activityId,
