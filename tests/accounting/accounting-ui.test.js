@@ -218,9 +218,12 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.doesNotMatch(feeController, /name="category"/);
   assert.match(feeController, /studioSummaryItems/);
   assert.match(feeController, /工作室收付款/);
-  assert.match(feeController, /等待人工核銷/);
-  assert.match(feeController, /data-vendor-settle/);
-  assert.match(feeController, /settleVendorPayment/);
+  assert.match(feeController, /manager_confirmed_payment_v1/);
+  assert.match(feeController, /data-vendor-edit/);
+  assert.match(feeController, /data-vendor-cancel/);
+  assert.match(feeController, /data-vendor-refund/);
+  assert.match(feeRepository, /vendor_payment_corrected/);
+  assert.match(feeRepository, /vendor_payment_cancelled/);
   assert.match(feeRepository, /vendor_payment_manually_settled/);
   assert.match(feeRepository, /pendingActionIds:\[\]/);
   assert.match(feeRepository, /createdBy:actorPersonId/);

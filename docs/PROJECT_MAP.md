@@ -2,10 +2,24 @@
 
 > Status: Working Map
 >
-> Version: V2.91
+> Version: V2.92
 >
 > Last Updated: 2026-08-23
 >
+
+## V2.92 Activity Accounting Experience V1（2026-08-23）
+
+- Car Detail 的正式 Activity Accounting View 改為手機優先的五個不重載分頁：`總覽／逐筆明細／人物明細／工作室帳務／歷史紀錄`。分頁只重新安排既有 Controller／Render 與 canonical 資料，不建立第二份 Transaction、Person Ledger 或 Derived Ledger；Tab 切換保留頁面位置，逐筆與歷史仍按需讀取。
+- 總覽只呈現正式 Activity expense Transaction 加總與「待處理」Action Index；Settlement、代付與退款不重複計入活動總額。`accountingPendingActions` 繼續只保存責任人與 source ID，`去分帳／去確認／去處理` 導向正式 Transaction 或 Person 處理區，不複製帳務內容。
+- 人物明細沿用 Pairwise View；只允許相同兩位 Person 雙向互抵，來源仍由 `sourceObligations / offsetObligations → transactionId` 回查 canonical Transaction。禁止跨第三 Person 最佳化的 V2.90 Core invariant 不變。
+- `pages/group-assistant.html?tab=accounting` 改為同語意的 LINE Accounting Web View：`總覽／逐筆明細／人物帳務／待處理／歷史`。`api/group-assistant-context.js` 直接讀同一台 Car 的 `accountingEntries`、`accountingSettlements`、`accountingPendingActions`，只輸出目前安全識別 Person 相關的 Transaction、Pair、Pending 與 History；未登入時只提供公開 Activity 摘要。
+- 新增 `api/group-assistant-accounting-action.js` 作為 LINE Person 的受限 Action Entry；正式成員只能申報自己的 Pairwise 應付款，只有正式收款 Person 可確認同一筆 `payment_claimed` Settlement。兩個入口都寫回同一 `accountingSettlements` 與 Pending Action，並使 `activityCurrent` summary cache 失效；未建立 LINE Ledger 或第二份付款狀態。
+- Studio V1 的未連結工作室付款改為「主揪確認支付即完成」，保存 `createdBy / paidBy` 與 `settlementAuthority=manager_confirmed_payment_v1`，不再建立多一步人工核銷。付款紀錄低頻選單新增修正（Audit before／after）、soft cancel（不再計入已付但不刪歷史）與獨立退款紀錄；玩家收款與工作室付款仍是兩條金流。
+- **BLOCKED / INCOMPLETE**：reimbursement 目前仍只有 Delegated Payment 的衍生能力，尚未具備可安全持久化並形成新人物債務的完整 Repository／Pending 生命周期；本輪沒有用 UI View 假裝完成「超過既有應付的額外代墊」。直接轉付的完整三方重導與 accepted → later payment UX 亦維持後續項目。
+- LINE 既有「小助手 記帳」Parser 保留；「還款」文字指令仍為 Future，本輪未新增。已連結 JLY Studio 的雙方 Settlement 仍是 Future，不因未連結 Studio V1 流程而宣告完成。
+- Runtime entry／cache：新增 `/api/group-assistant-accounting-action`；`pages/group-assistant.html` 載入 `group-assistant.css?v=5`、`group-assistant.js?v=10`；`pages/car-detail.html` 載入 `accounting.css?v=14`、`accounting-render.js?v=17`、`accounting-controller.js?v=18`、`activity-fee-data.js?v=5`、`activity-fee-repository.js?v=4`、`activity-fee-controller.js?v=7`。
+- 測試新增 `tests/accounting/activity-accounting-experience.test.js`，涵蓋 Tab 結構、Pending source navigation、LINE canonical/scoped read、受限 Action Entry 與 Studio V1 歷史語意。此 coverage 屬 Unit／Integration 與 Runtime source regression；正式手機 Browser E2E 尚未執行，不可宣稱為完整實機驗收。
+
 
 ## V2.91 Reminder Due Queue + MyCar Seat Projection Sync（2026-08-23）
 

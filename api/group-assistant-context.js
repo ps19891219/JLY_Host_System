@@ -183,9 +183,10 @@ async function totalSummary(carId) {
   // Canonical read: the web/player view is derived directly from the same
   // accountingEntries + accountingSettlements used by Accounting Core.
   // activityCurrent remains only a rebuildable summary cache.
-  const [entries, settlements] = await Promise.all([
+  const [entries, settlements, pendingActions] = await Promise.all([
     root.collection("accountingEntries").get(),
-    root.collection("accountingSettlements").get()
+    root.collection("accountingSettlements").get(),
+    root.collection("accountingPendingActions").where("status", "==", "pending").get()
   ]);
 
   const transactions = entries.docs
@@ -223,6 +224,8 @@ async function totalSummary(carId) {
     ...summary,
     activeEntryCount: transactions.length,
     recentEntries,
+    settlementHistory: settlementRecords,
+    pendingActions: pendingActions.docs.map(doc => ({ pendingActionId: doc.id, ...doc.data() })),
     summarySourceVersion: sourceVersion
   };
 
@@ -347,6 +350,11 @@ async function handler(
         session,
         carMembers
       );
+    const currentPersonId=normalizeText(currentMember&&currentMember.memberId);
+    const relatedEntries=currentPersonId?(total.recentEntries||[]).filter(item=>item.paidBy===currentPersonId||(item.payments||[]).some(row=>normalizeText(row.personId)===currentPersonId)||(item.splits||item.shares||[]).some(row=>normalizeText(row.personId||row.memberId)===currentPersonId)):[];
+    const relatedTransfers=currentPersonId?(total.settlementTransfers||[]).filter(item=>item.fromPersonId===currentPersonId||item.toPersonId===currentPersonId):[];
+    const relatedHistory=currentPersonId?(total.settlementHistory||[]).filter(item=>[item.fromPersonId,item.toPersonId,item.debtorPersonId,item.receiverPersonId,item.paidBy,item.paymentClaimedBy].map(normalizeText).includes(currentPersonId)):[];
+    const relatedPending=currentPersonId?(total.pendingActions||[]).filter(item=>normalizeText(item.responsiblePersonId)===currentPersonId):[];
 
     return send(
       res,
@@ -383,18 +391,17 @@ async function handler(
 
         accounting: {
           ...total,
+          recentEntries: relatedEntries,
+          settlementTransfers: relatedTransfers,
+          settlementHistory: relatedHistory,
+          pendingActions: relatedPending,
 
           activeEntryCount:
             Number(
               total.activeEntryCount
             ) || 0,
 
-          recentEntries:
-            Array.isArray(
-              total.recentEntries
-            )
-              ? total.recentEntries
-              : []
+          scope: currentPersonId?"person":"public_summary"
         }
       }
     );
