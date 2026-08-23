@@ -28,26 +28,26 @@ function renderAccounting(transactions) {
   });
 }
 
-test("個人應付與應收摘要可開啟各自的明細小視窗", () => {
-  assert.match(render, /data-settlement-dialog="payable"/);
-  assert.match(render, /data-settlement-dialog="receivable"/);
-  assert.match(render, /data-settlement-dialog="net"/);
+test("總覽只由 Controller 建立一套人物摘要，正式關係資料仍供人物子分頁使用", () => {
+  const controller=fs.readFileSync(path.join(root,"js/modules/accounting/accounting-controller.js"),"utf8");
+  assert.match(controller, /accounting-my-summary/);
+  assert.match(controller, /我欠誰/);
+  assert.match(controller, /誰欠我/);
+  assert.match(controller, /互抵後/);
+  assert.doesNotMatch(render, /data-settlement-dialog="payable"/);
   assert.match(render, /id="accountingSettlementDialog"/);
-  assert.match(actions, /showModal/);
-  assert.match(actions, /我欠誰/);
-  assert.match(actions, /誰欠我/);
 });
 
 test("原始應收應付與互抵後總額分開顯示", () => {
-  assert.match(render, />我欠誰</);
-  assert.match(render, />誰欠我</);
-  assert.match(render, />互抵後總額</);
+  const controller=fs.readFileSync(path.join(root,"js/modules/accounting/accounting-controller.js"),"utf8");
+  assert.match(controller, /我欠誰/);
+  assert.match(controller, /誰欠我/);
+  assert.match(controller, /互抵後/);
   assert.match(repository, /obligationsByPair/);
   assert.match(repository, /VIEW_SCHEMA_VERSION = 8/);
-  assert.match(render, /原始尚未結清應付/);
-  assert.match(render, /原始尚未結清應收/);
+  assert.match(render, /原始尚未結清\$\{type==="payable"\?"應付":"應收"\}/);
   assert.match(render, /const payable=item\.fromPersonId===personId/);
-  assert.match(render, /direction=payable\?"付款":item\.toPersonId===personId\?"收款":"協助"/);
+  assert.match(render, /direction=payable\?"付款":receivable\?"收款":"協助"/);
   assert.doesNotMatch(render, /<small>全車互抵後<\/small>/);
 });
 
@@ -272,7 +272,7 @@ test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
   assert.match(render, /id="accountingDetails"/);
   assert.match(render, /id="accountingAttention"/);
   assert.match(actions, /attention\.addEventListener/);
-  assert.match(render, /hasAccountingData\?summary\+dialog:""/);
+  assert.match(render, /hasAccountingData\?dialog:""/);
   assert.match(actions, /details\.hidden=!details\.hidden/);
   assert.match(summaryRender, /openSingleFieldEditor/);
   assert.match(summaryRender, /openSeatSettings\(\)/);
@@ -286,7 +286,7 @@ test("沒有快速記帳時隱藏個人帳務摘要與明細入口", () => {
   assert.match(html, /id="accountingDetails" hidden/);
 });
 
-test("有快速記帳後顯示摘要，明細仍預設收合", () => {
+test("有快速記帳後保留人物關係資料供 Experience View 使用，明細仍預設收合", () => {
   const html = renderAccounting([
     {
       transactionId: "t1",
@@ -298,7 +298,8 @@ test("有快速記帳後顯示摘要，明細仍預設收合", () => {
     }
   ]);
 
-  assert.match(html, /data-settlement-dialog="payable"/);
+  assert.match(html, /id="accountingSettlementDialog"/);
+  assert.doesNotMatch(html, /data-settlement-dialog="payable"/);
   assert.doesNotMatch(html, /id="accountingDetailsToggle"[^>]* hidden/);
   assert.match(html, /id="accountingDetails" hidden/);
   assert.match(html, /⚠️ 待處理 1 筆/);

@@ -2,10 +2,20 @@
 
 > Status: Working Map
 >
-> Version: V2.98
+> Version: V2.99
 >
 > Last Updated: 2026-08-24
 >
+
+## V2.99 Accounting Person View Correction（2026-08-24）
+
+- Activity Summary 正式縮減為「目前總支出＋我的帳務三格摘要＋待處理 Action Index」。移除重複的第二套我欠誰／誰欠我／互抵後大卡，以及店家、分帳、人物付款、待確認四格進度 Dashboard；各狀態回到店家固定區、逐筆帳目、人物明細與 Pending 的正式責任層。
+- Person View 第一層固定為 **Expense Responsibility**：共用 `activity-accounting-view-model` 聚合店家基本劇本費、店家額外費分攤與每筆 Transaction Split，顯示總支出／已付／待付／待收及逐項來源。同名不同 Transaction 仍依 `transactionId` 保留多筆，不因標題相同合併。
+- 店家基本劇本費人物來源沿用同一 Fee Plan；Current `playerIds × playerFee` 之外，相容既有正式 `memberCharges[]`，避免舊 Fee Plan 已有正式人物負擔但人物頁漏掉劇本費。沒有建立 Person Transaction、Schema、Migration 或 Backfill。
+- Person View 第二層才是 **Settlement Relationship**：`帳目／待付／待收／處理中` 四個子分頁依正式 Pairwise 方向與 active Settlement 狀態互斥分流；已申報付款只出現在處理中，不再同時保留第二個付款入口。Transaction、Split、Pairwise 與 Settlement 規則不變。
+- `paidAmount` 仍採正式 `accountingFeeCollections + settled Split + settled Settlement` 認列口徑，不以 `總支出 - 待付` 在 Render 猜測；`receivableAmount` 由同一 Pairwise Person Projection 提供。Car Detail 與 LINE 繼續共用同一 Person Projection，LINE 只同步第四格待收顯示，不建立專用計算。
+- Pending Navigation 維持 V2.98 Navigation State：待分帳定位 Transaction、待付款定位 Person 待付、待確認定位 Person 處理中，未退回近似 scroll。
+- Runtime cache entry：`activity-accounting-view-model.js?v=2`、`accounting-render.js?v=20`、`accounting-controller.js?v=23`、`group-assistant.js?v=13`。新增 Person Projection Unit／Integration coverage 與 390px 真 Browser fixture；完整測試與 Browser 結果以本輪完成回報為準。
 
 ## V2.98 Accounting UX Consolidation（2026-08-24）
 
