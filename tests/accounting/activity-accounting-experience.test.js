@@ -59,6 +59,28 @@ test("Studio 待付款定位工作室付款 View",()=>{
   assert.deepEqual([state.view,state.subview,state.sourceType,state.sourceId],["studio","payment","studio_payment","studio-1"]);
 });
 
+test("劇本金額使用 Accounting Navigation State 進入店家帳務",()=>{
+  const summary=read("js/modules/car/detail/render/summary-render.js");
+  const controller=read("js/modules/accounting/accounting-controller.js");
+  assert.match(summary,/navigateToStore/);
+  assert.doesNotMatch(summary,/activityFeeSection'\)\?\.scrollIntoView/);
+  assert.match(controller,/navigateToStore/);
+  assert.match(controller,/view:\s*"studio"/);
+  assert.match(controller,/sourceType:\s*"store_fee"/);
+  assert.match(controller,/subview:\s*"ledger"/);
+});
+
+test("店家帳務與玩家額外帳目維持不同 View 責任",()=>{
+  const controller=read("js/modules/accounting/accounting-controller.js");
+  const feeController=read("js/modules/accounting/activity-fee-controller.js");
+  assert.match(controller,/\["transactions","逐筆帳目"\]/);
+  assert.match(controller,/\["studio","店家帳務"\]/);
+  assert.match(feeController,/店家總應收/);
+  assert.match(feeController,/已支付/);
+  assert.match(feeController,/還要付/);
+  assert.match(feeController,/originalSummary\.hidden=true/);
+});
+
 test("Delegated Pending 定位指定人物、處理中與 request",()=>{
   const state=navigation.targetForPending({actionType:"delegated_payment_acceptance",responsiblePersonId:"delegate",requestId:"req-1"},"me");
   assert.deepEqual([state.view,state.personId,state.subview,state.requestId,state.sourceId],["people","delegate","processing","req-1","req-1"]);

@@ -105,6 +105,46 @@ test("cross-play occupies the formal original seat section instead of player.pos
   assert.equal(compact.seatSummary.maleOccupied, 0);
 });
 
+test("formal viewer identity overrides stale prepared role flags", () => {
+  const window = {};
+  loadBrowserModule("js/data-view/mycar-view.js", window);
+  const stalePlayerCard = {
+    id: "car-player-only",
+    ownerId: "host",
+    isHost: true,
+    role: "host",
+    ownerType: "self",
+    isPlayer: true,
+    players: [player("member", "女")]
+  };
+
+  const playerView = window.JLYMyCarView.compactCar(stalePlayerCard, ["member"]);
+  assert.equal(playerView.isHost, false);
+  assert.equal(playerView.isPlayer, true);
+  assert.equal(playerView.role, "player");
+  assert.equal(playerView.ownerType, "");
+
+  const ownerView = window.JLYMyCarView.compactCar(stalePlayerCard, ["host"]);
+  assert.equal(ownerView.isHost, true);
+  assert.equal(ownerView.isPlayer, false);
+  assert.equal(ownerView.role, "host");
+});
+
+test("recruitment status never changes the MyCar identity role", () => {
+  const window = {};
+  loadBrowserModule("js/data-view/mycar-view.js", window);
+  for (const status of ["招募中", "已滿", "已結束"]) {
+    const compact = window.JLYMyCarView.compactCar({
+      id: `car-${status}`,
+      ownerId: "host",
+      status,
+      players: [player("member", "男")]
+    }, ["member"]);
+    assert.equal(compact.isHost, false);
+    assert.equal(compact.isPlayer, true);
+  }
+});
+
 test("membership mutation refreshes every known member view without a collection scan", async () => {
   const resolvedAliases = [];
   const updatedViewers = [];

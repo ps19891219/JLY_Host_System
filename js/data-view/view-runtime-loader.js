@@ -120,7 +120,7 @@ console.log("view-runtime-loader.js 已成功載入！");
         );
 
         await loadScript(
-          "/js/data-view/mycar-view.js?v=5",
+          "/js/data-view/mycar-view.js?v=6",
           "mycar-view"
         );
 

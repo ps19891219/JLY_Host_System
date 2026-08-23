@@ -248,7 +248,8 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
 test("車團摘要左側可快速定位，右側保留欄位編輯", () => {
   assert.match(summaryRender, /navigationTarget/);
   assert.match(summaryRender, /seatSection/);
-  assert.match(summaryRender, /activityFeeSection/);
+  assert.match(summaryRender, /accountingSection/);
+  assert.match(summaryRender, /navigateToStore/);
   assert.doesNotMatch(
     summaryRender,
     /field:\s*"studioName",\s*editable:\s*true,\s*navigationTarget:/

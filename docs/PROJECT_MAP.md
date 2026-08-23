@@ -2,10 +2,18 @@
 
 > Status: Working Map
 >
-> Version: V2.94
+> Version: V2.95
 >
 > Last Updated: 2026-08-24
 >
+
+## V2.95 Accounting Hierarchy／Navigation／MyCar Identity Regression Fix（2026-08-24）
+
+- Activity Accounting 的 UI 層級確認為兩個不同正式費用來源、同一 Accounting Core：`店家帳務` 顯示劇本基本費／自訂店家費／店家總應收／已支付／還要付與付款紀錄；`逐筆帳目` 只處理餐費、飲料、停車等玩家額外 Transaction 與 Split。店家原有重複摘要維持隱藏，同一組店家數字只呈現一次；V2.94 的 Current Total 計算邊界不變。
+- Car Detail 頂部 `金額` 標題由舊 `scrollIntoView(activityFeeSection)` 改接既有 Accounting Navigation State；`summary-render.js` 呼叫 `JLYAccountingController.navigateToStore()`，不 reload 頁面，直接切換 `店家帳務` View 並定位 Accounting 主區。只有 Studio Pending 的 `subview=payment` 才自動展開付款表單，一般劇本金額導覽不誤開表單。
+- MyCar 身份燈號正式規則恢復為 `Green = owner / host`、`Blue = player membership`，owner + player 仍依既有 owner precedence 顯示綠燈。`compactCar()` 在已有正式 viewer identities 時只依 `ownerId` 與玩家 Membership 判斷，不再讓 Prepared View／Core 上的舊 `isHost / role / ownerType` 相容欄位覆蓋正式身份。
+- MyCar 正常讀取 Prepared View 後，會用該 View 已知的 `identityIds` 與既有 `compactCar()` 重新正規化卡片身份；不新增角色欄位、不 Query Cars、不 Backfill／修改 Firestore。招募、已滿或結束等 car status 不參與身份燈號判斷。
+- Runtime cache entry：`summary-render.js?v=2`、`accounting-controller.js?v=21`、`mycar.js?v=46`、`mycar-view.js?v=6`。Regression coverage 新增店家／玩家 View 分層、劇本金額精準導覽、owner/player precedence、stale role flag、status independence 與實際燈號 Render；完整測試為 `260 pass / 0 fail`。
 
 ## V2.94 Activity Accounting View Model V1（2026-08-24）
 

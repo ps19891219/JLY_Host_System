@@ -115,6 +115,10 @@ console.log(
       config.navigationTarget || ""
     );
 
+    const navigationAction = String(
+      config.navigationAction || ""
+    );
+
     const valueAction = String(
       config.valueAction || ""
     );
@@ -162,7 +166,7 @@ console.log(
         ${fieldAttribute}
       >
         ${navigationTarget
-          ? `<button type="button" class="car-info-item-top car-info-jump" onclick="document.getElementById('${escapeValue(navigationTarget)}')?.scrollIntoView({behavior:'smooth',block:'start'})">${labelContent}</button>`
+          ? `<button type="button" class="car-info-item-top car-info-jump" onclick="${navigationAction || `document.getElementById('${escapeValue(navigationTarget)}')?.scrollIntoView({behavior:'smooth',block:'start'})`}">${labelContent}</button>`
           : `<div class="car-info-item-top">${labelContent}</div>`}
 
         ${resolvedValueAction
@@ -328,7 +332,9 @@ console.log(
             editable:
               true,
             navigationTarget:
-              "activityFeeSection"
+              "accountingSection",
+            navigationAction:
+              "window.JLYAccountingController?.navigateToStore?.()"
           })}
 
           ${buildInfoItem({

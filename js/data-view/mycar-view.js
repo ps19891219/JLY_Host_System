@@ -252,18 +252,25 @@ console.log("mycar-view.js V4 已成功載入！");
           : []
       ).map(compactPlayer);
 
+    const hasFormalViewerIdentity =
+      identitySet.size > 0;
+
     const isHost =
+      Boolean(ownerId) &&
       identitySet.has(ownerId) ||
-      source.isHost === true ||
-      text(source.role) ===
-        "host" ||
-      text(source.ownerType) ===
-        "self";
+      (
+        !hasFormalViewerIdentity &&
+        (
+          source.isHost === true ||
+          text(source.role) === "host" ||
+          text(source.ownerType) === "self"
+        )
+      );
 
     const isPlayer =
       !isHost &&
       (
-        source.isPlayer === true ||
+        (!hasFormalViewerIdentity && source.isPlayer === true) ||
         players.some(
           function (player) {
             if (

@@ -1093,7 +1093,14 @@ async function renderMyCars(
       );
 
     cars =
-      preparedView.cars.slice();
+      preparedView.cars.map(
+        function (car) {
+          return module.compactCar(
+            car,
+            preparedView.identityIds
+          );
+        }
+      );
 
     const currentFilter =
       buildCurrentCarFilter();
