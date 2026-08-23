@@ -23,9 +23,10 @@ test("五個分頁 Navigation State 保留所有入口而非只保留 active 名
   assert.deepEqual(["overview","transactions","people","studio","history"].map(view=>navigation.selectView(state,view,"me").view),["overview","transactions","people","studio","history"]);
 });
 
-test("總覽恢復目前 Person 的四格 My Accounting 摘要",()=>{
+test("總覽保留精簡 My Accounting 並導航目前 Person",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js");
-  for(const label of ["我要支付","我要收回","處理後還要支付","處理後還待收回"])assert.match(controller,new RegExp(label));
+  for(const label of ["我的帳務","待付","待收","查看我的明細"])assert.match(controller,new RegExp(label));
+  assert.doesNotMatch(controller,/我要支付|我要收回|處理後還要支付|處理後還待收回/);
   assert.match(controller,/selectPerson\(accountingNavigationState,model\.currentPersonId,"ledger"/);
 });
 
@@ -73,14 +74,14 @@ test("LINE 查看帳務讀 canonical Core 並只輸出目前 Person 範圍",()=>
   const api=read("api/group-assistant-context.js"),action=read("api/group-assistant-accounting-action.js"),client=read("js/group-assistant.js");
   assert.match(api,/accountingEntries/);assert.match(api,/accountingSettlements/);assert.match(api,/accountingPendingActions/);
   assert.match(api,/relatedEntries/);assert.match(api,/relatedTransfers/);assert.match(api,/relatedHistory/);assert.match(api,/relatedPending/);
-  assert.match(client,/lineAccountingExperience/);assert.match(client,/逐筆明細/);assert.match(client,/人物帳務/);assert.match(client,/來源保留於正式逐筆帳目/);
+  assert.match(client,/lineAccountingExperience/);assert.match(client,/逐筆帳目/);assert.match(client,/人物明細/);assert.match(client,/來源保留於正式逐筆帳目/);assert.match(api,/buildActivityAccountingViewModel/);
   assert.match(action,/actorPersonId!==from/);assert.match(action,/toPersonId\|\|before\.receiverPersonId/);assert.match(action,/accountingSettlements/);assert.match(action,/accountingPendingActions/);
   assert.match(client,/group-assistant-accounting-action/);
 });
 
 test("Studio V1 支付、修正、取消與退款維持獨立歷史",()=>{
   const controller=read("js/modules/accounting/activity-fee-controller.js"),repository=read("js/modules/accounting/activity-fee-repository.js"),data=read("js/modules/accounting/activity-fee-data.js");
-  assert.match(controller,/accounting-studio-minimal/);assert.match(controller,/總費用/);assert.match(controller,/還要付/);assert.match(controller,/＋ 新增付款/);assert.match(controller,/付款紀錄/);
+  assert.match(controller,/accounting-studio-minimal/);assert.match(controller,/店家總應收/);assert.match(controller,/已支付/);assert.match(controller,/還要付/);assert.match(controller,/＋ 新增付款/);assert.match(controller,/付款紀錄/);
   assert.match(controller,/settlementStatus:"settled"/);assert.match(controller,/manager_confirmed_payment_v1/);
   assert.match(repository,/vendor_payment_corrected/);assert.match(repository,/before,after/);assert.match(repository,/vendor_payment_cancelled/);
   assert.match(data,/status!=="cancelled"/);assert.match(controller,/kind==="refund"/);

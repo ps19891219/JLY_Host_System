@@ -7,8 +7,8 @@
   }
 
   const viewName = "activityCurrent";
-  const VIEW_SCHEMA_VERSION = 7;
-  const SUMMARY_VERSION = 2;
+  const VIEW_SCHEMA_VERSION = 8;
+  const SUMMARY_VERSION = 3;
 
   function text(value) {
     return String(value == null ? "" : value).trim();
@@ -232,11 +232,46 @@
       [...grossObligations, ...reimbursementObligations]
     );
 
+    const expenseEntries = active.filter(item => item.type === "expense");
+    const expenseSourcesByPerson = [];
+    const settledPaidMap = new Map();
+
+    expenseEntries.forEach(item => (item.splits || item.shares || []).forEach(split => {
+      const personId = text(split.personId || split.memberId);
+      const amountValue = number(split.amount);
+      if (!personId || !amountValue) return;
+      expenseSourcesByPerson.push({
+        personId,
+        sourceType: "transaction_split",
+        sourceId: text(split.splitId || item.transactionId),
+        transactionId: text(item.transactionId),
+        title: text(item.title || item.description) || "未命名帳目",
+        amount: amountValue,
+        settlementStatus: text(split.settlementStatus)
+      });
+    }));
+
+    (settlements || [])
+      .filter(item => item && item.status === "settled")
+      .forEach(item => {
+        const personId = text(item.paidBy || item.paymentClaimedBy || item.fromPersonId);
+        const value = number(item.amount);
+        if (!personId || !value) return;
+        settledPaidMap.set(personId, (settledPaidMap.get(personId) || 0) + value);
+      });
     return {
       schemaVersion: VIEW_SCHEMA_VERSION,
       summaryVersion: SUMMARY_VERSION,
       summarySourceVersion: sourceVersionFromData(active, settlements),
       recentTransactions: active.slice(0, 5),
+      transactionExpenseProjection: {
+        actualExpense: expenseEntries.reduce((sum, item) => sum + number(item.amount), 0),
+        splitTotal: expenseEntries.length,
+        splitCompleted: expenseEntries.filter(item => item.splitStatus !== "pending").length,
+        personSources: expenseSourcesByPerson
+      },
+      settledPaidByPerson: [...settledPaidMap]
+        .map(([personId, amount]) => ({ personId, amount })),
       balanceByPerson: [...currentBalance]
         .map(([personId, balance]) => ({ personId, balance: number(balance) }))
         .filter(item => item.balance),
@@ -360,7 +395,9 @@
       pairwiseObligations: view.pairwiseObligations || [],
       settlementTransfers: view.settlementTransfers || view.obligationsByPair || [],
       obligationsByPair: view.obligationsByPair || view.settlementTransfers || [],
-      activeNetSettlements: view.activeNetSettlements || []
+      activeNetSettlements: view.activeNetSettlements || [],
+      transactionExpenseProjection: view.transactionExpenseProjection || null,
+      settledPaidByPerson: view.settledPaidByPerson || []
     };
   }
 

@@ -43,7 +43,7 @@ test("原始應收應付與互抵後總額分開顯示", () => {
   assert.match(render, />誰欠我</);
   assert.match(render, />互抵後總額</);
   assert.match(repository, /obligationsByPair/);
-  assert.match(repository, /VIEW_SCHEMA_VERSION = 7/);
+  assert.match(repository, /VIEW_SCHEMA_VERSION = 8/);
   assert.match(render, /原始尚未結清應付/);
   assert.match(render, /原始尚未結清應收/);
   assert.match(render, /const payable=item\.fromPersonId===personId/);
@@ -182,8 +182,8 @@ test("淨額付清後仍由 Pairwise obligation 產生剩餘結算方案", () =>
   assert.match(repository, /pairwise\.applySettlements/);
   assert.match(repository, /pairwise\.aggregatePairwiseObligations/);
   assert.doesNotMatch(repository, /:\s*buildSettlementPlan\(currentBalance\)/);
-  assert.match(repository, /VIEW_SCHEMA_VERSION = 7/);
-  assert.match(repository, /SUMMARY_VERSION = 2/);
+  assert.match(repository, /VIEW_SCHEMA_VERSION = 8/);
+  assert.match(repository, /SUMMARY_VERSION = 3/);
   assert.doesNotMatch(
     repository,
     /const offset=Math\.min\(Number\(direct\.amount\)/

@@ -26,6 +26,10 @@ const {
 } = require("../services/accounting/activity-accounting-summary");
 
 const {
+  build: buildActivityAccountingViewModel
+} = require("../shared/accounting/activity-accounting-view-model");
+
+const {
   collectMembers
 } = require("../services/line/quick-accounting-service");
 
@@ -183,10 +187,13 @@ async function totalSummary(carId) {
   // Canonical read: the web/player view is derived directly from the same
   // accountingEntries + accountingSettlements used by Accounting Core.
   // activityCurrent remains only a rebuildable summary cache.
-  const [entries, settlements, pendingActions] = await Promise.all([
+  const [entries, settlements, pendingActions, feePlan, feeCollections, externalPayments] = await Promise.all([
     root.collection("accountingEntries").get(),
     root.collection("accountingSettlements").get(),
-    root.collection("accountingPendingActions").where("status", "==", "pending").get()
+    root.collection("accountingPendingActions").where("status", "==", "pending").get(),
+    root.collection("accountingFeePlans").doc("scriptFee").get(),
+    root.collection("accountingFeeCollections").get(),
+    root.collection("accountingExternalPayments").get()
   ]);
 
   const transactions = entries.docs
@@ -220,12 +227,15 @@ async function totalSummary(carId) {
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
     .slice(0, 20);
 
+  const pendingRows=pendingActions.docs.map(doc => ({ pendingActionId: doc.id, ...doc.data() }));
+  const viewModel=buildActivityAccountingViewModel({feePlan:feePlan.exists?feePlan.data():null,memberPayments:feeCollections.docs.map(doc=>({paymentId:doc.id,...doc.data()})),vendorPayments:externalPayments.docs.map(doc=>({paymentId:doc.id,...doc.data()})),transactions,settlements:settlementRecords,pairwiseTransfers:summary.settlementTransfers||[],pendingActions:pendingRows});
   const result = {
     ...summary,
     activeEntryCount: transactions.length,
     recentEntries,
     settlementHistory: settlementRecords,
-    pendingActions: pendingActions.docs.map(doc => ({ pendingActionId: doc.id, ...doc.data() })),
+    pendingActions: pendingRows,
+    viewModel,
     summarySourceVersion: sourceVersion
   };
 
@@ -395,6 +405,7 @@ async function handler(
           settlementTransfers: relatedTransfers,
           settlementHistory: relatedHistory,
           pendingActions: relatedPending,
+          viewModel:{...total.viewModel,currentPerson:(total.viewModel.people||[]).find(item=>normalizeText(item.personId)===currentPersonId)||{personId:currentPersonId,sources:[],totalExpense:0,paidAmount:0,pendingAmount:0,payable:[],receivable:[]}},
 
           activeEntryCount:
             Number(

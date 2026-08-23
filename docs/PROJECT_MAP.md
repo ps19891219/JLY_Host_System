@@ -2,10 +2,24 @@
 
 > Status: Working Map
 >
-> Version: V2.93
+> Version: V2.94
 >
-> Last Updated: 2026-08-23
+> Last Updated: 2026-08-24
 >
+
+## V2.94 Activity Accounting View Model V1（2026-08-24）
+
+- 新增 Current 共用純 Projection `shared/accounting/activity-accounting-view-model.js`，正式資料流定案為 `店家費用 → 玩家額外 Transaction → Split → Person Projection → Settlement → Activity Summary`。Car Detail 與 LINE Accounting 都呼叫同一個 View Model；它不寫 Firestore、不建立 Person Ledger／LINE Ledger，也不是新的正式帳務來源。
+- 五個 View 的正式責任調整為：`總覽`＝活動實際支出與完成狀態、`逐筆帳目`＝玩家額外 Transaction + Split、`人物明細`＝店家 Person Share + Transaction Split 形成的 Person Expense、`店家帳務`＝店家應收／實付／待付、`歷史紀錄`＝已發生操作 Audit。Settlement 只回答人物最後如何付款，不取代 Expense Responsibility。
+- 店家 Projection 沿用 `accountingFeePlans/scriptFee` 的 `playerFee × requiredPlayerCount`、`feeItems[].allocations`、`accountingFeeCollections` 與 `accountingExternalPayments`。`店家總應收` 與 `店家實際支付淨額` 分離；未支付的店家應收不進目前活動總支出，付款才加入，退款獨立保存並從實支淨額扣回。
+- `cars/{carId}/accountingViews/activityCurrent` 升級為 `schemaVersion=8 / summaryVersion=3`，增加完整玩家額外支出的衍生 `transactionExpenseProjection` 與 `settledPaidByPerson`，讓人物來源不受最近五筆摘要限制。它仍是由 canonical Transaction／Split／Settlement 重建的 Prepared View；既有 mutation invalidation 會使下一次讀取重建，不需要 Migration 或 Production Backfill。
+- Activity Current Total 定案為 `店家實際支付淨額 + 玩家額外 expense Transaction`。Split、Obligation、Settlement、代付與還款只做責任分配／結算，不得重複增加活動支出；History 亦不得反向成為 Current Balance Source。
+- Person Expense 顯示店家基本費／額外費分攤與每筆 Transaction Split 的來源；已付只採正式玩家收款、已結清 Split／Settlement 的可認列支付，且不因 UI 直接硬減 Pairwise 數字。人物第一層為 `總支出／已付／待付／待收`，誰欠誰與 Settlement 維持第二層。
+- 總覽移除完整重複的「我欠誰／誰欠我」卡，只保留精簡 `我的帳務：待付／待收` 並導航 current Person；同時顯示店家付款、分帳、人物付款及待確認等可驗證完成狀態，不自行發明百分比權重。
+- Pending Navigation 延續 V2.93：待分帳定位逐筆帳目指定 Transaction、人物待付款／待確認定位指定 Person 與 source Settlement、店家待付款定位店家新增付款。沒有退回近似 scroll。
+- LINE `pages/group-assistant.html?tab=accounting` 由 `api/group-assistant-context.js` 取得 canonical scoped 資料後使用同一 View Model；個人頁同步顯示劇本費、額外支出來源、總支出／已付／待付與第二層 Pairwise。LINE 還款指令仍為 Future。
+- **INCOMPLETE**：reimbursement 正式持久化、完整三方直接轉付、accepted → later payment 與已連結 JLY Studio 的雙方 Settlement 尚未完成；本輪沒有在 View 假裝完成或擴大 Delegated Payment Core。
+- Runtime entry 更新：`pages/car-detail.html` 載入 `activity-accounting-view-model.js?v=1`、`accounting.css?v=16`、`accounting-controller.js?v=20`、`activity-fee-controller.js?v=9`；`pages/group-assistant.html` 載入 `group-assistant.js?v=11`。新增 `tests/accounting/activity-accounting-view-model.test.js`；完整測試為 `252 pass / 0 fail`，coverage 屬 Unit／Integration；Browser 驗收狀態必須依本輪實際本機驗收另行回報，不以 source assertion 冒充 E2E。
 
 ## V2.93 Activity Accounting Navigation Calibration（2026-08-23）
 
