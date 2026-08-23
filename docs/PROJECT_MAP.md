@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V2.96
+> Version: V2.97
 >
 > Last Updated: 2026-08-24
 >
+
+## V2.97 Accounting UI Focus Pass 1（2026-08-24）
+
+- 店家帳務移除「先 Render 舊摘要、再隱藏並插入新摘要」的 Transitional UI 接線，現在只建立一套正式主摘要：劇本費算式／額外費用／店家總應收／已支付／還要付；費用項目、玩家繳費、付款紀錄與調整紀錄維持第二層收合。「核銷紀錄」因實際內容是付款新增／修改／取消等 Audit，UI 更名為「調整紀錄」，底層 Action Type 與 Accounting Core 不變。
+- 逐筆帳目第一層正式責任限定為該 Transaction 自己的 `title / amount / paidBy / Split / splitStatus`；移除「已列入彙總」及 Split 的 Settlement 狀態文字，狀態只呈現待分帳／分帳中／分帳完成。付款人仍只讀正式 `paidBy / payments` 相容資料，不以 createdBy 或 current user 猜測。
+- Duplicate Person Render policy：Split 只按正式 `personId` 辨識，不因同名合併。不同 personId 同名時以「成員 1／成員 2」安全辨識；同一 personId 在同一 Transaction 出現多筆時視為 legacy／資料異常，UI 合成一列、保留每筆金額並顯示待確認警示，不修改、Migration 或回寫 Core 資料。
+- Runtime cache entry 更新為 `accounting.css?v=17`、`accounting-render.js?v=18`、`activity-fee-controller.js?v=10`。新增 `accounting-ui-focus` Unit／Integration coverage 與 390px 真 Browser fixture；本輪沒有修改人物明細、Pairwise、LINE、Firestore Schema 或 Production Data。
 
 ## V2.96 MyCar Safari Runtime P0 Fix（2026-08-24）
 

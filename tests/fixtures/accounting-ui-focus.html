@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Accounting UI Focus Browser Regression</title>
+  <link rel="stylesheet" href="/css/pages/accounting.css?v=17">
+  <style>body{margin:0;padding:12px;background:#fffaf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{display:grid;gap:20px;max-width:680px;margin:auto}.fixture-card{padding:14px;background:#fff;border-radius:18px}#browserRuntimeResult{position:fixed;right:8px;bottom:8px;padding:8px;background:#fff;border:1px solid #ddd}</style>
+</head>
+<body>
+  <main>
+    <section id="storeMount" class="fixture-card"><div id="activityFeeMount"></div></section>
+    <section id="entryMount" class="fixture-card"></section>
+  </main>
+  <output id="browserRuntimeResult">RUNNING</output>
+  <script src="/js/modules/accounting/accounting-render.js?v=18"></script>
+  <script src="/js/modules/accounting/activity-fee-data.js"></script>
+  <script>
+    window.JLYActivityFeeRepository = {
+      load: async function () {
+        return {
+          plan: {
+            vendor: { displayName: "測試店家", externalPartyId: "studio-1" },
+            requiredPlayerCount: 6,
+            playerFee: 1000,
+            vendorBaseAmount: 6000,
+            vendorTotal: 6500,
+            playerIds: ["payer", "member-shijie", "visitor-shijie"],
+            memberCharges: [
+              { personId: "payer", amount: 1000 },
+              { personId: "member-shijie", amount: 1000 },
+              { personId: "visitor-shijie", amount: 1000 }
+            ],
+            feeItems: [
+              { feeItemId: "f1", title: "指定費", amount: 300, allocationType: "host", allocations: [{ personId: "payer", amount: 300 }] },
+              { feeItemId: "f2", title: "特殊費用", amount: 200, allocationType: "equal", allocations: [{ personId: "member-shijie", amount: 100 }, { personId: "visitor-shijie", amount: 100 }] }
+            ]
+          },
+          memberPayments: [],
+          vendorPayments: [{ paymentId: "pay-1", kind: "payment", amount: 2200, note: "訂金", status: "settled", createdAt: "2026-08-24T08:00:00.000Z" }],
+          auditLogs: [{ action: "vendor_payment_corrected", actorPersonId: "payer", createdAt: "2026-08-24T09:00:00.000Z", before: { amount: 2000 }, after: { amount: 2200 } }]
+        };
+      },
+      savePlan: async function () {}, recordMemberPayment: async function () {},
+      recordVendorPayment: async function () {}, updateVendorPayment: async function () {},
+      cancelVendorPayment: async function () {}
+    };
+  </script>
+  <script src="/js/modules/accounting/activity-fee-controller.js?v=10"></script>
+  <script>
+    (async function () {
+      var members = [
+        { personId: "payer", displayName: "小霙", roles: ["player"] },
+        { personId: "member-shijie", displayName: "詩婕", roles: ["player"] },
+        { personId: "visitor-shijie", displayName: "詩婕", roles: ["player"] }
+      ];
+      await window.JLYActivityFeeController.mount({
+        section: document.getElementById("storeMount"), carId: "fixture-car",
+        members: members, currentPersonId: "payer", isManager: true,
+        requiredPlayerCount: 6, defaultPlayerFee: 1000, defaultVendorName: "測試店家"
+      });
+      var html = window.JLYAccountingRender.buildDashboardHtml({
+        members: members, membersById: new Map(members.map(function (item) { return [item.personId, item]; })),
+        memberNames: new Map(members.map(function (item) { return [item.personId, item.displayName]; })),
+        transactions: [{
+          transactionId: "drink-350", title: "飲料", amount: 350, paidBy: "payer",
+          splitStatus: "completed", splits: [
+            { splitId: "legacy-1", personId: "member-shijie", amount: 87 },
+            { splitId: "legacy-2", personId: "member-shijie", amount: 87 },
+            { splitId: "visitor", personId: "visitor-shijie", amount: 89 },
+            { splitId: "other", personId: "payer", amount: 87 }
+          ]
+        }],
+        currentPersonId: "payer", viewPersonId: "payer", isManager: false, managementMode: false,
+        counts: { total: 0, paymentConfirmation: 0 }, personalSettlement: { payable: 0, receivable: 0, transfers: [] },
+        personalObligations: { payable: [], receivable: [], payableTotal: 0, receivableTotal: 0 },
+        activeNetSettlements: [], settlementHistory: [], detailMode: true, detailHasMore: false,
+        getFilterState: function () { return "settled"; }
+      });
+      document.getElementById("entryMount").innerHTML = html;
+      var totals = document.querySelectorAll(".accounting-store-totals span");
+      var entry = document.querySelector('[data-transaction-id="drink-350"]');
+      var okay = totals.length === 3 &&
+        Array.from(totals).filter(function (node) { return node.textContent.indexOf("店家總應收") >= 0; }).length === 1 &&
+        document.querySelector(".accounting-studio-add-payment") &&
+        entry && entry.textContent.indexOf("付款人：小霙") >= 0 &&
+        entry.textContent.indexOf("分帳完成") >= 0 &&
+        entry.textContent.indexOf("已列入彙總") < 0 &&
+        entry.textContent.indexOf("同一成員有 2 筆分帳資料") >= 0 &&
+        document.documentElement.scrollWidth <= window.innerWidth;
+      document.getElementById("browserRuntimeResult").textContent = okay ? "PASS" : "FAIL";
+    })().catch(function (error) {
+      document.getElementById("browserRuntimeResult").textContent = "FAIL: " + error.message;
+    });
+  </script>
+</body>
+</html>

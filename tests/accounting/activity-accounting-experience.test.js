@@ -78,7 +78,7 @@ test("店家帳務與玩家額外帳目維持不同 View 責任",()=>{
   assert.match(feeController,/店家總應收/);
   assert.match(feeController,/已支付/);
   assert.match(feeController,/還要付/);
-  assert.match(feeController,/originalSummary\.hidden=true/);
+  assert.doesNotMatch(feeController,/originalSummary|accounting-studio-summary/);
 });
 
 test("Delegated Pending 定位指定人物、處理中與 request",()=>{

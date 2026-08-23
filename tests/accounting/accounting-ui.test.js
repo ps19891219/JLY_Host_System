@@ -93,10 +93,9 @@ test("主揪只能代未使用系統的收款人確認淨額付款", () => {
 });
 
 test("詳細帳目不再提供逐筆付款與代理確認", () => {
-  assert.match(render, /已列入彙總/);
-  assert.match(render, /已付款，待確認/);
-  assert.match(render, /付款申報已退回/);
-  assert.match(render, /split\.confirmedAt/);
+  assert.doesNotMatch(render, /已列入彙總/);
+  assert.match(render, /分帳完成/);
+  assert.match(render, /accounting-split-row/);
   assert.doesNotMatch(render, /canConfirmForReceiver/);
   assert.doesNotMatch(actions, /accounting-settlement-row button/);
 });
@@ -154,7 +153,8 @@ test("下方分帳明細唯讀，上方互抵總額支援部分付款與全額�
   assert.match(render, /accounting-net-amount/);
   assert.match(render, />送出部分付款</);
   assert.match(render, />全部付清</);
-  assert.match(render, /已列入彙總/);
+  assert.doesNotMatch(render, /已列入彙總/);
+  assert.match(render, /accounting-split-list/);
   assert.doesNotMatch(render, /accounting-settlement-row[^`]*data-action/);
   assert.match(actions, /input&&input\.value/);
   assert.match(repository, /applyConfirmedSettlements/);
@@ -196,7 +196,7 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeRepository, /accountingExternalPayments/);
   assert.match(feeRepository, /accountingFeeAuditLogs/);
   assert.match(feeController, /<span>玩家繳費<\/span><small>待收/);
-  assert.match(feeController, /data-summary-key/);
+  assert.doesNotMatch(feeController, /data-summary-key/);
   assert.match(feeController, /付款項目，例如：預付訂金/);
   assert.match(feeController, /＋ 新增額外費用/);
   assert.match(feeController, /id="feeItemForm" class="accounting-quick-form" hidden/);
@@ -216,8 +216,9 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeController, /vendorPaymentForm/);
   assert.match(feeController, /vendorReceiptForm/);
   assert.doesNotMatch(feeController, /name="category"/);
-  assert.match(feeController, /studioSummaryItems/);
-  assert.match(feeController, /工作室收付款/);
+  assert.doesNotMatch(feeController, /studioSummaryItems/);
+  assert.doesNotMatch(feeController, /accounting-studio-summary/);
+  assert.match(feeController, /調整紀錄/);
   assert.match(feeController, /manager_confirmed_payment_v1/);
   assert.match(feeController, /data-vendor-edit/);
   assert.match(feeController, /data-vendor-cancel/);
