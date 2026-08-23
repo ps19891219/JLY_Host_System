@@ -108,7 +108,7 @@ async function ensureMyCarViewModule() {
   myCarViewModulePromise =
     (async function () {
       await loadMyCarViewScript(
-        "/js/data-view/mycar-view.js?v=5",
+        "/js/data-view/mycar-view.js?v=6",
         "mycar-view"
       );
 
@@ -1087,6 +1087,9 @@ async function renderMyCars(
       View 不存在、版本不符或格式錯誤時直接報錯，
       不得退回 Cars / Player Cars Query。
     */
+    const myCarViewModule =
+      await ensureMyCarViewModule();
+
     const preparedView =
       await loadMyCarPreparedView(
         ownerId
@@ -1095,7 +1098,7 @@ async function renderMyCars(
     cars =
       preparedView.cars.map(
         function (car) {
-          return module.compactCar(
+          return myCarViewModule.compactCar(
             car,
             preparedView.identityIds
           );

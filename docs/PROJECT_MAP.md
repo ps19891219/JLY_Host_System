@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V2.95
+> Version: V2.96
 >
 > Last Updated: 2026-08-24
 >
+
+## V2.96 MyCar Safari Runtime P0 Fix（2026-08-24）
+
+- `5b28166` 的身份正規化接線在 `renderMyCars()` 中錯誤引用另一個 function scope 內的區域變數 `module`；Safari 因 Browser global 不存在 Node `module` 而拋出 `Can't find variable: module`，使 Prepared View 讀取後直接落入「讀取失敗」。這不是 CommonJS export、Prepared View Schema 或 Firestore 資料問題。
+- 最小修復為 `renderMyCars()` 自行透過既有 `ensureMyCarViewModule()` 取得 `myCarViewModule`，再呼叫正式 `compactCar()`；沒有改寫 MyCar、Identity Core、Prepared View、Firestore 或 owner/player 身份規則。
+- Runtime cache entry 更新為 `mycar.js?v=47`，動態 MyCar View asset 與正式 loader 對齊 `mycar-view.js?v=6`。
+- 新增 `tests/data-view/mycar-browser-runtime.test.js`，直接執行 production `js/mycar.js` 且刻意不提供 Node `module`，驗證 Prepared View 能進入 Render、不顯示「讀取失敗」；另以真實本機 Browser 載入 `tests/fixtures/mycar-browser-runtime.html` 驗證正式 asset 執行、卡片 Render 與 Console 無錯誤。owner 綠燈、player-only 藍燈、owner + player 綠燈回歸仍通過；完整測試為 `261 pass / 0 fail`。
 
 ## V2.95 Accounting Hierarchy／Navigation／MyCar Identity Regression Fix（2026-08-24）
 

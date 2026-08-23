@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>MyCar Browser Runtime Regression</title>
+</head>
+<body>
+  <input id="searchInput" value="">
+  <div id="carList"></div>
+  <div id="mycarPagination">
+    <button id="mycarPrevPage"></button>
+    <span id="mycarPageLabel"></span>
+    <button id="mycarNextPage"></button>
+  </div>
+  <output id="browserRuntimeResult">RUNNING</output>
+  <script src="/js/data-view/mycar-view.js?v=6"></script>
+  <script>
+    window.db = {};
+    window.JLYIdentity = {
+      getCurrentPlayerId: function () { return "viewer-1"; }
+    };
+    window.JLYMyCarView.read = async function () {
+        return {
+          schemaVersion: 4,
+          viewType: "mycar_index",
+          viewerId: "viewer-1",
+          identityIds: ["viewer-1"],
+          cars: [{
+            id: "owner-car",
+            ownerId: "viewer-1",
+            scriptName: "Owner Browser Runtime",
+            status: "規劃中",
+            players: [],
+            playerIds: [],
+            totalPeople: 6,
+            slots: []
+          }, {
+            id: "player-car",
+            ownerId: "other-owner",
+            scriptName: "Player Browser Runtime",
+            status: "開團中",
+            players: [{ playerId: "viewer-1", status: "已加入" }],
+            playerIds: ["viewer-1"],
+            totalPeople: 6,
+            slots: []
+          }, {
+            id: "owner-player-car",
+            ownerId: "viewer-1",
+            scriptName: "Owner Player Browser Runtime",
+            status: "已滿",
+            players: [{ playerId: "viewer-1", status: "已加入" }],
+            playerIds: ["viewer-1"],
+            totalPeople: 6,
+            slots: []
+          }]
+        };
+    };
+    window.isCarPlanning = function () { return true; };
+    window.isCarEnded = function () { return false; };
+    window.buildCarCard = function (car) {
+      return '<article class="mycar-card" data-car-id="' + car.id + '">' +
+        car.scriptName + '｜' + (car.isHost ? 'GREEN_OWNER' : 'BLUE_PLAYER') +
+        '</article>';
+    };
+    window.addEventListener("error", function (event) {
+      document.getElementById("browserRuntimeResult").textContent =
+        "FAIL: " + event.message;
+    });
+  </script>
+  <script src="/js/mycar.js?v=47"></script>
+  <script>
+    window.renderMyCars({ restoreScroll: false }).then(function () {
+      var content = document.getElementById("carList").textContent;
+      document.getElementById("browserRuntimeResult").textContent =
+        content.indexOf("Owner Browser Runtime｜GREEN_OWNER") >= 0 &&
+        content.indexOf("Player Browser Runtime｜BLUE_PLAYER") >= 0 &&
+        content.indexOf("Owner Player Browser Runtime｜GREEN_OWNER") >= 0 &&
+        content.indexOf("讀取失敗") < 0
+          ? "PASS"
+          : "FAIL: render result";
+    }).catch(function (error) {
+      document.getElementById("browserRuntimeResult").textContent =
+        "FAIL: " + error.message;
+    });
+  </script>
+</body>
+</html>
