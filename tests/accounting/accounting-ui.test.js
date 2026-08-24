@@ -195,7 +195,7 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeRepository, /accountingFeeCollections/);
   assert.match(feeRepository, /accountingExternalPayments/);
   assert.match(feeRepository, /accountingFeeAuditLogs/);
-  assert.match(feeController, /"玩家待付款",focus\.playerPending\.amount/);
+  assert.match(feeController, /"玩家付款",focus\.playerPending\.amount,"尚待 "/);
   assert.match(feeController, /"店家總收款",focus\.storeReceived\.amount/);
   assert.doesNotMatch(feeController, /data-summary-key/);
   assert.match(feeController, /付款項目，例如：預付訂金/);

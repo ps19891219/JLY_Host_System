@@ -89,7 +89,7 @@
       var storeRows = document.querySelectorAll(".accounting-store-focus-row");
       var entry = document.querySelector('[data-transaction-id="drink-350"]');
       var okay = storeRows.length === 4 &&
-        ["劇本費", "額外費用", "玩家待付款", "店家總收款"].every(function (label) { return Array.from(storeRows).some(function (node) { return node.textContent.indexOf(label) >= 0; }); }) &&
+        ["劇本費", "額外費用", "玩家付款", "店家總收款"].every(function (label) { return Array.from(storeRows).some(function (node) { return node.textContent.indexOf(label) >= 0; }); }) &&
         !document.querySelector(".accounting-store-totals") &&
         !document.querySelector(".accounting-studio-add-payment") &&
         ["新增額外費用", "支付店家", "登記玩家繳費", "記錄店家退款"].every(function (label) { return document.getElementById("studioFeeMenu").textContent.indexOf(label) >= 0; }) &&

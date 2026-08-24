@@ -78,7 +78,7 @@ test("店家帳務與玩家額外帳目維持不同 View 責任",()=>{
   assert.match(controller,/accounting-store-fixed/);
   assert.match(feeController,/"劇本費",focus\.scriptFee\.amount/);
   assert.match(feeController,/"額外費用",focus\.extraFees\.amount/);
-  assert.match(feeController,/"玩家待付款",focus\.playerPending\.amount/);
+  assert.match(feeController,/"玩家付款",focus\.playerPending\.amount,"尚待 "/);
   assert.match(feeController,/"店家總收款",focus\.storeReceived\.amount/);
   assert.doesNotMatch(feeController,/originalSummary|accounting-studio-summary/);
 });

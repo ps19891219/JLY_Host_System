@@ -2,10 +2,20 @@
 
 > Status: Working Map
 >
-> Version: V3.00
+> Version: V3.01
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.01 Store Accounting Focus V2（2026-08-24）
+
+- 店家帳務第一層維持四列，正式名稱為 `劇本費／額外費用／玩家付款／店家總收款`；玩家列以「尚待」呈現現行 Store Extension 未完成金額，已完成付款的正式玩家仍保留在展開列表，不因 outstanding 歸零而消失。
+- 額外費用改為三級資訊架構：第一層只顯示額外費用總額；第二層只顯示費用名稱與金額；第三層才顯示該費用自己的 allocations、修改金額／修改分帳與存在時才出現的修改紀錄。第二層不得提早顯示人物或 Split。
+- 新增純 `updateFeeItem()`，沿用原 `accountingFeePlans/scriptFee.feeItems[]` 更新費用 Amount／allocations，並以既有 `savePlan()` Audit 保存 before／after。費用或 Split 修改不讀寫 `accountingFeeCollections`／`accountingExternalPayments`，因此已發生 Payment 不會被覆蓋、刪除或自動改成新費用金額；沒有新增 Collection、Schema、Migration 或 Backfill。
+- 費用項目仍不要求 `paidBy`，目前 fee item 與實際 Payment 保持分離。現有資料沒有 `feeItemId ↔ paymentId` 正式關聯，因此「單筆額外費用的部分先墊款／分次墊款」仍為 **BLOCKED**，第三層不虛構先墊款 $0 或用 View 猜付款來源。
+- `店家儲值金／現場支付／主揪代收` 與「只有主揪代收需確認」仍為 **BLOCKED**：`accountingFeeCollections` 尚無 payment method／confirmation／Pending 語意。本輪沒有為畫面新增相容字串，也沒有把主揪代收錯算為店家已收到。
+- 退款掛回原付款與收款人確認仍缺 `sourcePaymentId`／refund recipient lifecycle；店家 Compensation 分配亦無正式 Domain，維持 **INCOMPLETE**。店家總收款繼續只採已存在的外部店家付款淨額，不以玩家付款或主揪代收推定店家收到。
+- 移除 Store UI 的開發者 Projection 說明；阻塞能力留在工程回報與本 Map，不外露給正式使用者。Runtime cache entry：`accounting.css?v=20`、`activity-fee-controller.js?v=13`。
 
 ## V3.00 Store Accounting Focus V1（2026-08-24）
 

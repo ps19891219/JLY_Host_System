@@ -55,6 +55,25 @@ test("custom additional fee must allocate its complete amount",()=>{
   assert.throws(()=>fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"custom",allocations:[{personId:"p1",amount:100}]},"host"),/fee_allocation_total_mismatch/);
 });
 
+test("editing an extra fee updates amount and split without touching payments",()=>{
+  let plan=fee.buildPlan({carId:"car-edit",vendorName:"店家",requiredPlayerCount:3,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"equal"},"host","2026-08-24T02:00:00.000Z");
+  const payment={paymentId:"paid-1",personId:"a",kind:"payment",amount:200},id=plan.feeItems[0].feeItemId;
+  const edited=fee.updateFeeItem(plan,id,{title:"指定費",amount:300,allocationType:"custom",allocations:[{personId:"a",amount:0},{personId:"b",amount:100},{personId:"c",amount:200}]},"host","2026-08-24T03:00:00.000Z");
+  assert.equal(edited.feeItems[0].amount,300);
+  assert.deepEqual(Array.from(edited.feeItems[0].allocations,row=>({personId:row.personId,amount:row.amount})),[{personId:"b",amount:100},{personId:"c",amount:200}]);
+  assert.equal(edited.vendorTotal,3300);
+  assert.deepEqual(payment,{paymentId:"paid-1",personId:"a",kind:"payment",amount:200});
+});
+
+test("fee payer remains optional and payment is not embedded in a fee item",()=>{
+  let plan=fee.buildPlan({carId:"car-no-payer",vendorName:"店家",requiredPlayerCount:2,playerFee:1000,playerIds:["a","b"]},"host","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"包廂費",amount:300,allocationType:"equal"},"host","2026-08-24T02:00:00.000Z");
+  assert.equal(Object.hasOwn(plan.feeItems[0],"paidBy"),false);
+  assert.equal(Object.hasOwn(plan.feeItems[0],"paidAmount"),false);
+  assert.deepEqual(Array.from(plan.feeItems[0].allocations,row=>row.amount),[150,150]);
+});
+
 test("studio summary shows three fields normally and five fields only with extras",()=>{
   let plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:6,playerFee:1150,playerIds:["a","b","c","d","e","f"]},"host","2026-08-22T01:00:00.000Z");
   let summary=fee.summarize(plan,[],[]);

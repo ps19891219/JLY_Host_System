@@ -10,6 +10,19 @@
     return{feePlanId:"scriptFee",activityId:text(input.carId),activityType:"script_car",villageType:"script",carId:text(input.carId),feeType:"script_fee",currency:"TWD",vendor:{externalPartyId:text(input.externalPartyId)||`external-${Date.now()}`,displayName:text(input.vendorName),linkedOrganizationId:text(input.linkedOrganizationId),linkedStoreId:text(input.linkedStoreId)},requiredPlayerCount,playerIds,playerFee,vendorBaseAmount,vendorTotal:vendorBaseAmount,memberCharges:playerIds.map(personId=>({personId,amount:playerFee})),feeItems:[],status:"active",createdBy:text(actorPersonId),updatedBy:text(actorPersonId),createdAt:now,updatedAt:now};
   }
   function addFeeItem(plan,input,actorPersonId,now){const itemAmount=amount(input.amount),title=text(input.title);if(!plan||!title||!itemAmount)throw new Error("fee_item_invalid");const allocations=itemAllocations(input,plan.playerIds||[],actorPersonId);if(allocations.some(item=>!item.personId||!item.amount))throw new Error("fee_allocation_invalid");const item={feeItemId:`fee-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,title,category:text(input.category)||"other",amount:itemAmount,allocationType:text(input.allocationType)||"equal",allocations,note:text(input.note),vendorPayable:true,createdBy:text(actorPersonId),createdAt:now};return{...plan,feeItems:[...(plan.feeItems||[]),item],vendorTotal:amount(plan.vendorBaseAmount==null?plan.vendorTotal:plan.vendorBaseAmount)+(plan.feeItems||[]).reduce((sum,entry)=>sum+amount(entry.amount),0)+itemAmount,updatedBy:text(actorPersonId),updatedAt:now};}
+  function updateFeeItem(plan,feeItemId,input,actorPersonId,now){
+    if(!plan)throw new Error("fee_plan_invalid");
+    const id=text(feeItemId),items=plan.feeItems||[],index=items.findIndex(item=>text(item&&item.feeItemId)===id);
+    if(index<0)throw new Error("fee_item_not_found");
+    const previous=items[index],nextAmount=amount(input.amount==null?previous.amount:input.amount),nextTitle=text(input.title==null?previous.title:input.title);
+    if(!nextAmount||!nextTitle)throw new Error("fee_item_invalid");
+    const allocationInput={...previous,...input,amount:nextAmount,allocationType:text(input.allocationType)||text(previous.allocationType)||"equal"};
+    const allocations=itemAllocations(allocationInput,plan.playerIds||[],actorPersonId);
+    if(allocations.some(item=>!item.personId||!item.amount))throw new Error("fee_allocation_invalid");
+    const next={...previous,title:nextTitle,amount:nextAmount,allocationType:allocationInput.allocationType,allocations,note:input.note==null?previous.note:text(input.note)};
+    const feeItems=items.map((item,itemIndex)=>itemIndex===index?next:item);
+    return{...plan,feeItems,vendorTotal:amount(plan.vendorBaseAmount)+feeItems.filter(item=>item&&item.status!=="cancelled").reduce((sum,item)=>sum+amount(item.amount),0),updatedBy:text(actorPersonId),updatedAt:now};
+  }
   function syncPlayers(plan,playerIds,actorPersonId,now){const required=amount(plan.requiredPlayerCount)||Math.max((plan.playerIds||[]).length,(plan.memberCharges||[]).length),ids=[...new Set((playerIds||[]).map(text).filter(Boolean))].slice(0,required),previous=plan.playerIds||(plan.memberCharges||[]).map(item=>item.personId),playerFee=amount(plan.playerFee||(plan.memberCharges||[])[0]&&plan.memberCharges[0].amount),vendorBaseAmount=required*playerFee,vendorTotal=vendorBaseAmount+(plan.feeItems||[]).reduce((sum,item)=>sum+amount(item.amount),0),derivedValuesCurrent=amount(plan.vendorBaseAmount)===vendorBaseAmount&&amount(plan.vendorTotal)===vendorTotal&&(plan.memberCharges||[]).every(item=>amount(item.amount)===playerFee);if(JSON.stringify(ids)===JSON.stringify(previous)&&plan.requiredPlayerCount&&derivedValuesCurrent)return plan;return{...plan,requiredPlayerCount:required,playerIds:ids,memberCharges:ids.map(personId=>({personId,amount:playerFee})),vendorBaseAmount,vendorTotal,updatedBy:text(actorPersonId),updatedAt:now};}
   function charges(plan){const map=new Map();const add=(id,value)=>{if(id&&value)map.set(id,(map.get(id)||0)+value);};if(Array.isArray(plan&&plan.playerIds))(plan.playerIds||[]).forEach(id=>add(id,amount(plan.playerFee)));else(plan&&plan.memberCharges||[]).forEach(item=>add(item.personId,amount(item.amount)));(plan&&plan.feeItems||[]).forEach(item=>(item.allocations||[]).forEach(row=>add(row.personId,amount(row.amount))));return[...map].map(([personId,value])=>({personId,amount:value}));}
   function summarize(plan,memberPayments,vendorPayments){
@@ -23,10 +36,10 @@
     return{
       scriptFee:{amount:summary.vendorBaseAmount,unitAmount:amount(plan&&plan.playerFee),headcount:amount(plan&&plan.requiredPlayerCount)},
       extraFees:{amount:summary.vendorExtraAmount,items:(plan&&plan.feeItems||[]).filter(item=>item&&item.status!=="cancelled").map(item=>({feeItemId:text(item.feeItemId),title:text(item.title)||"額外費用",amount:amount(item.amount),allocations:(item.allocations||[]).map(row=>({personId:text(row.personId),amount:amount(row.amount)}))}))},
-      playerPending:{amount:summary.memberOutstanding,members:summary.members.filter(item=>item.outstanding>0)},
+      playerPending:{amount:summary.memberOutstanding,members:summary.members},
       storeReceived:{amount:summary.vendorPaid,payments:(vendorPayments||[]).filter(Boolean)},
       limitations:{playerPendingIsStoreOnly:true,hostCollectionNotStoreReceipt:true}
     };
   }
-  window.JLYActivityFeeData={buildPlan,addFeeItem,syncPlayers,summarize,studioSummaryItems,storeFocusProjection,splitEvenly};
+  window.JLYActivityFeeData={buildPlan,addFeeItem,updateFeeItem,syncPlayers,summarize,studioSummaryItems,storeFocusProjection,splitEvenly};
 })();
