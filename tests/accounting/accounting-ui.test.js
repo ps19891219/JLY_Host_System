@@ -195,7 +195,7 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.match(feeRepository, /accountingFeeCollections/);
   assert.match(feeRepository, /accountingExternalPayments/);
   assert.match(feeRepository, /accountingFeeAuditLogs/);
-  assert.match(feeController, /"玩家付款",focus\.playerPending\.amount,"尚待 "/);
+  assert.match(feeController, /"玩家付款",focus\.playerPayments\.amount,"尚待 "/);
   assert.match(feeController, /"店家總收款",focus\.storeReceived\.amount/);
   assert.doesNotMatch(feeController, /data-summary-key/);
   assert.match(feeController, /付款項目，例如：預付訂金/);
@@ -212,7 +212,8 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.equal((feeController.match(/row\("store/g)||[]).length,4);
   assert.match(feeController, /details\.hidden=!details\.hidden/);
   assert.match(feeController, /data-fee-cancel/);
-  assert.match(feeController, /item\.outstanding/);
+  assert.match(feeController, /item\.state==="payable"/);
+  assert.match(feeController, /item\.displayAmount/);
   assert.match(feeController, /focus\.storeReceived\.amount/);
   assert.match(feeController, /studioFeeMenuButton/);
   assert.match(feeController, /vendorPaymentForm/);

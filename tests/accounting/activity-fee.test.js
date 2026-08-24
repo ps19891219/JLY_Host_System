@@ -21,11 +21,34 @@ test("store focus projection exposes exactly the four safe store figures",()=>{
   let plan=fee.buildPlan({carId:"car-focus",vendorName:"店家",requiredPlayerCount:6,playerFee:1000,playerIds:["a","b","c","d","e","f"]},"host","2026-08-24T01:00:00.000Z");
   plan=fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"specific",personId:"a"},"host","2026-08-24T02:00:00.000Z");
   plan=fee.addFeeItem(plan,{title:"包廂費",amount:350,allocationType:"equal"},"host","2026-08-24T03:00:00.000Z");
-  const projection=fee.storeFocusProjection(plan,[{personId:"a",kind:"payment",amount:1000}],[{paymentId:"deposit",kind:"payment",amount:2000,note:"訂金"}]);
+  const projection=fee.storeFocusProjection(plan,[{personId:"a",kind:"payment",amount:1000}],[{paymentId:"deposit",kind:"payment",amount:2000,note:"訂金",paidBy:"a"}]);
   assert.deepEqual({amount:projection.scriptFee.amount,unit:projection.scriptFee.unitAmount,count:projection.scriptFee.headcount},{amount:6000,unit:1000,count:6});
   assert.equal(projection.extraFees.amount,550);assert.deepEqual(Array.from(projection.extraFees.items,item=>item.title),["指定費","包廂費"]);
-  assert.equal(projection.playerPending.amount,5550);assert.equal(projection.storeReceived.amount,2000);assert.equal(projection.storeReceived.payments[0].paymentId,"deposit");
+  assert.equal(projection.playerPayments.amount,5292);assert.equal(projection.playerPayments.members.length,6);assert.equal(projection.storeReceived.amount,2000);assert.equal(projection.storeReceived.payments[0].paymentId,"deposit");
   assert.equal(projection.limitations.playerPendingIsStoreOnly,true);assert.equal(projection.limitations.hostCollectionNotStoreReceipt,true);
+});
+
+test("Store player positions aggregate each person responsibility payments refunds and later payments",()=>{
+  let plan=fee.buildPlan({carId:"car-person-store",vendorName:"店家",requiredPlayerCount:3,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"specific",personId:"a"},"host","2026-08-24T02:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"包廂費",amount:134,allocationType:"custom",allocations:[{personId:"b",amount:66},{personId:"c",amount:68}]},"host","2026-08-24T03:00:00.000Z");
+  const payments=[
+    {paymentId:"a-deposit",kind:"payment",amount:2000,paidBy:"a",note:"訂金"},
+    {paymentId:"a-refund",kind:"refund",amount:500,paidBy:"a",note:"退款"},
+    {paymentId:"a-more",kind:"payment",amount:200,paidBy:"a",note:"追加付款"},
+    {paymentId:"b-part",kind:"payment",amount:600,paidBy:"b"},
+    {paymentId:"c-all",kind:"payment",amount:1068,paidBy:"c"}
+  ],result=fee.storePersonPositions(plan,payments),byId=new Map(result.members.map(item=>[item.personId,item]));
+  assert.equal(result.members.length,3);assert.equal(byId.get("a").responsibility,1200);assert.equal(byId.get("a").netStorePaid,1700);assert.equal(byId.get("a").state,"receivable");assert.equal(byId.get("a").displayAmount,500);
+  assert.equal(byId.get("b").state,"payable");assert.equal(byId.get("b").displayAmount,466);assert.equal(byId.get("c").state,"settled");assert.equal(result.pendingAmount,466);
+  assert.deepEqual(Array.from(byId.get("a").feeSources,row=>row.label),["劇本費","指定費"]);assert.deepEqual(Array.from(byId.get("a").cashflowSources,row=>row.amount),[2000,-500,200]);
+});
+
+test("Store player pending total includes payable positions only and keeps settled people",()=>{
+  const plan=fee.buildPlan({carId:"car-person-store",vendorName:"店家",requiredPlayerCount:3,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z"),projection=fee.storeFocusProjection(plan,[],[
+    {kind:"payment",amount:1800,paidBy:"a"},{kind:"payment",amount:400,paidBy:"b"},{kind:"payment",amount:1000,paidBy:"c"}
+  ]),byId=new Map(projection.playerPayments.members.map(item=>[item.personId,item]));
+  assert.equal(byId.get("a").state,"receivable");assert.equal(byId.get("b").state,"payable");assert.equal(byId.get("c").state,"settled");assert.equal(projection.playerPayments.amount,600);
 });
 
 test("base fee uses fixed script capacity even before every player joins",()=>{

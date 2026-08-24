@@ -35,7 +35,25 @@ test("extra fees use a three-level view and do not expose people in level two",(
 
 test("paid players remain in the Store payment list",()=>{
   const data=read("js/modules/accounting/activity-fee-data.js"),controller=read("js/modules/accounting/activity-fee-controller.js");
-  assert.match(data,/playerPending:\{amount:summary\.memberOutstanding,members:summary\.members\}/);
-  assert.match(controller,/complete\?"已完成"/);
-  assert.match(controller,/已付款/);
+  assert.match(data,/playerPayments:\{amount:playerPayments\.pendingAmount,members:playerPayments\.members\}/);
+  assert.match(controller,/item\.state==="receivable"/);
+  assert.match(controller,/item\.state==="payable"/);
+  assert.match(controller,/"已結清"/);
+  assert.match(controller,/isManager&&item\.state==="payable"/);
+});
+
+test("Store player rows are one person aggregate with a third-level source breakdown",()=>{
+  const controller=read("js/modules/accounting/activity-fee-controller.js");
+  assert.match(controller,/focus\.playerPayments\.members\.map/);
+  assert.match(controller,/data-store-person-toggle/);
+  for(const label of ["店家費用","總負擔","實際金流","實際淨支付","目前結果"])assert.match(controller,new RegExp(label));
+  assert.doesNotMatch(controller,/data-store-person-payment[^`]+item\.state==="receivable"/);
+});
+
+test("Store received stays collapsed and payment arrows require actual child history",()=>{
+  const controller=read("js/modules/accounting/activity-fee-controller.js");
+  assert.match(controller,/row\("storeReceivedDetails","店家總收款",focus\.storeReceived\.amount\)/);
+  assert.match(controller,/id="storeReceivedDetails"[^>]+hidden/);
+  assert.match(controller,/hasDetails\?`<button[^`]+data-payment-history/);
+  assert.match(controller,/paidBy/);
 });

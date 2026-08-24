@@ -2,10 +2,19 @@
 
 > Status: Working Map
 >
-> Version: V3.01
+> Version: V3.02
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.02 Store Accounting Focus V3（2026-08-24）
+
+- 店家帳務第一層維持 `劇本費／額外費用／玩家付款／店家總收款` 四列；`玩家付款` 改讀純 `storePersonPositions()` Projection，以同一正式 Person 的全部店家 Fee allocations 與已完成 `accountingExternalPayments` 彙整成唯一一列，狀態只呈現應付／應收／已結清。已結清人物保留，付款入口只出現在應付人物。
+- Person Store Position 正式口徑為：`TotalStoreResponsibility = 劇本費人物分攤 + 全部有效額外費 allocations`；`NetStorePaid = 該 Person 正式店家付款 - 已確認退款`；兩者差額決定應付／應收／已結清。`玩家付款 尚待` 只加總各 Person 的應付，不拿其他人的應收跨人抵扣；Fee、Split、Payment 仍各自保存，沒有建立 Person Ledger、Schema、Migration 或 Backfill。
+- 玩家列第三層才顯示店家費用來源、總負擔、實際金流、實際淨支付與目前結果。付款入口沿用既有 `accountingExternalPayments.paidBy`，不再以 `accountingFeeCollections` 的逐費用扣款推定店家已收到；Store Payment 修改、退款與 Fee／Split 修改仍互不覆蓋。
+- `店家總收款` 第一層只顯示已完成的正式店家收款淨額，展開後才列付款人、項目與金額；付款沒有 correction／cancel child Audit 時不顯示歷程箭頭。主揪代收仍不會被推定為店家已收到。
+- 舊退款若缺少 `paidBy/personId/refundRecipientPersonId`，只會降低店家總收款，不能安全歸入任何 Person Store Position；Runtime 不以姓名或備註猜身份。退款掛回原付款仍缺 `sourcePaymentId`，Compensation 亦無正式 Domain，兩者維持 **INCOMPLETE**。
+- Runtime cache entry：`accounting.css?v=21`、`activity-fee-data.js?v=6`、`activity-fee-controller.js?v=14`。
 
 ## V3.01 Store Accounting Focus V2（2026-08-24）
 
