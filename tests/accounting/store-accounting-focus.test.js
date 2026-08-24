@@ -99,8 +99,21 @@ test("Store payment choices stay compact and received details cannot overflow mo
   assert.match(controller,/data-store-received-person-toggle/);
 });
 
-test("Store receivable recovery is not faked through a payment or expense record",()=>{
+test("Store receivable recovery persists a formal split source or pending vendor refund",()=>{
   const controller=read("js/modules/accounting/activity-fee-controller.js"),repository=read("js/modules/accounting/activity-fee-repository.js");
-  assert.doesNotMatch(controller,/data-store-receivable-recovery/);
-  assert.doesNotMatch(repository,/recoveryAllocation|storeReceivableRecovery/);
+  for(const marker of ["data-store-recovery","data-store-recovery-split","data-store-recovery-refund","分帳收回","店家退款"])assert.match(controller,new RegExp(marker));
+  assert.match(repository,/accountingStoreRecoveries/);
+  assert.match(repository,/store_receivable_payment_due/);
+  assert.match(repository,/store_refund_confirmation/);
+  assert.match(repository,/recordStoreRecovery/);
+  assert.match(repository,/confirmStoreRefund/);
+  assert.doesNotMatch(repository,/accountingEntries/);
+});
+
+test("Store received remains person aggregate before rendering payment records",()=>{
+  const controller=read("js/modules/accounting/activity-fee-controller.js");
+  assert.match(controller,/receivedGroups=new Map/);
+  assert.match(controller,/group\.payments\.push\(item\)/);
+  assert.match(controller,/data-store-received-person-toggle/);
+  assert.match(controller,/group\.payments\.slice\(\)\.reverse\(\)\.map/);
 });

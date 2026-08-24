@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V3.08
+> Version: V3.09
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.09 Store Receivable Recovery／Compact Payment Follow-up（2026-08-24）
+
+- Store Person Net Position 為應收時，原人物卡內新增「分帳收回／店家退款」兩個小型入口。分帳收回保存受款人及多筆 debtor allocations，並為每位付款責任人建立 `store_receivable_payment_due`；店家退款保存指定收款人並建立 `store_refund_confirmation`，由本人確認後才標記 received。兩者可分次、混合建立，不改寫原 Store Payment，也不增加 Activity Expense。
+- 新增 `cars/{carId}/accountingStoreRecoveries/{recoveryId}`：`type=person_split|vendor_refund`、`creditorPersonId`、`amount`、`allocations[]`、`status`、建立／確認 Audit。該 Collection 是 Store 超額付款的正式回收來源；玩家完整 Settlement UI 留到玩家帳務階段讀取同一來源，不複製 Transaction。
+- 店家總收款繼續由 `receivedGroups` 按 canonical Person 聚合，第一層一人一列，第二層才 Render 該 Person 的 Payment Records。付款方式改為內容寬度的 compact pills，可在 390px 自然換行，不再使用等寬大型 radio 卡片。
+- Runtime cache entry：`accounting.css?v=27`、`activity-fee-repository.js?v=5`、`activity-fee-controller.js?v=20`。無既有資料 Migration／Backfill；舊車沒有 recovery records 時行為不變。
 
 ## V3.08 Store Accounting Mobile Closeout（2026-08-24）
 
