@@ -33,6 +33,14 @@ test("extra fees use a three-level view and do not expose people in level two",(
   assert.match(controller,/data-fee-item-edit/);
 });
 
+test("extra fee amount uses an audited inline editor and keeps split editing separate",()=>{
+  const controller=read("js/modules/accounting/activity-fee-controller.js"),css=read("css/pages/accounting.css");
+  assert.match(controller,/data-fee-amount-edit/);assert.match(controller,/data-fee-amount-save/);assert.match(controller,/data-fee-amount-cancel/);assert.match(controller,/inputmode="numeric"/);
+  assert.match(controller,/repository\.savePlan/);assert.match(controller,/data\.updateFeeItem/);assert.match(controller,/restoreFeeItemView/);assert.match(controller,/window\.scrollTo/);
+  assert.doesNotMatch(controller,/>修改金額<\/button>/);assert.match(controller,/>修改分帳<\/button>/);
+  assert.match(css,/\.accounting-inline-amount-editor/);
+});
+
 test("paid players remain in the Store payment list",()=>{
   const data=read("js/modules/accounting/activity-fee-data.js"),controller=read("js/modules/accounting/activity-fee-controller.js");
   assert.match(data,/playerPayments:\{amount:playerPayments\.pendingAmount,members:playerPayments\.members\}/);

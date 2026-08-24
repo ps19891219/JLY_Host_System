@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V3.02
+> Version: V3.03
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.03 Store Person Identity／Payment Attribution P0（2026-08-24）
+
+- Store Player Payment Projection 在資料層以正式 Activity Member `personId + identityIds` 建立 canonical identity resolver；同一人物的 legacy player、Player Profile、Membership 與 owner/current identity 會先正規化再彙總 Fee responsibility 與 Store payment。正式 UI 不使用 displayName 合併，不修改、Migration 或 Backfill 舊資料。
+- `accountingExternalPayments` 的明確付款人欄位 `paidBy / personId / payerPersonId / payerMemberId` 與退款收款人 `refundRecipientPersonId` 先經同一 canonical identity，再進 `NetStorePaid`。訂金、劇本費付款、儲值金或現場支付不綁死單一 Fee；`createdBy` 仍不作付款人 fallback，維持 createdBy／paidBy 語意分離。
+- 額外費用金額改為原地 Inline Edit：金額本身是入口，支援 ✓／×、Enter／Escape、手機 numeric keyboard、送出鎖定；仍沿用 `updateFeeItem() → savePlan()` 產生 before／after Audit。重新 Render 後保留額外費與單筆費用展開狀態及 scroll，`修改分帳` 維持獨立入口；自訂 Split 總額不符時不猜分帳，要求先修改分帳。
+- Runtime cache entry：`accounting.css?v=22`、`activity-fee-data.js?v=7`、`activity-fee-controller.js?v=15`。沒有 Accounting Core／Firestore Schema 變更，也不需要 Migration、Backfill 或 Production Data 修改。
 
 ## V3.02 Store Accounting Focus V3（2026-08-24）
 

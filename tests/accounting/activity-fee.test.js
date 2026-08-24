@@ -44,6 +44,29 @@ test("Store player positions aggregate each person responsibility payments refun
   assert.deepEqual(Array.from(byId.get("a").feeSources,row=>row.label),["劇本費","指定費"]);assert.deepEqual(Array.from(byId.get("a").cashflowSources,row=>row.amount),[2000,-500,200]);
 });
 
+test("Store projection canonicalizes linked legacy identities and attributes every explicit payer reference",()=>{
+  let plan=fee.buildPlan({carId:"car-linked",vendorName:"店家",requiredPlayerCount:1,playerFee:1000,playerIds:["legacy-shijie"]},"owner-account","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"specific",personId:"profile-shijie"},"owner-account","2026-08-24T02:00:00.000Z");
+  const members=[
+    {personId:"profile-shijie",identityIds:["profile-shijie","legacy-shijie"],roles:["player"],usesSystem:true},
+    {personId:"owner-account",identityIds:["owner-account","profile-shijie"],roles:["owner"],usesSystem:true}
+  ],result=fee.storePersonPositions(plan,[{paymentId:"deposit",kind:"payment",amount:2000,paidBy:"owner-account",note:"訂金"}],members);
+  assert.equal(result.members.length,1);
+  assert.equal(result.members[0].personId,"owner-account");
+  assert.equal(result.members[0].responsibility,1200);
+  assert.equal(result.members[0].netStorePaid,2000);
+  assert.equal(result.members[0].state,"receivable");
+  assert.equal(result.members[0].displayAmount,800);
+  assert.deepEqual(Array.from(result.members[0].feeSources,row=>row.label),["劇本費","指定費"]);
+  assert.deepEqual(Array.from(result.members[0].cashflowSources,row=>row.amount),[2000]);
+});
+
+test("Store payment attribution accepts explicit legacy payer fields but never creator identity",()=>{
+  const plan=fee.buildPlan({carId:"car-payer",vendorName:"店家",requiredPlayerCount:1,playerFee:1000,playerIds:["legacy-person"]},"host","2026-08-24T01:00:00.000Z"),members=[{personId:"person",identityIds:["person","legacy-person","member-person"],roles:["player"]}];
+  const result=fee.storePersonPositions(plan,[{kind:"payment",amount:600,payerMemberId:"member-person",createdBy:"someone-else"}],members);
+  assert.equal(result.members.length,1);assert.equal(result.members[0].personId,"person");assert.equal(result.members[0].netStorePaid,600);assert.equal(result.members[0].displayAmount,400);
+});
+
 test("Store player pending total includes payable positions only and keeps settled people",()=>{
   const plan=fee.buildPlan({carId:"car-person-store",vendorName:"店家",requiredPlayerCount:3,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z"),projection=fee.storeFocusProjection(plan,[],[
     {kind:"payment",amount:1800,paidBy:"a"},{kind:"payment",amount:400,paidBy:"b"},{kind:"payment",amount:1000,paidBy:"c"}

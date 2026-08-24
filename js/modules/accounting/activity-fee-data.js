@@ -31,24 +31,32 @@
     return{memberDue,memberCollected,memberOutstanding:Math.max(0,memberDue-memberCollected),vendorBaseAmount,vendorExtraAmount,vendorTotal,vendorPaid,vendorOutstanding:Math.max(0,vendorTotal-vendorPaid),custodyBalance:memberCollected-vendorPaid,unassignedCount,unassignedBase,assignedBase,members:memberCharges.map(item=>({...item,paid:paidByMember.get(item.personId)||0,outstanding:Math.max(0,amount(item.amount)-(paidByMember.get(item.personId)||0))}))};
   }
   function studioSummaryItems(summary){const rows=[{key:"base",label:"劇本費用",amount:amount(summary&&summary.vendorBaseAmount)}];if(amount(summary&&summary.vendorExtraAmount)){rows.push({key:"extra",label:"額外費用",amount:amount(summary.vendorExtraAmount)},{key:"total",label:"總額",amount:amount(summary.vendorTotal)});}rows.push({key:"paid",label:"已付款",amount:amount(summary&&summary.vendorPaid)},{key:"outstanding",label:"待付款",amount:amount(summary&&summary.vendorOutstanding)});return rows;}
-  function storePersonPositions(plan,vendorPayments){
+  function storeIdentityResolver(members){
+    const parent=new Map(),find=id=>{const value=text(id);if(!value)return"";if(!parent.has(value))parent.set(value,value);let root=value;while(parent.get(root)!==root)root=parent.get(root);let current=value;while(parent.get(current)!==root){const next=parent.get(current);parent.set(current,root);current=next;}return root;},union=(left,right)=>{const a=find(left),b=find(right);if(a&&b&&a!==b)parent.set(b,a);};
+    (members||[]).forEach(member=>{const ids=[member&&member.personId,...(member&&member.identityIds||[])].map(text).filter(Boolean);ids.slice(1).forEach(id=>union(ids[0],id));});
+    const candidates=new Map();(members||[]).forEach((member,index)=>{const id=text(member&&member.personId),root=find(id);if(!root)return;const candidate={personId:id,index,owner:Boolean(member&&member.roles&&member.roles.includes("owner")),usesSystem:Boolean(member&&member.usesSystem)};if(!candidates.has(root))candidates.set(root,[]);candidates.get(root).push(candidate);});
+    const canonicalByRoot=new Map();candidates.forEach((rows,root)=>{rows.sort((a,b)=>Number(b.owner)-Number(a.owner)||Number(b.usesSystem)-Number(a.usesSystem)||a.index-b.index);canonicalByRoot.set(root,rows[0].personId);});
+    return personId=>{const id=text(personId);if(!id)return"";const root=find(id);return canonicalByRoot.get(root)||id;};
+  }
+  function storePersonPositions(plan,vendorPayments,members){
+    const canonicalize=storeIdentityResolver(members);
     const positions=new Map(),ensure=personId=>{const id=text(personId);if(!id)return null;if(!positions.has(id))positions.set(id,{personId:id,responsibility:0,netStorePaid:0,feeSources:[],cashflowSources:[]});return positions.get(id);};
-    const addFee=(personId,value,label,sourceId)=>{const row=ensure(personId),fee=amount(value);if(!row||!fee)return;row.responsibility+=fee;row.feeSources.push({sourceId:text(sourceId),label:text(label)||"店家費用",amount:fee});};
+    const addFee=(personId,value,label,sourceId)=>{const row=ensure(canonicalize(personId)),fee=amount(value);if(!row||!fee)return;row.responsibility+=fee;row.feeSources.push({sourceId:text(sourceId),label:text(label)||"店家費用",amount:fee});};
     if(Array.isArray(plan&&plan.playerIds))(plan.playerIds||[]).forEach(personId=>addFee(personId,plan.playerFee,"劇本費","scriptFee"));else(plan&&plan.memberCharges||[]).forEach(item=>addFee(item.personId,item.amount,"劇本費","scriptFee"));
     (plan&&plan.feeItems||[]).filter(item=>item&&item.status!=="cancelled").forEach(item=>(item.allocations||[]).forEach(row=>addFee(row.personId,row.amount,item.title,item.feeItemId)));
     let unassignedPaymentAmount=0,unassignedRefundAmount=0;
     (vendorPayments||[]).filter(item=>item&&item.status!=="cancelled").forEach(item=>{
       const isRefund=item.kind==="refund",isConfirmed=!item.settlementStatus||item.settlementStatus==="settled"||String(item.settlementAuthority||"").includes("manager_confirmed");
       if(!isConfirmed)return;
-      const personId=text(item.refundRecipientPersonId||item.personId||item.paidBy),value=amount(item.amount),row=ensure(personId);
+      const personId=canonicalize(item.refundRecipientPersonId||item.personId||item.paidBy||item.payerPersonId||item.payerMemberId),value=amount(item.amount),row=ensure(personId);
       if(!row){if(isRefund)unassignedRefundAmount+=value;else unassignedPaymentAmount+=value;return;}
       const signed=isRefund?-value:value;row.netStorePaid+=signed;row.cashflowSources.push({paymentId:text(item.paymentId),label:text(item.note)||(isRefund?"退款":"店家付款"),amount:signed,kind:isRefund?"refund":"payment",createdAt:item.createdAt||""});
     });
-    const order={payable:0,receivable:1,settled:2},members=[...positions.values()].map(row=>{const netPosition=row.netStorePaid-row.responsibility,state=netPosition>0?"receivable":netPosition<0?"payable":"settled";return{...row,netPosition,state,displayAmount:Math.abs(netPosition)};}).sort((a,b)=>order[a.state]-order[b.state]||a.personId.localeCompare(b.personId));
-    return{members,pendingAmount:members.filter(item=>item.state==="payable").reduce((sum,item)=>sum+item.displayAmount,0),unassignedPaymentAmount,unassignedRefundAmount};
+    const order={payable:0,receivable:1,settled:2},resultMembers=[...positions.values()].map(row=>{const netPosition=row.netStorePaid-row.responsibility,state=netPosition>0?"receivable":netPosition<0?"payable":"settled";return{...row,netPosition,state,displayAmount:Math.abs(netPosition)};}).sort((a,b)=>order[a.state]-order[b.state]||a.personId.localeCompare(b.personId));
+    return{members:resultMembers,pendingAmount:resultMembers.filter(item=>item.state==="payable").reduce((sum,item)=>sum+item.displayAmount,0),unassignedPaymentAmount,unassignedRefundAmount};
   }
-  function storeFocusProjection(plan,memberPayments,vendorPayments){
-    const summary=summarize(plan,memberPayments,vendorPayments),playerPayments=storePersonPositions(plan,vendorPayments);
+  function storeFocusProjection(plan,memberPayments,vendorPayments,members){
+    const summary=summarize(plan,memberPayments,vendorPayments),playerPayments=storePersonPositions(plan,vendorPayments,members);
     const completedVendorPayments=(vendorPayments||[]).filter(item=>item&&item.status!=="cancelled"&&(!item.settlementStatus||item.settlementStatus==="settled"||String(item.settlementAuthority||"").includes("manager_confirmed"))),storeReceivedAmount=completedVendorPayments.reduce((sum,item)=>sum+(item.kind==="refund"?-amount(item.amount):amount(item.amount)),0);
     return{
       scriptFee:{amount:summary.vendorBaseAmount,unitAmount:amount(plan&&plan.playerFee),headcount:amount(plan&&plan.requiredPlayerCount)},
@@ -59,5 +67,5 @@
       limitations:{playerPendingIsStoreOnly:true,hostCollectionNotStoreReceipt:true,unassignedPaymentAmount:playerPayments.unassignedPaymentAmount,unassignedRefundAmount:playerPayments.unassignedRefundAmount}
     };
   }
-  window.JLYActivityFeeData={buildPlan,addFeeItem,updateFeeItem,syncPlayers,summarize,studioSummaryItems,storePersonPositions,storeFocusProjection,splitEvenly};
+  window.JLYActivityFeeData={buildPlan,addFeeItem,updateFeeItem,syncPlayers,summarize,studioSummaryItems,storeIdentityResolver,storePersonPositions,storeFocusProjection,splitEvenly};
 })();
