@@ -40,6 +40,16 @@
     if (!member) return null;
     return { ...member, displayName: text(identity.displayName) || member.displayName, usesSystem: true };
   }
+  function linkCurrentIdentityToActivityMembers(members, identity) {
+    const linkedIds = unique(identity && identity.identityIds || []);
+    if (!linkedIds.length) return members || [];
+    const linkedSet = new Set(linkedIds);
+    return (members || []).map(member => {
+      const memberIds = unique([member.personId, ...(member.identityIds || [])]);
+      if (!memberIds.some(id => linkedSet.has(id))) return member;
+      return { ...member, identityIds: unique([...memberIds, ...linkedIds]) };
+    });
+  }
   function buildQuickTransaction(input, now) {
     const transactionId = text(input.transactionId);
     const activityId = text(input.activityId || input.carId);
@@ -181,5 +191,5 @@
     return {transfers};
   }
   function personalObligations(items,personId){const id=text(personId),list=(Array.isArray(items)?items:[]).filter(item=>item.fromPersonId===id||item.toPersonId===id);return{payable:list.filter(item=>item.fromPersonId===id),receivable:list.filter(item=>item.toPersonId===id),payableTotal:list.filter(item=>item.fromPersonId===id).reduce((sum,item)=>sum+(Number(item.amount)||0),0),receivableTotal:list.filter(item=>item.toPersonId===id).reduce((sum,item)=>sum+(Number(item.amount)||0),0)};}
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, netSettlementFromObligations, personalSettlement, personalObligations };
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, linkCurrentIdentityToActivityMembers, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, netSettlementFromObligations, personalSettlement, personalObligations };
 });

@@ -64,6 +64,17 @@ test("current profile resolves to an older linked car identity and keeps the per
   assert.notEqual(current.displayName, "凱崴私團");
 });
 
+test("current formal identity links owner and legacy player member records without using display name",()=>{
+  const members=[
+    {personId:"owner-id",identityIds:["owner-id"],displayName:"詩婕",roles:["owner"]},
+    {personId:"legacy-player-id",identityIds:["legacy-player-id"],displayName:"詩婕",roles:["player"]},
+    {personId:"same-name-other",identityIds:["same-name-other"],displayName:"詩婕",roles:["player"]}
+  ],linked=accountingData.linkCurrentIdentityToActivityMembers(members,{identityIds:["owner-id","legacy-player-id","profile-id"]});
+  assert.deepEqual(linked[0].identityIds,["owner-id","legacy-player-id","profile-id"]);
+  assert.deepEqual(linked[1].identityIds,["legacy-player-id","owner-id","profile-id"]);
+  assert.deepEqual(linked[2].identityIds,["same-name-other"]);
+});
+
 test("getCurrentIdentity includes profile, device, and linked identities", () => {
   const values = new Map([
     ["currentPlayerProfileId", "profile-shijie"],

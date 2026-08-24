@@ -37,8 +37,15 @@ test("extra fee amount uses an audited inline editor and keeps split editing sep
   const controller=read("js/modules/accounting/activity-fee-controller.js"),css=read("css/pages/accounting.css");
   assert.match(controller,/data-fee-amount-edit/);assert.match(controller,/data-fee-amount-save/);assert.match(controller,/data-fee-amount-cancel/);assert.match(controller,/inputmode="numeric"/);
   assert.match(controller,/repository\.savePlan/);assert.match(controller,/data\.updateFeeItem/);assert.match(controller,/restoreFeeItemView/);assert.match(controller,/window\.scrollTo/);
-  assert.doesNotMatch(controller,/>修改金額<\/button>/);assert.match(controller,/>修改分帳<\/button>/);
+  assert.doesNotMatch(controller,/>修改金額<\/button>/);assert.match(controller,/>管理分帳 〉<\/button>/);
   assert.match(css,/\.accounting-inline-amount-editor/);
+});
+
+test("each Split amount uses inline draft validation before one audited save",()=>{
+  const controller=read("js/modules/accounting/activity-fee-controller.js"),css=read("css/pages/accounting.css");
+  for(const marker of ["data-fee-split-inline","data-fee-split-edit","data-fee-split-save","data-fee-split-cancel","data-fee-split-summary"])assert.match(controller,new RegExp(marker));
+  assert.match(controller,/state\.delta!==0/);assert.match(controller,/allocationType:"custom"/);assert.match(controller,/分帳合計/);assert.match(controller,/費用總額/);assert.match(controller,/尚差 -/);assert.match(controller,/管理分帳/);
+  assert.match(css,/accounting-split-total/);assert.match(css,/accounting-inline-split/);
 });
 
 test("paid players remain in the Store payment list",()=>{

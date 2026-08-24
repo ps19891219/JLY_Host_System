@@ -67,6 +67,21 @@ test("Store payment attribution accepts explicit legacy payer fields but never c
   assert.equal(result.members.length,1);assert.equal(result.members[0].personId,"person");assert.equal(result.members[0].netStorePaid,600);assert.equal(result.members[0].displayAmount,400);
 });
 
+test("legacy unlinked Store payment remains received and attributes recordedBy as its historical payer",()=>{
+  let plan=fee.buildPlan({carId:"car-legacy-payment",vendorName:"店家",requiredPlayerCount:1,playerFee:1000,playerIds:["legacy-shijie"]},"owner-id","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"specific",personId:"legacy-shijie"},"owner-id","2026-08-24T02:00:00.000Z");
+  const members=[{personId:"owner-id",identityIds:["owner-id","legacy-shijie"],roles:["owner","player"]}],legacyPayment={paymentId:"old-deposit",kind:"deposit",amount:2000,recordedBy:"owner-id",settlementStatus:"payment_claimed",settlementAuthority:"manager_for_unlinked_vendor",note:"訂金"},projection=fee.storeFocusProjection(plan,[],[legacyPayment],members);
+  assert.equal(projection.storeReceived.amount,2000);assert.equal(projection.storeReceived.payments.length,1);
+  assert.equal(projection.playerPayments.members.length,1);assert.equal(projection.playerPayments.members[0].personId,"owner-id");assert.equal(projection.playerPayments.members[0].responsibility,1200);assert.equal(projection.playerPayments.members[0].netStorePaid,2000);assert.equal(projection.playerPayments.members[0].displayAmount,800);assert.equal(projection.playerPayments.members[0].state,"receivable");
+});
+
+test("editing only the fee amount preserves existing Split and exposes the allocation difference",()=>{
+  let plan=fee.buildPlan({carId:"car-amount-only",vendorName:"店家",requiredPlayerCount:3,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"custom",allocations:[{personId:"a",amount:66},{personId:"b",amount:66},{personId:"c",amount:68}]},"host","2026-08-24T02:00:00.000Z");
+  const edited=fee.updateFeeAmount(plan,plan.feeItems[0].feeItemId,300,"host","2026-08-24T03:00:00.000Z");
+  assert.equal(edited.feeItems[0].amount,300);assert.deepEqual(Array.from(edited.feeItems[0].allocations,row=>row.amount),[66,66,68]);assert.equal(edited.feeItems[0].allocations.reduce((sum,row)=>sum+row.amount,0),200);
+});
+
 test("Store player pending total includes payable positions only and keeps settled people",()=>{
   const plan=fee.buildPlan({carId:"car-person-store",vendorName:"店家",requiredPlayerCount:3,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z"),projection=fee.storeFocusProjection(plan,[],[
     {kind:"payment",amount:1800,paidBy:"a"},{kind:"payment",amount:400,paidBy:"b"},{kind:"payment",amount:1000,paidBy:"c"}

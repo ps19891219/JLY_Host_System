@@ -2,10 +2,18 @@
 
 > Status: Working Map
 >
-> Version: V3.03
+> Version: V3.04
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.04 Store Canonical Identity／Legacy Payment／Split Inline P0（2026-08-24）
+
+- Store Player Payment Projection 現在由 Activity Current Identity 的正式 `identityIds` 將 owner／profile／legacy player member references 串回同一 canonical Person；只使用既有正式 identity relation，不使用 displayName 合併，也不新增 Render workaround map。
+- 舊版未綁定店家付款相容路徑限縮為已知正式 legacy format：`manager_for_unlinked_vendor`（或同等舊式無 payer identity 格式）才可由 `recordedBy` 還原付款人；新格式仍優先 `personId／paidBy／payerPersonId／payerMemberId`，且絕不以 `createdBy` 猜付款人。這讓既有訂金同時回到 Store Total Received 與該 canonical Person 的 NetStorePaid，而不複製 Payment。
+- 額外費用 Split 金額支援原地 Inline Edit。不同 Split 可先保留為本機 draft；總和不等於費用金額時顯示差額且禁止正式 save，調整至相等後才透過既有 `updateFeeItem() → savePlan()` 一次保存並留下 before／after Audit。大型修改入口改為次要的「管理分帳 〉」，保留新增／移除人物與分帳模式能力。
+- 費用總額 Inline Edit 改用 `updateFeeAmount()`：只改費用、不偷改既有 Split；若總額與 Split 不一致，正式 View 顯示「分帳待調整」。重新 Render 會保留額外費用、單筆費用、玩家付款展開狀態與 scroll。
+- Runtime cache entry：`accounting.css?v=23`、`accounting-data.js?v=8`、`activity-fee-data.js?v=8`、`activity-fee-controller.js?v=16`、`accounting-controller.js?v=24`。無 Accounting Core／Firestore Schema 變更，不需 Migration、Backfill 或 Production Data 修改。
 
 ## V3.03 Store Person Identity／Payment Attribution P0（2026-08-24）
 

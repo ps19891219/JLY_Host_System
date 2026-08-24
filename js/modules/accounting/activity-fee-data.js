@@ -23,6 +23,13 @@
     const feeItems=items.map((item,itemIndex)=>itemIndex===index?next:item);
     return{...plan,feeItems,vendorTotal:amount(plan.vendorBaseAmount)+feeItems.filter(item=>item&&item.status!=="cancelled").reduce((sum,item)=>sum+amount(item.amount),0),updatedBy:text(actorPersonId),updatedAt:now};
   }
+  function updateFeeAmount(plan,feeItemId,nextValue,actorPersonId,now){
+    if(!plan)throw new Error("fee_plan_invalid");
+    const id=text(feeItemId),nextAmount=amount(nextValue),items=plan.feeItems||[],index=items.findIndex(item=>text(item&&item.feeItemId)===id);
+    if(index<0)throw new Error("fee_item_not_found");if(!nextAmount)throw new Error("fee_item_invalid");
+    const feeItems=items.map((item,itemIndex)=>itemIndex===index?{...item,amount:nextAmount}:item);
+    return{...plan,feeItems,vendorTotal:amount(plan.vendorBaseAmount)+feeItems.filter(item=>item&&item.status!=="cancelled").reduce((sum,item)=>sum+amount(item.amount),0),updatedBy:text(actorPersonId),updatedAt:now};
+  }
   function syncPlayers(plan,playerIds,actorPersonId,now){const required=amount(plan.requiredPlayerCount)||Math.max((plan.playerIds||[]).length,(plan.memberCharges||[]).length),ids=[...new Set((playerIds||[]).map(text).filter(Boolean))].slice(0,required),previous=plan.playerIds||(plan.memberCharges||[]).map(item=>item.personId),playerFee=amount(plan.playerFee||(plan.memberCharges||[])[0]&&plan.memberCharges[0].amount),vendorBaseAmount=required*playerFee,vendorTotal=vendorBaseAmount+(plan.feeItems||[]).reduce((sum,item)=>sum+amount(item.amount),0),derivedValuesCurrent=amount(plan.vendorBaseAmount)===vendorBaseAmount&&amount(plan.vendorTotal)===vendorTotal&&(plan.memberCharges||[]).every(item=>amount(item.amount)===playerFee);if(JSON.stringify(ids)===JSON.stringify(previous)&&plan.requiredPlayerCount&&derivedValuesCurrent)return plan;return{...plan,requiredPlayerCount:required,playerIds:ids,memberCharges:ids.map(personId=>({personId,amount:playerFee})),vendorBaseAmount,vendorTotal,updatedBy:text(actorPersonId),updatedAt:now};}
   function charges(plan){const map=new Map();const add=(id,value)=>{if(id&&value)map.set(id,(map.get(id)||0)+value);};if(Array.isArray(plan&&plan.playerIds))(plan.playerIds||[]).forEach(id=>add(id,amount(plan.playerFee)));else(plan&&plan.memberCharges||[]).forEach(item=>add(item.personId,amount(item.amount)));(plan&&plan.feeItems||[]).forEach(item=>(item.allocations||[]).forEach(row=>add(row.personId,amount(row.amount))));return[...map].map(([personId,value])=>({personId,amount:value}));}
   function summarize(plan,memberPayments,vendorPayments){
@@ -46,9 +53,9 @@
     (plan&&plan.feeItems||[]).filter(item=>item&&item.status!=="cancelled").forEach(item=>(item.allocations||[]).forEach(row=>addFee(row.personId,row.amount,item.title,item.feeItemId)));
     let unassignedPaymentAmount=0,unassignedRefundAmount=0;
     (vendorPayments||[]).filter(item=>item&&item.status!=="cancelled").forEach(item=>{
-      const isRefund=item.kind==="refund",isConfirmed=!item.settlementStatus||item.settlementStatus==="settled"||String(item.settlementAuthority||"").includes("manager_confirmed");
+      const isRefund=item.kind==="refund",authority=text(item.settlementAuthority),isLegacyUnlinked=authority==="manager_for_unlinked_vendor"||(!item.settlementStatus&&!item.paidBy&&!item.personId&&Boolean(item.recordedBy)),isConfirmed=!item.settlementStatus||item.settlementStatus==="settled"||authority.includes("manager_confirmed")||isLegacyUnlinked;
       if(!isConfirmed)return;
-      const personId=canonicalize(item.refundRecipientPersonId||item.personId||item.paidBy||item.payerPersonId||item.payerMemberId),value=amount(item.amount),row=ensure(personId);
+      const legacyPayer=!item.refundRecipientPersonId&&!item.personId&&!item.paidBy&&!item.payerPersonId&&!item.payerMemberId&&isLegacyUnlinked?item.recordedBy:"",personId=canonicalize(item.refundRecipientPersonId||item.personId||item.paidBy||item.payerPersonId||item.payerMemberId||legacyPayer),value=amount(item.amount),row=ensure(personId);
       if(!row){if(isRefund)unassignedRefundAmount+=value;else unassignedPaymentAmount+=value;return;}
       const signed=isRefund?-value:value;row.netStorePaid+=signed;row.cashflowSources.push({paymentId:text(item.paymentId),label:text(item.note)||(isRefund?"退款":"店家付款"),amount:signed,kind:isRefund?"refund":"payment",createdAt:item.createdAt||""});
     });
@@ -57,7 +64,7 @@
   }
   function storeFocusProjection(plan,memberPayments,vendorPayments,members){
     const summary=summarize(plan,memberPayments,vendorPayments),playerPayments=storePersonPositions(plan,vendorPayments,members);
-    const completedVendorPayments=(vendorPayments||[]).filter(item=>item&&item.status!=="cancelled"&&(!item.settlementStatus||item.settlementStatus==="settled"||String(item.settlementAuthority||"").includes("manager_confirmed"))),storeReceivedAmount=completedVendorPayments.reduce((sum,item)=>sum+(item.kind==="refund"?-amount(item.amount):amount(item.amount)),0);
+    const completedVendorPayments=(vendorPayments||[]).filter(item=>{if(!item||item.status==="cancelled")return false;const authority=text(item.settlementAuthority),isLegacyUnlinked=authority==="manager_for_unlinked_vendor"||(!item.settlementStatus&&!item.paidBy&&!item.personId&&Boolean(item.recordedBy));return!item.settlementStatus||item.settlementStatus==="settled"||authority.includes("manager_confirmed")||isLegacyUnlinked;}),storeReceivedAmount=completedVendorPayments.reduce((sum,item)=>sum+(item.kind==="refund"?-amount(item.amount):amount(item.amount)),0);
     return{
       scriptFee:{amount:summary.vendorBaseAmount,unitAmount:amount(plan&&plan.playerFee),headcount:amount(plan&&plan.requiredPlayerCount)},
       extraFees:{amount:summary.vendorExtraAmount,items:(plan&&plan.feeItems||[]).filter(item=>item&&item.status!=="cancelled").map(item=>({feeItemId:text(item.feeItemId),title:text(item.title)||"額外費用",amount:amount(item.amount),allocations:(item.allocations||[]).map(row=>({personId:text(row.personId),amount:amount(row.amount)}))}))},
@@ -67,5 +74,5 @@
       limitations:{playerPendingIsStoreOnly:true,hostCollectionNotStoreReceipt:true,unassignedPaymentAmount:playerPayments.unassignedPaymentAmount,unassignedRefundAmount:playerPayments.unassignedRefundAmount}
     };
   }
-  window.JLYActivityFeeData={buildPlan,addFeeItem,updateFeeItem,syncPlayers,summarize,studioSummaryItems,storeIdentityResolver,storePersonPositions,storeFocusProjection,splitEvenly};
+  window.JLYActivityFeeData={buildPlan,addFeeItem,updateFeeItem,updateFeeAmount,syncPlayers,summarize,studioSummaryItems,storeIdentityResolver,storePersonPositions,storeFocusProjection,splitEvenly};
 })();
