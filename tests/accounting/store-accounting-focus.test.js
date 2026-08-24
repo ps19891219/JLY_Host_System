@@ -49,13 +49,14 @@ test("each Split amount uses inline draft validation before one audited save",()
   assert.match(css,/accounting-split-total/);assert.match(css,/accounting-inline-split/);
 });
 
-test("Store player payment view contains only unfinished payable responsibility",()=>{
+test("Store player payment view keeps payable and receivable positions but omits settled people",()=>{
   const data=read("js/modules/accounting/activity-fee-data.js"),controller=read("js/modules/accounting/activity-fee-controller.js");
   assert.match(data,/storeOutstandingAmount=Math\.max\(0,summary\.vendorTotal-storeReceivedAmount\)/);
   assert.match(data,/personPayableAmount:playerPayments\.pendingAmount/);
-  assert.match(controller,/pendingPeople=focus\.playerPayments\.members\.filter\(item=>item\.state==="payable"\)/);
-  assert.doesNotMatch(controller,/stateLabel=item\.state==="receivable"/);
-  assert.match(controller,/目前沒有待處理的玩家付款/);
+  assert.match(controller,/activePeople=focus\.playerPayments\.members\.filter\(item=>item\.state!=="settled"\)/);
+  assert.match(controller,/isPayable\?"應付":"應收"/);
+  assert.match(controller,/canPay=isPayable/);
+  assert.match(controller,/目前沒有未結清的玩家店家帳務/);
 });
 
 test("Store split manager stays inside the selected fee card",()=>{
@@ -63,11 +64,11 @@ test("Store split manager stays inside the selected fee card",()=>{
   assert.match(controller,/detail\.appendChild\(feeItemForm\)/);assert.match(controller,/accounting-inline-split-manager/);assert.match(controller,/restoreFeeItemFormHost/);assert.match(css,/accounting-inline-split-manager/);
 });
 
-test("Store player rows are canonical payable aggregates and completed cashflow moves to Store received",()=>{
+test("Store player rows keep canonical net positions while completed cashflow also stays in Store received",()=>{
   const controller=read("js/modules/accounting/activity-fee-controller.js");
-  assert.match(controller,/pendingPeople\.map/);
+  assert.match(controller,/activePeople\.map/);
   assert.match(controller,/data-store-person-toggle/);
-  for(const label of ["待付款責任","尚待支付"])assert.match(controller,new RegExp(label));
+  for(const label of ["店家費用責任","總負擔","實際淨支付","目前結果"])assert.match(controller,new RegExp(label));
   assert.match(controller,/receivedGroups=new Map/);assert.match(controller,/data-store-received-person-toggle/);
 });
 

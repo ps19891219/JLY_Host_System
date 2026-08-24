@@ -2,14 +2,20 @@
 
 > Status: Working Map
 >
-> Version: V3.06
+> Version: V3.07
 >
 > Last Updated: 2026-08-24
 >
 
+## V3.07 Store Receivable Person Visibility Fix（2026-08-24）
+
+- 修正 V3.06 玩家付款 View 過度篩選：canonical Person 的 Store Net Position 為負數時顯示「應付」、正數時顯示「應收」，只有 `NetStorePaid - TotalStoreResponsibility = 0` 的已結清 Person 才從清單移出。應收 Person 沒有付款入口，但仍可查看店家費用總負擔、實際淨支付與目前結果。
+- `玩家付款 尚待` 仍只讀 `Store Total Receivable - Store Actual Received`；Person 應收不參與、也不抵銷 Store Outstanding。相同正式 Payment 可同時支援 Person Net Position 與店家總收款兩個不同 View，沒有搬移、複製或刪除 Payment History。
+- Runtime cache entry：`activity-fee-controller.js?v=19`；無 Projection 公式、Accounting Core、Firestore Schema 或正式資料變更，不需 Migration、Backfill。
+
 ## V3.06 Store Payment View Consolidation（2026-08-24）
 
-- 店家帳務第一層仍固定為 `劇本費／額外費用／玩家付款／店家總收款` 四列；`玩家付款 尚待` 仍以 `Store Total Receivable - Store Actual Received` 為唯一公式。玩家付款展開只列尚未完成的 canonical Person 應付責任與未認領名額，已結清或應收 Person 不再重複出現在待付款 View，正式 Payment／Refund／Audit 均完整保留。
+- 店家帳務第一層仍固定為 `劇本費／額外費用／玩家付款／店家總收款` 四列；`玩家付款 尚待` 仍以 `Store Total Receivable - Store Actual Received` 為唯一公式。V3.06 曾將玩家付款展開限縮為 canonical Person 應付責任與未認領名額；應收 Person 的顯示條件已由 V3.07 修正，正式 Payment／Refund／Audit 始終完整保留。
 - 平均型店家額外費用的 View Projection 改以 `requiredPlayerCount`（正式計費人數）分攤；尚未加入的席位形成 derived `unassignedAmount`，與未認領劇本費一起顯示，不建立假 Person、不回寫第二份 Split。Custom／Specific 分帳仍完全依正式 allocations，不自動補空位金額。
 - 玩家付款改為 Person 卡片內原地操作，預設帶入剩餘應付並支援部分／多次付款；`店家儲值金`、`現場支付` 沿用既有 Settlement 欄位直接完成，`主揪代收` 以 `payment_claimed` 等待主揪確認。每次操作建立同一份正式 `accountingExternalPayments`，不直接改 Obligation，也未新增 Firestore 欄位。
 - `店家總收款` 第二層依 canonical Person 聚合，第三層才呈現每筆正式 Payment；Payment 金額使用既有 `updateVendorPayment()` 原地修正，沒有歷程不顯示箭頭，移除單筆付款三點選單。店家收款與玩家待付是同一正式付款來源的不同 View，不複製 Ledger。
