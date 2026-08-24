@@ -2,10 +2,19 @@
 
 > Status: Working Map
 >
-> Version: V2.99
+> Version: V3.00
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.00 Store Accounting Focus V1（2026-08-24）
+
+- 店家帳務第一層正式收斂為四列：`劇本費／額外費用／玩家待付款／店家總收款`。舊的店家總應收、已支付、還要付，以及費用項目／玩家繳費／付款紀錄／調整紀錄獨立區塊不再重複 Render；既有費用、玩家店家費與店家付款資料只在四列內按需展開。
+- 新增純 `storeFocusProjection()`，只整理現有 `accountingFeePlans/scriptFee`、`accountingFeeCollections`、`accountingExternalPayments`：劇本費沿用單價 × 正式計費人數；額外費用保留各自 allocations；店家總收款只採正式外部店家付款淨額。它不是新的 Core、Schema 或 Firestore View。
+- 玩家待付款目前只能安全呈現 **Store Extension 已知的店家費未繳金額**。把玩家額外 Transaction／Pairwise 抵扣成店家最終應付仍為 **BLOCKED**：現有 Store Extension 沒有可證明該抵扣已把เงินจริง交給店家的正式 Projection，Render 不得自行猜算。
+- `店家儲值金／現場支付／主揪代收` 三種付款方式與「只有主揪代收需雙方確認」仍為 **BLOCKED / INCOMPLETE**。現有 `accountingFeeCollections` 沒有 payment method、主揪確認或 responsible Pending 語意；本輪未修改 Accounting Core／Firestore Schema，也沒有把玩家交給主揪錯算為店家已收款。
+- 付款後續紀錄改跟隨原付款顯示；只有具正式 correction／cancel 等 child Audit 時才出現展開箭頭。既有退款缺少可靠 `sourcePaymentId`，因此退款掛回原付款、本人確認退款與店家賠償分配仍為 **INCOMPLETE**，不得用備註字串猜關聯。
+- Runtime cache entry：`accounting.css?v=19`、`activity-fee-controller.js?v=12`。本輪不修改人物明細、玩家 Settlement、Delegated Payment、總覽、LINE、Accounting Core、Firestore Schema 或 Production Data。
 
 ## V2.99 Accounting Person View Correction（2026-08-24）
 

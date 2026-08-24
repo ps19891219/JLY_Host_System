@@ -17,6 +17,17 @@ test("script fee summary tracks collections deposits balance payments refunds an
   assert.equal(result.memberCollected,1500);assert.equal(result.memberOutstanding,3000);assert.equal(result.vendorPaid,3300);assert.equal(result.vendorOutstanding,1200);assert.equal(result.custodyBalance,-1800);
 });
 
+test("store focus projection exposes exactly the four safe store figures",()=>{
+  let plan=fee.buildPlan({carId:"car-focus",vendorName:"店家",requiredPlayerCount:6,playerFee:1000,playerIds:["a","b","c","d","e","f"]},"host","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"specific",personId:"a"},"host","2026-08-24T02:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"包廂費",amount:350,allocationType:"equal"},"host","2026-08-24T03:00:00.000Z");
+  const projection=fee.storeFocusProjection(plan,[{personId:"a",kind:"payment",amount:1000}],[{paymentId:"deposit",kind:"payment",amount:2000,note:"訂金"}]);
+  assert.deepEqual({amount:projection.scriptFee.amount,unit:projection.scriptFee.unitAmount,count:projection.scriptFee.headcount},{amount:6000,unit:1000,count:6});
+  assert.equal(projection.extraFees.amount,550);assert.deepEqual(Array.from(projection.extraFees.items,item=>item.title),["指定費","包廂費"]);
+  assert.equal(projection.playerPending.amount,5550);assert.equal(projection.storeReceived.amount,2000);assert.equal(projection.storeReceived.payments[0].paymentId,"deposit");
+  assert.equal(projection.limitations.playerPendingIsStoreOnly,true);assert.equal(projection.limitations.hostCollectionNotStoreReceipt,true);
+});
+
 test("base fee uses fixed script capacity even before every player joins",()=>{
   const plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:6,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z"),summary=fee.summarize(plan,[],[]);
   assert.equal(plan.vendorBaseAmount,4800);assert.equal(summary.memberDue,4800);assert.equal(summary.unassignedCount,4);assert.equal(summary.unassignedBase,3200);

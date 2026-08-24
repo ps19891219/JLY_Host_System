@@ -76,9 +76,10 @@ test("店家帳務與玩家額外帳目維持不同 View 責任",()=>{
   const feeController=read("js/modules/accounting/activity-fee-controller.js");
   assert.match(controller,/\["transactions","逐筆帳目"\]/);
   assert.match(controller,/accounting-store-fixed/);
-  assert.match(feeController,/店家總應收/);
-  assert.match(feeController,/已支付/);
-  assert.match(feeController,/還要付/);
+  assert.match(feeController,/"劇本費",focus\.scriptFee\.amount/);
+  assert.match(feeController,/"額外費用",focus\.extraFees\.amount/);
+  assert.match(feeController,/"玩家待付款",focus\.playerPending\.amount/);
+  assert.match(feeController,/"店家總收款",focus\.storeReceived\.amount/);
   assert.doesNotMatch(feeController,/originalSummary|accounting-studio-summary/);
 });
 
@@ -104,7 +105,7 @@ test("LINE 查看帳務讀 canonical Core 並只輸出目前 Person 範圍",()=>
 
 test("Studio V1 支付、修正、取消與退款維持獨立歷史",()=>{
   const controller=read("js/modules/accounting/activity-fee-controller.js"),repository=read("js/modules/accounting/activity-fee-repository.js"),data=read("js/modules/accounting/activity-fee-data.js");
-  assert.match(controller,/accounting-studio-minimal/);assert.match(controller,/店家總應收/);assert.match(controller,/已支付/);assert.match(controller,/還要付/);assert.doesNotMatch(controller,/accounting-studio-add-payment/);assert.match(controller,/付款紀錄/);
+  assert.match(controller,/accounting-store-focus/);assert.doesNotMatch(controller,/店家總應收/);assert.doesNotMatch(controller,/>已支付</);assert.doesNotMatch(controller,/>還要付</);assert.doesNotMatch(controller,/accounting-studio-add-payment/);assert.match(controller,/data-payment-history/);
   assert.match(controller,/settlementStatus:"settled"/);assert.match(controller,/manager_confirmed_payment_v1/);
   assert.match(repository,/vendor_payment_corrected/);assert.match(repository,/before,after/);assert.match(repository,/vendor_payment_cancelled/);
   assert.match(data,/status!=="cancelled"/);assert.match(controller,/kind==="refund"/);

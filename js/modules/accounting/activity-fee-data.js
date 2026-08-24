@@ -18,5 +18,15 @@
     return{memberDue,memberCollected,memberOutstanding:Math.max(0,memberDue-memberCollected),vendorBaseAmount,vendorExtraAmount,vendorTotal,vendorPaid,vendorOutstanding:Math.max(0,vendorTotal-vendorPaid),custodyBalance:memberCollected-vendorPaid,unassignedCount,unassignedBase,assignedBase,members:memberCharges.map(item=>({...item,paid:paidByMember.get(item.personId)||0,outstanding:Math.max(0,amount(item.amount)-(paidByMember.get(item.personId)||0))}))};
   }
   function studioSummaryItems(summary){const rows=[{key:"base",label:"劇本費用",amount:amount(summary&&summary.vendorBaseAmount)}];if(amount(summary&&summary.vendorExtraAmount)){rows.push({key:"extra",label:"額外費用",amount:amount(summary.vendorExtraAmount)},{key:"total",label:"總額",amount:amount(summary.vendorTotal)});}rows.push({key:"paid",label:"已付款",amount:amount(summary&&summary.vendorPaid)},{key:"outstanding",label:"待付款",amount:amount(summary&&summary.vendorOutstanding)});return rows;}
-  window.JLYActivityFeeData={buildPlan,addFeeItem,syncPlayers,summarize,studioSummaryItems,splitEvenly};
+  function storeFocusProjection(plan,memberPayments,vendorPayments){
+    const summary=summarize(plan,memberPayments,vendorPayments);
+    return{
+      scriptFee:{amount:summary.vendorBaseAmount,unitAmount:amount(plan&&plan.playerFee),headcount:amount(plan&&plan.requiredPlayerCount)},
+      extraFees:{amount:summary.vendorExtraAmount,items:(plan&&plan.feeItems||[]).filter(item=>item&&item.status!=="cancelled").map(item=>({feeItemId:text(item.feeItemId),title:text(item.title)||"額外費用",amount:amount(item.amount),allocations:(item.allocations||[]).map(row=>({personId:text(row.personId),amount:amount(row.amount)}))}))},
+      playerPending:{amount:summary.memberOutstanding,members:summary.members.filter(item=>item.outstanding>0)},
+      storeReceived:{amount:summary.vendorPaid,payments:(vendorPayments||[]).filter(Boolean)},
+      limitations:{playerPendingIsStoreOnly:true,hostCollectionNotStoreReceipt:true}
+    };
+  }
+  window.JLYActivityFeeData={buildPlan,addFeeItem,syncPlayers,summarize,studioSummaryItems,storeFocusProjection,splitEvenly};
 })();

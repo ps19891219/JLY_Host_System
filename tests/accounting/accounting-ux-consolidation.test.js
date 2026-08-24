@@ -19,7 +19,8 @@ test("店家操作使用正式人類語言且不顯示大型新增付款",()=>{
   const source=read("js/modules/accounting/activity-fee-controller.js");
   for(const label of ["新增額外費用","支付店家","登記玩家繳費","記錄店家退款"])assert.match(source,new RegExp(`>${label}<`));
   assert.doesNotMatch(source,/accounting-studio-add-payment/);
-  assert.match(source,/actorName\(item\.actorPersonId\)/);
+  assert.match(source,/const personName=id=>/);
+  assert.doesNotMatch(source,/操作者：\$\{escape\(item\.actorPersonId\)\}/);
 });
 
 test("請人代付接受後仍為 accepted 並另建待付款",()=>{

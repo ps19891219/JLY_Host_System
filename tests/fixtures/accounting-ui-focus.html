@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Accounting UI Focus Browser Regression</title>
-  <link rel="stylesheet" href="/css/pages/accounting.css?v=18">
+  <link rel="stylesheet" href="/css/pages/accounting.css?v=19">
   <style>body{margin:0;padding:12px;background:#fffaf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{display:grid;gap:20px;max-width:680px;margin:auto}.fixture-card{padding:14px;background:#fff;border-radius:18px}#browserRuntimeResult{position:fixed;right:8px;bottom:8px;padding:8px;background:#fff;border:1px solid #ddd}</style>
 </head>
 <body>
@@ -39,7 +39,7 @@
           },
           memberPayments: [],
           vendorPayments: [{ paymentId: "pay-1", kind: "payment", amount: 2200, note: "訂金", status: "settled", createdAt: "2026-08-24T08:00:00.000Z" }],
-          auditLogs: [{ action: "vendor_payment_corrected", actorPersonId: "payer", createdAt: "2026-08-24T09:00:00.000Z", before: { amount: 2000 }, after: { amount: 2200 } }]
+          auditLogs: [{ action: "vendor_payment_corrected", actorPersonId: "payer", createdAt: "2026-08-24T09:00:00.000Z", before: { paymentId: "pay-1", amount: 2000 }, after: { paymentId: "pay-1", amount: 2200 } }]
         };
       },
       savePlan: async function () {}, recordMemberPayment: async function () {},
@@ -47,7 +47,7 @@
       cancelVendorPayment: async function () {}
     };
   </script>
-  <script src="/js/modules/accounting/activity-fee-controller.js?v=11"></script>
+  <script src="/js/modules/accounting/activity-fee-controller.js?v=12"></script>
   <script>
     (async function () {
       var members = [
@@ -86,13 +86,15 @@
         onSave: async function () {}, onSplit: async function () {}, onSettlement: async function () {},
         onNetSettlement: async function () {}, onViewAll: async function () {}, onLoadMore: async function () {}, onReload: function () {}
       });
-      var totals = document.querySelectorAll(".accounting-store-totals span");
+      var storeRows = document.querySelectorAll(".accounting-store-focus-row");
       var entry = document.querySelector('[data-transaction-id="drink-350"]');
-      var okay = totals.length === 3 &&
-        Array.from(totals).filter(function (node) { return node.textContent.indexOf("店家總應收") >= 0; }).length === 1 &&
+      var okay = storeRows.length === 4 &&
+        ["劇本費", "額外費用", "玩家待付款", "店家總收款"].every(function (label) { return Array.from(storeRows).some(function (node) { return node.textContent.indexOf(label) >= 0; }); }) &&
+        !document.querySelector(".accounting-store-totals") &&
         !document.querySelector(".accounting-studio-add-payment") &&
         ["新增額外費用", "支付店家", "登記玩家繳費", "記錄店家退款"].every(function (label) { return document.getElementById("studioFeeMenu").textContent.indexOf(label) >= 0; }) &&
-        document.getElementById("studioAuditDetails").textContent.indexOf("86369a39-4fec-46ad-9afc-a60558dc8a9c") < 0 &&
+        document.body.textContent.indexOf("86369a39-4fec-46ad-9afc-a60558dc8a9c") < 0 &&
+        document.querySelectorAll("[data-payment-history]").length === 1 &&
         entry && entry.textContent.indexOf("付款人：小霙") >= 0 &&
         entry.textContent.indexOf("分帳完成") >= 0 &&
         entry.textContent.indexOf("已列入彙總") < 0 &&
