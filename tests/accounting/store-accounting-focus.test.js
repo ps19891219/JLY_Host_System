@@ -88,3 +88,19 @@ test("Store player payment is inline and preserves the current Store view",()=>{
   assert.match(controller,/value="\$\{item\.displayAmount\}"/);assert.match(controller,/repository\.recordVendorPayment/);
   assert.match(css,/accounting-store-inline-payment/);
 });
+
+test("Store payment choices stay compact and received details cannot overflow mobile cards",()=>{
+  const css=read("css/pages/accounting.css"),controller=read("js/modules/accounting/activity-fee-controller.js");
+  assert.match(css,/accounting-store-inline-payment fieldset\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(css,/white-space:nowrap/);
+  assert.match(css,/accounting-store-received-person,\.accounting-store-received-person>\*\{min-width:0\}/);
+  assert.match(css,/accounting-store-received-person \.accounting-fee-members>li\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
+  assert.match(controller,/receivedGroups=new Map/);
+  assert.match(controller,/data-store-received-person-toggle/);
+});
+
+test("Store receivable recovery is not faked through a payment or expense record",()=>{
+  const controller=read("js/modules/accounting/activity-fee-controller.js"),repository=read("js/modules/accounting/activity-fee-repository.js");
+  assert.doesNotMatch(controller,/data-store-receivable-recovery/);
+  assert.doesNotMatch(repository,/recoveryAllocation|storeReceivableRecovery/);
+});

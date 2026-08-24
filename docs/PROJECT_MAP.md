@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V3.07
+> Version: V3.08
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.08 Store Accounting Mobile Closeout（2026-08-24）
+
+- 店家帳務四列與既有 Projection 公式不變；店家總收款維持 canonical Person 第一層聚合、第二層才列該人物每筆正式 Payment，金額仍沿用 `updateVendorPayment()` 原地修正及既有 Audit。
+- 玩家應付款的三種付款方式改為 390px 可用的緊湊 segmented controls，付款金額仍在 Person 卡片原地輸入；`店家儲值金／現場支付` 自行完成、`主揪代收` 等待確認的 Runtime 規則不變。
+- 修正店家總收款、付款明細、Inline Amount Editor、修改歷程與付款方式的窄螢幕 shrink／wrap 邊界，避免文字直排、金額越出卡片或產生水平捲動。Runtime cache entry：`accounting.css?v=26`。
+- 「應收分帳收回」需要建立不增加 Activity Expense 的正式 Person Obligation；「店家退款待本人確認」需要 refund recipient Pending／Settlement lifecycle。現有 Store Extension 尚無這兩個正式 Domain，維持 **BLOCKED / INCOMPLETE**，本輪沒有以 Transaction、Payment 備註或 View-only draft 偽造完成，也沒有 Schema／Migration／Backfill。
 
 ## V3.07 Store Receivable Person Visibility Fix（2026-08-24）
 
