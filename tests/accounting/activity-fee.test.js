@@ -99,6 +99,24 @@ test("fixed unjoined seats stay in Store outstanding without creating fake peopl
   assert.equal(shijie.responsibility,1266);assert.equal(shijie.netStorePaid,2200);assert.equal(shijie.state,"receivable");assert.equal(shijie.displayAmount,934);
 });
 
+test("equal Store fee uses formal billing headcount and keeps empty-seat responsibility unassigned",()=>{
+  let plan=fee.buildPlan({carId:"car-seat-fee",vendorName:"店家",requiredPlayerCount:6,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"指定費",amount:600,allocationType:"equal"},"host","2026-08-24T02:00:00.000Z");
+  const projection=fee.storeFocusProjection(plan,[],[],[]),item=projection.extraFees.items[0],byId=new Map(projection.playerPayments.members.map(row=>[row.personId,row]));
+  assert.deepEqual(Array.from(item.allocations,row=>row.amount),[100,100,100]);assert.equal(item.unassignedAmount,300);
+  assert.equal(projection.playerPayments.unassignedCount,3);assert.equal(projection.playerPayments.unassignedAmount,3300);assert.equal(projection.playerPayments.amount,6600);
+  assert.equal(byId.get("a").responsibility,1100);assert.equal(byId.get("b").responsibility,1100);assert.equal(byId.get("c").responsibility,1100);
+  assert.equal(fee.summarize(plan,[],[]).memberDue,6600);
+});
+
+test("custom and single-person Store fees never invent an empty-seat share",()=>{
+  let plan=fee.buildPlan({carId:"car-custom-fee",vendorName:"店家",requiredPlayerCount:6,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"自訂",amount:600,allocationType:"custom",allocations:[{personId:"a",amount:300},{personId:"b",amount:200},{personId:"c",amount:100}]},"host","2026-08-24T02:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"單人",amount:200,allocationType:"specific",personId:"a"},"host","2026-08-24T03:00:00.000Z");
+  const projection=fee.storeFocusProjection(plan,[],[],[]);
+  assert.deepEqual(Array.from(projection.extraFees.items,row=>row.unassignedAmount),[0,0]);assert.equal(projection.playerPayments.unassignedAmount,3000);
+});
+
 test("base fee uses fixed script capacity even before every player joins",()=>{
   const plan=fee.buildPlan({carId:"car-1",vendorName:"店家",requiredPlayerCount:6,playerFee:800,playerIds:["p1","p2"]},"host","2026-08-14T01:00:00.000Z"),summary=fee.summarize(plan,[],[]);
   assert.equal(plan.vendorBaseAmount,4800);assert.equal(summary.memberDue,4800);assert.equal(summary.unassignedCount,4);assert.equal(summary.unassignedBase,3200);

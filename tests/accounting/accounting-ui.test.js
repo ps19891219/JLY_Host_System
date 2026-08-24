@@ -223,9 +223,10 @@ test("劇本費代收與外部店家付款使用獨立正式紀錄", () => {
   assert.doesNotMatch(feeController, /accounting-studio-summary/);
   assert.match(feeController, /data-payment-history-panel/);
   assert.match(feeController, /manager_confirmed_payment_v1/);
-  assert.match(feeController, /data-vendor-edit/);
-  assert.match(feeController, /data-vendor-cancel/);
-  assert.match(feeController, /data-vendor-refund/);
+  assert.match(feeController, /data-vendor-payment-inline/);
+  assert.match(feeController, /data-vendor-payment-edit/);
+  assert.match(feeController, /data-vendor-payment-save/);
+  assert.doesNotMatch(feeController, /data-vendor-menu=/);
   assert.match(feeRepository, /vendor_payment_corrected/);
   assert.match(feeRepository, /vendor_payment_cancelled/);
   assert.match(feeRepository, /vendor_payment_manually_settled/);

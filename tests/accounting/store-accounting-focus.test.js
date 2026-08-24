@@ -18,10 +18,11 @@ test("Store payment history arrow is conditional on actual child events",()=>{
   assert.match(controller,/before&&event\.before\.paymentId===paymentId/);
 });
 
-test("unsupported payment methods are not faked in the Store UI",()=>{
+test("Store player payment uses three human-facing methods without a second schema",()=>{
   const controller=read("js/modules/accounting/activity-fee-controller.js"),repository=read("js/modules/accounting/activity-fee-repository.js");
-  for(const label of ["店家儲值金","現場支付","主揪代收"])assert.doesNotMatch(controller,new RegExp(label));
-  assert.doesNotMatch(repository,/paymentMethod/);assert.doesNotMatch(repository,/host_collection_confirmation/);
+  for(const label of ["店家儲值金","現場支付","主揪代收"])assert.match(controller,new RegExp(label));
+  assert.match(controller,/host_collection_pending/);assert.match(controller,/payment_claimed/);assert.match(controller,/settleVendorPayment/);
+  assert.doesNotMatch(repository,/paymentMethod/);
   assert.doesNotMatch(controller,/Store Projection/);
 });
 
@@ -48,14 +49,13 @@ test("each Split amount uses inline draft validation before one audited save",()
   assert.match(css,/accounting-split-total/);assert.match(css,/accounting-inline-split/);
 });
 
-test("paid players remain in the Store payment list",()=>{
+test("Store player payment view contains only unfinished payable responsibility",()=>{
   const data=read("js/modules/accounting/activity-fee-data.js"),controller=read("js/modules/accounting/activity-fee-controller.js");
   assert.match(data,/storeOutstandingAmount=Math\.max\(0,summary\.vendorTotal-storeReceivedAmount\)/);
   assert.match(data,/personPayableAmount:playerPayments\.pendingAmount/);
-  assert.match(controller,/item\.state==="receivable"/);
-  assert.match(controller,/item\.state==="payable"/);
-  assert.match(controller,/"已結清"/);
-  assert.match(controller,/isManager&&item\.state==="payable"/);
+  assert.match(controller,/pendingPeople=focus\.playerPayments\.members\.filter\(item=>item\.state==="payable"\)/);
+  assert.doesNotMatch(controller,/stateLabel=item\.state==="receivable"/);
+  assert.match(controller,/目前沒有待處理的玩家付款/);
 });
 
 test("Store split manager stays inside the selected fee card",()=>{
@@ -63,12 +63,12 @@ test("Store split manager stays inside the selected fee card",()=>{
   assert.match(controller,/detail\.appendChild\(feeItemForm\)/);assert.match(controller,/accounting-inline-split-manager/);assert.match(controller,/restoreFeeItemFormHost/);assert.match(css,/accounting-inline-split-manager/);
 });
 
-test("Store player rows are one person aggregate with a third-level source breakdown",()=>{
+test("Store player rows are canonical payable aggregates and completed cashflow moves to Store received",()=>{
   const controller=read("js/modules/accounting/activity-fee-controller.js");
-  assert.match(controller,/focus\.playerPayments\.members\.map/);
+  assert.match(controller,/pendingPeople\.map/);
   assert.match(controller,/data-store-person-toggle/);
-  for(const label of ["店家費用","總負擔","實際金流","實際淨支付","目前結果"])assert.match(controller,new RegExp(label));
-  assert.doesNotMatch(controller,/data-store-person-payment[^`]+item\.state==="receivable"/);
+  for(const label of ["待付款責任","尚待支付"])assert.match(controller,new RegExp(label));
+  assert.match(controller,/receivedGroups=new Map/);assert.match(controller,/data-store-received-person-toggle/);
 });
 
 test("Store received stays collapsed and payment arrows require actual child history",()=>{
@@ -77,4 +77,13 @@ test("Store received stays collapsed and payment arrows require actual child his
   assert.match(controller,/id="storeReceivedDetails"[^>]+hidden/);
   assert.match(controller,/hasDetails\?`<button[^`]+data-payment-history/);
   assert.match(controller,/paidBy/);
+  assert.doesNotMatch(controller,/data-vendor-menu=/);
+  assert.match(controller,/data-vendor-payment-inline/);
+});
+
+test("Store player payment is inline and preserves the current Store view",()=>{
+  const controller=read("js/modules/accounting/activity-fee-controller.js"),css=read("css/pages/accounting.css");
+  for(const marker of ["data-store-payment-form","data-store-payment-cancel","data-store-payment-status","restoreStoreView"])assert.match(controller,new RegExp(marker));
+  assert.match(controller,/value="\$\{item\.displayAmount\}"/);assert.match(controller,/repository\.recordVendorPayment/);
+  assert.match(css,/accounting-store-inline-payment/);
 });

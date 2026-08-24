@@ -2,10 +2,18 @@
 
 > Status: Working Map
 >
-> Version: V3.05
+> Version: V3.06
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.06 Store Payment View Consolidation（2026-08-24）
+
+- 店家帳務第一層仍固定為 `劇本費／額外費用／玩家付款／店家總收款` 四列；`玩家付款 尚待` 仍以 `Store Total Receivable - Store Actual Received` 為唯一公式。玩家付款展開只列尚未完成的 canonical Person 應付責任與未認領名額，已結清或應收 Person 不再重複出現在待付款 View，正式 Payment／Refund／Audit 均完整保留。
+- 平均型店家額外費用的 View Projection 改以 `requiredPlayerCount`（正式計費人數）分攤；尚未加入的席位形成 derived `unassignedAmount`，與未認領劇本費一起顯示，不建立假 Person、不回寫第二份 Split。Custom／Specific 分帳仍完全依正式 allocations，不自動補空位金額。
+- 玩家付款改為 Person 卡片內原地操作，預設帶入剩餘應付並支援部分／多次付款；`店家儲值金`、`現場支付` 沿用既有 Settlement 欄位直接完成，`主揪代收` 以 `payment_claimed` 等待主揪確認。每次操作建立同一份正式 `accountingExternalPayments`，不直接改 Obligation，也未新增 Firestore 欄位。
+- `店家總收款` 第二層依 canonical Person 聚合，第三層才呈現每筆正式 Payment；Payment 金額使用既有 `updateVendorPayment()` 原地修正，沒有歷程不顯示箭頭，移除單筆付款三點選單。店家收款與玩家待付是同一正式付款來源的不同 View，不複製 Ledger。
+- Runtime cache entry：`accounting.css?v=25`、`accounting-data.js?v=9`、`activity-fee-data.js?v=10`、`activity-fee-controller.js?v=18`、`accounting-controller.js?v=24`。無 Accounting Core／Firestore Schema 變更，不需 Migration、Backfill 或 Production Data 修改。
 
 ## V3.05 Store Outstanding／Unassigned Seats／Inline Split Manager（2026-08-24）
 
