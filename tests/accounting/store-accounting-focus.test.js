@@ -50,11 +50,17 @@ test("each Split amount uses inline draft validation before one audited save",()
 
 test("paid players remain in the Store payment list",()=>{
   const data=read("js/modules/accounting/activity-fee-data.js"),controller=read("js/modules/accounting/activity-fee-controller.js");
-  assert.match(data,/playerPayments:\{amount:playerPayments\.pendingAmount,members:playerPayments\.members\}/);
+  assert.match(data,/storeOutstandingAmount=Math\.max\(0,summary\.vendorTotal-storeReceivedAmount\)/);
+  assert.match(data,/personPayableAmount:playerPayments\.pendingAmount/);
   assert.match(controller,/item\.state==="receivable"/);
   assert.match(controller,/item\.state==="payable"/);
   assert.match(controller,/"已結清"/);
   assert.match(controller,/isManager&&item\.state==="payable"/);
+});
+
+test("Store split manager stays inside the selected fee card",()=>{
+  const controller=read("js/modules/accounting/activity-fee-controller.js"),css=read("css/pages/accounting.css");
+  assert.match(controller,/detail\.appendChild\(feeItemForm\)/);assert.match(controller,/accounting-inline-split-manager/);assert.match(controller,/restoreFeeItemFormHost/);assert.match(css,/accounting-inline-split-manager/);
 });
 
 test("Store player rows are one person aggregate with a third-level source breakdown",()=>{

@@ -64,12 +64,12 @@
   }
   function storeFocusProjection(plan,memberPayments,vendorPayments,members){
     const summary=summarize(plan,memberPayments,vendorPayments),playerPayments=storePersonPositions(plan,vendorPayments,members);
-    const completedVendorPayments=(vendorPayments||[]).filter(item=>{if(!item||item.status==="cancelled")return false;const authority=text(item.settlementAuthority),isLegacyUnlinked=authority==="manager_for_unlinked_vendor"||(!item.settlementStatus&&!item.paidBy&&!item.personId&&Boolean(item.recordedBy));return!item.settlementStatus||item.settlementStatus==="settled"||authority.includes("manager_confirmed")||isLegacyUnlinked;}),storeReceivedAmount=completedVendorPayments.reduce((sum,item)=>sum+(item.kind==="refund"?-amount(item.amount):amount(item.amount)),0);
+    const completedVendorPayments=(vendorPayments||[]).filter(item=>{if(!item||item.status==="cancelled")return false;const authority=text(item.settlementAuthority),isLegacyUnlinked=authority==="manager_for_unlinked_vendor"||(!item.settlementStatus&&!item.paidBy&&!item.personId&&Boolean(item.recordedBy));return!item.settlementStatus||item.settlementStatus==="settled"||authority.includes("manager_confirmed")||isLegacyUnlinked;}),storeReceivedAmount=completedVendorPayments.reduce((sum,item)=>sum+(item.kind==="refund"?-amount(item.amount):amount(item.amount)),0),storeOutstandingAmount=Math.max(0,summary.vendorTotal-storeReceivedAmount);
     return{
       scriptFee:{amount:summary.vendorBaseAmount,unitAmount:amount(plan&&plan.playerFee),headcount:amount(plan&&plan.requiredPlayerCount)},
       extraFees:{amount:summary.vendorExtraAmount,items:(plan&&plan.feeItems||[]).filter(item=>item&&item.status!=="cancelled").map(item=>({feeItemId:text(item.feeItemId),title:text(item.title)||"額外費用",amount:amount(item.amount),allocations:(item.allocations||[]).map(row=>({personId:text(row.personId),amount:amount(row.amount)}))}))},
-      playerPayments:{amount:playerPayments.pendingAmount,members:playerPayments.members},
-      playerPending:{amount:playerPayments.pendingAmount,members:playerPayments.members},
+      playerPayments:{amount:storeOutstandingAmount,members:playerPayments.members,personPayableAmount:playerPayments.pendingAmount,unassignedCount:summary.unassignedCount,unassignedAmount:summary.unassignedBase},
+      playerPending:{amount:storeOutstandingAmount,members:playerPayments.members,personPayableAmount:playerPayments.pendingAmount,unassignedCount:summary.unassignedCount,unassignedAmount:summary.unassignedBase},
       storeReceived:{amount:storeReceivedAmount,payments:completedVendorPayments},
       limitations:{playerPendingIsStoreOnly:true,hostCollectionNotStoreReceipt:true,unassignedPaymentAmount:playerPayments.unassignedPaymentAmount,unassignedRefundAmount:playerPayments.unassignedRefundAmount}
     };

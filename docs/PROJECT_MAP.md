@@ -2,10 +2,18 @@
 
 > Status: Working Map
 >
-> Version: V3.04
+> Version: V3.05
 >
 > Last Updated: 2026-08-24
 >
+
+## V3.05 Store Outstanding／Unassigned Seats／Inline Split Manager（2026-08-24）
+
+- 店家帳務仍只有 `劇本費／額外費用／玩家付款／店家總收款` 四個主列。`玩家付款 尚待` 正式改為 `Store Total Receivable - Store Actual Received`，因此固定計費人數尚未加入的席位也會保留在店家未收款，不再因 Person 尚未建立而消失。
+- 已加入人物仍以正式 `personId + identityIds` canonical relation 聚合 Fee responsibility 與 Store payment；未加入席位另以 `unassignedCount／unassignedBase` 呈現「付費名額待補」，不建立假 Person、不用 displayName 合併，也不修改正式 Core 資料。
+- 額外費用的「管理分帳」改在該筆費用卡片內原地展開既有 editor；Split 金額 Inline Edit、合計驗證與 before／after Audit 維持 V3.04 正式路徑，不再把共用表單移到頁面底部。
+- 店家收款明細第一層只保留付款人、項目與金額；付款人透過 canonical Person resolver 顯示正式名稱。Current Identity 與 owner 正式匹配時，可將舊的「車團主揪」角色 placeholder 升級為該 identity 的 displayName；無法解析才使用「未知付款人」，不以角色或姓名作 identity key。
+- Runtime cache entry：`accounting.css?v=24`、`accounting-data.js?v=9`、`activity-fee-data.js?v=9`、`activity-fee-controller.js?v=17`、`accounting-controller.js?v=24`。無 Accounting Core／Firestore Schema 變更，不需 Migration、Backfill 或 Production Data 修改。
 
 ## V3.04 Store Canonical Identity／Legacy Payment／Split Inline P0（2026-08-24）
 

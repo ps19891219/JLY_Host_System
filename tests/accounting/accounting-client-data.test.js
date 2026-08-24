@@ -75,6 +75,11 @@ test("current formal identity links owner and legacy player member records witho
   assert.deepEqual(linked[2].identityIds,["same-name-other"]);
 });
 
+test("a formally matched identity replaces only the owner role placeholder",()=>{
+  const linked=accountingData.linkCurrentIdentityToActivityMembers([{personId:"owner-id",identityIds:["owner-id"],displayName:"車團主揪",roles:["owner"]}],{identityIds:["owner-id","profile-id"],displayName:"詩婕"});
+  assert.equal(linked[0].displayName,"詩婕");assert.deepEqual(linked[0].identityIds,["owner-id","profile-id"]);
+});
+
 test("getCurrentIdentity includes profile, device, and linked identities", () => {
   const values = new Map([
     ["currentPlayerProfileId", "profile-shijie"],

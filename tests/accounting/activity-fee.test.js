@@ -24,7 +24,7 @@ test("store focus projection exposes exactly the four safe store figures",()=>{
   const projection=fee.storeFocusProjection(plan,[{personId:"a",kind:"payment",amount:1000}],[{paymentId:"deposit",kind:"payment",amount:2000,note:"訂金",paidBy:"a"}]);
   assert.deepEqual({amount:projection.scriptFee.amount,unit:projection.scriptFee.unitAmount,count:projection.scriptFee.headcount},{amount:6000,unit:1000,count:6});
   assert.equal(projection.extraFees.amount,550);assert.deepEqual(Array.from(projection.extraFees.items,item=>item.title),["指定費","包廂費"]);
-  assert.equal(projection.playerPayments.amount,5292);assert.equal(projection.playerPayments.members.length,6);assert.equal(projection.storeReceived.amount,2000);assert.equal(projection.storeReceived.payments[0].paymentId,"deposit");
+  assert.equal(projection.playerPayments.amount,4550);assert.equal(projection.playerPayments.personPayableAmount,5292);assert.equal(projection.playerPayments.members.length,6);assert.equal(projection.storeReceived.amount,2000);assert.equal(projection.storeReceived.payments[0].paymentId,"deposit");
   assert.equal(projection.limitations.playerPendingIsStoreOnly,true);assert.equal(projection.limitations.hostCollectionNotStoreReceipt,true);
 });
 
@@ -82,11 +82,21 @@ test("editing only the fee amount preserves existing Split and exposes the alloc
   assert.equal(edited.feeItems[0].amount,300);assert.deepEqual(Array.from(edited.feeItems[0].allocations,row=>row.amount),[66,66,68]);assert.equal(edited.feeItems[0].allocations.reduce((sum,row)=>sum+row.amount,0),200);
 });
 
-test("Store player pending total includes payable positions only and keeps settled people",()=>{
+test("Store outstanding uses receivable minus received while Person payable remains separately available",()=>{
   const plan=fee.buildPlan({carId:"car-person-store",vendorName:"店家",requiredPlayerCount:3,playerFee:1000,playerIds:["a","b","c"]},"host","2026-08-24T01:00:00.000Z"),projection=fee.storeFocusProjection(plan,[],[
     {kind:"payment",amount:1800,paidBy:"a"},{kind:"payment",amount:400,paidBy:"b"},{kind:"payment",amount:1000,paidBy:"c"}
   ]),byId=new Map(projection.playerPayments.members.map(item=>[item.personId,item]));
-  assert.equal(byId.get("a").state,"receivable");assert.equal(byId.get("b").state,"payable");assert.equal(byId.get("c").state,"settled");assert.equal(projection.playerPayments.amount,600);
+  assert.equal(byId.get("a").state,"receivable");assert.equal(byId.get("b").state,"payable");assert.equal(byId.get("c").state,"settled");assert.equal(projection.playerPayments.amount,0);assert.equal(projection.playerPayments.personPayableAmount,600);
+});
+
+test("fixed unjoined seats stay in Store outstanding without creating fake people",()=>{
+  let plan=fee.buildPlan({carId:"car-unassigned",vendorName:"店家",requiredPlayerCount:6,playerFee:1000,playerIds:["legacy-shijie","b","c"]},"owner-account","2026-08-24T01:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"指定費",amount:200,allocationType:"custom",allocations:[{personId:"profile-shijie",amount:66},{personId:"c",amount:66},{personId:"b",amount:68}]},"owner-account","2026-08-24T02:00:00.000Z");
+  plan=fee.addFeeItem(plan,{title:"個人指定費",amount:200,allocationType:"specific",personId:"profile-shijie"},"owner-account","2026-08-24T03:00:00.000Z");
+  const members=[{personId:"profile-shijie",identityIds:["profile-shijie","legacy-shijie"],roles:["player"],usesSystem:true},{personId:"owner-account",identityIds:["owner-account","profile-shijie"],roles:["owner"],usesSystem:true},{personId:"b",identityIds:["b"],roles:["player"]},{personId:"c",identityIds:["c"],roles:["player"]}],payments=[{paymentId:"deposit",kind:"deposit",amount:2000,recordedBy:"owner-account",settlementStatus:"payment_claimed",settlementAuthority:"manager_for_unlinked_vendor"},{paymentId:"specified",kind:"payment",amount:200,paidBy:"profile-shijie",settlementStatus:"settled"}],projection=fee.storeFocusProjection(plan,[],payments,members),shijie=projection.playerPayments.members.find(item=>item.personId==="owner-account");
+  assert.equal(projection.scriptFee.amount,6000);assert.equal(projection.extraFees.amount,400);assert.equal(projection.storeReceived.amount,2200);assert.equal(projection.playerPayments.amount,4200);
+  assert.equal(projection.playerPayments.unassignedCount,3);assert.equal(projection.playerPayments.unassignedAmount,3000);assert.equal(projection.playerPayments.members.length,3);
+  assert.equal(shijie.responsibility,1266);assert.equal(shijie.netStorePaid,2200);assert.equal(shijie.state,"receivable");assert.equal(shijie.displayAmount,934);
 });
 
 test("base fee uses fixed script capacity even before every player joins",()=>{

@@ -47,7 +47,9 @@
     return (members || []).map(member => {
       const memberIds = unique([member.personId, ...(member.identityIds || [])]);
       if (!memberIds.some(id => linkedSet.has(id))) return member;
-      return { ...member, identityIds: unique([...memberIds, ...linkedIds]) };
+      const currentName = text(identity && identity.displayName);
+      const displayName = currentName && (!text(member.displayName) || member.displayName === "車團主揪" || member.displayName === "未命名成員") ? currentName : member.displayName;
+      return { ...member, displayName, identityIds: unique([...memberIds, ...linkedIds]) };
     });
   }
   function buildQuickTransaction(input, now) {
