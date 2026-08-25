@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V3.09
+> Version: V3.10
 >
-> Last Updated: 2026-08-24
+> Last Updated: 2026-08-25
 >
+
+## V3.10 Player Accounting Basic Views（2026-08-25）
+
+- `逐筆帳目` 繼續以唯一正式 Transaction／Split 作為「帳 → 人」來源；`人物明細` 的帳目列表只由同一 `activity-accounting-view-model` 反向按 Person 聚合 Split 與店家人物負擔，不保存第二份金額，也不提供第二個 Split 編輯入口。
+- `我的帳務` 新增純 `personalAccountingProjection()`：以 Current Viewer 與 canonical Person 為 key，先保留原始「我欠誰／誰欠我」總額，再只在同一對 Person 內雙向互抵，輸出每位對象各自的應付／應收與整體 Net Summary；不跨第三人重新配對，也不把整體 Net 取代逐人結果。
+- 總覽三格仍是 Projection Summary；「查看我的明細」原地展開逐 Person 互抵結果。人物費用、Pairwise Relationship 與 Settlement lifecycle 仍維持既有責任分離，本輪沒有新增 Payment、Delegated Payment、Schema、Migration 或 Backfill。
+- Runtime cache entry：`accounting.css?v=28`、`accounting-data.js?v=10`、`accounting-controller.js?v=25`。
 
 ## V3.09 Store Receivable Recovery／Compact Payment Follow-up（2026-08-24）
 

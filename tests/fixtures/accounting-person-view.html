@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Accounting Person View Browser Regression</title>
-  <link rel="stylesheet" href="/css/pages/accounting.css?v=18">
+  <link rel="stylesheet" href="/css/pages/accounting.css?v=28">
   <style>body{margin:0;padding:10px;background:#fffaf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}#accountingSection{max-width:680px;margin:auto}#browserRuntimeResult{position:fixed;right:4px;bottom:4px;background:#fff;padding:5px;border:1px solid #ccc}</style>
 </head>
 <body><section id="accountingSection"></section><output id="browserRuntimeResult">RUNNING</output>
@@ -11,7 +11,8 @@
 <script src="/js/modules/accounting/accounting-render.js?v=20"></script>
 <script src="/shared/accounting/activity-accounting-view-model.js?v=2"></script>
 <script src="/js/modules/accounting/accounting-navigation.js?v=2"></script>
-<script src="/js/modules/accounting/accounting-controller.js?v=23"></script>
+<script src="/js/modules/accounting/accounting-data.js?v=10"></script>
+<script src="/js/modules/accounting/accounting-controller.js?v=25"></script>
 <script>
 (function(){
   var members=[{personId:"shijie",displayName:"詩婕"},{personId:"xiaowu",displayName:"小霙"},{personId:"xiaobai",displayName:"小白"}];
@@ -20,16 +21,18 @@
     {transactionId:"dinner-2",type:"expense",title:"晚餐",amount:750,paidBy:"xiaowu",splitStatus:"completed",splits:[{personId:"shijie",amount:125,settlementStatus:"pending"}]},
     {transactionId:"drink-1",type:"expense",title:"飲料",amount:600,paidBy:"xiaowu",splitStatus:"completed",splits:[{personId:"shijie",amount:100,settlementStatus:"pending"}]}
   ];
-  var pairwise=[{fromPersonId:"shijie",toPersonId:"xiaowu",amount:225,sourceId:"ob-pay"},{fromPersonId:"xiaobai",toPersonId:"shijie",amount:300,sourceId:"ob-receive"}];
+  var pairwise=[{fromPersonId:"shijie",toPersonId:"xiaowu",amount:50,sourceId:"ob-pay"},{fromPersonId:"xiaowu",toPersonId:"shijie",amount:100,sourceId:"ob-receive"},{fromPersonId:"shijie",toPersonId:"xiaobai",amount:300,sourceId:"ob-pay-2"},{fromPersonId:"xiaobai",toPersonId:"shijie",amount:100,sourceId:"ob-receive-2"}];
+  var myAccounting=window.JLYAccountingData.personalAccountingProjection(pairwise,"shijie");
   var viewModel=window.JLYActivityAccountingViewModel.build({feePlan:{playerFee:1000,requiredPlayerCount:3,vendorBaseAmount:3000,playerIds:[],memberCharges:[{personId:"shijie",amount:1000},{personId:"xiaowu",amount:1000},{personId:"xiaobai",amount:1000}],feeItems:[{feeItemId:"special",title:"指定費",amount:200,allocations:[{personId:"shijie",amount:200}]}]},memberPayments:[{personId:"shijie",kind:"payment",amount:1000}],vendorPayments:[],transactions:transactions,pairwiseTransfers:pairwise,personIds:members.map(function(item){return item.personId;}),currentPersonId:"shijie",pendingActions:[]});
   var html=window.JLYAccountingRender.buildDashboardHtml({members:members,membersById:new Map(members.map(function(item){return[item.personId,item];})),memberNames:new Map(members.map(function(item){return[item.personId,item.displayName];})),transactions:transactions,currentPersonId:"shijie",viewPersonId:"shijie",isManager:true,managementMode:false,counts:{total:0,paymentConfirmation:0},personalSettlement:{payable:225,receivable:300,transfers:pairwise},personalObligations:{payable:[pairwise[0]],receivable:[pairwise[1]],payableTotal:225,receivableTotal:300},netSettlement:{transfers:pairwise},activeNetSettlements:[],settlementHistory:[],pendingActions:[],pendingDrafts:[],detailMode:true,detailHasMore:false,getFilterState:function(){return"pending";}});
   var section=document.getElementById("accountingSection");section.innerHTML=html;
-  window.JLYAccountingController.installExperienceTabs(section,{transactions:transactions,members:members,currentPersonId:"shijie",viewPersonId:"shijie",isManager:true,personalSettlement:{payable:225,receivable:300,transfers:pairwise},personalObligations:{payable:[pairwise[0]],receivable:[pairwise[1]],payableTotal:225,receivableTotal:300},viewModel:viewModel},{onPersonChange:function(){},onViewAll:function(){}});
+  window.JLYAccountingController.installExperienceTabs(section,{transactions:transactions,members:members,memberNames:new Map(members.map(function(item){return[item.personId,item.displayName];})),currentPersonId:"shijie",viewPersonId:"shijie",isManager:true,personalSettlement:{payable:250,receivable:50,transfers:pairwise},personalObligations:{payable:[pairwise[0],pairwise[2]],receivable:[pairwise[1],pairwise[3]],payableTotal:350,receivableTotal:200},myAccounting:myAccounting,viewModel:viewModel},{onPersonChange:function(){},onViewAll:function(){}});
+  section.querySelector(".accounting-my-detail-toggle").click();
   section.querySelector('[data-accounting-experience-tab="people"]').click();
   var people=section.querySelector('[data-accounting-experience-panel="people"]'),overview=section.querySelector('[data-accounting-experience-panel="overview"]'),ledger=people.querySelector('[data-accounting-person-subpanel="ledger"]');
   var overviewDebtLabels=(overview.textContent.match(/我欠誰/g)||[]).length+(overview.textContent.match(/誰欠我/g)||[]).length;
   var personHeading=people.querySelector(".accounting-person-heading");
-  var okay=overviewDebtLabels===2&&!overview.querySelector(".accounting-progress-summary")&&people.textContent.indexOf("劇本費")>=0&&people.textContent.indexOf("指定費")>=0&&(ledger.textContent.match(/晚餐/g)||[]).length===2&&personHeading.textContent.indexOf("總支出")>=0&&personHeading.textContent.indexOf("已付")>=0&&personHeading.textContent.indexOf("待付")>=0&&personHeading.textContent.indexOf("待收")>=0&&personHeading.textContent.indexOf("我欠誰")<0&&personHeading.textContent.indexOf("互抵後")<0&&people.querySelectorAll(".accounting-person-subtabs button").length===4&&window.__fixtureErrors.length===0&&document.documentElement.scrollWidth<=window.innerWidth;
+  var netRows=overview.querySelectorAll(".accounting-my-net-list .accounting-dialog-row"),okay=overviewDebtLabels===2&&overview.textContent.indexOf("應收 $50")>=0&&overview.textContent.indexOf("應付 $200")>=0&&netRows.length===2&&!overview.querySelector(".accounting-progress-summary")&&people.textContent.indexOf("劇本費")>=0&&people.textContent.indexOf("指定費")>=0&&(ledger.textContent.match(/晚餐/g)||[]).length===2&&personHeading.textContent.indexOf("總支出")>=0&&personHeading.textContent.indexOf("已付")>=0&&personHeading.textContent.indexOf("待付")>=0&&personHeading.textContent.indexOf("待收")>=0&&personHeading.textContent.indexOf("我欠誰")<0&&personHeading.textContent.indexOf("互抵後")<0&&people.querySelectorAll(".accounting-person-subtabs button").length===4&&window.__fixtureErrors.length===0&&document.documentElement.scrollWidth<=window.innerWidth;
   document.getElementById("browserRuntimeResult").textContent=okay?"PASS":"FAIL";
 })();
 </script></body></html>

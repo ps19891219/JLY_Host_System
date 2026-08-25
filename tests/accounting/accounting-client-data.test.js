@@ -200,6 +200,17 @@ test("personal settlement only returns money involving the selected person", () 
   assert.equal(personal.transfers.length,1);
 });
 
+test("我的帳務依 canonical Person 逐人互抵並保留整體摘要",()=>{
+  const obligations=[
+    {fromPersonId:"xiaowu",toPersonId:"me",amount:100},{fromPersonId:"me",toPersonId:"legacy-xiaowu",amount:50},
+    {fromPersonId:"aliang",toPersonId:"me",amount:200},{fromPersonId:"me",toPersonId:"aliang",amount:100},
+    {fromPersonId:"xiaojie",toPersonId:"me",amount:100},{fromPersonId:"xiaoyun",toPersonId:"me",amount:150},
+    {fromPersonId:"xiaoling",toPersonId:"me",amount:100},{fromPersonId:"me",toPersonId:"xiaoling",amount:300}
+  ],canonical=id=>id==="legacy-xiaowu"?"xiaowu":id,result=accountingData.personalAccountingProjection(obligations,"me",canonical);
+  assert.equal(result.receivableTotal,650);assert.equal(result.payableTotal,450);assert.equal(result.direction,"receivable");assert.equal(result.netAmount,200);
+  assert.deepEqual(result.people.map(item=>[item.personId,item.direction,item.amount]),[["aliang","receivable",100],["xiaojie","receivable",100],["xiaoling","payable",200],["xiaowu","receivable",50],["xiaoyun","receivable",150]]);
+});
+
 test("personal obligations keep gross payable and receivable before netting", () => {
   const result=accountingData.personalObligations([{fromPersonId:"a",toPersonId:"b",amount:300},{fromPersonId:"b",toPersonId:"a",amount:100},{fromPersonId:"c",toPersonId:"d",amount:500}],"a");
   assert.equal(result.payableTotal,300);
