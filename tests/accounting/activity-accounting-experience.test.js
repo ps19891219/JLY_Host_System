@@ -26,7 +26,7 @@ test("四個玩家分頁 Navigation State 保留所有入口",()=>{
 
 test("總覽保留精簡 My Accounting 並導航目前 Person",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js");
-  for(const label of ["我的帳務","待付","待收","查看我的明細"])assert.match(controller,new RegExp(label));
+  for(const label of ["我的帳務","我欠誰","誰欠我","查看我的明細"])assert.match(controller,new RegExp(label));
   assert.doesNotMatch(controller,/我要支付|我要收回|處理後還要支付|處理後還待收回/);
   assert.match(controller,/selectPerson\(accountingNavigationState,model\.currentPersonId,"ledger"/);
 });

@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V3.12
+> Version: V3.13
 >
 > Last Updated: 2026-08-25
 >
+
+## V3.13 Person Detail Player-only Projection（2026-08-25）
+
+- Car Detail `人物明細` 第二階段只讀玩家額外 Transaction 的正式 Split（`playerSources`），不再重複 Render 劇本基本費、指定費、訂金或其他 Store responsibility。`sources／totalExpense／paidAmount` 舊欄位仍保留供既有 Shared／LINE 相容入口使用，沒有建立第二份 Ledger。
+- 人物外層仍是一個 canonical Person 一列並原地 Accordion 展開；展開後只顯示 `總支出／應付或應收／已支付`。`總支出` 是玩家 Transaction Split 負擔，`已支付` 只讀 Transaction actual payment 與 settled outgoing Settlement，`應付／應收` 只讀正式 Pairwise 關係；Split 狀態不會冒充實際付款。
+- 人物付款只在 Current Person 恰有一筆可安全定位的正式 payable 時顯示小型原地申報框，並沿用既有 `claimNetSettlement()` 建立 `payment_claimed`、等待收款方確認；多收款對象不猜付款方向、不跨 Person 抵銷，也沒有新增 payment method Schema。完整多對象付款 UX 維持後續階段。
+- Runtime cache entry：`accounting.css?v=30`、`activity-accounting-view-model.js?v=4`、`accounting-controller.js?v=27`。無 Accounting Core、Firestore Schema、Migration、Backfill 或 Production Data 修改。
 
 ## V3.12 Person Detail Single-page List（2026-08-25）
 

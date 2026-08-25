@@ -11,12 +11,14 @@ test("總覽只保留一套我的帳務且移除四格進度 Dashboard",()=>{
   assert.doesNotMatch(render,/hasAccountingData\?summary\+dialog/);
 });
 
-test("人物明細直接列出 canonical Person 並在原列展開費用責任",()=>{
+test("人物明細直接列出 canonical Person 並在原列展開玩家帳務",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js");
-  for(const label of ["accounting-person-list","accounting-person-card","accounting-person-toggle","總負擔","已付","待付","待收"])assert.match(controller,new RegExp(label));
+  for(const label of ["accounting-person-list","accounting-person-card","accounting-person-toggle","總支出","已支付","playerPosition","playerNetAmount"])assert.match(controller,new RegExp(label));
   assert.match(controller,/model\.viewModel\.people/);
   assert.match(controller,/member\.identityIds/);
-  assert.match(controller,/person\.receivableAmount/);
+  assert.match(controller,/person\.playerSources/);
+  assert.match(controller,/onPersonPayment/);
+  assert.doesNotMatch(controller,/person\.storeSources/);
   assert.doesNotMatch(controller,/data-accounting-person-selector/);
   assert.doesNotMatch(controller,/relationshipRows/);
   assert.doesNotMatch(controller,/accounting-person-source[^`]*(input|contenteditable)/);
