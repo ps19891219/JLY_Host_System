@@ -18,13 +18,24 @@ test("人物明細直接列出 canonical Person 並在原列展開玩家帳務",
   assert.match(controller,/member\.identityIds/);
   assert.match(controller,/person\.playerSources/);
   assert.match(controller,/onPersonPayment/);
-  assert.match(controller,/canActForPerson=person\.personId===model\.currentPersonId\|\|model\.isManager&&member&&!member\.usesSystem/);
-  assert.match(controller,/data-action="\$\{person\.personId===model\.currentPersonId\?"claim":"manager_claim"\}"/);
-  assert.match(controller,/value="\$\{paymentAmount\}"/);
+  assert.match(controller,/hasAction=netAmount>0&&\(person\.playerPosition==="payable"\|\|person\.playerPosition==="receivable"\)/);
+  assert.match(controller,/actionLabel=isReceipt\?"確認收款":"付款"/);
+  assert.match(controller,/value="\$\{netAmount\}"/);
+  assert.match(controller,/transfers:form\.dataset\.direction==="receivable"\?person\.receivable:person\.payable/);
   assert.doesNotMatch(controller,/person\.storeSources/);
   assert.doesNotMatch(controller,/data-accounting-person-selector/);
   assert.doesNotMatch(controller,/relationshipRows/);
   assert.doesNotMatch(controller,/accounting-person-source[^`]*(input|contenteditable)/);
+});
+
+test("人物付款與確認收款只依正式 Person Net Result 顯示並支援部分金額",()=>{
+  const controller=read("js/modules/accounting/accounting-controller.js"),repository=read("js/modules/accounting/accounting-repository.js");
+  assert.doesNotMatch(controller,/person\.payable\.length===1/);
+  assert.match(controller,/max="\$\{netAmount\}"/);
+  assert.match(controller,/確認收到/);
+  assert.match(controller,/for\(const transfer of input\.transfers\|\|\[\]\)/);
+  assert.match(repository,/receiverSettle = input\.action === "receiver_settle"/);
+  assert.match(repository,/status: receiverSettle \? "settled" : "payment_claimed"/);
 });
 
 test("我的帳務摘要與明細共用逐 Person 互抵 Projection",()=>{

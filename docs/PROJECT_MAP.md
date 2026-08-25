@@ -2,10 +2,16 @@
 
 > Status: Working Map
 >
-> Version: V3.14
+> Version: V3.15
 >
 > Last Updated: 2026-08-25
 >
+
+## V3.15 Person Net Action Render Correction（2026-08-25）
+
+- 人物明細的操作入口只依 Shared Person Projection 的正式 `playerPosition + playerNetAmount`：淨應付大於零顯示「付款」、淨應收大於零顯示「確認收款」、淨額為零不顯示操作；不再以 Pair 數量、Transaction 類型、既有付款或特定 Person ID 決定是否 Render。
+- 付款／收款皆使用人物卡內原地小框，預設帶入目前淨額並允許部分金額。Aggregate 金額仍按既有 Pairwise transfer 逐筆落入同一正式 Settlement Collection；付款維持 `payment_claimed → receiver confirm → settled`，收款方直接登記已收到則以 `receiver_settle` 建立 settled Settlement 並保留 receiver／manager authority Audit，不建立第二份 Payment。
+- Runtime cache entry：`accounting-controller.js?v=29`。Person Expense／Paid／Pairwise Projection、Transaction、Split、Store Accounting、LINE Accounting 均未修改；無 Firestore Schema、Migration、Backfill 或 Production Data 修改。
 
 ## V3.14 Person Detail Payment Entry Correction（2026-08-25）
 

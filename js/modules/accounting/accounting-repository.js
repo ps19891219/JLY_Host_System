@@ -798,11 +798,14 @@
       const amount = Number(input.amount) || 0;
       const managerClaim = input.action === "manager_claim";
       const delegatedClaim = input.action === "delegated_claim";
+      const receiverSettle = input.action === "receiver_settle";
       if (delegatedClaim) {
         if (!carSnapshot.exists) throw new Error("activity_not_found");
         window.JLYDelegatedPayment.requireActivityMember(input.actorPersonId, activityMemberIds(carSnapshot.data()));
       }
-      const allowed = input.actorPersonId === from || (delegatedClaim && input.actorPersonId !== from && input.actorPersonId !== to) || (
+      const allowed = receiverSettle ? input.actorPersonId === to || (
+        input.actorPersonId === input.managerPersonId && !input.targetUsesSystem
+      ) : input.actorPersonId === from || (delegatedClaim && input.actorPersonId !== from && input.actorPersonId !== to) || (
         managerClaim &&
         input.actorPersonId === input.managerPersonId &&
         !input.targetUsesSystem
@@ -831,18 +834,22 @@
         fromPersonId: from,
         toPersonId: to,
         amount,
-        status: "payment_claimed",
-        paymentClaimedBy: input.actorPersonId,
+        status: receiverSettle ? "settled" : "payment_claimed",
+        paymentClaimedBy: receiverSettle ? from : input.actorPersonId,
         paymentClaimedFor: managerClaim ? from : "",
-        claimAuthority: managerClaim ? "manager_for_offline_member" : "self",
+        claimAuthority: receiverSettle ? "receiver_recorded" : managerClaim ? "manager_for_offline_member" : "self",
         paymentClaimedAt: now,
+        confirmedBy: receiverSettle ? input.actorPersonId : "",
+        confirmedFor: receiverSettle && input.actorPersonId !== to ? to : "",
+        confirmationAuthority: receiverSettle ? input.actorPersonId === to ? "receiver" : "manager_for_offline_member" : "",
+        confirmedAt: receiverSettle ? now : "",
         createdAt: now,
         updatedAt: now,
         history: [{
-          action: "payment_claimed",
+          action: receiverSettle ? "settled" : "payment_claimed",
           actorPersonId: input.actorPersonId,
           forPersonId: managerClaim ? from : "",
-          authority: managerClaim ? "manager_for_offline_member" : "self",
+          authority: receiverSettle ? input.actorPersonId === to ? "receiver" : "manager_for_offline_member" : managerClaim ? "manager_for_offline_member" : "self",
           at: now
         }]
       };
@@ -867,10 +874,10 @@
       };
 
       transaction.set(ref, record, { merge: false });
-      transaction.set(actionRef, pending, { merge: false });
+      if (!receiverSettle) transaction.set(actionRef, pending, { merge: false });
       transaction.set(viewRef, invalidateSummary(view, {
-        activeNetSettlements: [...(view.activeNetSettlements || []), record],
-        pendingCounts: adjustCounts(view.pendingCounts, [], [pending])
+        activeNetSettlements: receiverSettle ? (view.activeNetSettlements || []) : [...(view.activeNetSettlements || []), record],
+        pendingCounts: receiverSettle ? view.pendingCounts : adjustCounts(view.pendingCounts, [], [pending])
       }, now), { merge: false });
     });
   }
