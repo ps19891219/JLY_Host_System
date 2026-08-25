@@ -2,10 +2,16 @@
 
 > Status: Working Map
 >
-> Version: V3.13
+> Version: V3.14
 >
 > Last Updated: 2026-08-25
 >
+
+## V3.14 Person Detail Payment Entry Correction（2026-08-25）
+
+- 人物明細維持 Player-only Projection 與三格 `總支出／應付或應收／已支付`；`已支付` 僅累計玩家 Transaction actual payment 與 settled outgoing Settlement，Store Payment／Fee／Split status 均不納入。Production「測試3」的小霙 `$350` 來自飲料 Transaction 的正式 `paidBy`，屬玩家帳務實際墊款，因此保留。
+- 應付人物的原地付款入口補齊既有權限邊界：本人使用 `claim`；主揪只可替未使用系統的 Activity Member 使用既有 `manager_claim`，正式系統使用者仍不得被代為申報。預設金額採目前人物淨應付、仍以正式 Pairwise transfer 為付款上限，寫入既有 Settlement `payment_claimed` 並等待收款方確認。
+- Runtime cache entry：`accounting-controller.js?v=28`。沒有 Accounting Core、Firestore Schema、Migration、Backfill 或 Production Data 修改。
 
 ## V3.13 Person Detail Player-only Projection（2026-08-25）
 

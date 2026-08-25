@@ -18,6 +18,9 @@ test("人物明細直接列出 canonical Person 並在原列展開玩家帳務",
   assert.match(controller,/member\.identityIds/);
   assert.match(controller,/person\.playerSources/);
   assert.match(controller,/onPersonPayment/);
+  assert.match(controller,/canActForPerson=person\.personId===model\.currentPersonId\|\|model\.isManager&&member&&!member\.usesSystem/);
+  assert.match(controller,/data-action="\$\{person\.personId===model\.currentPersonId\?"claim":"manager_claim"\}"/);
+  assert.match(controller,/value="\$\{paymentAmount\}"/);
   assert.doesNotMatch(controller,/person\.storeSources/);
   assert.doesNotMatch(controller,/data-accounting-person-selector/);
   assert.doesNotMatch(controller,/relationshipRows/);
