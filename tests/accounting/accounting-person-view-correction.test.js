@@ -13,7 +13,7 @@ test("總覽只保留一套我的帳務且移除四格進度 Dashboard",()=>{
 
 test("人物第一層固定為費用責任四格，付款關係位於第二層",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js");
-  for(const label of ["總支出","已付","待付","待收","帳目","處理中"])assert.match(controller,new RegExp(label));
+  for(const label of ["總負擔","已付","待付","待收","帳目","處理中"])assert.match(controller,new RegExp(label));
   assert.match(controller,/personView\.receivableAmount/);
   assert.match(controller,/relationshipRows/);
   assert.match(controller,/dataPaymentState|dataset\.paymentState/);

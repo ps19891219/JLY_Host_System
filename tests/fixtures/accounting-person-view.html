@@ -9,7 +9,7 @@
 <body><section id="accountingSection"></section><output id="browserRuntimeResult">RUNNING</output>
 <script>window.__fixtureErrors=[];window.addEventListener("error",function(event){window.__fixtureErrors.push(event.message);});</script>
 <script src="/js/modules/accounting/accounting-render.js?v=20"></script>
-<script src="/shared/accounting/activity-accounting-view-model.js?v=2"></script>
+<script src="/shared/accounting/activity-accounting-view-model.js?v=3"></script>
 <script src="/js/modules/accounting/accounting-navigation.js?v=2"></script>
 <script src="/js/modules/accounting/accounting-data.js?v=10"></script>
 <script src="/js/modules/accounting/accounting-controller.js?v=25"></script>
@@ -32,7 +32,7 @@
   var people=section.querySelector('[data-accounting-experience-panel="people"]'),overview=section.querySelector('[data-accounting-experience-panel="overview"]'),ledger=people.querySelector('[data-accounting-person-subpanel="ledger"]');
   var overviewDebtLabels=(overview.textContent.match(/我欠誰/g)||[]).length+(overview.textContent.match(/誰欠我/g)||[]).length;
   var personHeading=people.querySelector(".accounting-person-heading");
-  var netRows=overview.querySelectorAll(".accounting-my-net-list .accounting-dialog-row"),okay=overviewDebtLabels===2&&overview.textContent.indexOf("應收 $50")>=0&&overview.textContent.indexOf("應付 $200")>=0&&netRows.length===2&&!overview.querySelector(".accounting-progress-summary")&&people.textContent.indexOf("劇本費")>=0&&people.textContent.indexOf("指定費")>=0&&(ledger.textContent.match(/晚餐/g)||[]).length===2&&personHeading.textContent.indexOf("總支出")>=0&&personHeading.textContent.indexOf("已付")>=0&&personHeading.textContent.indexOf("待付")>=0&&personHeading.textContent.indexOf("待收")>=0&&personHeading.textContent.indexOf("我欠誰")<0&&personHeading.textContent.indexOf("互抵後")<0&&people.querySelectorAll(".accounting-person-subtabs button").length===4&&window.__fixtureErrors.length===0&&document.documentElement.scrollWidth<=window.innerWidth;
+  var netRows=overview.querySelectorAll(".accounting-my-net-list .accounting-dialog-row"),okay=overviewDebtLabels===2&&overview.textContent.indexOf("應收 $50")>=0&&overview.textContent.indexOf("應付 $200")>=0&&netRows.length===2&&!overview.querySelector(".accounting-progress-summary")&&people.textContent.indexOf("劇本費")>=0&&people.textContent.indexOf("指定費")>=0&&(ledger.textContent.match(/晚餐/g)||[]).length===2&&personHeading.textContent.indexOf("總負擔")>=0&&personHeading.textContent.indexOf("已付")>=0&&personHeading.textContent.indexOf("待付")>=0&&personHeading.textContent.indexOf("待收")>=0&&personHeading.textContent.indexOf("我欠誰")<0&&personHeading.textContent.indexOf("互抵後")<0&&people.querySelectorAll(".accounting-person-subtabs button").length===4&&window.__fixtureErrors.length===0&&document.documentElement.scrollWidth<=window.innerWidth;
   document.getElementById("browserRuntimeResult").textContent=okay?"PASS":"FAIL";
 })();
 </script></body></html>

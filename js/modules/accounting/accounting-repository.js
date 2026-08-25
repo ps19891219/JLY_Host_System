@@ -7,7 +7,7 @@
   }
 
   const viewName = "activityCurrent";
-  const VIEW_SCHEMA_VERSION = 8;
+  const VIEW_SCHEMA_VERSION = 9;
   const SUMMARY_VERSION = 3;
 
   function text(value) {
@@ -234,6 +234,7 @@
 
     const expenseEntries = active.filter(item => item.type === "expense");
     const expenseSourcesByPerson = [];
+    const actualPaymentsMap = new Map();
     const settledPaidMap = new Map();
 
     expenseEntries.forEach(item => (item.splits || item.shares || []).forEach(split => {
@@ -250,6 +251,11 @@
         settlementStatus: text(split.settlementStatus)
       });
     }));
+
+    expenseEntries.forEach(item => {
+      const payments=Array.isArray(item.payments)&&item.payments.length?item.payments:[{personId:item.paidBy||item.payerMemberId,amount:item.amount}];
+      payments.filter(row=>row&&row.status!=="deleted"&&row.status!=="cancelled").forEach(row=>{const personId=text(row.personId||row.paidBy),value=number(row.amount);if(personId&&value)actualPaymentsMap.set(personId,(actualPaymentsMap.get(personId)||0)+value);});
+    });
 
     (settlements || [])
       .filter(item => item && item.status === "settled")
@@ -268,7 +274,8 @@
         actualExpense: expenseEntries.reduce((sum, item) => sum + number(item.amount), 0),
         splitTotal: expenseEntries.length,
         splitCompleted: expenseEntries.filter(item => item.splitStatus !== "pending").length,
-        personSources: expenseSourcesByPerson
+        personSources: expenseSourcesByPerson,
+        actualPaymentsByPerson:[...actualPaymentsMap].map(([personId,amount])=>({personId,amount}))
       },
       settledPaidByPerson: [...settledPaidMap]
         .map(([personId, amount]) => ({ personId, amount })),

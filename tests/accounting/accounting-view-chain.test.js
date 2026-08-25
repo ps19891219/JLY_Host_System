@@ -153,7 +153,7 @@ test("Car Detail controller 不再從 pairwise obligations 重算誰欠誰", () 
   assert.equal(controller.includes("dashboard.settlementTransfers"), true);
   assert.equal(controller.includes("netSettlementFromBalances(dashboard.balanceByPerson"), false);
   assert.equal(controller.includes("accounting_pairwise_view_unavailable"), true);
-  assert.equal(repository.includes("VIEW_SCHEMA_VERSION = 8"), true);
+  assert.equal(repository.includes("VIEW_SCHEMA_VERSION = 9"), true);
   assert.equal(repository.includes("summarySourceVersion"), true);
   assert.equal(repository.includes(": buildSettlementPlan(currentBalance)"), false);
   assert.equal(repository.includes("accounting_pairwise_engine_unavailable"), true);

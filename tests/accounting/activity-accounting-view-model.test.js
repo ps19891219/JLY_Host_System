@@ -11,7 +11,10 @@ test("店家退款從 Current Total 扣回且原付款仍保留",()=>{const paym
 test("玩家額外 Transaction 加入 Activity Total，Split 與 Settlement 不重複增加",()=>{const base=build(),withSettlement=build({pairwiseTransfers:[{fromPersonId:"b",toPersonId:"a",amount:250}]});assert.equal(base.transactions.actualExpense,2100);assert.equal(withSettlement.activity.currentExpense,base.activity.currentExpense);});
 test("Person Expense 同時包含店家 Share 與 Transaction Split",()=>{const person=build().currentPerson;assert.equal(person.totalExpense,1650);assert.deepEqual(person.sources.map(item=>item.title),["劇本費","指定費","特殊費用","餐費"]);});
 test("Person Total 不建立 duplicate Transaction",()=>{const result=build(),person=result.currentPerson;assert.equal(result.transactions.entries.length,2);assert.equal(person.sources.filter(item=>item.transactionId==="meal").length,1);});
-test("Person Paid 只採正式玩家收款、settled Split 與正式 Settlement",()=>{const result=build({memberPayments:[{personId:"a",kind:"payment",amount:1000}]});assert.equal(result.currentPerson.paidAmount,1250);assert.equal(result.currentPerson.pendingAmount,400);assert.equal(result.currentPerson.paidDefinition,"store_collections_plus_settled_splits_and_settlements");});
+test("Person Paid 只採正式 Store Payment、Transaction Payment 與 settled Settlement",()=>{const result=build({memberPayments:[{personId:"a",kind:"payment",amount:1000}]});assert.equal(result.currentPerson.paidAmount,2500);assert.equal(result.currentPerson.pendingAmount,0);assert.equal(result.currentPerson.paidDefinition,"formal_store_payments_plus_transaction_payments_plus_settled_outgoing_settlements");});
+test("settled Split 只代表責任狀態，不得直接當成人物實際付款",()=>{const result=build({feePlan:null,transactions:[{transactionId:"drink",type:"expense",title:"飲料",amount:481,paidBy:"payer",splitStatus:"completed",splits:[{personId:"a",amount:99,settlementStatus:"settled"}]}],pairwiseTransfers:[]});assert.equal(result.currentPerson.totalExpense,99);assert.equal(result.currentPerson.paidAmount,0);});
+test("同一 Person 在同一 Transaction 的多筆 Split 先聚合成一個帳目摘要",()=>{const result=build({feePlan:null,transactions:[{transactionId:"dinner",type:"expense",title:"晚餐",amount:600,paidBy:"payer",splitStatus:"completed",splits:[{splitId:"s1",personId:"a",amount:166},{splitId:"s2",personId:"a",amount:125}]}]}),sources=result.currentPerson.sources;assert.equal(sources.length,1);assert.equal(sources[0].title,"晚餐");assert.equal(sources[0].amount,291);assert.deepEqual(sources[0].sourceIds,["s1","s2"]);});
+test("Prepared View 的正式 Transaction payments 驅動人物已付",()=>{const result=build({feePlan:null,transactions:[],transactionView:{actualExpense:481,splitTotal:1,splitCompleted:1,personSources:[{personId:"a",transactionId:"drink",sourceId:"split-a",title:"飲料",amount:99}],actualPaymentsByPerson:[{personId:"a",amount:200}]}});assert.equal(result.currentPerson.totalExpense,99);assert.equal(result.currentPerson.paidAmount,200);});
 test("取消店家付款不計入實付",()=>{const result=build({vendorPayments:[{kind:"payment",amount:3000,status:"cancelled"}]});assert.equal(result.store.actualPaid,0);});
 test("分帳完成度不把尚未分帳交易算完成",()=>{const result=build();assert.equal(result.activity.splitTotal,2);assert.equal(result.activity.splitCompleted,1);});
 test("同一 Shared Projection 可依 Person 輸出 Car Detail 與 LINE View",()=>{const result=build(),linePerson=result.people.find(item=>item.personId==="a");assert.deepEqual(linePerson,result.currentPerson);});
@@ -19,3 +22,26 @@ test("舊 Fee Plan 以正式 memberCharges 相容補回人物劇本費",()=>{con
 test("人物待收使用同一 Pairwise Projection 的正式方向",()=>{const person=build({pairwiseTransfers:[{fromPersonId:"b",toPersonId:"a",amount:300},{fromPersonId:"a",toPersonId:"c",amount:125}]}).currentPerson;assert.equal(person.payableAmount,125);assert.equal(person.receivableAmount,300);});
 test("同名不同 Transaction 在人物費用來源保持兩筆",()=>{const duplicateTitles=[{transactionId:"dinner-1",type:"expense",title:"晚餐",amount:166,splitStatus:"completed",splits:[{personId:"a",amount:166}]},{transactionId:"dinner-2",type:"expense",title:"晚餐",amount:125,splitStatus:"completed",splits:[{personId:"a",amount:125}]}],sources=build({transactions:duplicateTitles}).currentPerson.sources.filter(item=>item.title==="晚餐");assert.deepEqual(sources.map(item=>[item.transactionId,item.amount]),[["dinner-1",166],["dinner-2",125]]);});
 test("逐筆 Split 修改後人物明細由同一來源同步重算",()=>{const before=build({feePlan:null,transactions:[{transactionId:"drink",type:"expense",title:"飲料",amount:481,splitStatus:"completed",splits:[{personId:"a",amount:99}]}]}).currentPerson,after=build({feePlan:null,transactions:[{transactionId:"drink",type:"expense",title:"飲料",amount:481,splitStatus:"completed",splits:[{personId:"a",amount:89}]}]}).currentPerson;assert.equal(before.sources[0].amount,99);assert.equal(before.totalExpense,99);assert.equal(after.sources[0].amount,89);assert.equal(after.totalExpense,89);});
+test("Production 等價 identity 關係會先彙整人物帳目，且已付只讀正式金流",()=>{
+  const owner="86369a39-4fec-46ad-9afc-a60558dc8a9c",legacyPlayer="f89pkJbkmFLu4ZOw2fXh";
+  const result=view.build({
+    currentPersonId:owner,
+    personIds:[owner,legacyPlayer],
+    personIdentityGroups:[{personId:legacyPlayer,identityIds:[legacyPlayer,owner]}],
+    feePlan:{playerFee:1000,requiredPlayerCount:6,vendorBaseAmount:6000,memberCharges:[{personId:legacyPlayer,amount:1000}],feeItems:[{feeItemId:"specified-1",title:"指定費",amount:66,allocations:[{personId:legacyPlayer,amount:66}]},{feeItemId:"specified-2",title:"指定費",amount:67,allocations:[{personId:legacyPlayer,amount:67}]}]},
+    memberPayments:[{personId:legacyPlayer,kind:"payment",amount:1000},{personId:legacyPlayer,kind:"payment",amount:1000}],
+    transactions:[
+      {transactionId:"dinner-1",type:"expense",title:"晚餐",amount:500,paidBy:owner,splitStatus:"completed",splits:[{splitId:"d1-owner",personId:owner,amount:166,settlementStatus:"settled"}]},
+      {transactionId:"dinner-2",type:"expense",title:"晚餐",amount:500,paidBy:owner,splitStatus:"completed",splits:[{splitId:"d2-owner",personId:owner,amount:125,settlementStatus:"settled"},{splitId:"d2-legacy",personId:legacyPlayer,amount:125,settlementStatus:"payment_due"}]},
+      {transactionId:"drink",type:"expense",title:"飲料",amount:350,paidBy:"other",splitStatus:"completed",splits:[{splitId:"drink-owner",personId:owner,amount:87,settlementStatus:"payment_due"},{splitId:"drink-legacy",personId:legacyPlayer,amount:87,settlementStatus:"payment_due"}]}
+    ],
+    settledPaidByPerson:[{personId:owner,amount:87}],
+    pairwiseTransfers:[{fromPersonId:legacyPlayer,toPersonId:"other",amount:87},{fromPersonId:"other",toPersonId:owner,amount:50}]
+  });
+  assert.equal(result.people.length,1);
+  assert.deepEqual(result.currentPerson.sources.filter(item=>item.sourceType==="transaction_split").map(item=>[item.transactionId,item.title,item.amount]),[["dinner-1","晚餐",166],["dinner-2","晚餐",250],["drink","飲料",174]]);
+  assert.equal(result.currentPerson.totalExpense,1723);
+  assert.equal(result.currentPerson.paidAmount,3087);
+  assert.equal(result.currentPerson.pendingAmount,87);
+  assert.equal(result.currentPerson.receivableAmount,50);
+});
