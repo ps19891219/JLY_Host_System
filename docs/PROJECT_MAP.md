@@ -2,10 +2,16 @@
 
 > Status: Working Map
 >
-> Version: V3.11
+> Version: V3.12
 >
 > Last Updated: 2026-08-25
 >
+
+## V3.12 Person Detail Single-page List（2026-08-25）
+
+- Car Detail `人物明細` 移除「查看人物帳務」下拉選單，改為直接消費 Shared Person Projection 的 `people[]`：以 Activity Member `personId + identityIds` 解析顯示名稱，一個 canonical Person 一列，不建立姓名 key 或第二份人物資料。
+- 每列第一層只顯示人物與總負擔；點擊後在原列下方展開該人物的店家費用與 Transaction Split 摘要，以及 `總負擔／已付／待付／待收`。人物頁不提供 Split 編輯，也不 Render 誰欠誰、互抵、代付或 Settlement 操作；這些既有 Core 與其他 View 均未變更。
+- Runtime cache entry：`accounting.css?v=29`、`accounting-controller.js?v=26`。沒有 Accounting Core、Firestore Schema、Migration、Backfill 或 Production Data 修改。
 
 ## V3.11 Person Accounting Responsibility／Payment Separation（2026-08-25）
 

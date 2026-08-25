@@ -11,13 +11,15 @@ test("總覽只保留一套我的帳務且移除四格進度 Dashboard",()=>{
   assert.doesNotMatch(render,/hasAccountingData\?summary\+dialog/);
 });
 
-test("人物第一層固定為費用責任四格，付款關係位於第二層",()=>{
+test("人物明細直接列出 canonical Person 並在原列展開費用責任",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js");
-  for(const label of ["總負擔","已付","待付","待收","帳目","處理中"])assert.match(controller,new RegExp(label));
-  assert.match(controller,/personView\.receivableAmount/);
-  assert.match(controller,/relationshipRows/);
-  assert.match(controller,/dataPaymentState|dataset\.paymentState/);
-  assert.doesNotMatch(controller,/personHeading\.innerHTML=`[^`]*(我欠誰|誰欠我|互抵後)/);
+  for(const label of ["accounting-person-list","accounting-person-card","accounting-person-toggle","總負擔","已付","待付","待收"])assert.match(controller,new RegExp(label));
+  assert.match(controller,/model\.viewModel\.people/);
+  assert.match(controller,/member\.identityIds/);
+  assert.match(controller,/person\.receivableAmount/);
+  assert.doesNotMatch(controller,/data-accounting-person-selector/);
+  assert.doesNotMatch(controller,/relationshipRows/);
+  assert.doesNotMatch(controller,/accounting-person-source[^`]*(input|contenteditable)/);
 });
 
 test("我的帳務摘要與明細共用逐 Person 互抵 Projection",()=>{
