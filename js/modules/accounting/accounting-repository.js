@@ -376,22 +376,27 @@
     const root = requireDb().collection("cars").doc(carId);
     const view = await ensureActivityView(root);
 
-    let actionQuery = root
-      .collection("accountingPendingActions")
-      .where("status", "==", "pending");
+    const carSnapshot = currentPersonId ? await root.get() : null;
+    const identityIds = currentPersonId && carSnapshot && carSnapshot.exists
+      ? activityPersonIdentityIds(carSnapshot.data(), currentPersonId)
+      : currentPersonId ? [String(currentPersonId)] : [];
+    const actionQueries = identityIds.length
+      ? identityIds.map(personId => root.collection("accountingPendingActions")
+          .where("status", "==", "pending")
+          .where("responsiblePersonId", "==", personId)
+          .get())
+      : [root.collection("accountingPendingActions").where("status", "==", "pending").get()];
 
-    if (currentPersonId) {
-      actionQuery = actionQuery.where("responsiblePersonId", "==", currentPersonId);
-    }
-
-    const [actions, recentEntries] = await Promise.all([
-      actionQuery.get(),
+    const [actionSnapshots, recentEntries] = await Promise.all([
+      Promise.all(actionQueries),
       root
         .collection("accountingEntries")
         .orderBy("createdAt", "desc")
         .limit(20)
         .get()
     ]);
+    const actionDocs = new Map();
+    actionSnapshots.forEach(snapshot => snapshot.docs.forEach(doc => actionDocs.set(doc.id, doc)));
 
     return {
       // Detailed/recent rows read the canonical transactions directly.
@@ -400,7 +405,7 @@
       transactions: recentEntries.docs
         .map(doc => ({ transactionId: doc.id, ...doc.data() }))
         .filter(item => item.status !== "deleted"),
-      pendingActions: actions.docs.map(doc => ({ pendingActionId: doc.id, ...doc.data() })),
+      pendingActions: [...actionDocs.values()].map(doc => ({ pendingActionId: doc.id, ...doc.data() })),
       pendingCounts: view.pendingCounts || actionCounts([]),
       balanceByPerson: view.balanceByPerson || [],
       grossObligations: view.grossObligations || view.pairwiseObligations || view.settlementTransfers || view.obligationsByPair || [],
@@ -798,6 +803,36 @@
     });
   }
 
+  function activityPersonIdentityIds(car, personId) {
+    const id = text(personId);
+    if (!id) return [];
+    if (!window.JLYAccountingData || typeof window.JLYAccountingData.collectActivityMembers !== "function") return [id];
+    const members = window.JLYAccountingData.collectActivityMembers(car || {});
+    if (typeof window.JLYAccountingData.activityIdentityComponent === "function") {
+      return [...window.JLYAccountingData.activityIdentityComponent(members, [id])].map(text).filter(Boolean);
+    }
+    const matched = members.find(member => {
+      const identities = new Set([text(member.personId), ...(member.identityIds || []).map(text)].filter(Boolean));
+      return identities.has(id);
+    });
+    return matched ? [...new Set([text(matched.personId), ...(matched.identityIds || []).map(text)].filter(Boolean))] : [id];
+  }
+
+  function canonicalActivityPersonId(car, personId) {
+    const id = text(personId);
+    if (!id) return "";
+    if (!window.JLYAccountingData || typeof window.JLYAccountingData.collectActivityMembers !== "function") return id;
+    const members = window.JLYAccountingData.collectActivityMembers(car || {});
+    if (typeof window.JLYAccountingData.canonicalActivityPersonId === "function") {
+      return text(window.JLYAccountingData.canonicalActivityPersonId(members, id)) || id;
+    }
+    const matched = members.find(member => {
+      const identities = new Set([text(member.personId), ...(member.identityIds || []).map(text)].filter(Boolean));
+      return identities.has(id);
+    });
+    return text(matched && matched.personId) || id;
+  }
+
   function assertCurrentNetSettlementAmount(currentAmount, expectedAmount, requestedAmount) {
     const current = Number(currentAmount) || 0;
     const expected = Number(expectedAmount);
@@ -834,6 +869,8 @@
         window.JLYDelegatedPayment.requireActivityMember(input.actorPersonId, activityMemberIds(carSnapshot.data()));
       }
       const carData = carSnapshot.exists ? carSnapshot.data() : {};
+      const canonicalFromPersonId = canonicalActivityPersonId(carData, from);
+      const canonicalToPersonId = canonicalActivityPersonId(carData, to);
       const allowed = receiverSettle ? input.actorPersonId === to || sameActivityPerson(carData, input.actorPersonId, to) || (
         input.actorPersonId === input.managerPersonId && !input.targetUsesSystem
       ) : input.actorPersonId === from || (delegatedClaim && input.actorPersonId !== from && input.actorPersonId !== to) || (
@@ -844,14 +881,14 @@
 
       if (!allowed || !from || !to) throw new Error("net_settlement_not_allowed");
       if (!Number.isFinite(amount) || amount <= 0) throw new Error("net_settlement_invalid_amount");
-      if ((view.activeNetSettlements || []).some(item =>
-        item.fromPersonId === from &&
-        item.toPersonId === to &&
-        item.status === "payment_claimed"
-      )) {
+      const currentPairwiseAmount = netTransferAmount(view.settlementTransfers || view.obligationsByPair, from, to);
+      const activeClaimedAmount = (view.activeNetSettlements || []).filter(item =>
+        item.fromPersonId === from && item.toPersonId === to && item.status === "payment_claimed"
+      ).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      if (activeClaimedAmount >= currentPairwiseAmount || amount > currentPairwiseAmount - activeClaimedAmount) {
         throw new Error("net_settlement_already_claimed");
       }
-      assertCurrentNetSettlementAmount(netTransferAmount(view.settlementTransfers || view.obligationsByPair, from, to), input.expectedAmount, amount);
+      assertCurrentNetSettlementAmount(currentPairwiseAmount, input.expectedAmount, amount);
 
       const delegatedApi = window.JLYDelegatedPayment;
       const record = delegatedClaim && delegatedApi
@@ -862,6 +899,8 @@
         carId,
         fromPersonId: from,
         toPersonId: to,
+        canonicalFromPersonId,
+        canonicalToPersonId,
         amount,
         status: receiverSettle ? "settled" : "payment_claimed",
         paymentClaimedBy: receiverSettle ? from : input.actorPersonId,
@@ -886,7 +925,7 @@
       const pending = {
         pendingActionId: `net_confirmation-${id}`,
         actionType: "payment_confirmation",
-        responsiblePersonId: to,
+        responsiblePersonId: canonicalToPersonId || to,
         settlementId: id,
         activityId: carId,
         carId,
@@ -989,10 +1028,11 @@
     await ensureActivityView(root);
 
     await db.runTransaction(async transaction => {
-      const [viewSnapshot, recordSnapshot, actionSnapshot] = await Promise.all([
+      const [viewSnapshot, recordSnapshot, actionSnapshot, carSnapshot] = await Promise.all([
         transaction.get(viewRef),
         transaction.get(ref),
-        transaction.get(actionRef)
+        transaction.get(actionRef),
+        transaction.get(root)
       ]);
 
       if (!recordSnapshot.exists) throw new Error("net_settlement_not_found");
@@ -1015,8 +1055,10 @@
           history: [...(record.history || []), { action: "withdrawn", actorPersonId, at: now }]
         };
       } else if (action === "confirm" || managerConfirm) {
+        const carData = carSnapshot.exists ? carSnapshot.data() : {};
+        const confirmationTarget = text(record.canonicalToPersonId || record.toPersonId);
         const canConfirm = action === "confirm"
-          ? actorPersonId === record.toPersonId
+          ? actorPersonId === confirmationTarget || sameActivityPerson(carData, actorPersonId, confirmationTarget) || sameActivityPerson(carData, actorPersonId, record.toPersonId)
           : authority &&
             actorPersonId === authority.managerPersonId &&
             !authority.targetUsesSystem;
@@ -1082,6 +1124,8 @@
     claimAcceptedDelegatedRequest,
     activityMemberIds,
     sameActivityPerson,
+    activityPersonIdentityIds,
+    canonicalActivityPersonId,
     assertCurrentNetSettlementAmount
   };
 })();

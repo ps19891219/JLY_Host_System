@@ -2,10 +2,26 @@
 
 > Status: Working Map
 >
-> Version: V3.19
+> Version: V3.21
 >
 > Last Updated: 2026-08-26
 >
+
+
+## V3.21 Settlement Pending Identity Routing（2026-08-26）
+
+- `payment_claimed` 的 Pending Action 現在以 Activity canonical receiver 作為 `responsiblePersonId`，避免 Settlement 保存 legacy recipient 時收款本人收不到待確認通知。
+- `loadDashboard()` 讀取待處理通知時會沿目前人物的 Activity identity component 查詢 canonical / linked legacy identity，既有舊 Pending Action 不需 Migration／Backfill 也可被本人讀到。
+- Settlement record 新增相容性的 `canonicalFromPersonId / canonicalToPersonId` metadata；正式 Pairwise `fromPersonId / toPersonId` 保留原來源 ID，不改 Core obligation。
+- `transitionNetSettlement(..., confirm)` 優先使用 canonical receiver 驗證，同時保留 legacy receiver identity component 相容。
+- 不修改 Production Firestore、Schema Migration 或 Pairwise 計算公式。
+
+## V3.20 Person Settlement Lifecycle Completion（2026-08-26）
+
+- 人物明細正式把 `payment_claimed` 從可付款 Pairwise remaining 分離為 `processingOutgoing / processingIncoming`：付款方顯示「已申報付款／等待對方確認」，收款方顯示「待確認收款」，已 claim 金額不再重複提供付款；部分 claim 只保留尚未處理的 remaining。
+- 收款方的「確認收到」不再建立第二筆 `receiver_settle`，而是對既有 `accountingSettlements` 執行 `transitionNetSettlement(..., "confirm")`，完成 `payment_claimed → settled`。
+- `transitionNetSettlement()` 的 receiver authority 以 Activity linked identity component 驗證 canonical viewer 與 legacy recipient，避免既有 Settlement 的 `toPersonId` 為 legacy identity 時，人物 View 認得同一人但 confirm action 被 `net_settlement_not_allowed` 阻擋。
+- Runtime cache entry：`accounting-repository.js?v=23`、`activity-accounting-view-model.js?v=7`、`accounting-controller.js?v=34`。無 Firestore Schema、Migration、Backfill 或 Production Data 修改。
 
 ## V3.19 Confirm Receipt Error Observability（2026-08-26）
 

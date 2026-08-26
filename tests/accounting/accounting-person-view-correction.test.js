@@ -18,10 +18,10 @@ test("人物明細直接列出 canonical Person 並在原列展開玩家帳務",
   assert.match(controller,/member\.identityIds/);
   assert.match(controller,/person\.playerSources/);
   assert.match(controller,/onPersonPayment/);
-  assert.match(controller,/hasAction=netAmount>0&&\(person\.playerPosition==="payable"\|\|person\.playerPosition==="receivable"\)/);
-  assert.match(controller,/actionLabel=isReceipt\?"確認收款":"付款"/);
+  assert.match(controller,/canPay=person\.playerPosition==="payable"&&netAmount>0/);
+  assert.match(controller,/processingIncoming/);
   assert.match(controller,/value="\$\{netAmount\}"/);
-  assert.match(controller,/transfers:form\.dataset\.direction==="receivable"\?person\.receivable:person\.payable/);
+  assert.match(controller,/transfers:person\.payable/);
   assert.doesNotMatch(controller,/person\.storeSources/);
   assert.doesNotMatch(controller,/data-accounting-person-selector/);
   assert.doesNotMatch(controller,/relationshipRows/);
@@ -39,14 +39,16 @@ test("人物明細淨支付可原地展開實際支付與已收回",()=>{
   assert.match(repository,/receiverPersonId \|\| item\.toPersonId/);
 });
 
-test("人物付款與確認收款只依正式 Person Net Result 顯示並支援部分金額",()=>{
+test("人物付款與確認收款依 Settlement Lifecycle 分流",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js"),repository=read("js/modules/accounting/accounting-repository.js");
   assert.doesNotMatch(controller,/person\.payable\.length===1/);
   assert.match(controller,/max="\$\{netAmount\}"/);
   assert.match(controller,/確認收到/);
   assert.match(controller,/for\(const transfer of input\.transfers\|\|\[\]\)/);
-  assert.match(repository,/receiverSettle = input\.action === "receiver_settle"/);
-  assert.match(repository,/status: receiverSettle \? "settled" : "payment_claimed"/);
+  assert.match(controller,/activeNetSettlements:dashboard\.activeNetSettlements/);
+  assert.match(controller,/transitionNetSettlement\(carId,input\.settlementId,"confirm"/);
+  assert.doesNotMatch(controller,/input\.direction==="receivable"\?"receiver_settle"/);
+  assert.match(repository,/activeClaimedAmount/);
 });
 
 test("確認收款分離表單預期淨額與本次部分收款金額",()=>{
@@ -57,11 +59,38 @@ test("確認收款分離表單預期淨額與本次部分收款金額",()=>{
   assert.doesNotThrow(()=>validate(480,480,200));
   assert.throws(()=>validate(400,480,200),/net_settlement_amount_changed/);
   assert.throws(()=>validate(150,480,200),/net_settlement_amount_changed/);
-  assert.match(controller,/expectedAmount:Number\(transfer\.amount\|\|0\)/);
+  assert.match(controller,/expectedAmount:Number\(transfer\.pairwiseAmount\|\|transfer\.amount\|\|0\)/);
   assert.match(controller,/originalFromPersonId\|\|canonicalFromPersonId/);
   assert.match(controller,/originalToPersonId\|\|canonicalToPersonId/);
 });
 
+test("人物 Projection 將未付款、payment_claimed 與 settled lifecycle 分離",()=>{
+  const view=require("../../shared/accounting/activity-accounting-view-model"),base={feePlan:null,memberPayments:[],vendorPayments:[],transactions:[],personIds:["a","b"],personIdentityGroups:[{personId:"a"},{personId:"b"}],currentPersonId:"a",pendingActions:[]},pair=[{fromPersonId:"a",toPersonId:"b",amount:100,sourceId:"ob-1"}];
+  const due=view.build({...base,pairwiseTransfers:pair,activeNetSettlements:[]});
+  assert.equal(due.people.find(item=>item.personId==="a").payableAmount,100);
+  assert.equal(due.people.find(item=>item.personId==="a").processingAmount,0);
+  const claimed=view.build({...base,pairwiseTransfers:pair,activeNetSettlements:[{settlementId:"s-1",fromPersonId:"a",toPersonId:"b",amount:100,status:"payment_claimed"}]});
+  assert.equal(claimed.people.find(item=>item.personId==="a").payableAmount,0);
+  assert.equal(claimed.people.find(item=>item.personId==="a").processingOutgoingAmount,100);
+  assert.equal(claimed.people.find(item=>item.personId==="b").processingIncoming[0].settlementId,"s-1");
+  const settled=view.build({...base,pairwiseTransfers:[],activeNetSettlements:[]});
+  assert.equal(settled.people.find(item=>item.personId==="a").playerPosition,"settled");
+  assert.equal(settled.people.find(item=>item.personId==="a").processingAmount,0);
+});
+
+test("部分 payment_claimed 只保留未處理金額供再次付款",()=>{
+  const view=require("../../shared/accounting/activity-accounting-view-model"),result=view.build({feePlan:null,memberPayments:[],vendorPayments:[],transactions:[],pairwiseTransfers:[{fromPersonId:"a",toPersonId:"b",amount:500}],activeNetSettlements:[{settlementId:"s-200",fromPersonId:"a",toPersonId:"b",amount:200,status:"payment_claimed"}],personIds:["a","b"],personIdentityGroups:[{personId:"a"},{personId:"b"}],currentPersonId:"a",pendingActions:[]}),payer=result.people.find(item=>item.personId==="a");
+  assert.equal(payer.payableAmount,300);assert.equal(payer.processingOutgoingAmount,200);assert.equal(payer.payable[0].pairwiseAmount,500);assert.equal(payer.payable[0].amount,300);
+});
+
+
+
+test("既有 payment_claimed 可由 canonical receiver 確認 legacy recipient",()=>{
+  const repository=read("js/modules/accounting/accounting-repository.js");
+  assert.match(repository,/transaction\.get\(root\)/);
+  assert.match(repository,/confirmationTarget = text\(record\.canonicalToPersonId \|\| record\.toPersonId\)/);
+  assert.match(repository,/sameActivityPerson\(carData, actorPersonId, record\.toPersonId\)/);
+});
 test("確認收款允許 canonical actor 操作同一正式人物的 legacy receiver",()=>{
   const repositorySource=read("js/modules/accounting/accounting-repository.js"),context={window:{JLYAccountingData:{collectActivityMembers:()=>[{personId:"canonical",identityIds:["canonical","legacy"]}]}}};
   require("node:vm").runInNewContext(repositorySource,context);
@@ -121,4 +150,42 @@ test("LINE 人物 View 共用 Projection 並同步四格摘要",()=>{
   assert.match(client,/personView\.paidAmount/);
   assert.match(client,/personView\.pendingAmount/);
   assert.match(client,/personView\.receivableAmount/);
+});
+
+test("Pending 收款通知沿 canonical/legacy identity component 查詢且新 claim 綁 canonical receiver",()=>{
+  const repositorySource=read("js/modules/accounting/accounting-repository.js"),data=require("../../js/modules/accounting/accounting-data"),car={ownerId:"owner-person",ownerMemberId:"profile-person",players:[{playerId:"legacy-player",profileId:"profile-person",playerName:"詩婕"}]},context={window:{JLYAccountingData:data}};
+  require("node:vm").runInNewContext(repositorySource,context);
+  const repo=context.window.JLYAccountingRepository;
+  assert.deepEqual(new Set(repo.activityPersonIdentityIds(car,"owner-person")),new Set(["owner-person","profile-person","legacy-player"]));
+  assert.equal(repo.canonicalActivityPersonId(car,"legacy-player"),"owner-person");
+  assert.match(repositorySource,/identityIds\.map\(personId => root\.collection\("accountingPendingActions"\)/);
+  assert.match(repositorySource,/responsiblePersonId: canonicalToPersonId \|\| to/);
+});
+
+test("確認既有 payment_claimed 優先使用 canonical receiver 並相容 legacy receiver",()=>{
+  const repositorySource=read("js/modules/accounting/accounting-repository.js");
+  assert.match(repositorySource,/confirmationTarget = text\(record\.canonicalToPersonId \|\| record\.toPersonId\)/);
+  assert.match(repositorySource,/sameActivityPerson\(carData, actorPersonId, record\.toPersonId\)/);
+});
+
+test("本人應收依對手方分成待確認與尚未付款，尚未付款可由收款方直接核銷",()=>{
+  const controller=read("js/modules/accounting/accounting-controller.js"),repository=read("js/modules/accounting/accounting-repository.js");
+  assert.match(controller,/data-person-confirm-receipt/);
+  assert.match(controller,/data-person-direct-receipt/);
+  assert.match(controller,/待確認收款/);
+  assert.match(controller,/尚未付款/);
+  assert.match(controller,/counterpartyName\(item\.fromPersonId\)/);
+  assert.match(controller,/onPersonDirectReceipt/);
+  assert.match(controller,/action:"receiver_settle"/);
+  assert.match(repository,/receiverSettle = input\.action === "receiver_settle"/);
+  assert.match(repository,/status: receiverSettle \? "settled" : "payment_claimed"/);
+  assert.match(repository,/if \(!receiverSettle\) transaction\.set\(actionRef, pending/);
+});
+
+test("同一收款人可同時看到已申報付款與尚未付款的剩餘對手方",()=>{
+  const view=require("../../shared/accounting/activity-accounting-view-model"),result=view.build({feePlan:null,memberPayments:[],vendorPayments:[],transactions:[],pairwiseTransfers:[{fromPersonId:"a",toPersonId:"me",amount:100},{fromPersonId:"b",toPersonId:"me",amount:200}],activeNetSettlements:[{settlementId:"claim-a",fromPersonId:"a",toPersonId:"me",amount:100,status:"payment_claimed"}],personIds:["me","a","b"],personIdentityGroups:[{personId:"me"},{personId:"a"},{personId:"b"}],currentPersonId:"me",pendingActions:[]}),me=result.people.find(item=>item.personId==="me");
+  assert.equal(me.processingIncomingAmount,100);
+  assert.equal(me.processingIncoming[0].fromPersonId,"a");
+  assert.equal(me.receivableAmount,200);
+  assert.equal(me.receivable[0].fromPersonId,"b");
 });
