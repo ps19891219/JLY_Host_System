@@ -462,3 +462,88 @@
   margin: 10px 0 0;
   font-weight: 700;
 }
+/* Inline split amount editor */
+.accounting-split-edit-toggle{
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:4px 6px;
+  margin:-4px -6px;
+  font:inherit;
+  font-weight:700;
+  color:inherit;
+  cursor:pointer;
+  border-radius:8px;
+  text-decoration:underline;
+  text-decoration-style:dotted;
+  text-underline-offset:3px;
+}
+
+.accounting-split-inline-editor{
+  margin-top:10px;
+  padding:12px;
+  border:1px solid var(--line,#e5e7eb);
+  border-radius:12px;
+  background:var(--surface,#fff);
+}
+
+.accounting-split-inline-editor[hidden]{
+  display:none!important;
+}
+
+.accounting-split-inline-fields{
+  display:grid;
+  gap:8px;
+}
+
+.accounting-split-inline-fields label{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 110px;
+  align-items:center;
+  gap:10px;
+}
+
+.accounting-split-inline-fields input{
+  width:100%;
+  min-height:40px;
+  box-sizing:border-box;
+  text-align:right;
+  font:inherit;
+  font-weight:700;
+}
+
+.accounting-split-inline-fields input:disabled{
+  opacity:.6;
+}
+
+.accounting-split-inline-total{
+  margin:12px 0 4px;
+  font-size:14px;
+}
+
+.accounting-split-inline-status{
+  margin:4px 0 0;
+  font-size:13px;
+}
+
+.accounting-split-inline-editor .accounting-form-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:12px;
+}
+
+.accounting-split-inline-editor .accounting-form-actions button{
+  min-height:40px;
+}
+
+.accounting-split-inline-editor [data-inline-split-save]:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+@media(max-width:640px){
+  .accounting-split-inline-fields label{
+    grid-template-columns:minmax(0,1fr) 96px;
+  }
+}

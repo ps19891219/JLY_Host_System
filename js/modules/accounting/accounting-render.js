@@ -12,13 +12,31 @@
   }
   function splitRows(item, model) {
     if (item.splitStatus === "pending") return "";
-    const source=(item.splits||item.shares||[]).filter(split=>model.detailMode||split.personId===model.viewPersonId||item.paidBy===model.viewPersonId);
+    const allSplits=item.splits||item.shares||[];
+    const source=allSplits.filter(split=>model.detailMode||split.personId===model.viewPersonId||item.paidBy===model.viewPersonId);
     const byPerson=new Map();
     source.forEach((split,index)=>{const personId=String(split.personId||split.memberId||split.playerId||"").trim()||`unknown-${index}`,rows=byPerson.get(personId)||[];rows.push(split);byPerson.set(personId,rows);});
     const groups=[...byPerson.entries()].map(([personId,rows])=>({personId,rows,name:model.memberNames.get(personId)||rows[0].displayName||"成員"}));
     const nameCounts=groups.reduce((map,group)=>(map.set(group.name,(map.get(group.name)||0)+1),map),new Map());
     const nameOrdinals=new Map();
-    return groups.map(group=>{const ordinal=(nameOrdinals.get(group.name)||0)+1;nameOrdinals.set(group.name,ordinal);const duplicated=group.rows.length>1,total=group.rows.reduce((sum,row)=>sum+Number(row.amount||0),0),sameName=nameCounts.get(group.name)>1,name=sameName?`${group.name}（成員 ${ordinal}）`:group.name,detail=duplicated?`<small class="accounting-split-warning">同一成員有 ${group.rows.length} 筆分帳資料，請確認來源</small>`:"";return `<div class="accounting-split-row" data-split-person-id="${escape(group.personId)}"><span>${escape(name)}${detail}</span><b>${duplicated?group.rows.map(row=>money(row.amount)).join(" + "):money(total)}</b></div>`;}).join("");
+    const hasDuplicate=groups.some(group=>group.rows.length>1);
+    const canManage=Boolean(model.isManager||item.createdBy===model.currentPersonId||item.paidBy===model.currentPersonId);
+    const editableSplits=allSplits.filter(split=>split&&split.settlementStatus==="payment_due");
+    const canEdit=canManage&&!hasDuplicate&&editableSplits.length>0&&allSplits.every(split=>String(split.splitId||"").trim());
+    const rowsHtml=groups.map(group=>{
+      const ordinal=(nameOrdinals.get(group.name)||0)+1;
+      nameOrdinals.set(group.name,ordinal);
+      const duplicated=group.rows.length>1;
+      const total=group.rows.reduce((sum,row)=>sum+Number(row.amount||0),0);
+      const sameName=nameCounts.get(group.name)>1;
+      const name=sameName?`${group.name}（成員 ${ordinal}）`:group.name;
+      const detail=duplicated?`<small class="accounting-split-warning">同一成員有 ${group.rows.length} 筆分帳資料，請確認來源</small>`:"";
+      const row=group.rows[0];
+      const amountHtml=canEdit&&!duplicated&&row.settlementStatus==="payment_due"?`<button type="button" class="accounting-split-edit-toggle" data-transaction-id="${escape(item.transactionId)}" data-split-id="${escape(row.splitId)}">${money(total)}</button>`:`<b>${duplicated?group.rows.map(row=>money(row.amount)).join(" + "):money(total)}</b>`;
+      return `<div class="accounting-split-row" data-split-person-id="${escape(group.personId)}"><span>${escape(name)}${detail}</span>${amountHtml}</div>`;
+    }).join("");
+    const editor=canEdit?`<form class="accounting-split-inline-editor" data-transaction-id="${escape(item.transactionId)}" data-total="${Number(item.amount||0)}" hidden><div class="accounting-split-inline-fields">${allSplits.map(split=>{const name=model.memberNames.get(split.personId)||split.displayName||"成員",editable=split.settlementStatus==="payment_due";return `<label><span>${escape(name)}</span><input type="number" min="0" step="1" inputmode="numeric" data-inline-split-id="${escape(split.splitId)}" data-original-amount="${Number(split.amount||0)}" value="${Number(split.amount||0)}"${editable?"":" disabled"}></label>`;}).join("")}</div><p class="accounting-split-inline-total">已分配 <b>${money(allSplits.reduce((sum,split)=>sum+Number(split.amount||0),0))}</b> / 帳目總額 <b>${money(item.amount)}</b></p><p class="accounting-split-inline-status" hidden></p><div class="accounting-form-actions"><button type="button" data-inline-split-cancel>取消</button><button type="submit" data-inline-split-save>儲存分帳</button></div></form>`:"";
+    return rowsHtml+editor;
   }
   function buildDashboardHtmlLegacy(model) {
     const netSettlement = netSettlementHtml(model);

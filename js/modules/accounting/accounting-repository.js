@@ -655,6 +655,178 @@
     });
   }
 
+  async function updateSplitAmounts(carId, transactionId, amountsBySplitId, actorPersonId) {
+    const db = requireDb();
+    const root = db.collection("cars").doc(carId);
+    const entryRef = root.collection("accountingEntries").doc(transactionId);
+    const actions = root.collection("accountingPendingActions");
+    const now = new Date().toISOString();
+
+    await ensureActivityView(root);
+
+    await db.runTransaction(async transaction => {
+      const viewRef = root.collection("accountingViews").doc(viewName);
+      const [entrySnapshot, viewSnapshot] = await Promise.all([
+        transaction.get(entryRef),
+        transaction.get(viewRef)
+      ]);
+
+      if (!entrySnapshot.exists) throw new Error("transaction_not_found");
+
+      const entry = {
+        transactionId: entrySnapshot.id,
+        ...entrySnapshot.data()
+      };
+
+      if (entry.splitStatus !== "completed") {
+        throw new Error("split_edit_not_allowed");
+      }
+
+      const currentSplits = Array.isArray(entry.splits)
+        ? entry.splits
+        : [];
+
+      if (!currentSplits.length) {
+        throw new Error("split_not_found");
+      }
+
+      const updates = amountsBySplitId &&
+        typeof amountsBySplitId === "object"
+        ? amountsBySplitId
+        : {};
+
+      const editableIds = new Set(
+        currentSplits
+          .filter(split =>
+            split &&
+            split.settlementStatus === "payment_due"
+          )
+          .map(split => String(split.splitId || ""))
+          .filter(Boolean)
+      );
+
+      for (const splitId of Object.keys(updates)) {
+        if (!editableIds.has(String(splitId))) {
+          throw new Error("split_edit_not_allowed");
+        }
+      }
+
+      const nextSplits = currentSplits.map(split => {
+        const splitId = String(split.splitId || "");
+
+        if (!Object.prototype.hasOwnProperty.call(updates, splitId)) {
+          return split;
+        }
+
+        const amount = Number(updates[splitId]);
+
+        if (!Number.isFinite(amount) || amount < 0) {
+          throw new Error("split_amount_invalid");
+        }
+
+        return {
+          ...split,
+          amount
+        };
+      });
+
+      const splitTotal = nextSplits.reduce(
+        (sum, split) => sum + Number(split.amount || 0),
+        0
+      );
+
+      if (splitTotal !== Number(entry.amount)) {
+        throw new Error("split_total_mismatch");
+      }
+
+      const oldIds = Array.isArray(entry.pendingActionIds)
+        ? entry.pendingActionIds
+        : [];
+
+      const oldSnapshots = await Promise.all(
+        oldIds.map(id => transaction.get(actions.doc(id)))
+      );
+
+      oldSnapshots.forEach((snapshot, index) => {
+        if (!snapshot.exists) return;
+
+        const old = snapshot.data() || {};
+
+        if (
+          old.actionType !== "payment_due" ||
+          old.status !== "pending"
+        ) return;
+
+        transaction.set(actions.doc(oldIds[index]), {
+          ...old,
+          status: "completed",
+          completedAt: now,
+          updatedAt: now,
+          history: [
+            ...(old.history || []),
+            {
+              status: "completed",
+              reason: "split_amount_updated",
+              actorPersonId,
+              at: now
+            }
+          ]
+        }, { merge: false });
+      });
+
+      const preservedActionIds = oldSnapshots.map((snapshot,index)=>({snapshot,index})).filter(item=>item.snapshot.exists).map(item=>({id:oldIds[item.index],data:item.snapshot.data()||{}})).filter(item=>item.data.status==="pending"&&item.data.actionType!=="payment_due").map(item=>item.id);
+      const nextActionIds = [...preservedActionIds];
+
+      for (const split of nextSplits) {
+        if (
+          split.personId === entry.paidBy ||
+          split.settlementStatus !== "payment_due"
+        ) continue;
+
+        const id = `payment_due-${transactionId}-${split.splitId}`;
+        nextActionIds.push(id);
+
+        transaction.set(actions.doc(id), {
+          pendingActionId: id,
+          actionType: "payment_due",
+          responsiblePersonId: split.personId,
+          transactionId,
+          splitId: split.splitId,
+          activityId: entry.activityId || carId,
+          carId,
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+          completedAt: "",
+          history: [{
+            status: "pending",
+            reason: "split_amount_updated",
+            actorPersonId,
+            at: now
+          }]
+        }, { merge: false });
+      }
+
+      const nextEntry = {
+        ...entry,
+        splits: nextSplits,
+        shares: nextSplits,
+        pendingActionIds: nextActionIds,
+        updatedAt: now
+      };
+
+      const view = viewSnapshot.exists
+        ? viewSnapshot.data() || {}
+        : {};
+
+      transaction.set(entryRef, nextEntry, { merge: false });
+      transaction.set(
+        viewRef,
+        invalidateSummary(view, { updatedAt: now }),
+        { merge: false }
+      );
+    });
+  }
   async function saveSettlement(carId, transactionId, splitId, nextSplit, actorPersonId) {
     const db = requireDb();
     const root = db.collection("cars").doc(carId);
@@ -1145,6 +1317,7 @@ if (
     loadSettlementHistory,
     createQuickTransaction,
     completeSplit,
+    updateSplitAmounts,
     saveSettlement,
     claimNetSettlement,
     transitionNetSettlement,

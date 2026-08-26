@@ -308,3 +308,30 @@ test("有快速記帳後保留人物關係資料供 Experience View 使用，明
   assert.match(html, /id="accountingDetails" hidden/);
   assert.match(html, /⚠️ 待處理 1 筆/);
 });
+
+test("既有分帳金額修改遵守 Settlement Lifecycle", () => {
+  assert.match(repository, /async function updateSplitAmounts\(/);
+  assert.match(repository, /split\.settlementStatus === "payment_due"/);
+  assert.match(repository, /throw new Error\("split_edit_not_allowed"\)/);
+  assert.match(repository, /throw new Error\("split_amount_invalid"\)/);
+  assert.match(repository, /throw new Error\("split_total_mismatch"\)/);
+  assert.match(repository, /splitTotal !== Number\(entry\.amount\)/);
+  assert.match(repository, /preservedActionIds/);
+  assert.match(repository, /item\.data\.actionType!=="payment_due"/);
+  assert.match(repository, /reason: "split_amount_updated"/);
+  assert.match(repository, /updateSplitAmounts,/);
+});
+test("逐筆分帳可原地展開整組金額編輯", () => {
+  assert.match(render, /accounting-split-edit-toggle/);
+  assert.match(render, /accounting-split-inline-editor/);
+  assert.match(render, /data-inline-split-id/);
+  assert.match(render, /data-total="\$\{Number\(item\.amount\|\|0\)\}"/);
+  assert.match(render, /split\.settlementStatus==="payment_due"/);
+  assert.match(render, /model\.isManager\|\|item\.createdBy===model\.currentPersonId\|\|item\.paidBy===model\.currentPersonId/);
+  assert.match(actions, /querySelectorAll\("\.accounting-split-edit-toggle"\)/);
+  assert.match(actions, /const allocated=/);
+  assert.match(actions, /allocated===total/);
+  assert.match(actions, /onUpdateSplitAmounts/);
+  assert.match(controller, /repository\.updateSplitAmounts/);
+  assert.match(accountingCss, /\.accounting-split-inline-editor/);
+});

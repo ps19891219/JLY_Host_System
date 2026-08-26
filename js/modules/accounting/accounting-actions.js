@@ -62,6 +62,129 @@
     filters.querySelectorAll("button").forEach(button=>button.addEventListener("click",()=>applyFilter(button.dataset.filter)));
     const loadMore=section.querySelector("#accountingLoadMore");
     if(loadMore)loadMore.addEventListener("click",async()=>{loadMore.disabled=true;loadMore.textContent="載入中…";try{await config.onLoadMore();}catch(_){loadMore.disabled=false;loadMore.textContent="載入下一頁";}});
+    section.querySelectorAll(".accounting-split-edit-toggle").forEach(button=>{
+      button.addEventListener("click",()=>{
+        const article=button.closest("[data-transaction-id]");
+        if(!article)return;
+
+        const editor=article.querySelector(".accounting-split-inline-editor");
+        if(!editor)return;
+
+        editor.hidden=false;
+        button.closest(".accounting-split-list")?.classList.add("is-editing");
+
+        const target=editor.querySelector(
+          `[data-inline-split-id="${button.dataset.splitId}"]`
+        );
+
+        if(target&&!target.disabled){
+          target.focus();
+          target.select();
+        }
+      });
+    });
+
+    section.querySelectorAll(".accounting-split-inline-editor").forEach(form=>{
+      const inputs=[...form.querySelectorAll("[data-inline-split-id]")];
+      const editable=inputs.filter(input=>!input.disabled);
+      const status=form.querySelector(".accounting-split-inline-status");
+      const save=form.querySelector("[data-inline-split-save]");
+      const cancel=form.querySelector("[data-inline-split-cancel]");
+      const totalNode=form.querySelector(".accounting-split-inline-total");
+      const total=Number(form.dataset.total||0);
+
+      const refresh=()=>{
+        const values=inputs.map(input=>Number(input.value));
+        const valid=values.every(value=>Number.isFinite(value)&&value>=0);
+        const allocated=valid
+          ?values.reduce((sum,value)=>sum+value,0)
+          :0;
+        const matched=valid&&allocated===total;
+
+        if(totalNode){
+          totalNode.innerHTML=
+            `已分配 <b>$${allocated.toLocaleString("zh-TW")}</b> / 帳目總額 <b>$${total.toLocaleString("zh-TW")}</b>`;
+        }
+
+        if(status){
+          status.hidden=matched;
+
+          if(!valid){
+            status.textContent="分帳金額不可為負數或空白";
+          }else if(allocated!==total){
+            status.textContent=
+              allocated<total
+                ?`還差 $${(total-allocated).toLocaleString("zh-TW")}`
+                :`超過 $${(allocated-total).toLocaleString("zh-TW")}`;
+          }
+        }
+
+        if(save)save.disabled=!matched;
+      };
+
+      editable.forEach(input=>{
+        input.addEventListener("input",refresh);
+      });
+
+      if(cancel){
+        cancel.addEventListener("click",()=>{
+          inputs.forEach(input=>{
+            input.value=input.dataset.originalAmount||"0";
+          });
+
+          form.hidden=true;
+          form.closest(".accounting-split-list")
+            ?.classList.remove("is-editing");
+
+          refresh();
+        });
+      }
+
+      form.addEventListener("submit",async event=>{
+        event.preventDefault();
+        refresh();
+
+        if(save&&save.disabled)return;
+
+        const amountsBySplitId={};
+
+        editable.forEach(input=>{
+          amountsBySplitId[input.dataset.inlineSplitId]=Number(input.value);
+        });
+
+        if(!Object.keys(amountsBySplitId).length)return;
+
+        if(save){
+          save.disabled=true;
+          save.textContent="儲存中…";
+        }
+
+        try{
+          await config.onUpdateSplitAmounts({
+            transactionId:form.dataset.transactionId,
+            amountsBySplitId
+          });
+        }catch(error){
+          if(status){
+            status.hidden=false;
+
+            status.textContent=
+              error&&error.message==="split_total_mismatch"
+                ?"分帳合計必須等於帳目總額"
+                :error&&error.message==="split_edit_not_allowed"
+                  ?"這筆分帳已進入付款流程，不能直接修改"
+                  :"分帳金額儲存失敗，請重新確認";
+          }
+
+          if(save){
+            save.disabled=false;
+            save.textContent="儲存分帳";
+          }
+        }
+      });
+
+      refresh();
+    });
     const settlementDialog=section.querySelector("#accountingSettlementDialog"),dialogTitle=section.querySelector("#accountingSettlementDialogTitle"),dialogTotal=section.querySelector("#accountingSettlementDialogTotal"),payableRows=section.querySelector("#accountingPayableRows"),receivableRows=section.querySelector("#accountingReceivableRows"),netRows=section.querySelector("#accountingNetRows");
     section.querySelectorAll("[data-settlement-dialog]").forEach(button=>button.addEventListener("click",()=>{const type=button.dataset.settlementDialog;dialogTitle.textContent=type==="payable"?"我欠誰":type==="receivable"?"誰欠我":"互相扣抵後";dialogTotal.textContent=`合計 ${button.querySelector("b").textContent}`;payableRows.hidden=type!=="payable";receivableRows.hidden=type!=="receivable";netRows.hidden=type!=="net";if(typeof settlementDialog.showModal==="function")settlementDialog.showModal();else settlementDialog.setAttribute("open","");}));
     if(settlementDialog){section.querySelector("#accountingSettlementDialogClose").addEventListener("click",()=>settlementDialog.close());settlementDialog.addEventListener("click",event=>{if(event.target===settlementDialog)settlementDialog.close();});}
