@@ -69,6 +69,20 @@ test("確認收款允許 canonical actor 操作同一正式人物的 legacy rece
   assert.equal(context.window.JLYAccountingRepository.sameActivityPerson({},"outsider","legacy"),false);
 });
 
+test("確認收款權限沿 Activity linked identity component 正規化，不以姓名判斷",()=>{
+  const repositorySource=read("js/modules/accounting/accounting-repository.js"),data=require("../../js/modules/accounting/accounting-data"),car={ownerId:"owner-person",ownerMemberId:"profile-person",players:[{playerId:"legacy-player",profileId:"profile-person",playerName:"詩婕"}]},context={window:{JLYAccountingData:data}};
+  require("node:vm").runInNewContext(repositorySource,context);
+  assert.equal(context.window.JLYAccountingRepository.sameActivityPerson(car,"owner-person","legacy-player"),true);
+  assert.equal(context.window.JLYAccountingRepository.sameActivityPerson(car,"outsider","legacy-player"),false);
+});
+
+test("人物付款按鈕直接綁定原地 inline form，不依 legacy identity 另行 guard",()=>{
+  const controller=read("js/modules/accounting/accounting-controller.js");
+  assert.match(controller,/accounting-person-pay-toggle"\)\.forEach\(button=>button\.addEventListener\("click"/);
+  assert.match(controller,/button\.hidden=true;button\.nextElementSibling\.hidden=false/);
+  assert.match(controller,/canonicalActivityPersonId\(members,currentMember\.personId\)/);
+});
+
 test("我的帳務摘要與明細共用逐 Person 互抵 Projection",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js"),data=require("../../js/modules/accounting/accounting-data");
   assert.match(controller,/personalAccountingProjection/);assert.match(controller,/accounting-my-net-list/);assert.match(controller,/同一對人物互抵後/);

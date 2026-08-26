@@ -38,8 +38,8 @@
     loading=true;
     try {
       const data=window.JLYAccountingData,repository=window.JLYAccountingRepository,renderer=window.JLYAccountingRender;
-      const members=data.collectActivityMembers(car),currentIdentity=data.getCurrentIdentity(localStorage,window.JLYIdentity),currentMember=data.resolveCurrentActivityMember(members,currentIdentity),currentPersonId=currentMember&&currentMember.personId,storeMembers=typeof data.linkCurrentIdentityToActivityMembers==="function"?data.linkCurrentIdentityToActivityMembers(members,currentIdentity):members;
-      if(currentMember){const index=members.findIndex(member=>member.personId===currentPersonId);members[index]=currentMember;}
+      const members=data.collectActivityMembers(car),currentIdentity=data.getCurrentIdentity(localStorage,window.JLYIdentity),currentMember=data.resolveCurrentActivityMember(members,currentIdentity),currentPersonId=currentMember&&(typeof data.canonicalActivityPersonId==="function"?data.canonicalActivityPersonId(members,currentMember.personId):currentMember.personId),storeMembers=typeof data.linkCurrentIdentityToActivityMembers==="function"?data.linkCurrentIdentityToActivityMembers(members,currentIdentity):members;
+      if(currentMember){const index=members.findIndex(member=>member.personId===currentPersonId);if(index>=0)members[index]={...currentMember,personId:currentPersonId};}
       const managerPersonId=String(car.ownerId||""),isManager=currentPersonId===managerPersonId,dashboard=await repository.loadDashboard(carId,currentPersonId),pendingDrafts=isManager?await repository.loadPendingDrafts(carId):[],memberNames=new Map(members.map(member=>[member.personId,member.displayName]));
        if(detailedCarId!==carId){detailedTransactions=null;detailedSettlements=null;detailLastDocument=null;detailHasMore=false;detailedCarId=carId;}
       const displayedTransactions=detailedTransactions||dashboard.transactions;

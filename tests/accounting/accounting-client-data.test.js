@@ -241,3 +241,16 @@ test("pairwise settlement only offsets debts between the same two people", () =>
     {fromPersonId:"xiaoying",toPersonId:"shijie",amount:80}
   ]);
 });
+
+test("Activity identity normalization follows linked identities across owner and legacy player records", () => {
+  const members = [
+    { personId:"owner-person", identityIds:["owner-person","profile-person"], displayName:"詩婕", roles:["owner"] },
+    { personId:"legacy-player", identityIds:["legacy-player","profile-person"], displayName:"詩婕", roles:["player"] }
+  ];
+  const component = accountingData.activityIdentityComponent(members,["legacy-player"]);
+  assert.deepEqual([...component].sort(),["legacy-player","owner-person","profile-person"]);
+  assert.equal(accountingData.canonicalActivityPersonId(members,"legacy-player"),"owner-person");
+  const current = accountingData.resolveCurrentActivityMember(members,{identityIds:["legacy-player"],displayName:"詩婕"});
+  assert.equal(accountingData.canonicalActivityPersonId(members,current.personId),"owner-person");
+  assert.deepEqual(current.roles.sort(),["owner","player"]);
+});

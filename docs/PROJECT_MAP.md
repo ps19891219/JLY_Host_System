@@ -2,10 +2,16 @@
 
 > Status: Working Map
 >
-> Version: V3.17
+> Version: V3.18
 >
 > Last Updated: 2026-08-26
 >
+
+## V3.18 Person Payment／Receipt Identity Routing Correction（2026-08-26）
+
+- Activity identity normalization 現在會沿 owner／player／profile／legacy player 的既有 `identityIds` 關係做傳遞式 component 解析；登入者與 Pairwise recipient 即使分散在兩筆 Member record，只要由正式 linked identity 串連，仍正規化成同一 canonical Person。不使用 displayName，也沒有新增身份欄位。
+- 人物卡的付款／確認收款入口繼續共用既有原地 inline form；Controller 以 canonical current Person 選擇 `claim`／`receiver_settle`，Repository 的 receiver authority 使用同一 Activity identity component 驗證，避免誤走 manager 路徑或回報「請確認登入身分」。非同一 identity component 的使用者仍被拒絕。
+- 全額與部分收款仍寫入既有 `accountingSettlements`，不修改 Split、Pairwise、Payment／Settlement Core、店家帳務或 Production Data。Runtime cache entry：`accounting-data.js?v=11`、`accounting-repository.js?v=22`、`accounting-controller.js?v=32`。
 
 ## V3.17 Person Receipt Stale Guard Correction（2026-08-26）
 

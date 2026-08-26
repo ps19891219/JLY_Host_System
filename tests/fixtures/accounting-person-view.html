@@ -11,11 +11,11 @@
 <script src="/js/modules/accounting/accounting-render.js?v=20"></script>
 <script src="/shared/accounting/activity-accounting-view-model.js?v=6"></script>
 <script src="/js/modules/accounting/accounting-navigation.js?v=2"></script>
-<script src="/js/modules/accounting/accounting-data.js?v=10"></script>
-<script src="/js/modules/accounting/accounting-controller.js?v=31"></script>
+<script src="/js/modules/accounting/accounting-data.js?v=11"></script>
+<script src="/js/modules/accounting/accounting-controller.js?v=32"></script>
 <script>
 (function(){
-  var members=[{personId:"shijie",identityIds:["shijie","legacy-shijie"],displayName:"詩婕"},{personId:"xiaowu",displayName:"小霙"},{personId:"aliang",displayName:"阿兩"},{personId:"xiaobai",displayName:"小白"}];
+  var members=[{personId:"shijie",identityIds:["shijie","profile-shijie"],displayName:"詩婕"},{personId:"legacy-shijie",identityIds:["legacy-shijie","profile-shijie"],displayName:"詩婕"},{personId:"xiaowu",displayName:"小霙"},{personId:"aliang",displayName:"阿兩"},{personId:"xiaobai",displayName:"小白"}];
   var transactions=[
     {transactionId:"dinner-1",type:"expense",title:"晚餐",amount:500,paidBy:"shijie",splitStatus:"completed",splits:[{personId:"shijie",amount:166,settlementStatus:"settled"},{personId:"xiaowu",amount:166,settlementStatus:"pending"}]},
     {transactionId:"dinner-2",type:"expense",title:"晚餐",amount:500,paidBy:"shijie",splitStatus:"completed",splits:[{personId:"shijie",amount:125,settlementStatus:"settled"},{personId:"xiaowu",amount:125,settlementStatus:"pending"}]},

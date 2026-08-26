@@ -34,11 +34,32 @@
       : [storage && storage.getItem("currentPlayerProfileId"), storage && storage.getItem("currentPlayerId"), ...linked];
     return { identityIds: unique(ids), displayName: text(identityApi && typeof identityApi.getCurrentPlayerName === "function" ? identityApi.getCurrentPlayerName() : storage && storage.getItem("currentPlayerName")) };
   }
+  function activityIdentityComponent(members, identityIds) {
+    const component = new Set(unique(identityIds));
+    let changed = true;
+    while (changed) {
+      changed = false;
+      (members || []).forEach(member => {
+        const ids = unique([member && member.personId, ...(member && member.identityIds || [])]);
+        if (!ids.some(id => component.has(id))) return;
+        ids.forEach(id => { if (!component.has(id)) { component.add(id); changed = true; } });
+      });
+    }
+    return component;
+  }
+  function canonicalActivityPersonId(members, personId) {
+    const id = text(personId);
+    if (!id) return "";
+    const component = activityIdentityComponent(members, [id]);
+    const canonical = (members || []).find(member => component.has(text(member && member.personId)));
+    return text(canonical && canonical.personId) || id;
+  }
   function resolveCurrentActivityMember(members, identity) {
-    const currentIds = new Set(identity && identity.identityIds || []);
-    const member = (members || []).find(item => (item.identityIds || [item.personId]).some(id => currentIds.has(id)));
-    if (!member) return null;
-    return { ...member, displayName: text(identity.displayName) || member.displayName, usesSystem: true };
+    const component = activityIdentityComponent(members, identity && identity.identityIds || []);
+    const related = (members || []).filter(item => unique([item.personId, ...(item.identityIds || [])]).some(id => component.has(id)));
+    if (!related.length) return null;
+    const member = related[0];
+    return { ...member, identityIds: unique(related.flatMap(item => [item.personId, ...(item.identityIds || [])])), roles: unique(related.flatMap(item => item.roles || [])), displayName: text(identity.displayName) || member.displayName, usesSystem: true };
   }
   function linkCurrentIdentityToActivityMembers(members, identity) {
     const linkedIds = unique(identity && identity.identityIds || []);
@@ -199,5 +220,5 @@
     const people=[...byPerson.values()].map(item=>{const net=item.receivable-item.payable;return{...item,net,direction:net>0?"receivable":net<0?"payable":"settled",amount:Math.abs(net)};}).sort((a,b)=>a.personId.localeCompare(b.personId)),payableTotal=people.reduce((sum,item)=>sum+item.payable,0),receivableTotal=people.reduce((sum,item)=>sum+item.receivable,0),net=receivableTotal-payableTotal;
     return{personId:id,people,payableTotal,receivableTotal,net,direction:net>0?"receivable":net<0?"payable":"settled",netAmount:Math.abs(net)};
   }
-  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, resolveCurrentActivityMember, linkCurrentIdentityToActivityMembers, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, netSettlementFromObligations, personalSettlement, personalObligations, personalAccountingProjection };
+  return { collectActivityMembers, getCurrentPersonId, getCurrentIdentity, activityIdentityComponent, canonicalActivityPersonId, resolveCurrentActivityMember, linkCurrentIdentityToActivityMembers, buildQuickTransaction, buildEqualSplits, buildCustomSplits, transitionSettlement, transactionFilterState, filterTransactions, calculateNetSettlement, netSettlementFromBalances, netSettlementFromObligations, personalSettlement, personalObligations, personalAccountingProjection };
 });

@@ -788,7 +788,11 @@
     if (!left || !right) return false;
     if (left === right) return true;
     if (!window.JLYAccountingData || typeof window.JLYAccountingData.collectActivityMembers !== "function") return false;
-    return window.JLYAccountingData.collectActivityMembers(car || {}).some(member => {
+    const members = window.JLYAccountingData.collectActivityMembers(car || {});
+    if (typeof window.JLYAccountingData.activityIdentityComponent === "function") {
+      return window.JLYAccountingData.activityIdentityComponent(members, [left]).has(right);
+    }
+    return members.some(member => {
       const identities = new Set([text(member.personId), ...(member.identityIds || []).map(text)].filter(Boolean));
       return identities.has(left) && identities.has(right);
     });
