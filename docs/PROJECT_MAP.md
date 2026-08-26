@@ -2,10 +2,16 @@
 
 > Status: Working Map
 >
-> Version: V3.16
+> Version: V3.17
 >
 > Last Updated: 2026-08-26
 >
+
+## V3.17 Person Receipt Stale Guard Correction（2026-08-26）
+
+- 人物明細「確認收款」保留 canonical Person 顯示與正式 Pair 原始 identity：送出時以原始 `from/to` 查詢同一份 Pairwise View，並以 Activity Member `identityIds` 驗證 canonical receiver 與 legacy receiver 是同一正式人物，不使用姓名合併。
+- stale guard 改為分開驗證「表單開啟時該 Pair 應收額 `expectedAmount`」與「送出交易內 current Pair amount」；本次收款 `amount` 只需小於等於 current amount。因此 `$480` 全額與 `$200` 部分收款均可成立，只有 current amount 真正改變才回報 `net_settlement_amount_changed`。
+- 收款仍沿用 `receiver_settle` 寫入既有 `accountingSettlements`，不修改 Transaction、Split、Pairwise、Payment／Settlement Core 或 Production Data。Runtime cache entry：`accounting-repository.js?v=21`、`activity-accounting-view-model.js?v=6`、`accounting-controller.js?v=31`。
 
 ## V3.16 Person Net Payment Display Correction（2026-08-26）
 

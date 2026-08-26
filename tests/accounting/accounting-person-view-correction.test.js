@@ -49,6 +49,26 @@ test("人物付款與確認收款只依正式 Person Net Result 顯示並支援�
   assert.match(repository,/status: receiverSettle \? "settled" : "payment_claimed"/);
 });
 
+test("確認收款分離表單預期淨額與本次部分收款金額",()=>{
+  const repositorySource=read("js/modules/accounting/accounting-repository.js"),controller=read("js/modules/accounting/accounting-controller.js"),context={window:{JLYAccountingData:{collectActivityMembers:()=>[]}}};
+  require("node:vm").runInNewContext(repositorySource,context);
+  const validate=context.window.JLYAccountingRepository.assertCurrentNetSettlementAmount;
+  assert.doesNotThrow(()=>validate(480,480,480));
+  assert.doesNotThrow(()=>validate(480,480,200));
+  assert.throws(()=>validate(400,480,200),/net_settlement_amount_changed/);
+  assert.throws(()=>validate(150,480,200),/net_settlement_amount_changed/);
+  assert.match(controller,/expectedAmount:Number\(transfer\.amount\|\|0\)/);
+  assert.match(controller,/originalFromPersonId\|\|canonicalFromPersonId/);
+  assert.match(controller,/originalToPersonId\|\|canonicalToPersonId/);
+});
+
+test("確認收款允許 canonical actor 操作同一正式人物的 legacy receiver",()=>{
+  const repositorySource=read("js/modules/accounting/accounting-repository.js"),context={window:{JLYAccountingData:{collectActivityMembers:()=>[{personId:"canonical",identityIds:["canonical","legacy"]}]}}};
+  require("node:vm").runInNewContext(repositorySource,context);
+  assert.equal(context.window.JLYAccountingRepository.sameActivityPerson({},"canonical","legacy"),true);
+  assert.equal(context.window.JLYAccountingRepository.sameActivityPerson({},"outsider","legacy"),false);
+});
+
 test("我的帳務摘要與明細共用逐 Person 互抵 Projection",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js"),data=require("../../js/modules/accounting/accounting-data");
   assert.match(controller,/personalAccountingProjection/);assert.match(controller,/accounting-my-net-list/);assert.match(controller,/同一對人物互抵後/);

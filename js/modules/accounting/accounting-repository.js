@@ -782,6 +782,26 @@
       .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   }
 
+  function sameActivityPerson(car, leftPersonId, rightPersonId) {
+    const left = text(leftPersonId);
+    const right = text(rightPersonId);
+    if (!left || !right) return false;
+    if (left === right) return true;
+    if (!window.JLYAccountingData || typeof window.JLYAccountingData.collectActivityMembers !== "function") return false;
+    return window.JLYAccountingData.collectActivityMembers(car || {}).some(member => {
+      const identities = new Set([text(member.personId), ...(member.identityIds || []).map(text)].filter(Boolean));
+      return identities.has(left) && identities.has(right);
+    });
+  }
+
+  function assertCurrentNetSettlementAmount(currentAmount, expectedAmount, requestedAmount) {
+    const current = Number(currentAmount) || 0;
+    const expected = Number(expectedAmount);
+    const requested = Number(requestedAmount) || 0;
+    if (Number.isFinite(expected) && expected >= 0 && current !== expected) throw new Error("net_settlement_amount_changed");
+    if (current < requested) throw new Error("net_settlement_amount_changed");
+  }
+
   async function claimNetSettlement(carId, input) {
     const db = requireDb();
     const root = db.collection("cars").doc(carId);
@@ -809,7 +829,8 @@
         if (!carSnapshot.exists) throw new Error("activity_not_found");
         window.JLYDelegatedPayment.requireActivityMember(input.actorPersonId, activityMemberIds(carSnapshot.data()));
       }
-      const allowed = receiverSettle ? input.actorPersonId === to || (
+      const carData = carSnapshot.exists ? carSnapshot.data() : {};
+      const allowed = receiverSettle ? input.actorPersonId === to || sameActivityPerson(carData, input.actorPersonId, to) || (
         input.actorPersonId === input.managerPersonId && !input.targetUsesSystem
       ) : input.actorPersonId === from || (delegatedClaim && input.actorPersonId !== from && input.actorPersonId !== to) || (
         managerClaim &&
@@ -826,9 +847,7 @@
       )) {
         throw new Error("net_settlement_already_claimed");
       }
-      if (netTransferAmount(view.settlementTransfers || view.obligationsByPair, from, to) < amount) {
-        throw new Error("net_settlement_amount_changed");
-      }
+      assertCurrentNetSettlementAmount(netTransferAmount(view.settlementTransfers || view.obligationsByPair, from, to), input.expectedAmount, amount);
 
       const delegatedApi = window.JLYDelegatedPayment;
       const record = delegatedClaim && delegatedApi
@@ -1057,6 +1076,8 @@
     createDelegatedRequest,
     transitionDelegatedRequest,
     claimAcceptedDelegatedRequest,
-    activityMemberIds
+    activityMemberIds,
+    sameActivityPerson,
+    assertCurrentNetSettlementAmount
   };
 })();
