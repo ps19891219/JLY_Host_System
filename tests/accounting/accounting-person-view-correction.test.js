@@ -189,3 +189,38 @@ test("同一收款人可同時看到已申報付款與尚未付款的剩餘對�
   assert.equal(me.receivableAmount,200);
   assert.equal(me.receivable[0].fromPersonId,"b");
 });
+
+test("確認收款 authority 可用目前登入 identity 串回 legacy receiver",()=>{
+  const repositorySource=read("js/modules/accounting/accounting-repository.js");
+  const data=require("../../js/modules/accounting/accounting-data");
+
+  const storage={
+    getItem:key=>({
+      currentPlayerProfileId:"canonical-person",
+      currentPlayerId:"canonical-person",
+      linkedPlayerIds:'["legacy-receiver"]'
+    })[key]||null
+  };
+
+  const context={
+    window:{
+      JLYAccountingData:data,
+      JLYIdentity:{
+        getAllPlayerIdentityIds:()=>["canonical-person","legacy-receiver"],
+        getCurrentPlayerName:()=>"current-user"
+      },
+      localStorage:storage
+    }
+  };
+
+  require("node:vm").runInNewContext(repositorySource,context);
+
+  assert.equal(
+    context.window.JLYAccountingRepository.sameActivityPerson(
+      {ownerId:"legacy-receiver"},
+      "canonical-person",
+      "legacy-receiver"
+    ),
+    true
+  );
+});

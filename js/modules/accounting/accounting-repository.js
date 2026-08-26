@@ -793,7 +793,23 @@
     if (!left || !right) return false;
     if (left === right) return true;
     if (!window.JLYAccountingData || typeof window.JLYAccountingData.collectActivityMembers !== "function") return false;
-    const members = window.JLYAccountingData.collectActivityMembers(car || {});
+    let members = window.JLYAccountingData.collectActivityMembers(car || {});
+
+if (
+  typeof window.JLYAccountingData.getCurrentIdentity === "function" &&
+  typeof window.JLYAccountingData.linkCurrentIdentityToActivityMembers === "function" &&
+  typeof window.localStorage !== "undefined"
+) {
+  const currentIdentity = window.JLYAccountingData.getCurrentIdentity(
+    window.localStorage,
+    window.JLYIdentity
+  );
+
+  members = window.JLYAccountingData.linkCurrentIdentityToActivityMembers(
+    members,
+    currentIdentity
+  );
+}
     if (typeof window.JLYAccountingData.activityIdentityComponent === "function") {
       return window.JLYAccountingData.activityIdentityComponent(members, [left]).has(right);
     }
