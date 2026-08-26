@@ -2,10 +2,16 @@
 
 > Status: Working Map
 >
-> Version: V3.18
+> Version: V3.19
 >
 > Last Updated: 2026-08-26
 >
+
+## V3.19 Confirm Receipt Error Observability（2026-08-26）
+
+- 人物明細付款／確認收款保留既有 Identity、Repository guard 與 Settlement Core；Controller 不再把所有 exception 統一顯示為登入身分錯誤，改依 `net_settlement_not_allowed`、`net_settlement_already_claimed`、Firestore permission、identity／actor mismatch 顯示對應的人類提示，未知錯誤使用一般稍後再試提示。
+- Browser console 會輸出 structured diagnostic：`error.code`、`error.message`、`error.stack`，以及 `actorPersonId`、`toPersonId`、`canonicalToPersonId`、`transferId`、`transferStatus`、`originalToPersonId`、`currentPersonId`、`activityId`；不會自動重送收款，也不改寫正式帳務資料。
+- Runtime cache entry：`accounting-controller.js?v=33`。本輪無 Identity normalization、Repository、Settlement Core、Firestore Schema 或 Production Data 修改。
 
 ## V3.18 Person Payment／Receipt Identity Routing Correction（2026-08-26）
 

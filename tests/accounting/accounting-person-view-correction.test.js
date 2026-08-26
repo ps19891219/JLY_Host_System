@@ -83,6 +83,25 @@ test("人物付款按鈕直接綁定原地 inline form，不依 legacy identity 
   assert.match(controller,/canonicalActivityPersonId\(members,currentMember\.personId\)/);
 });
 
+test("人物收款錯誤依正式 code 顯示不同提示",()=>{
+  const source=read("js/modules/accounting/accounting-controller.js"),context={window:{},document:{addEventListener:()=>{},getElementById:()=>null},MutationObserver:function(){},console:{error:()=>{}}};
+  require("node:vm").runInNewContext(source,context);
+  const message=context.window.JLYAccountingController.personActionErrorMessage;
+  assert.equal(message(new Error("net_settlement_not_allowed")),"目前狀態不允許確認收款。");
+  assert.equal(message(new Error("net_settlement_already_claimed")),"這筆款項已經被處理。");
+  assert.equal(message(Object.assign(new Error("Missing or insufficient permissions."),{code:"permission-denied"})),"目前沒有資料存取權限。");
+  assert.equal(message(new Error("identity_required")),"目前無法確認登入身分。");
+  assert.equal(message(new Error("unexpected_failure")),"目前無法處理，請稍後再試。");
+});
+
+test("確認收款 console trace 保留 exception 與 runtime identity values",()=>{
+  const calls=[],source=read("js/modules/accounting/accounting-controller.js"),context={window:{},document:{addEventListener:()=>{},getElementById:()=>null},MutationObserver:function(){},console:{error:(...args)=>calls.push(args)}};
+  require("node:vm").runInNewContext(source,context);
+  const runtime={actorPersonId:"actor",toPersonId:"legacy-recipient",canonicalToPersonId:"canonical-recipient",transferId:"pair-480",transferStatus:"payment_due",originalToPersonId:"legacy-recipient",currentPersonId:"actor",activityId:"car-1"},error=Object.assign(new Error("net_settlement_not_allowed"),{code:"net_settlement_not_allowed"}),detail=context.window.JLYAccountingController.logPersonActionError(error,runtime);
+  assert.equal(calls.length,1);assert.equal(calls[0][0],"Person accounting action failed.");
+  assert.deepEqual(JSON.parse(JSON.stringify(detail)),{errorCode:"net_settlement_not_allowed",errorMessage:"net_settlement_not_allowed",errorStack:error.stack,actorPersonId:"actor",toPersonId:"legacy-recipient",canonicalToPersonId:"canonical-recipient",transfer:{id:"pair-480",status:"payment_due",originalToPersonId:"legacy-recipient"},transferId:"pair-480",transferStatus:"payment_due",originalToPersonId:"legacy-recipient",currentPersonId:"actor",activityId:"car-1"});
+});
+
 test("我的帳務摘要與明細共用逐 Person 互抵 Projection",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js"),data=require("../../js/modules/accounting/accounting-data");
   assert.match(controller,/personalAccountingProjection/);assert.match(controller,/accounting-my-net-list/);assert.match(controller,/同一對人物互抵後/);
