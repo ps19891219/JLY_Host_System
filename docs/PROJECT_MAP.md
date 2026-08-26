@@ -2,10 +2,17 @@
 
 > Status: Working Map
 >
-> Version: V3.15
+> Version: V3.16
 >
-> Last Updated: 2026-08-25
+> Last Updated: 2026-08-26
 >
+
+## V3.16 Person Net Payment Display Correction（2026-08-26）
+
+- Car Detail 人物明細第三格改為同一玩家帳務語意層級的「淨支付」：`Transaction actual payment + settled outgoing - settled incoming`。點擊金額會在原人物卡原地展開「實際支付／已收回／淨支付」，不移動頁面，也不修改正式 Payment／Settlement。
+- `activityCurrent` Derived View 新增 `settledReceivedByPerson`，由 settled Settlement 的正式 `receiverPersonId / toPersonId` 投影；Schema Version 升至 10，舊 Prepared View 由既有 lazy rebuild 更新，無 Migration、Backfill 或正式 Accounting Core Schema 變更。
+- Person 的「應付／應收」仍只採既有 Pairwise `playerPosition + playerNetAmount`，付款與確認收款操作不變。Production「測試3」小霙的顯示語意為：總支出 `$378`、實際支付 `$350`、已收回 `$87`、淨支付 `$263`、正式應付 `$115`。
+- Runtime cache entry：`accounting.css?v=31`、`accounting-repository.js?v=20`、`activity-accounting-view-model.js?v=5`、`accounting-controller.js?v=30`。
 
 ## V3.15 Person Net Action Render Correction（2026-08-25）
 

@@ -7,7 +7,7 @@
   }
 
   const viewName = "activityCurrent";
-  const VIEW_SCHEMA_VERSION = 9;
+  const VIEW_SCHEMA_VERSION = 10;
   const SUMMARY_VERSION = 3;
 
   function text(value) {
@@ -236,6 +236,7 @@
     const expenseSourcesByPerson = [];
     const actualPaymentsMap = new Map();
     const settledPaidMap = new Map();
+    const settledReceivedMap = new Map();
 
     expenseEntries.forEach(item => (item.splits || item.shares || []).forEach(split => {
       const personId = text(split.personId || split.memberId);
@@ -261,9 +262,11 @@
       .filter(item => item && item.status === "settled")
       .forEach(item => {
         const personId = text(item.paidBy || item.paymentClaimedBy || item.fromPersonId);
+        const receiverPersonId = text(item.receiverPersonId || item.toPersonId);
         const value = number(item.amount);
-        if (!personId || !value) return;
-        settledPaidMap.set(personId, (settledPaidMap.get(personId) || 0) + value);
+        if (!value) return;
+        if (personId) settledPaidMap.set(personId, (settledPaidMap.get(personId) || 0) + value);
+        if (receiverPersonId) settledReceivedMap.set(receiverPersonId, (settledReceivedMap.get(receiverPersonId) || 0) + value);
       });
     return {
       schemaVersion: VIEW_SCHEMA_VERSION,
@@ -278,6 +281,8 @@
         actualPaymentsByPerson:[...actualPaymentsMap].map(([personId,amount])=>({personId,amount}))
       },
       settledPaidByPerson: [...settledPaidMap]
+        .map(([personId, amount]) => ({ personId, amount })),
+      settledReceivedByPerson: [...settledReceivedMap]
         .map(([personId, amount]) => ({ personId, amount })),
       balanceByPerson: [...currentBalance]
         .map(([personId, balance]) => ({ personId, balance: number(balance) }))
@@ -404,7 +409,8 @@
       obligationsByPair: view.obligationsByPair || view.settlementTransfers || [],
       activeNetSettlements: view.activeNetSettlements || [],
       transactionExpenseProjection: view.transactionExpenseProjection || null,
-      settledPaidByPerson: view.settledPaidByPerson || []
+      settledPaidByPerson: view.settledPaidByPerson || [],
+      settledReceivedByPerson: view.settledReceivedByPerson || []
     };
   }
 
