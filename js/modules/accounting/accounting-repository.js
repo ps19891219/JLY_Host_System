@@ -1063,7 +1063,20 @@
             actorPersonId === authority.managerPersonId &&
             !authority.targetUsesSystem;
 
-        if (!canConfirm) throw new Error("net_settlement_not_allowed");
+        if (!canConfirm) {
+  const error = new Error("net_settlement_not_allowed");
+  error.accountingRuntime = {
+    actorPersonId,
+    toPersonId: record.toPersonId || "",
+    canonicalToPersonId: confirmationTarget,
+    transferId: settlementId,
+    transferStatus: record.status || "",
+    originalToPersonId: record.toPersonId || "",
+    currentPersonId: actorPersonId,
+    activityId: carId
+  };
+  throw error;
+}
         if (netTransferAmount(view.settlementTransfers || view.obligationsByPair, record.fromPersonId, record.toPersonId) < record.amount) {
           throw new Error("net_settlement_amount_changed");
         }
