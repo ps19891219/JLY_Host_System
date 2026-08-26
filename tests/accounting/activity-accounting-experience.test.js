@@ -8,9 +8,9 @@ const root=path.join(__dirname,"../..");
 const read=file=>fs.readFileSync(path.join(root,file),"utf8");
 const navigation=require(path.join(root,"js/modules/accounting/accounting-navigation.js"));
 
-test("Activity Accounting 使用店家固定上層與四個不重載玩家分頁",()=>{
+test("Activity Accounting 使用店家固定上層與三個不重載玩家分頁",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js");
-  for(const id of ["overview","transactions","people","history"])assert.match(controller,new RegExp(`\\["${id}"`));
+  for(const id of ["transactions","people","history"])assert.match(controller,new RegExp(`\\["${id}"`));
   assert.match(controller,/accounting-store-fixed/);assert.doesNotMatch(controller,/\["studio","店家帳務"\]/);
   assert.match(controller,/accounting-experience-tabs/);
   assert.match(controller,/panel\.hidden=key!==id/);

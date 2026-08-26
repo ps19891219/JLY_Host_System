@@ -10,31 +10,28 @@ test("總覽只保留一套我的帳務且移除四格進度 Dashboard",()=>{
   assert.match(render,/hasAccountingData\?dialog:/);
   assert.doesNotMatch(render,/hasAccountingData\?summary\+dialog/);
 });
-
-test("人物明細直接列出 canonical Person 並在原列展開玩家帳務",()=>{
+test("person view uses canonical Person and simplified metrics",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js");
-  for(const label of ["accounting-person-list","accounting-person-card","accounting-person-toggle","總支出","淨支付","playerPosition","playerNetAmount","playerNetPaidAmount","playerReceivedAmount"])assert.match(controller,new RegExp(label));
+  for(const label of ["accounting-person-list","accounting-person-card","accounting-person-toggle","accounting-person-metrics-v3","playerPosition","playerNetAmount","playerTotalExpense","playerPending","playerPaid"])assert.match(controller,new RegExp(label));
   assert.match(controller,/model\.viewModel\.people/);
   assert.match(controller,/member\.identityIds/);
   assert.match(controller,/person\.playerSources/);
   assert.match(controller,/onPersonPayment/);
   assert.match(controller,/canPay=person\.playerPosition==="payable"&&netAmount>0/);
   assert.match(controller,/processingIncoming/);
-  assert.match(controller,/value="\$\{netAmount\}"/);
   assert.match(controller,/transfers:person\.payable/);
   assert.doesNotMatch(controller,/person\.storeSources/);
   assert.doesNotMatch(controller,/data-accounting-person-selector/);
   assert.doesNotMatch(controller,/relationshipRows/);
-  assert.doesNotMatch(controller,/accounting-person-source[^`]*(input|contenteditable)/);
 });
 
-test("人物明細淨支付可原地展開實際支付與已收回",()=>{
+test("person settlement uses total pending and paid metrics",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js"),repository=read("js/modules/accounting/accounting-repository.js");
-  assert.match(controller,/accounting-person-net-paid-toggle/);
-  assert.match(controller,/accounting-person-net-paid-detail/);
-  assert.match(controller,/實際支付/);
-  assert.match(controller,/已收回/);
-  assert.match(controller,/settledReceivedByPerson:dashboard\.settledReceivedByPerson/);
+  assert.match(controller,/accounting-person-metrics-v3/);
+  assert.match(controller,/playerPending/);
+  assert.match(controller,/playerPaid/);
+  assert.match(controller,/accounting-person-settled/);
+  assert.doesNotMatch(controller,/accounting-person-net-paid-detail/);
   assert.match(repository,/settledReceivedByPerson/);
   assert.match(repository,/receiverPersonId \|\| item\.toPersonId/);
 });

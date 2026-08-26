@@ -8,11 +8,16 @@ const vm=require("node:vm");
 const root=path.join(__dirname,"../..");
 const read=file=>fs.readFileSync(path.join(root,file),"utf8");
 
-test("店家帳務固定於玩家四分頁上方",()=>{
+test("store accounting stays fixed above three player tabs",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js");
   assert.match(controller,/accounting-store-fixed/);
-  assert.match(controller,/\[\["overview","總覽"\],\["transactions","逐筆帳目"\],\["people","人物明細"\],\["history","歷史紀錄"\]\]/);
-  assert.doesNotMatch(controller,/\["studio","店家帳務"\]/);
+  assert.match(controller,/const definitions=\[\["transactions"/);
+  assert.match(controller,/\["people"/);
+  assert.match(controller,/\["history"/);
+  assert.doesNotMatch(controller,/\["overview"/);
+  assert.match(controller,/heading\.after\(overview\)/);
+  assert.match(controller,/overview\.after\(mySummary\)/);
+  assert.doesNotMatch(controller,/\["studio"/);
 });
 
 test("店家操作使用正式人類語言且不顯示大型新增付款",()=>{
