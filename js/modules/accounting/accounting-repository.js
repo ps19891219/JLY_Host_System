@@ -871,7 +871,7 @@
       const carData = carSnapshot.exists ? carSnapshot.data() : {};
       const canonicalFromPersonId = canonicalActivityPersonId(carData, from);
       const canonicalToPersonId = canonicalActivityPersonId(carData, to);
-      const allowed = receiverSettle ? input.actorPersonId === to || sameActivityPerson(carData, input.actorPersonId, to) || (
+      const allowed = receiverSettle ? input.actorPersonId === to || input.actorPersonId === canonicalToPersonId || sameActivityPerson(carData, input.actorPersonId, to) || (
         input.actorPersonId === input.managerPersonId && !input.targetUsesSystem
       ) : input.actorPersonId === from || (delegatedClaim && input.actorPersonId !== from && input.actorPersonId !== to) || (
         managerClaim &&
