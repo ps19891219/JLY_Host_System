@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, "../..");
 const render = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-render.js"), "utf8");
 const actions = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-actions.js"), "utf8");
 const repository = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-repository.js"), "utf8");
+const splitTotalRepository = fs.readFileSync(path.join(root, "js/modules/accounting/accounting-repository-split-total.js"), "utf8");
 const pairwiseSource = fs.readFileSync(path.join(root, "shared/accounting/pairwise-obligation.js"), "utf8");
 const pairwise = require(path.join(root, "shared/accounting/pairwise-obligation.js"));
 
@@ -25,19 +26,20 @@ test("未進付款流程前可在同一筆帳修改總額並加入共用外送�
   assert.match(render, /不會另外建立一筆帳/);
   assert.match(actions, /feeTotal\/editable\.length/);
   assert.match(actions, /__transactionTotal=currentTotal\(\)/);
-  assert.match(repository, /requestedTotal/);
-  assert.match(repository, /transaction_amount_locked/);
-  assert.match(repository, /externalLocked/);
-  assert.match(repository, /amount:requestedTotal/);
+  assert.match(splitTotalRepository, /requestedTotal/);
+  assert.match(splitTotalRepository, /transaction_amount_locked/);
+  assert.match(splitTotalRepository, /externalLocked/);
+  assert.match(splitTotalRepository, /amount: requestedTotal/);
 });
 
 test("總額修改仍由 canonical Transaction 與 lifecycle 狀態決定", () => {
-  assert.match(repository, /transaction\.get\(entryRef\)/);
-  assert.match(repository, /split\.personId!==entry\.paidBy&&split\.settlementStatus!=="payment_due"/);
-  assert.match(repository, /Array\.isArray\(entry\.payments\)&&entry\.payments\.length/);
+  assert.match(splitTotalRepository, /transaction\.get\(entryRef\)/);
+  assert.match(splitTotalRepository, /text\(split\.personId\) !== text\(entry\.paidBy\)/);
+  assert.match(splitTotalRepository, /text\(split\.settlementStatus\) !== "payment_due"/);
+  assert.match(splitTotalRepository, /preservedActionIds/);
+  assert.match(splitTotalRepository, /item\.data\.actionType !== "payment_due"/);
+  assert.match(splitTotalRepository, /split_total_mismatch/);
   assert.match(repository, /preservedActionIds/);
-  assert.match(repository, /item\.data\.actionType!=="payment_due"/);
-  assert.match(repository, /split_total_mismatch/);
 });
 
 test("已結清 split 不再投影成我的未付 obligation，付款人自己的初始 settled 不受影響", () => {
@@ -69,8 +71,9 @@ test("已結清 split 不再投影成我的未付 obligation，付款人自己�
 });
 
 test("新的 Projection 版本會讓舊 activityCurrent 摘要強制重建", () => {
-  assert.match(repository, /SOURCE_PROJECTION_VERSION = "settled_split_v2"/);
-  assert.match(repository, /\$\{SOURCE_PROJECTION_VERSION\}/);
+  assert.match(splitTotalRepository, /PROJECTION_VERSION = "settled_split_v2"/);
+  assert.match(splitTotalRepository, /summaryVersion: 0/);
+  assert.match(splitTotalRepository, /summarySourceVersion: ""/);
   assert.match(repository, /SUMMARY_VERSION = 3/);
   assert.match(repository, /VIEW_SCHEMA_VERSION = 10/);
 });
