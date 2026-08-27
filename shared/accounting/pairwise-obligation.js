@@ -55,6 +55,25 @@
       .filter(item => item.personId && item.amount > 0);
   }
 
+  function settledDebtorIds(transaction) {
+    const entry = transaction || {};
+    const payer = text(entry.paidBy || entry.payerMemberId);
+    const supplied = Array.isArray(entry.splits)
+      ? entry.splits
+      : Array.isArray(entry.shares)
+        ? entry.shares
+        : [];
+
+    return new Set(
+      supplied
+        .filter(item => {
+          const personId = text(item && (item.personId || item.memberId || item.playerId));
+          return personId && personId !== payer && text(item && item.settlementStatus) === "settled";
+        })
+        .map(item => text(item && (item.personId || item.memberId || item.playerId)))
+    );
+  }
+
   function normalizeStoredObligation(item, index) {
     const fromPersonId = text(item && item.fromPersonId);
     const toPersonId = text(item && item.toPersonId);
@@ -77,10 +96,13 @@
       return [];
     }
 
+    const settledDebtors = settledDebtorIds(entry);
+
     if (Array.isArray(entry.obligations) && entry.obligations.length) {
       return entry.obligations
         .map(normalizeStoredObligation)
-        .filter(Boolean);
+        .filter(Boolean)
+        .filter(item => !settledDebtors.has(item.fromPersonId));
     }
 
     const balances = new Map();
@@ -130,7 +152,7 @@
       if (creditor.amount === 0) creditorIndex += 1;
     }
 
-    return obligations;
+    return obligations.filter(item => !settledDebtors.has(item.fromPersonId));
   }
 
   function pairKey(a, b) {
@@ -203,10 +225,6 @@
     const value = amount(record.amount);
     if (!from || !to || from === to || !value) return false;
 
-    // Migration compatibility:
-    // legacy settled records did not yet carry responsibilityModel.
-    // They are still safe to apply because settlement reduction is
-    // strictly constrained to the same from -> to pair.
     const model = text(record.responsibilityModel);
     return !model || model === MODEL;
   }
