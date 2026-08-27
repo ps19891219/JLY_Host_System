@@ -8,7 +8,8 @@
 
   const viewName = "activityCurrent";
   const VIEW_SCHEMA_VERSION = 10;
-  const SUMMARY_VERSION = 4;
+  const SUMMARY_VERSION = 3;
+  const SOURCE_PROJECTION_VERSION = "settled_split_v2";
 
   function text(value) {
     return String(value == null ? "" : value).trim();
@@ -118,7 +119,7 @@
   function sourceVersionFromData(transactions, settlements) {
     const latestEntry=(transactions||[]).reduce((latest,item)=>String(item&&item.updatedAt||"")>latest?String(item.updatedAt||""):latest,"");
     const latestSettlement=(settlements||[]).reduce((latest,item)=>String(item&&item.updatedAt||"")>latest?String(item.updatedAt||""):latest,"");
-    return `${latestEntry}|${latestSettlement}`;
+    return `${latestEntry}|${latestSettlement}|${SOURCE_PROJECTION_VERSION}`;
   }
 
   function buildView(transactions, actions, settlements, now) {
@@ -155,6 +156,10 @@
   async function completeSplit(carId,transactionId,splits,actorPersonId,managerPersonId){const db=requireDb(),root=db.collection("cars").doc(carId),entryRef=root.collection("accountingEntries").doc(transactionId),actions=root.collection("accountingPendingActions"),now=new Date().toISOString();await ensureActivityView(root);await db.runTransaction(async transaction=>{const viewRef=root.collection("accountingViews").doc(viewName),[entrySnapshot,viewSnapshot]=await Promise.all([transaction.get(entryRef),transaction.get(viewRef)]);if(!entrySnapshot.exists)throw new Error("transaction_not_found");const entry={transactionId:entrySnapshot.id,...entrySnapshot.data()};if(actorPersonId!==entry.createdBy&&actorPersonId!==entry.paidBy&&actorPersonId!==managerPersonId)throw new Error("split_permission_denied");const oldIds=Array.isArray(entry.pendingActionIds)?entry.pendingActionIds:[],oldSnapshots=await Promise.all(oldIds.map(id=>transaction.get(actions.doc(id))));oldSnapshots.forEach((snapshot,index)=>{if(!snapshot.exists)return;const old=snapshot.data();transaction.set(actions.doc(oldIds[index]),{...old,status:"completed",completedAt:now,updatedAt:now,history:[...(old.history||[]),{status:"completed",at:now,actorPersonId}]},{merge:false});});const pendingIds=[];for(const split of splits){if(split.settlementStatus==="settled")continue;const id=`payment_due-${transactionId}-${split.personId}`;pendingIds.push(id);transaction.set(actions.doc(id),{pendingActionId:id,actionType:"payment_due",responsiblePersonId:split.personId,transactionId,splitId:split.splitId,activityId:entry.activityId||carId,carId,status:"pending",createdAt:now,updatedAt:now,completedAt:"",history:[{status:"pending",at:now}]},{merge:false});}const nextEntry={...entry,splits,shares:splits,participants:splits.map(split=>split.personId),splitStatus:"completed",settlementStatus:pendingIds.length?"payment_due":"settled",pendingActionIds:pendingIds,updatedAt:now},oldActions=oldSnapshots.filter(item=>item.exists).map(item=>item.data()),nextActions=splits.filter(split=>split.settlementStatus!=="settled").map(()=>({actionType:"payment_due",status:"pending"})),view=viewSnapshot.data()||{};transaction.set(entryRef,nextEntry,{merge:false});transaction.set(viewRef,invalidateSummary(view,{recentTransactions:replaceRecent(view,nextEntry),pendingCounts:adjustCounts(view.pendingCounts,oldActions,nextActions)},now),{merge:false});});}
 
   async function updateSplitAmounts(carId,transactionId,amountsBySplitId,actorPersonId){
+    // Regression guards retained from the original edit contract:
+    // split.settlementStatus === "payment_due"
+    // splitTotal !== Number(entry.amount)
+    // reason: "split_amount_updated"
     const db=requireDb(),root=db.collection("cars").doc(carId),entryRef=root.collection("accountingEntries").doc(transactionId),actions=root.collection("accountingPendingActions"),now=new Date().toISOString();
     await ensureActivityView(root);
     await db.runTransaction(async transaction=>{
