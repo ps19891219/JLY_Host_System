@@ -64,7 +64,7 @@
     if(loadMore)loadMore.addEventListener("click",async()=>{loadMore.disabled=true;loadMore.textContent="載入中…";try{await config.onLoadMore();}catch(_){loadMore.disabled=false;loadMore.textContent="載入下一頁";}});
     section.querySelectorAll(".accounting-split-edit-toggle").forEach(button=>{
       button.addEventListener("click",()=>{
-        const article=button.closest("[data-transaction-id]");
+        const article=button.closest(".accounting-entry");
         if(!article)return;
 
         const editor=article.querySelector(".accounting-split-inline-editor");
@@ -91,11 +91,15 @@
       const save=form.querySelector("[data-inline-split-save]");
       const cancel=form.querySelector("[data-inline-split-cancel]");
       const totalNode=form.querySelector(".accounting-split-inline-total");
-      const total=Number(form.dataset.total||0);
+      const totalInput=form.querySelector("[data-inline-total]");
+      const feeInputs=[...form.querySelectorAll("[data-shared-fee]")];
+      const allocateFees=form.querySelector("[data-inline-allocate-fees]");
+      const currentTotal=()=>Number(totalInput?totalInput.value:form.dataset.total||0);
 
       const refresh=()=>{
+        const total=currentTotal();
         const values=inputs.map(input=>Number(input.value));
-        const valid=values.every(value=>Number.isFinite(value)&&value>=0);
+        const valid=Number.isFinite(total)&&total>0&&values.every(value=>Number.isFinite(value)&&value>=0);
         const allocated=valid
           ?values.reduce((sum,value)=>sum+value,0)
           :0;
@@ -103,14 +107,14 @@
 
         if(totalNode){
           totalNode.innerHTML=
-            `已分配 <b>$${allocated.toLocaleString("zh-TW")}</b> / 帳目總額 <b>$${total.toLocaleString("zh-TW")}</b>`;
+            `已分配 <b>$${allocated.toLocaleString("zh-TW")}</b> / 帳目總額 <b>$${Number(total||0).toLocaleString("zh-TW")}</b>`;
         }
 
         if(status){
           status.hidden=matched;
 
           if(!valid){
-            status.textContent="分帳金額不可為負數或空白";
+            status.textContent="帳目總額與分帳金額都必須是正確的非負數";
           }else if(allocated!==total){
             status.textContent=
               allocated<total
@@ -122,15 +126,30 @@
         if(save)save.disabled=!matched;
       };
 
-      editable.forEach(input=>{
-        input.addEventListener("input",refresh);
-      });
+      editable.forEach(input=>input.addEventListener("input",refresh));
+      if(totalInput)totalInput.addEventListener("input",refresh);
+
+      if(allocateFees){
+        allocateFees.addEventListener("click",()=>{
+          const feeTotal=feeInputs.reduce((sum,input)=>sum+Math.max(0,Math.round(Number(input.value)||0)),0);
+          if(!feeTotal||!editable.length)return;
+          const base=Math.floor(feeTotal/editable.length),remainder=feeTotal-base*editable.length;
+          editable.forEach((input,index)=>{
+            input.value=String((Number(input.value)||0)+base+(index<remainder?1:0));
+          });
+          if(totalInput)totalInput.value=String(currentTotal()+feeTotal);
+          feeInputs.forEach(input=>input.value="0");
+          refresh();
+        });
+      }
 
       if(cancel){
         cancel.addEventListener("click",()=>{
           inputs.forEach(input=>{
             input.value=input.dataset.originalAmount||"0";
           });
+          if(totalInput)totalInput.value=totalInput.dataset.originalTotal||form.dataset.total||"0";
+          feeInputs.forEach(input=>input.value="0");
 
           form.hidden=true;
           form.closest(".accounting-split-list")
@@ -151,8 +170,9 @@
         editable.forEach(input=>{
           amountsBySplitId[input.dataset.inlineSplitId]=Number(input.value);
         });
+        amountsBySplitId.__transactionTotal=currentTotal();
 
-        if(!Object.keys(amountsBySplitId).length)return;
+        if(!editable.length)return;
 
         if(save){
           save.disabled=true;
@@ -171,9 +191,11 @@
             status.textContent=
               error&&error.message==="split_total_mismatch"
                 ?"分帳合計必須等於帳目總額"
-                :error&&error.message==="split_edit_not_allowed"
-                  ?"這筆分帳已進入付款流程，不能直接修改"
-                  :"分帳金額儲存失敗，請重新確認";
+                :error&&error.message==="transaction_amount_locked"
+                  ?"這筆帳已進入付款流程，總額不能再修改"
+                  :error&&error.message==="split_edit_not_allowed"
+                    ?"這筆分帳已進入付款流程，不能直接修改"
+                    :"分帳金額儲存失敗，請重新確認";
           }
 
           if(save){
