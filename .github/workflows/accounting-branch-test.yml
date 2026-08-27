@@ -1,0 +1,19 @@
+name: Accounting Branch Test
+
+on:
+  push:
+    branches:
+      - fix/accounting-inline-settlement-fees-20260827
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
