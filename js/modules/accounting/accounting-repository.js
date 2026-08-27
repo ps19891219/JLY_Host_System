@@ -8,7 +8,7 @@
 
   const viewName = "activityCurrent";
   const VIEW_SCHEMA_VERSION = 10;
-  const SUMMARY_VERSION = 3;
+  const SUMMARY_VERSION = 4;
 
   function text(value) {
     return String(value == null ? "" : value).trim();
