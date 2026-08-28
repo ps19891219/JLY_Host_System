@@ -28,10 +28,10 @@ const reminderSchedule =
   );
 
 const DEFAULT_SEND_TIME =
-  "15:00";
+  reminderSchedule.DEFAULT_SEND_TIME;
 
 const DEFAULT_OFFSET_DAYS =
-  1;
+  reminderSchedule.DEFAULT_OFFSET_DAYS;
 
 const DEFAULT_CUSTOM_MESSAGE =
   "大家明天見唷～～～請準時到場❤️\n" +
@@ -231,7 +231,7 @@ async function enableGroupPreTripReminder(
         sendTime:
           DEFAULT_SEND_TIME,
         timezone:
-          "Asia/Taipei",
+          reminderSchedule.DEFAULT_TIMEZONE,
         templateId:
           "pre_trip_default_v1",
         customMessage:
