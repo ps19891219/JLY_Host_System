@@ -22,7 +22,7 @@ This module does not read Firestore and does not send LINE messages.
   function () {
     "use strict";
 
-    const DEFAULT_SEND_TIME = "15:00";
+    const DEFAULT_SEND_TIME = "09:00";
     const DEFAULT_OFFSET_DAYS = 1;
     const DEFAULT_TIMEZONE = "Asia/Taipei";
     const TERMINAL_STATUSES = new Set([
