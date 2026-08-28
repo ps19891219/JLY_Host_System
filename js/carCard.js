@@ -194,7 +194,9 @@ function installBatchPublicButton() {
   countBox.insertAdjacentElement("afterend", button);
 }
 
-document.addEventListener("DOMContentLoaded", installBatchPublicButton);
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", installBatchPublicButton);
+}
 
 function buildCarCard(car, options) {
   const settings = options || {};
