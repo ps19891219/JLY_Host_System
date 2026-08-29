@@ -23,12 +23,20 @@ function buildCover(car) {
 }
 
 function getIdentityDot(car) {
-  if (car.isHost === true || car.role === "host" || car.ownerType === "self") {
-    return `<span class="identity-dot identity-host" title="我是主揪"></span>`;
+  if (car && car.role === "player") {
+    return `<span class="identity-dot identity-player" title="我是玩家" style="background:#3b82f6"></span>`;
+  }
+
+  if (car && car.role === "host") {
+    return `<span class="identity-dot identity-host" title="我是主揪" style="background:#22c55e"></span>`;
+  }
+
+  if (car.isHost === true || car.ownerType === "self") {
+    return `<span class="identity-dot identity-host" title="我是主揪" style="background:#22c55e"></span>`;
   }
 
   if (car.isPlayer === true) {
-    return `<span class="identity-dot identity-player" title="我參加"></span>`;
+    return `<span class="identity-dot identity-player" title="我是玩家" style="background:#3b82f6"></span>`;
   }
 
   return "";
@@ -49,6 +57,145 @@ function getTagLine(car) {
       🏷 ${showTags}${more}
     </div>
   `;
+}
+
+function getCurrentBatchActorId() {
+  if (
+    window.JLYIdentity &&
+    typeof window.JLYIdentity.getCurrentPlayerId === "function"
+  ) {
+    return String(
+      window.JLYIdentity.getCurrentPlayerId() || ""
+    ).trim();
+  }
+
+  return String(
+    localStorage.getItem("currentPlayerId") || ""
+  ).trim();
+}
+
+async function setSelectedCarsPublic() {
+  if (typeof selectedCars === "undefined" || selectedCars.size === 0) {
+    alert("請先選取要改成公開的車團");
+    return;
+  }
+
+  if (!window.db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  const actorId = getCurrentBatchActorId();
+
+  if (!actorId) {
+    alert("請先登入 JLY 身分");
+    return;
+  }
+
+  const ids = Array.from(selectedCars);
+  const refs = ids.map(carId =>
+    window.db.collection("cars").doc(carId)
+  );
+
+  try {
+    const snapshots = await Promise.all(
+      refs.map(ref => ref.get())
+    );
+
+    const editable = [];
+    let skipped = 0;
+
+    snapshots.forEach((snapshot, index) => {
+      if (!snapshot.exists) {
+        skipped += 1;
+        return;
+      }
+
+      const car = snapshot.data() || {};
+      const ownerId = String(car.ownerId || "").trim();
+      const legacyHost = !ownerId && car.isHost === true;
+
+      if (ownerId !== actorId && !legacyHost) {
+        skipped += 1;
+        return;
+      }
+
+      editable.push({
+        ref: refs[index],
+        car
+      });
+    });
+
+    if (!editable.length) {
+      alert("選取的車團中沒有可由目前身分修改的主揪車");
+      return;
+    }
+
+    const batch = window.db.batch();
+    const now = new Date().toISOString();
+    const FieldValue =
+      window.firebase &&
+      window.firebase.firestore &&
+      window.firebase.firestore.FieldValue;
+
+    editable.forEach(item => {
+      const updateData = {
+        visibility: "public",
+        updatedAt: now
+      };
+
+      if (FieldValue && typeof FieldValue.arrayUnion === "function") {
+        updateData.history = FieldValue.arrayUnion({
+          type: "批次公開車團",
+          text: "批次操作設為公開招募",
+          time: now
+        });
+      }
+
+      batch.update(item.ref, updateData);
+    });
+
+    await batch.commit();
+
+    selectedCars.clear();
+
+    if (typeof updateSelectedCarCount === "function") {
+      updateSelectedCarCount();
+    }
+
+    if (typeof renderMyCars === "function") {
+      await renderMyCars({ restoreScroll: true });
+    }
+
+    alert(
+      `已將 ${editable.length} 台車設為公開` +
+      (skipped ? `；另有 ${skipped} 台非主揪車已略過` : "")
+    );
+  } catch (error) {
+    console.error("批次設為公開失敗：", error);
+    alert("批次設為公開失敗：" + (error.message || "未知錯誤"));
+  }
+}
+
+function installBatchPublicButton() {
+  const toolbar = document.getElementById("batchToolbar");
+  const countBox = document.getElementById("selectedCarCount");
+
+  if (!toolbar || !countBox || document.getElementById("batchSetPublicButton")) {
+    return;
+  }
+
+  const button = document.createElement("button");
+  button.id = "batchSetPublicButton";
+  button.type = "button";
+  button.className = "batch-convert-button";
+  button.textContent = "🌍 設為公開車";
+  button.addEventListener("click", setSelectedCarsPublic);
+  countBox.insertAdjacentElement("afterend", button);
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", installBatchPublicButton);
 }
 
 function buildCarCard(car, options) {
@@ -90,7 +237,7 @@ const dateLine =
   ].filter(Boolean).join(" ");
 
   const clickAction = isBatchMode
-    ? toggleCarSelection('${car.id}')
+    ? `toggleCarSelection('${car.id}')`
     : `location.href='car-detail.html?id=${car.id}'`;
 
   return `

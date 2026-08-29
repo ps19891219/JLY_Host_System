@@ -6,13 +6,24 @@ const repository = require("../../services/firebase/reminder-repository");
 const dispatcher = require("../../services/line/reminder-dispatch-service");
 const reminderService = require("../../services/line/reminder-service");
 
-test("tomorrow reminder is scheduled at 15:00 Asia/Taipei", () => {
+test("tomorrow reminder still honors an explicit 15:00 Asia/Taipei setting", () => {
   assert.equal(
     schedule.calculateScheduledAt(
       { gameDate: "2026-08-24" },
       { sendTime: "15:00", offsetDays: 1, timezone: "Asia/Taipei" }
     ),
     "2026-08-23T07:00:00.000Z"
+  );
+});
+
+test("default reminder time is 09:00 Asia/Taipei", () => {
+  assert.equal(schedule.DEFAULT_SEND_TIME, "09:00");
+  assert.equal(
+    schedule.calculateScheduledAt(
+      { gameDate: "2026-08-24" },
+      { offsetDays: 1, timezone: "Asia/Taipei" }
+    ),
+    "2026-08-23T01:00:00.000Z"
   );
 });
 
@@ -36,7 +47,7 @@ test("activity date mutation reschedules the existing reminder without duplicati
   assert.equal(result.updateData.previousScheduledAt, "2026-08-23T07:00:00.000Z");
 });
 
-test("enabling the activity reminder creates one formal schedule", async () => {
+test("enabling the activity reminder creates one formal schedule at the 09:00 default", async () => {
   const writes = [];
   const result = await reminderService.enableGroupPreTripReminder(
     "car-1",
@@ -53,7 +64,8 @@ test("enabling the activity reminder creates one formal schedule", async () => {
   assert.equal(result.enabled, true);
   assert.equal(writes.length, 1);
   assert.equal(writes[0].data.status, "scheduled");
-  assert.equal(writes[0].data.scheduledAt, "2027-08-23T07:00:00.000Z");
+  assert.equal(writes[0].data.sendTime, "09:00");
+  assert.equal(writes[0].data.scheduledAt, "2027-08-23T01:00:00.000Z");
 });
 
 test("cancelled or ended activity invalidates its due reminder", () => {
