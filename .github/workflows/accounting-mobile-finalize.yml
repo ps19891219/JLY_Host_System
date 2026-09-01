@@ -1,0 +1,67 @@
+name: Finalize accounting delegated payment mobile UI
+
+on:
+  push:
+    branches:
+      - fix/accounting-final-polish-20260901
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/accounting-final-polish-20260901
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Apply final mobile and identity polish
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('js/modules/accounting/accounting-controller.js')
+          s = p.read_text(encoding='utf-8')
+          old = 'canRequest=fromPersonId===model.currentPersonId&&toPersonId!==model.currentPersonId,canVolunteer=model.currentPersonId&&model.currentPersonId!==fromPersonId&&model.currentPersonId!==toPersonId'
+          new = 'canRequest=person.personId===model.currentPersonId&&toPersonId!==model.currentPersonId,canVolunteer=model.currentPersonId&&person.personId!==model.currentPersonId&&model.currentPersonId!==toPersonId'
+          if old not in s:
+              raise SystemExit('delegated UI identity guard source not found')
+          s = s.replace(old, new, 1)
+          old = 'if(input.action==="request_delegate"){if(input.fromPersonId!==currentPersonId)throw new Error("net_settlement_not_allowed");'
+          new = 'if(input.action==="request_delegate"){if(input.personId!==currentPersonId)throw new Error("net_settlement_not_allowed");'
+          if old not in s:
+              raise SystemExit('delegated handler identity guard source not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+          cat >> css/pages/accounting.css <<'CSS'
+
+/* Delegated payment controls inside Person Accounting */
+.accounting-person-delegated{display:grid;gap:8px;min-width:0;padding:11px;border-radius:13px;background:#f7f4ef}.accounting-person-delegated>strong{color:#514a45}.accounting-person-delegated-row{display:grid;gap:9px;min-width:0;padding:11px;border:1px solid #e5ddd4;border-radius:12px;background:#fff}.accounting-person-delegated-row>span{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}.accounting-person-delegated-row small{color:#776e66;font-size:12px}.accounting-person-delegated-row label{display:grid;gap:5px;min-width:0;color:#615950;font-size:13px;font-weight:700}.accounting-person-delegated-row input,.accounting-person-delegated-row select{width:100%;min-width:0;min-height:44px;box-sizing:border-box;border:1px solid #d7d0c7;border-radius:10px;padding:9px 10px;background:#fff;font:inherit}.accounting-person-delegated-action{width:100%!important;min-height:44px;border:0;border-radius:10px;padding:9px 12px;background:#357d68;color:#fff;font:inherit;font-weight:800}.accounting-person-delegated-action:disabled{opacity:.6}@media(max-width:390px){.accounting-person-delegated{padding:10px 8px}.accounting-person-delegated-row{padding:10px 8px}}
+CSS
+          cat >> tests/accounting/accounting-delegated-ui-closure.test.js <<'TEST'
+
+test("代付入口用 canonical Person 判斷本人權限並保持手機欄位可收縮", () => {
+  assert.match(controller, /canRequest=person\.personId===model\.currentPersonId/);
+  assert.match(controller, /if\(input\.personId!==currentPersonId\)throw new Error\("net_settlement_not_allowed"\)/);
+  const css = read("css/pages/accounting.css");
+  assert.match(css, /\.accounting-person-delegated-row\{display:grid/);
+  assert.match(css, /\.accounting-person-delegated-row input,\.accounting-person-delegated-row select\{width:100%;min-width:0;min-height:44px/);
+  assert.match(css, /\.accounting-person-delegated-action\{width:100%!important;min-height:44px/);
+});
+TEST
+      - name: Run full regression suite
+        run: npm test
+      - name: Commit only verified final files
+        shell: bash
+        run: |
+          git config user.name "JLY Accounting CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/accounting-mobile-finalize.yml
+          git add js/modules/accounting/accounting-controller.js css/pages/accounting.css tests/accounting/accounting-delegated-ui-closure.test.js
+          git commit -m "Polish delegated payment mobile flow"
+          git push origin HEAD:fix/accounting-final-polish-20260901
