@@ -230,27 +230,37 @@
   }
 
   function applySettlements(obligations, settlements) {
-    const paidByDirection = new Map();
-    (settlements || []).forEach(record => {
-      if (!isCompatibleSettlement(record)) return;
-      const from = text(record.fromPersonId);
-      const to = text(record.toPersonId);
-      const value = amount(record.amount);
-      if (!from || !to || from === to || !value) return;
-      const key = `${from}\u0000${to}`;
-      paidByDirection.set(key, (paidByDirection.get(key) || 0) + value);
-    });
+    const buckets = (settlements || [])
+      .filter(isCompatibleSettlement)
+      .map(record => {
+        const directions = new Set();
+        const addDirection = (fromValue, toValue) => {
+          const from = text(fromValue), to = text(toValue);
+          if (from && to && from !== to) directions.add(`${from}\u0000${to}`);
+        };
+        addDirection(record.fromPersonId, record.toPersonId);
+        addDirection(record.originalFromPersonId, record.originalToPersonId);
+        addDirection(record.debtorPersonId, record.receiverPersonId);
+        return { remaining: amount(record.amount), directions };
+      })
+      .filter(bucket => bucket.remaining > 0 && bucket.directions.size > 0);
 
     return (obligations || [])
       .map(item => {
-        const key = `${item.fromPersonId}\u0000${item.toPersonId}`;
-        const settledAmount = Math.min(item.amount, paidByDirection.get(key) || 0);
-        paidByDirection.set(key, Math.max(0, (paidByDirection.get(key) || 0) - settledAmount));
+        const key = `${text(item.fromPersonId)}\u0000${text(item.toPersonId)}`;
+        let remaining = amount(item.amount), settledAmount = 0;
+        for (const bucket of buckets) {
+          if (!remaining || !bucket.remaining || !bucket.directions.has(key)) continue;
+          const used = Math.min(remaining, bucket.remaining);
+          remaining -= used;
+          bucket.remaining -= used;
+          settledAmount += used;
+        }
         return {
           ...item,
           originalAmount: item.amount,
           settledAmount,
-          amount: item.amount - settledAmount
+          amount: remaining
         };
       })
       .filter(item => item.amount > 0);

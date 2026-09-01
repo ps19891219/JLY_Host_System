@@ -64,25 +64,27 @@
     if(loadMore)loadMore.addEventListener("click",async()=>{loadMore.disabled=true;loadMore.textContent="載入中…";try{await config.onLoadMore();}catch(_){loadMore.disabled=false;loadMore.textContent="載入下一頁";}});
     section.querySelectorAll(".accounting-split-edit-toggle").forEach(button=>{
       button.addEventListener("click",()=>{
-        const article=button.closest(".accounting-entry");
-        if(!article)return;
-
-        const editor=article.querySelector(".accounting-split-inline-editor");
-        if(!editor)return;
-
-        editor.hidden=false;
-        button.closest(".accounting-split-list")?.classList.add("is-editing");
-
-        const target=editor.querySelector(
-          `[data-inline-split-id="${button.dataset.splitId}"]`
-        );
-
-        if(target&&!target.disabled){
-          target.focus();
-          target.select();
-        }
+        const article=button.closest(".accounting-entry"),form=article&&article.querySelector(".accounting-split-inline-editor"),target=form&&form.querySelector(`[data-inline-split-id="${button.dataset.splitId}"]`);
+        if(!form||!target||target.disabled||button.parentElement.querySelector(".accounting-split-row-editor"))return;
+        const original=String(target.value||"0"),wrapper=document.createElement("span");
+        wrapper.className="accounting-split-row-editor";
+        wrapper.innerHTML=`<input type="number" min="0" step="1" inputmode="numeric" value="${original}" aria-label="修改分帳金額"><button type="button" data-inline-row-save>確認</button><button type="button" data-inline-row-cancel>取消</button><small hidden></small>`;
+        button.hidden=true;button.after(wrapper);
+        const input=wrapper.querySelector("input"),status=wrapper.querySelector("small"),saveRow=wrapper.querySelector("[data-inline-row-save]"),cancelRow=wrapper.querySelector("[data-inline-row-cancel]");
+        const syncDraft=()=>{target.value=input.value;const inputs=[...form.querySelectorAll("[data-inline-split-id]")],totalInput=form.querySelector("[data-inline-total]"),total=Number(totalInput?totalInput.value:form.dataset.total||0),values=inputs.map(node=>Number(node.value)),valid=Number.isFinite(total)&&total>0&&values.every(value=>Number.isFinite(value)&&value>=0),allocated=valid?values.reduce((sum,value)=>sum+value,0):0,diff=total-allocated;status.hidden=valid&&diff===0;status.textContent=!valid?"請輸入正確金額":diff>0?`還差 $${diff.toLocaleString("zh-TW")}`:`超過 $${Math.abs(diff).toLocaleString("zh-TW")}`;return valid&&diff===0;};
+        input.addEventListener("input",syncDraft);
+        cancelRow.addEventListener("click",()=>{target.value=original;wrapper.remove();button.hidden=false;});
+        saveRow.addEventListener("click",()=>{if(!syncDraft())return;saveRow.disabled=true;cancelRow.disabled=true;if(typeof form.requestSubmit==="function")form.requestSubmit();else form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});
+        input.focus();input.select();syncDraft();
       });
     });
+
+    section.querySelectorAll(".accounting-split-full-edit-toggle").forEach(button=>button.addEventListener("click",()=>{
+      const article=button.closest(".accounting-entry"),editor=article&&article.querySelector(".accounting-split-inline-editor");if(!editor)return;
+      article.querySelectorAll(".accounting-split-row-editor [data-inline-row-cancel]").forEach(cancel=>cancel.click());
+      editor.hidden=false;button.closest(".accounting-split-list")?.classList.add("is-editing");
+      const first=editor.querySelector("[data-inline-split-id]:not([disabled])");if(first){first.focus();first.select();}
+    }));
 
     section.querySelectorAll(".accounting-split-inline-editor").forEach(form=>{
       const inputs=[...form.querySelectorAll("[data-inline-split-id]")];
