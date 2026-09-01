@@ -5,13 +5,35 @@ on:
     branches:
       - fix/accounting-final-polish-20260901
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: fix/accounting-final-polish-20260901
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm ci
-      - run: npm test
+      - name: Apply accounting final polish
+        run: node scripts/accounting-final-polish-patch.js
+      - name: Run full regression suite
+        run: npm test
+      - name: Commit verified accounting changes
+        shell: bash
+        run: |
+          git config user.name "JLY Accounting CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm scripts/accounting-final-polish-patch.js .github/workflows/accounting-final-polish.yml
+          git add js/modules/accounting/accounting-controller.js tests/accounting/accounting-delegated-ui-closure.test.js
+          if git diff --cached --quiet; then
+            echo "No verified changes to commit"
+            exit 0
+          fi
+          git commit -m "Close delegated payment UI flow"
+          git push origin HEAD:fix/accounting-final-polish-20260901
