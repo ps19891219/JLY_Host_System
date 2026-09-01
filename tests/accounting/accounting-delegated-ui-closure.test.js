@@ -46,3 +46,13 @@ test("Activity Accounting 仍只使用共用正式 Projection", () => {
   assert.match(viewModel, /JLYActivityAccountingViewModel/);
   assert.doesNotMatch(render, /JLYActivityAccountingViewModel\.build/);
 });
+
+
+test("代付入口用 canonical Person 判斷本人權限並保持手機欄位可收縮", () => {
+  assert.match(controller, /canRequest=person\.personId===model\.currentPersonId/);
+  assert.match(controller, /if\(input\.personId!==currentPersonId\)throw new Error\("net_settlement_not_allowed"\)/);
+  const css = read("css/pages/accounting.css");
+  assert.match(css, /\.accounting-person-delegated-row\{display:grid/);
+  assert.match(css, /\.accounting-person-delegated-row input,\.accounting-person-delegated-row select\{width:100%;min-width:0;min-height:44px/);
+  assert.match(css, /\.accounting-person-delegated-action\{width:100%!important;min-height:44px/);
+});
