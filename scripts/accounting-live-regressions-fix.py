@@ -43,7 +43,7 @@ replacement = '''  function applySettlements(obligations, settlements) {
   }
 
   function buildPersonBalances'''
-s2, n = pattern.subn(replacement, s, count=1)
+s2, n = pattern.subn(lambda _: replacement, s, count=1)
 if n != 1:
     raise SystemExit('applySettlements replacement failed')
 p.write_text(s2, encoding='utf-8')
@@ -58,7 +58,7 @@ replacement = '''  function pendingActionHtml(model,item) {
     return `<article class="accounting-pending-index-row"><span><strong>${escape(summary)}</strong><small>${escape(labels[type]||type)}</small></span><button type="button" data-accounting-pending-action data-action-type="${escape(type)}" data-responsible-person-id="${escape(responsibleId)}" data-from-person-id="${escape(fromPersonId)}" data-to-person-id="${escape(toPersonId)}" data-amount="${resolvedAmount}" data-transaction-id="${escape(item.transactionId||"")}" data-settlement-id="${escape(item.settlementId||"")}" data-request-id="${escape(item.requestId||"")}" data-source-id="${escape(item.sourceId||targetId)}" data-source-type="${escape(item.sourceType||"")}">${type==="payment_confirmation"?"去確認":type==="pending_split"?"去分帳":"去處理"}</button></article>`;
   }
   function buildDashboardHtml'''
-s2, n = pattern.subn(replacement, s, count=1)
+s2, n = pattern.subn(lambda _: replacement, s, count=1)
 if n != 1:
     raise SystemExit('pendingActionHtml replacement failed')
 s = s2
@@ -98,7 +98,7 @@ replacement = '''    section.querySelectorAll(".accounting-split-edit-toggle").f
     }));
 
     section.querySelectorAll(".accounting-split-inline-editor").forEach(form=>{'''
-s2, n = pattern.subn(replacement, s, count=1)
+s2, n = pattern.subn(lambda _: replacement, s, count=1)
 if n != 1:
     raise SystemExit('split click handler replacement failed')
 p.write_text(s2, encoding='utf-8')
