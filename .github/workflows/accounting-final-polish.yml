@@ -1,0 +1,17 @@
+name: Accounting final polish test
+
+on:
+  push:
+    branches:
+      - fix/accounting-final-polish-20260901
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
