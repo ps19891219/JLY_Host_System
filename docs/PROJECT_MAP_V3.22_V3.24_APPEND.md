@@ -12,7 +12,8 @@
 
 - 「我的帳務」正式改為只顯示逐 Person 互抵後的目前未結清餘額；同一對人物雙向金額完全抵銷時，「我欠誰／誰欠我／互抵後」皆回到 `$0`，不再把互抵前 gross amount 留在摘要。
 - 完全互抵的 Person 不再保留「已互抵」狀態列；互抵是 Projection 計算過程，不是長期顯示狀態。之後若新增新的未結清 Transaction／Obligation，Projection 會重新依同一 Person 對手方計算並把新增淨額加入目前應付或應收。
-- Car Detail 與 LINE 仍共用同一 Activity Accounting Projection；不建立第二套互抵計算。Runtime assets：`accounting-data.js?v=12`、`accounting-controller.js?v=41`。
+- 正式落地新增 `js/modules/accounting/accounting-current-balance.js`：先沿 canonical Person identity 正規化雙方，再使用既有 `netSettlementFromObligations()` 產生目前 Pairwise 淨額，最後交回既有 `personalAccountingProjection()`；不修改 Transaction、Split、Settlement 歷史資料，也不建立第二套 Ledger。Car Detail 以 `accounting-current-balance.js?v=1` 載入，LINE／Activity Accounting 仍維持共用正式 Projection 語意。
+- Regression coverage 新增 `tests/accounting/accounting-current-balance.test.js`，涵蓋 `$87 ↔ $87 → $0`、歸零後新增 `$50` 只留下 `$50` 目前應收、legacy/canonical identity 先合併再互抵，以及 Runtime script 載入順序。完整 Repository 測試：`363 tests / 363 pass / 0 fail`。
 
 ## V3.26 Accounting Identity-before-Settlement Compatibility（2026-09-02）
 
@@ -58,7 +59,7 @@
 
 - Repository: `ps19891219/JLY_Host_System`
 - Branch: `main`
-- Accounting production code baseline before V3.26: `7940e12d810b0fbdb451f88ae7f1a4dc08e15a46`
-- V3.26 runtime asset candidate: `accounting-view-refresh.js?v=2`.
-- Last fully verified repository regression baseline before V3.26: `354 / 354 pass`.
-- Deployment acceptance must verify the full chain `GitHub main → Vercel Production build → production alias → formal URL`; a green GitHub status alone is not sufficient evidence of final browser acceptance.
+- Accounting production code baseline before V3.27: `01c709476856175bc966a9ccf7e02eb780f45655`
+- V3.27 runtime asset candidate: `accounting-current-balance.js?v=1`，搭配既有 `accounting-data.js?v=12`、`accounting-controller.js?v=41`。
+- Full regression candidate for V3.27: `363 / 363 pass`.
+- Deployment acceptance must verify the full chain `GitHub main → Vercel Production build → production alias → formal URL`; a green GitHub status alone is not sufficient evidence of final browser acceptance。
