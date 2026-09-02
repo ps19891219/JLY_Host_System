@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - feat/batch-public-role-reminder-accounting-reset-20260828
-      - fix/mycar-delete-ghost-20260902
 
 jobs:
   test:
