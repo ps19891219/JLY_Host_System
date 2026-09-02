@@ -41,7 +41,7 @@ test("split amount click edits selected amount in place and keeps full editor ex
 test("stale Accounting prepared view is refreshed once before dashboard load", async () => {
   const refresh = fs.readFileSync(path.join(__dirname,"../../js/modules/accounting/accounting-view-refresh.js"),"utf8");
   const page = fs.readFileSync(path.join(__dirname,"../../pages/car-detail.html"),"utf8");
-  assert.match(page,/accounting-repository\.js\?v=28[\s\S]*accounting-view-refresh\.js\?v=2[\s\S]*accounting-controller\.js\?v=40/);
+  assert.match(page,/accounting-repository\.js\?v=28[\s\S]*accounting-view-refresh\.js\?v=2[\s\S]*accounting-controller\.js\?v=41/);
 
   const events = [];
   const viewRef = {
@@ -148,4 +148,44 @@ test("legacy and canonical activity identities are normalized before settled amo
   assert.equal(applied.settlements[0].fromPersonId, "canonical-debtor");
   assert.equal(applied.settlements[0].toPersonId, "canonical-receiver");
   assert.ok(events.includes("delete"));
+});
+
+
+test("我的帳務只顯示逐人物互抵後的目前餘額", () => {
+  const data = require("../../js/modules/accounting/accounting-data");
+  const result = data.personalAccountingProjection([
+    { fromPersonId:"me", toPersonId:"snow", amount:87 },
+    { fromPersonId:"snow", toPersonId:"me", amount:87 }
+  ], "me");
+  assert.equal(result.payableTotal, 0);
+  assert.equal(result.receivableTotal, 0);
+  assert.equal(result.netAmount, 0);
+  assert.deepEqual(result.people, []);
+});
+
+test("互抵後新增金額會重新進入目前餘額", () => {
+  const data = require("../../js/modules/accounting/accounting-data");
+  const result = data.personalAccountingProjection([
+    { fromPersonId:"me", toPersonId:"snow", amount:87 },
+    { fromPersonId:"snow", toPersonId:"me", amount:87 },
+    { fromPersonId:"snow", toPersonId:"me", amount:50 }
+  ], "me");
+  assert.equal(result.payableTotal, 0);
+  assert.equal(result.receivableTotal, 50);
+  assert.equal(result.netAmount, 50);
+  assert.equal(result.people.length, 1);
+  assert.equal(result.people[0].direction, "receivable");
+  assert.equal(result.people[0].amount, 50);
+});
+
+test("我的帳務零餘額不再顯示已互抵文字", () => {
+  const controller = fs.readFileSync(path.join(__dirname,"../../js/modules/accounting/accounting-controller.js"),"utf8");
+  const page = fs.readFileSync(path.join(__dirname,"../../pages/car-detail.html"),"utf8");
+  assert.equal(controller.includes('netLabel=myAccounting.direction==="receivable"?"應收":myAccounting.direction==="payable"?"應付":"已互抵"'), false);
+  assert.match(controller,/currency=value=>"\$"\+Number/);
+  assert.match(controller,/currency\(currentPayable\)/);
+  assert.match(controller,/currency\(currentReceivable\)/);
+  assert.match(controller,/netText=.*:"\$0"/);
+  assert.match(controller,/目前沒有未結清帳務/);
+  assert.match(page,/accounting-data\.js\?v=12[\s\S]*accounting-controller\.js\?v=41/);
 });
