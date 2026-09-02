@@ -2,11 +2,19 @@
 
 > Canonical continuation of `docs/PROJECT_MAP.md`
 >
-> Range: V3.22 → V3.27
+> Range: V3.22 → V3.28
 >
 > Last Updated: 2026-09-02
 >
 > This is an append to the existing Project Map, not a second blueprint.
+
+## V3.28 Accounting Pending / Inline Edit / Store Detail Polish（2026-09-02）
+
+- 待處理卡只顯示目前仍有正式責任的 action。舊 `payment_due`／`settlement_rejected` 若已沒有對應的目前 Pairwise outgoing transfer，視為 stale read-model action，不再出現在待處理索引；不刪除 Transaction／Settlement 歷史，也不影響 `payment_confirmation`、`pending_split`、Delegated Payment 等其他正式流程。
+- 新增 `js/modules/accounting/accounting-ui-polish.js`，在既有 `accounting-render.js` 後套用最小 Projection guard；依 Activity canonical Person identity 比對目前 `netSettlement.transfers`，避免帳務已歸零後仍顯示「待付款」。
+- `逐筆帳目` 單筆 Split 金額原地修改的「確認／取消」改為緊湊小型操作按鈕，維持原本 inline editor、44px 觸控語意與正式保存流程，不恢復大型整筆編輯器。
+- 「店家總收款 → 收款明細」的人物付款明細改為下方全寬展開；修正 generic `.accounting-fee-members li` flex layout 導致 detail 被擠到右側窄欄的問題。付款紀錄、修改／取消歷史與正式 Store Accounting 資料來源不變。
+- UI override 收斂在 `css/pages/accounting-ui-polish.css`；Car Detail runtime 載入 `accounting-ui-polish.css?v=1` 與 `accounting-ui-polish.js?v=1`。Regression coverage：`tests/accounting/accounting-ui-polish.test.js`。
 
 ## V3.27 Accounting Current Net Balance Semantics（2026-09-02）
 
@@ -59,7 +67,6 @@
 
 - Repository: `ps19891219/JLY_Host_System`
 - Branch: `main`
-- Accounting production code baseline before V3.27: `01c709476856175bc966a9ccf7e02eb780f45655`
-- V3.27 runtime asset candidate: `accounting-current-balance.js?v=1`，搭配既有 `accounting-data.js?v=12`、`accounting-controller.js?v=41`。
-- Full regression candidate for V3.27: `363 / 363 pass`.
+- Accounting production code baseline before V3.28: `5cb8b970d95de45a3dd9bd16e40aa6a44d2fd02f`
+- V3.28 runtime asset candidate: `accounting-ui-polish.js?v=1`、`accounting-ui-polish.css?v=1`，搭配既有 `accounting-current-balance.js?v=1`。
 - Deployment acceptance must verify the full chain `GitHub main → Vercel Production build → production alias → formal URL`; a green GitHub status alone is not sufficient evidence of final browser acceptance。
