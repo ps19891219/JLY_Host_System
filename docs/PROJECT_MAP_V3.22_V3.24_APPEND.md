@@ -2,11 +2,19 @@
 
 > Canonical continuation of `docs/PROJECT_MAP.md`
 >
-> Range: V3.22 → V3.28
+> Range: V3.22 → V3.29
 >
 > Last Updated: 2026-09-02
 >
 > This is an append to the existing Project Map, not a second blueprint.
+
+## V3.29 MyCar Delete Projection Cleanup（2026-09-02）
+
+- 永久刪除測試車時，不可只刪 `cars/{carId}` Core。`api/delete-test-car.js` 必須同步移除 owner 的 `myCarViews/{viewerId}.cars[]` 對應項目並重算 counts，避免正式車團已不存在但「我的車」仍保留可點擊幽靈卡。
+- 新增 `services/car/mycar-view-cleanup.js` 作為 server-side MyCar Prepared View cleanup helper。永久刪除的最後一步以同一 Firestore batch 同時寫入更新後的 owner MyCar View 與刪除 Core car，確保 API 回覆成功時 owner 清單與 Core 不分離。
+- 為修復過去已產生的幽靈卡，新增 `js/data-view/mycar-view-existence-repair.js`。每個 MyCar View 僅在 `existenceRepairRevision < 1` 時做一次 Core existence 驗證，分批確認 View 中 carId 是否仍存在；不存在者從 Prepared View 移除、重算 counts，寫入 revision marker 後後續不重複掃描。
+- `pages/mycar.html` 在既有 `mycar.js?v=47` 後載入 `mycar-view-existence-repair.js?v=1`。正常 MyCar UI 仍以 `myCarViews` 為正式 Read Model，不回退成每次重新掃描 Cars；existence repair 是一次性 compatibility repair，不改變 View-first 架構。
+- Regression coverage：`tests/data-view/mycar-delete-cleanup.test.js`，涵蓋刪車同步移除、counts 重算、既有幽靈卡一次性 repair、API final batch 與 runtime 載入。
 
 ## V3.28 Accounting Pending / Inline Edit / Store Detail Polish（2026-09-02）
 
@@ -63,10 +71,10 @@
 - Accounting UI 同步收斂，保留 settled totals 與既有正式 Transaction／Split／Pairwise／Settlement 單一資料來源；不另建第二套 Accounting。
 - 相關正式 commits：`7869003`（Simplify accounting UI and preserve settled totals）、`35e4917`（Add inline split amount editing）、`26d4f4c`（Bump accounting asset cache versions）。當時完整測試：`335 tests / 335 pass / 0 fail`。
 
-## Current Formal Accounting Baseline
+## Current Formal Baseline
 
 - Repository: `ps19891219/JLY_Host_System`
 - Branch: `main`
-- Accounting production code baseline before V3.28: `5cb8b970d95de45a3dd9bd16e40aa6a44d2fd02f`
-- V3.28 runtime asset candidate: `accounting-ui-polish.js?v=1`、`accounting-ui-polish.css?v=1`，搭配既有 `accounting-current-balance.js?v=1`。
+- Production baseline before V3.29: `19853280de42428daaaad8e792458cdf88e36ac4`
+- V3.29 runtime asset candidate: `mycar-view-existence-repair.js?v=1`，搭配既有 `mycar.js?v=47` 與 `myCarViews` schema V4。
 - Deployment acceptance must verify the full chain `GitHub main → Vercel Production build → production alias → formal URL`; a green GitHub status alone is not sufficient evidence of final browser acceptance。

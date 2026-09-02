@@ -9,6 +9,10 @@ const {
   verifyMemberSession
 } = require("../services/line/member-session");
 
+const {
+  removeCarFromView
+} = require("../services/car/mycar-view-cleanup");
+
 
 // ============================================================
 // Helpers
@@ -370,10 +374,54 @@ module.exports =
 
 
       // ======================================================
-      // 3. Delete car document last
+      // 3. Delete Core car and owner MyCar projection together
+      //
+      // MyCar is a derived Prepared View. The owner-facing view
+      // must lose the deleted car in the same final batch so a
+      // successful permanent delete cannot leave a ghost card.
       // ======================================================
 
-      await carRef.delete();
+      const ownerViewRef =
+        db
+          .collection("myCarViews")
+          .doc(ownerId);
+
+      const ownerViewSnapshot =
+        await ownerViewRef.get();
+
+      const cleanup =
+        ownerViewSnapshot.exists
+          ? removeCarFromView(
+              ownerViewSnapshot.data(),
+              carId,
+              new Date().toISOString()
+            )
+          : {
+              changed: false,
+              view: null
+            };
+
+      const finalBatch =
+        db.batch();
+
+      if (
+        cleanup.changed &&
+        cleanup.view
+      ) {
+        finalBatch.set(
+          ownerViewRef,
+          cleanup.view,
+          {
+            merge: false
+          }
+        );
+      }
+
+      finalBatch.delete(
+        carRef
+      );
+
+      await finalBatch.commit();
 
 
       return send(
@@ -386,7 +434,10 @@ module.exports =
 
           disabledBindings,
 
-          deletedCollections
+          deletedCollections,
+
+          myCarViewCleaned:
+            cleanup.changed === true
         }
       );
 
