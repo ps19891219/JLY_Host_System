@@ -1,0 +1,83 @@
+/* V3.28 Accounting UI polish */
+.accounting-split-row-editor{
+  width:auto!important;
+  max-width:100%;
+  flex-wrap:nowrap;
+}
+.accounting-split-row-editor input{
+  width:88px;
+  flex:0 0 88px!important;
+}
+.accounting-split-row-editor button{
+  width:auto!important;
+  min-width:0!important;
+  min-height:34px!important;
+  flex:0 0 auto!important;
+  padding:6px 10px!important;
+  border-radius:9px!important;
+  font-size:13px!important;
+  line-height:1.2;
+}
+.accounting-split-row-editor [data-inline-row-save]{
+  background:#357d68;
+  color:#fff;
+  border:0;
+}
+.accounting-split-row-editor [data-inline-row-cancel]{
+  background:#ece7df;
+  color:#514a45;
+  border:0;
+}
+.accounting-split-row-editor small{
+  flex-basis:100%;
+}
+
+.accounting-store-received-list > .accounting-store-received-person{
+  display:block!important;
+  width:100%;
+  box-sizing:border-box;
+  padding:0!important;
+  background:transparent!important;
+}
+.accounting-store-received-list > .accounting-store-received-person > .accounting-store-person-row{
+  width:100%!important;
+  box-sizing:border-box;
+}
+.accounting-store-received-list > .accounting-store-received-person > .accounting-store-person-detail{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  margin:0!important;
+  padding:10px 0 4px;
+}
+.accounting-store-received-list > .accounting-store-received-person > .accounting-store-person-detail[hidden]{
+  display:none!important;
+}
+.accounting-store-received-list > .accounting-store-received-person > .accounting-store-person-detail > ul{
+  display:grid;
+  width:100%;
+  gap:7px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.accounting-store-received-list > .accounting-store-received-person > .accounting-store-person-detail > ul > li{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  box-sizing:border-box;
+}
+
+@media(max-width:520px){
+  .accounting-split-row-editor{
+    width:auto!important;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+  .accounting-split-row-editor input{
+    width:82px;
+    flex:0 0 82px!important;
+  }
+}
