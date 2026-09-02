@@ -130,7 +130,7 @@ test("確認收款 console trace 保留 exception 與 runtime identity values",(
 
 test("我的帳務摘要與明細共用逐 Person 互抵 Projection",()=>{
   const controller=read("js/modules/accounting/accounting-controller.js"),data=require("../../js/modules/accounting/accounting-data");
-  assert.match(controller,/personalAccountingProjection/);assert.match(controller,/accounting-my-net-list/);assert.match(controller,/同一對人物互抵後/);
+  assert.match(controller,/personalAccountingProjection/);assert.match(controller,/accounting-my-net-list/);assert.match(controller,/目前互抵後餘額/);assert.doesNotMatch(controller,/同一對人物互抵後/);
   const result=data.personalAccountingProjection([{fromPersonId:"me",toPersonId:"a",amount:50},{fromPersonId:"a",toPersonId:"me",amount:100},{fromPersonId:"me",toPersonId:"b",amount:300},{fromPersonId:"b",toPersonId:"me",amount:100}],"me");
   assert.deepEqual(result.people.map(item=>[item.personId,item.direction,item.amount]),[["a","receivable",50],["b","payable",200]]);assert.equal(result.net, -150);
 });
