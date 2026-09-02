@@ -2,11 +2,19 @@
 
 > Canonical continuation of `docs/PROJECT_MAP.md`
 >
-> Range: V3.22 → V3.24
+> Range: V3.22 → V3.25
 >
 > Last Updated: 2026-09-02
 >
 > This is an append to the existing Project Map, not a second blueprint.
+
+## V3.25 Accounting Prepared View Invalidation（2026-09-02）
+
+- Production 驗收確認新版 Pairwise Settlement 計算雖已部署，但既有 `accountingViews/activityCurrent` 可能因來源資料時間戳未變而被沿用，造成舊的「誰欠我／互抵後」摘要持續顯示。
+- 新增 `js/modules/accounting/accounting-view-refresh.js` 作為 Accounting Prepared View compatibility refresh：Car Detail 載入 Dashboard 前檢查 `projectionRuntimeRevision`；舊 View 缺少 revision 時先刪除僅屬 Read Model 的 `activityCurrent`，再沿既有 `rebuildActivityView()` 從 canonical Transaction／Settlement／Pending 重建，成功後寫入 revision marker。只動可重建 Prepared View，不修改 Transaction、Split、Settlement Core，不 Migration／Backfill。
+- `pages/car-detail.html` 在 `accounting-repository.js` 後、Controller 前載入 `accounting-view-refresh.js?v=1`，確保既有 production car 在首次進入新版 Car Detail 時完成一次 View refresh；後續同 revision 不重複刪除或重建。
+- Car Detail 與 LINE 仍共用同一 `activityCurrent` Prepared View。Car Detail 完成 refresh 後，LINE 讀取的是同一份已更新 View，不建立 LINE Ledger 或第二套 Projection。
+- Regression coverage 延伸 `tests/accounting/accounting-live-regressions.test.js`，加入 stale View → delete → canonical dashboard rebuild → revision marker 的 Runtime mock 驗證。
 
 ## V3.24 Accounting Production Acceptance Regression Closure（2026-09-01）
 
@@ -36,7 +44,7 @@
 
 - Repository: `ps19891219/JLY_Host_System`
 - Branch: `main`
-- Accounting production code baseline before this documentation-only append: `b7621f11534836f803f9f18b438701bea6ca0fae`
-- Current Accounting asset versions in `pages/car-detail.html`: `accounting.css?v=35`, `pairwise-obligation.js?v=3`, `accounting-render.js?v=24`, `accounting-actions.js?v=14`, `accounting-controller.js?v=40`.
-- Full regression baseline: `354 / 354 pass`.
+- Accounting production code baseline before V3.25: `b7621f11534836f803f9f18b438701bea6ca0fae`
+- Current Accounting assets before V3.25: `accounting.css?v=35`, `pairwise-obligation.js?v=3`, `accounting-render.js?v=24`, `accounting-actions.js?v=14`, `accounting-controller.js?v=40`.
+- Full regression baseline before V3.25: `354 / 354 pass`.
 - Deployment acceptance must verify the full chain `GitHub main → Vercel Production build → production alias → formal URL`; a green GitHub status alone is not sufficient evidence of final browser acceptance.
