@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/batch-public-role-reminder-accounting-reset-20260828
+      - fix/accounting-ui-polish-20260902
 
 jobs:
   test:
