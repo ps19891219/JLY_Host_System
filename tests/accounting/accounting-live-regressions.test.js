@@ -41,13 +41,17 @@ test("split amount click edits selected amount in place and keeps full editor ex
 test("stale Accounting prepared view is refreshed once before dashboard load", async () => {
   const refresh = fs.readFileSync(path.join(__dirname,"../../js/modules/accounting/accounting-view-refresh.js"),"utf8");
   const page = fs.readFileSync(path.join(__dirname,"../../pages/car-detail.html"),"utf8");
-  assert.match(page,/accounting-repository\.js\?v=28[\s\S]*accounting-view-refresh\.js\?v=1[\s\S]*accounting-controller\.js\?v=40/);
+  assert.match(page,/accounting-repository\.js\?v=28[\s\S]*accounting-view-refresh\.js\?v=2[\s\S]*accounting-controller\.js\?v=40/);
 
   const events = [];
   const viewRef = {
-    async get() { events.push("get"); return { exists:true, data(){ return { projectionRuntimeRevision:0 }; } }; },
+    async get() { events.push("view-get"); return { exists:true, data(){ return { projectionRuntimeRevision:1 }; } }; },
     async delete() { events.push("delete"); },
     async set(data, options) { events.push(["set", data, options]); }
+  };
+  const carRef = {
+    async get() { events.push("car-get"); return { exists:true, data(){ return { players:[] }; } }; },
+    collection() { return { doc(){ return viewRef; } }; }
   };
   const repository = {
     async loadDashboard(carId, currentPersonId) {
@@ -58,11 +62,15 @@ test("stale Accounting prepared view is refreshed once before dashboard load", a
   const context = {
     window: {
       JLYAccountingRepository: repository,
-      db: {
-        collection() {
-          return { doc(){ return { collection(){ return { doc(){ return viewRef; } }; } }; } };
-        }
-      }
+      JLYAccountingData: {
+        collectActivityMembers(){ return [{ personId:"person-1", identityIds:["person-1"] }]; },
+        canonicalActivityPersonId(members,id){ return id; },
+        getCurrentIdentity(){ return { identityIds:["person-1"] }; },
+        linkCurrentIdentityToActivityMembers(members){ return members; }
+      },
+      JLYPairwiseObligation: { applySettlements(items){ return items; } },
+      db: { collection(){ return { doc(){ return carRef; } }; } },
+      localStorage: {}
     },
     console
   };
@@ -70,9 +78,74 @@ test("stale Accounting prepared view is refreshed once before dashboard load", a
   vm.runInContext(refresh, context);
   const result = await repository.loadDashboard("car-1", "person-1");
   assert.equal(result.ok, true);
-  assert.deepEqual(events[0], "get");
-  assert.deepEqual(events[1], "delete");
-  assert.deepEqual(events[2], ["load", "car-1", "person-1"]);
-  assert.equal(events[3][0], "set");
-  assert.equal(events[3][1].projectionRuntimeRevision, 1);
+  assert.deepEqual(events.slice(0,4), ["car-get","view-get","delete",["load","car-1","person-1"]]);
+  assert.equal(events[4][0], "set");
+  assert.equal(events[4][1].projectionRuntimeRevision, 2);
+});
+
+test("legacy and canonical activity identities are normalized before settled amount is applied", async () => {
+  const refresh = fs.readFileSync(path.join(__dirname,"../../js/modules/accounting/accounting-view-refresh.js"),"utf8");
+  const events = [];
+  const viewRef = {
+    async get() { return { exists:true, data(){ return { projectionRuntimeRevision:1 }; } }; },
+    async delete() { events.push("delete"); },
+    async set() {}
+  };
+  const carRef = {
+    async get() {
+      return { exists:true, data(){ return { players:[
+        { personId:"canonical-debtor", linkedPlayerIds:["legacy-debtor"] },
+        { personId:"canonical-receiver", linkedPlayerIds:["legacy-receiver"] }
+      ] }; } };
+    },
+    collection() { return { doc(){ return viewRef; } }; }
+  };
+  const accountingData = {
+    collectActivityMembers(car) {
+      return car.players.map(player => ({ personId:player.personId, identityIds:[player.personId,...(player.linkedPlayerIds||[])] }));
+    },
+    canonicalActivityPersonId(members,id) {
+      const member = members.find(item => (item.identityIds||[]).includes(id));
+      return member ? member.personId : id;
+    },
+    getCurrentIdentity(){ return { identityIds:[] }; },
+    linkCurrentIdentityToActivityMembers(members){ return members; }
+  };
+  const pairwiseRuntime = {
+    applySettlements(obligations, settlements) {
+      events.push({ obligations, settlements });
+      const settled = settlements[0];
+      return obligations.filter(item => !(item.fromPersonId===settled.fromPersonId && item.toPersonId===settled.toPersonId));
+    }
+  };
+  const repository = {
+    async loadDashboard() {
+      return {
+        grossObligations: pairwiseRuntime.applySettlements(
+          [{ fromPersonId:"legacy-debtor", toPersonId:"legacy-receiver", amount:212 }],
+          [{ status:"settled", fromPersonId:"canonical-debtor", toPersonId:"canonical-receiver", amount:212 }]
+        )
+      };
+    }
+  };
+  const context = {
+    window: {
+      JLYAccountingRepository: repository,
+      JLYAccountingData: accountingData,
+      JLYPairwiseObligation: pairwiseRuntime,
+      db: { collection(){ return { doc(){ return carRef; } }; } },
+      localStorage: {}
+    },
+    console
+  };
+  vm.createContext(context);
+  vm.runInContext(refresh, context);
+  const result = await repository.loadDashboard("car-1", "canonical-receiver");
+  assert.equal(result.grossObligations.length, 0);
+  const applied = events.find(item => item && item.obligations);
+  assert.equal(applied.obligations[0].fromPersonId, "canonical-debtor");
+  assert.equal(applied.obligations[0].toPersonId, "canonical-receiver");
+  assert.equal(applied.settlements[0].fromPersonId, "canonical-debtor");
+  assert.equal(applied.settlements[0].toPersonId, "canonical-receiver");
+  assert.ok(events.includes("delete"));
 });

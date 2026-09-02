@@ -2,11 +2,19 @@
 
 > Canonical continuation of `docs/PROJECT_MAP.md`
 >
-> Range: V3.22 → V3.25
+> Range: V3.22 → V3.26
 >
 > Last Updated: 2026-09-02
 >
 > This is an append to the existing Project Map, not a second blueprint.
+
+## V3.26 Accounting Identity-before-Settlement Compatibility（2026-09-02）
+
+- Production 驗收再次確認 `activityCurrent` 已重建但舊 `$212 / $125` 仍存在，因此根因不再是部署或 stale View，而是 Settlement 核銷順序：舊 Transaction obligation 可能保存 legacy Person ID，已收款 Settlement 則保存 current canonical Person ID；若先以 raw ID 套用 Settlement、之後才在 UI canonicalize，兩者不會命中同一 Pair。
+- `accounting-view-refresh.js` Runtime revision 升為 `2`。Car Detail 在 Dashboard rebuild 前先讀正式 Activity Member identity component，建立 canonical Person resolver，並將 obligation / settlement 的 `fromPersonId / toPersonId`、original pair、debtor/receiver pair 與 canonical pair 同步正規化後，再交給既有 Pairwise `applySettlements()`。同一 Settlement 金額仍只由既有 Pairwise bucket 消耗一次。
+- Obligation canonicalization 只影響可重建的 Prepared View 計算；原 Transaction、Split、Settlement 文件不 Migration、不 Backfill、不依姓名合併。原始 obligation direction 以 compatibility metadata 保留供 Audit／相容用途。
+- `projectionRuntimeRevision=2` 會讓先前 revision 1 的 `activityCurrent` 在下一次 Car Detail 讀取時再重建一次，確保既有 production car 也走新的 identity-before-settlement 計算順序。
+- Runtime asset：`accounting-view-refresh.js?v=2`。Regression coverage 加入 legacy obligation + canonical settled record 的 Runtime case，預期 settled `$212` 不再回到目前應收。
 
 ## V3.25 Accounting Prepared View Invalidation（2026-09-02）
 
@@ -44,7 +52,7 @@
 
 - Repository: `ps19891219/JLY_Host_System`
 - Branch: `main`
-- Accounting production code baseline before V3.25: `b7621f11534836f803f9f18b438701bea6ca0fae`
-- Current Accounting assets before V3.25: `accounting.css?v=35`, `pairwise-obligation.js?v=3`, `accounting-render.js?v=24`, `accounting-actions.js?v=14`, `accounting-controller.js?v=40`.
-- Full regression baseline before V3.25: `354 / 354 pass`.
+- Accounting production code baseline before V3.26: `7940e12d810b0fbdb451f88ae7f1a4dc08e15a46`
+- V3.26 runtime asset candidate: `accounting-view-refresh.js?v=2`.
+- Last fully verified repository regression baseline before V3.26: `354 / 354 pass`.
 - Deployment acceptance must verify the full chain `GitHub main → Vercel Production build → production alias → formal URL`; a green GitHub status alone is not sufficient evidence of final browser acceptance.
