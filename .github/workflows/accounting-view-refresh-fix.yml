@@ -1,0 +1,79 @@
+name: Accounting Prepared View Refresh Fix
+
+on:
+  push:
+    branches:
+      - fix/accounting-canonical-settlement-20260902
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    if: ${{ !contains(github.event.head_commit.message, '[prepared-view-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/accounting-canonical-settlement-20260902
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply prepared view invalidation fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          repo = Path('js/modules/accounting/accounting-repository.js')
+          text = repo.read_text(encoding='utf-8')
+          old = 'const VIEW_SCHEMA_VERSION = 10;'
+          new = 'const VIEW_SCHEMA_VERSION = 11;'
+          if old not in text and new not in text:
+              raise SystemExit('VIEW_SCHEMA_VERSION anchor missing')
+          text = text.replace(old, new, 1)
+          repo.write_text(text, encoding='utf-8')
+
+          page = Path('pages/car-detail.html')
+          text = page.read_text(encoding='utf-8')
+          old = '/js/modules/accounting/accounting-repository.js?v=28'
+          new = '/js/modules/accounting/accounting-repository.js?v=29'
+          if old not in text and new not in text:
+              raise SystemExit('accounting repository cache anchor missing')
+          text = text.replace(old, new, 1)
+          page.write_text(text, encoding='utf-8')
+
+          test_path = Path('tests/accounting/accounting-live-regressions.test.js')
+          text = test_path.read_text(encoding='utf-8')
+          marker = 'accounting prepared view schema bump forces stale cached balances to rebuild'
+          if marker not in text:
+              text += '''\n\ntest("accounting prepared view schema bump forces stale cached balances to rebuild", () => {\n  const repository = fs.readFileSync(path.join(__dirname,"../../js/modules/accounting/accounting-repository.js"),"utf8");\n  const page = fs.readFileSync(path.join(__dirname,"../../pages/car-detail.html"),"utf8");\n  assert.match(repository,/const VIEW_SCHEMA_VERSION = 11;/);\n  assert.match(repository,/Number\\(snapshot\\.data\\(\\)\\.schemaVersion\\) >= VIEW_SCHEMA_VERSION/);\n  assert.match(page,/accounting-repository\\.js\\?v=29/);\n});\n'''
+              test_path.write_text(text, encoding='utf-8')
+
+          map_path = Path('docs/PROJECT_MAP_V3.22_V3.24_APPEND.md')
+          text = map_path.read_text(encoding='utf-8')
+          marker = '## V3.25 Accounting Prepared View Invalidation'
+          if marker not in text:
+              text += '''\n\n## V3.25 Accounting Prepared View Invalidation（2026-09-02）\n\n- Production 驗收確認新版 Pairwise Settlement 計算已部署，但既有 `accountingViews/activityCurrent` 仍可能因 `schemaVersion=10` 與來源時間戳未變而被 `ensureActivityView()` 判定可沿用，造成舊的「誰欠我／互抵後」摘要持續顯示。\n- `VIEW_SCHEMA_VERSION` 正式由 `10 → 11`；既有 View 在下一次讀取時會被判定過期，沿既有 `rebuildActivityView()` 從 canonical Transaction／Settlement／Pending 重新產生，不 Migration、不 Backfill、不人工修改 Production 帳務。\n- `pages/car-detail.html` 將 `accounting-repository.js` cache version 升至 `v=29`，確保瀏覽器取得包含新 View schema guard 的 Runtime。\n- Car Detail 與 LINE 仍共用同一 Activity Accounting Projection／Prepared View；本輪只修 stale Prepared View invalidation，不建立第二份帳務或改寫 Settlement Core。\n'''
+              map_path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Commit verified fix and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/accounting-view-refresh-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/modules/accounting/accounting-repository.js pages/car-detail.html tests/accounting/accounting-live-regressions.test.js docs/PROJECT_MAP_V3.22_V3.24_APPEND.md .github/workflows/accounting-view-refresh-fix.yml
+          git commit -m "Invalidate stale Accounting prepared views [prepared-view-fixed]"
+          git push origin HEAD:fix/accounting-canonical-settlement-20260902
