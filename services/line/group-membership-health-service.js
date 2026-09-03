@@ -59,14 +59,30 @@ async function initializeMembershipSnapshot(input, dependencies = {}) {
   const listIds = dependencies.listGroupMemberIds || listGroupMemberIds;
   const save = dependencies.saveSnapshot || saveSnapshot, saveAction = dependencies.savePendingAction || savePendingAction;
   const timestamp = nowIso(dependencies);
-  const [count, ids] = await Promise.all([countMembers(groupId), listIds(groupId)]);
+
+  const count = await countMembers(groupId);
+  let ids = [];
+  let memberIdsStatus = "available";
+  let memberIdsError = "";
+  try {
+    ids = await listIds(groupId);
+  } catch (error) {
+    memberIdsStatus = "unavailable";
+    memberIdsError = text(error && error.message).slice(0, 160);
+  }
+
   const stored = await save(groupId, {
-    carId, ownerId: text(car.ownerId), status: "needs_review", lineMemberCount: count, lineUserIds: unique(ids), membershipRevision: 1,
-    pendingJoinedUserIds: [], pendingLeftUserIds: [], initializedAt: timestamp, updatedAt: timestamp,
+    carId, ownerId: text(car.ownerId), status: "needs_review", lineMemberCount: count,
+    lineUserIds: unique(ids), lineMemberIdsStatus: memberIdsStatus, lineMemberIdsError: memberIdsError,
+    membershipRevision: 1, pendingJoinedUserIds: [], pendingLeftUserIds: [], initializedAt: timestamp, updatedAt: timestamp,
     createdAt: text(previous && previous.createdAt) || timestamp
   });
   await saveAction(carId, buildPendingAction({ carId, groupId, ownerId: car.ownerId, timestamp }));
-  return { initialized: true, reason: "snapshot_initialized", snapshot: stored };
+  return {
+    initialized: true,
+    reason: memberIdsStatus === "available" ? "snapshot_initialized" : "snapshot_initialized_count_only",
+    snapshot: stored
+  };
 }
 async function verifyMembershipSnapshot(input, dependencies = {}) {
   const groupId = text(input.groupId), carId = text(input.carId);
