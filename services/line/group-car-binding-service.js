@@ -15,6 +15,9 @@ const { listGroupAccountingEntries } = require(
 const { migrateLegacyGroupAccounting } = require(
   "../firebase/car-accounting-repository"
 );
+const { initializeMembershipSnapshot } = require(
+  "./group-membership-health-service"
+);
 
 function getIdentityIds(player) {
   return new Set([
@@ -49,6 +52,8 @@ async function bindGroupToCar(
     listGroupAccountingEntries;
   const migrate = dependencies.migrateLegacyGroupAccounting ||
     migrateLegacyGroupAccounting;
+  const initializeMembership = dependencies.initializeMembershipSnapshot ||
+    initializeMembershipSnapshot;
 
   if (!context || context.source.type !== "group") {
     return { bound: false, reason: "group_required" };
@@ -96,11 +101,27 @@ async function bindGroupToCar(
     legacyEntries
   );
 
+  let membershipHealth = null;
+  try {
+    membershipHealth = await initializeMembership({
+      groupId: context.source.groupId,
+      carId,
+      car
+    }, dependencies);
+  } catch (error) {
+    console.error("LINE membership snapshot initialization failed.", error);
+    membershipHealth = {
+      initialized: false,
+      reason: "initialization_failed"
+    };
+  }
+
   return {
     bound: true,
     reason: "binding_created",
     binding,
     migration,
+    membershipHealth,
     car: {
       id: car.id || carId,
       label: getCarLabel(car),
