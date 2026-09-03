@@ -58,8 +58,29 @@ test("first binding initializes only that group and creates review action", asyn
   assert.equal(state.snapshot.status, "needs_review");
   assert.equal(state.snapshot.lineMemberCount, 8);
   assert.deepEqual(state.snapshot.lineUserIds, ["U1", "U2"]);
+  assert.equal(state.snapshot.lineMemberIdsStatus, "available");
   assert.equal(state.action.actionType, "line_membership_review");
   assert.match(state.action.targetUrl, /carId=C1/);
+});
+
+test("member ID permission failure still initializes from LINE group count", async () => {
+  const deps = memoryDependencies();
+  const result = await initializeMembershipSnapshot({
+    groupId: "G1", carId: "C1", car: { status: "active", date: "2026-09-10", ownerId: "P1" }
+  }, {
+    ...deps,
+    getGroupMemberCount: async () => 8,
+    listGroupMemberIds: async () => { throw new Error("line_group_membership_failed_403"); }
+  });
+  assert.equal(result.initialized, true);
+  assert.equal(result.reason, "snapshot_initialized_count_only");
+  const state = deps.inspect();
+  assert.equal(state.snapshot.status, "needs_review");
+  assert.equal(state.snapshot.lineMemberCount, 8);
+  assert.deepEqual(state.snapshot.lineUserIds, []);
+  assert.equal(state.snapshot.lineMemberIdsStatus, "unavailable");
+  assert.equal(state.snapshot.lineMemberIdsError, "line_group_membership_failed_403");
+  assert.equal(state.action.actionType, "line_membership_review");
 });
 
 test("join and leave invalidate verified snapshot even when net count is unchanged", async () => {
