@@ -62,25 +62,45 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
       const requested = Math.max(1, Math.min(20, Number(payload.limit) || 10));
       const bindings = await db.collection("lineGroupBindings").where("status", "==", "active").limit(50).get();
       const results = [];
+      const diagnostics = {
+        activeBindingsScanned: bindings.size,
+        missingBindingIds: 0,
+        existingSnapshots: 0,
+        missingCars: 0,
+        notOwnedByCurrentIdentity: 0,
+        expiredCars: 0,
+        initializationFailed: 0,
+        initialized: 0
+      };
+      const samples = [];
       for (const doc of bindings.docs) {
         if (results.length >= requested) break;
         const binding = { id: doc.id, ...doc.data() };
         const carId = text(binding.carId), groupId = text(binding.groupId || doc.id);
-        if (!carId || !groupId) continue;
+        if (!carId || !groupId) { diagnostics.missingBindingIds += 1; continue; }
         const existing = await getSnapshot(groupId);
-        if (existing && ["verified", "needs_review"].includes(text(existing.status))) continue;
+        if (existing && ["verified", "needs_review"].includes(text(existing.status))) { diagnostics.existingSnapshots += 1; continue; }
         const carDoc = await db.collection("cars").doc(carId).get();
-        if (!carDoc.exists) continue;
+        if (!carDoc.exists) { diagnostics.missingCars += 1; continue; }
         const car = { id: carDoc.id, ...carDoc.data() };
-        if (!owns(car, ids) || isCarExpired(car)) continue;
+        if (!owns(car, ids)) {
+          diagnostics.notOwnedByCurrentIdentity += 1;
+          if (samples.length < 5) samples.push({ carId, reason: "owner_identity_mismatch" });
+          continue;
+        }
+        if (isCarExpired(car)) { diagnostics.expiredCars += 1; continue; }
         try {
           const result = await initializeMembershipSnapshot({ groupId, carId, car });
-          results.push({ carId, groupId, initialized: result.initialized === true, reason: result.reason });
-        } catch (_) {
+          const initialized = result.initialized === true;
+          if (initialized) diagnostics.initialized += 1;
+          results.push({ carId, groupId, initialized, reason: result.reason });
+        } catch (error) {
+          diagnostics.initializationFailed += 1;
+          if (samples.length < 5) samples.push({ carId, reason: "initialization_failed", message: text(error && error.message).slice(0, 120) });
           results.push({ carId, groupId, initialized: false, reason: "initialization_failed" });
         }
       }
-      return send(res, 200, { success: true, processed: results.length, results });
+      return send(res, 200, { success: true, processed: results.length, results, diagnostics, samples });
     }
 
     return send(res, 400, { success: false, error: "unsupported_action" });
