@@ -6,137 +6,39 @@
   <title>JLY 主揪助手</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-
 <body>
   <div class="container">
-    <div class="hero">
-      <div class="jelly">🐻</div>
-      <h1>JLY 主揪助手</h1>
-      <p>主揪工作台</p>
-    </div>
-
+    <div class="hero"><div class="jelly">🐻</div><h1>JLY 主揪助手</h1><p>主揪工作台</p></div>
     <div class="card">
       <h2>待我處理</h2>
-
-      <button
-        type="button"
-        style="
-          width:100%;
-          text-align:left;
-          margin-bottom:10px;
-        "
-        onclick="
-          location.href=
-            'pages/application-review.html'
-        "
-      >
-        📨 報名審核
-        <strong
-          id="registrationPendingCount"
-          style="float:right;"
-        >
-          0
-        </strong>
-        <div
-          id="registrationPendingText"
-          style="
-            margin-top:4px;
-            font-size:13px;
-            opacity:.7;
-          "
-        >
-          目前無待處理
-        </div>
+      <button type="button" style="width:100%;text-align:left;margin-bottom:10px;" onclick="location.href='pages/application-review.html'">
+        📨 報名審核 <strong id="registrationPendingCount" style="float:right;">0</strong>
+        <div id="registrationPendingText" style="margin-top:4px;font-size:13px;opacity:.7;">目前無待處理</div>
       </button>
-
-      <button
-        type="button"
-        style="
-          width:100%;
-          text-align:left;
-          margin-bottom:10px;
-          opacity:.75;
-        "
-      >
-        💰 帳務處理
-        <strong style="float:right;">
-          0
-        </strong>
-        <div
-          style="
-            margin-top:4px;
-            font-size:13px;
-            opacity:.7;
-          "
-        >
-          目前無待處理
-        </div>
+      <button type="button" style="width:100%;text-align:left;margin-bottom:10px;opacity:.75;">
+        💰 帳務處理 <strong style="float:right;">0</strong>
+        <div style="margin-top:4px;font-size:13px;opacity:.7;">目前無待處理</div>
       </button>
-
-      <button
-        type="button"
-        style="
-          width:100%;
-          text-align:left;
-          opacity:.75;
-        "
-      >
-        🤝 媒合確認
-        <strong style="float:right;">
-          0
-        </strong>
-        <div
-          style="
-            margin-top:4px;
-            font-size:13px;
-            opacity:.7;
-          "
-        >
-          目前無待處理
-        </div>
+      <button type="button" style="width:100%;text-align:left;opacity:.75;">
+        🤝 媒合確認 <strong style="float:right;">0</strong>
+        <div style="margin-top:4px;font-size:13px;opacity:.7;">目前無待處理</div>
       </button>
     </div>
-
-    <div class="card" onclick="location.href='pages/mycar.html'">
-      <h3>🚗 開團中</h3>
-      <h1 id="activeCount">0</h1>
-    </div>
-
-    <div class="card" onclick="location.href='pages/mycar.html?filter=need'">
-      <h3>🔴 還缺人</h3>
-      <h1 id="needCount">0</h1>
-    </div>
-
-    <div class="card" onclick="location.href='pages/mycar.html?filter=full'">
-      <h3>🟢 已滿車</h3>
-      <h1 id="fullCount">0</h1>
-    </div>
-
-    <div class="card" onclick="location.href='pages/mycar.html?filter=today'">
-      <h3>📅 今天開團</h3>
-      <h1 id="todayCount">0</h1>
-    </div>
-
-    <button onclick="location.href='pages/players.html'">
-  👥 玩家資料庫
-</button>
-
-    <button onclick="location.href='pages/createcar.html'">
-      ➕ 建立新車
-    </button>
-
-    <button class="gray" onclick="location.href='pages/mycar.html'">
-      🚗 我的車
-    </button>
+    <div class="card" onclick="location.href='pages/mycar.html'"><h3>🚗 開團中</h3><h1 id="activeCount">0</h1></div>
+    <div class="card" onclick="location.href='pages/mycar.html?filter=need'"><h3>🔴 還缺人</h3><h1 id="needCount">0</h1></div>
+    <div class="card" onclick="location.href='pages/mycar.html?filter=full'"><h3>🟢 已滿車</h3><h1 id="fullCount">0</h1></div>
+    <div class="card" onclick="location.href='pages/mycar.html?filter=today'"><h3>📅 今天開團</h3><h1 id="todayCount">0</h1></div>
+    <button onclick="location.href='pages/players.html'">👥 玩家資料庫</button>
+    <button onclick="location.href='pages/createcar.html'">➕ 建立新車</button>
+    <button class="gray" onclick="location.href='pages/mycar.html'">🚗 我的車</button>
   </div>
-
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
   <script src="/firebase/firebase.js?v=24"></script>
   <script src="/js/core/identity.js?v=2"></script>
   <script src="/js/car/car-data.js?v=2"></script>
   <script src="/js/modules/pending/pending-actions.js?v=1"></script>
+  <script src="/js/modules/pending/line-membership-pending.js?v=1"></script>
   <script src="/js/app.js?v=25"></script>
 </body>
 </html>
