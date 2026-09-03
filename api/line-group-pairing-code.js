@@ -2,6 +2,7 @@
 
 const { getCarById } = require("../services/firebase/line-accounting-authorization-repository");
 const { createPairingCode } = require("../services/firebase/line-group-pairing-repository");
+const { handleMembershipHealth } = require("../services/line/membership-health-api-handler");
 
 function send(res, status, data) {
   res.statusCode = status;
@@ -27,6 +28,13 @@ module.exports = async function handler(req, res) {
   }
   try {
     const input = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+
+    // Keep Vercel Function count unchanged: host-only membership health actions
+    // share this existing LINE POST function. Pairing requests have no `action`.
+    if (["verify", "initialize", "catchup"].includes(String(input.action || "").trim())) {
+      return handleMembershipHealth(req, res, input);
+    }
+
     const carId = String(input.carId || "").trim();
     const car = await getCarById(carId);
     if (!car) return send(res, 404, { success: false, error: "car_not_found" });

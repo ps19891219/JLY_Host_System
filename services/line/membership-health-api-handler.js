@@ -1,9 +1,9 @@
 "use strict";
 
-const { getFirestore } = require("../services/firebase/admin");
-const { readCookie, verifyMemberSession } = require("../services/line/member-session");
-const { initializeMembershipSnapshot, verifyMembershipSnapshot, isCarExpired } = require("../services/line/group-membership-health-service");
-const { getSnapshot } = require("../services/firebase/line-group-membership-repository");
+const { getFirestore } = require("../firebase/admin");
+const { readCookie, verifyMemberSession } = require("./member-session");
+const { initializeMembershipSnapshot, verifyMembershipSnapshot, isCarExpired } = require("./group-membership-health-service");
+const { getSnapshot } = require("../firebase/line-group-membership-repository");
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -12,8 +12,11 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 function text(value) { return String(value == null ? "" : value).trim(); }
-async function body(req) {
+async function readBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
+  if (typeof req.body === "string") {
+    try { return JSON.parse(req.body); } catch (_) { return {}; }
+  }
   const chunks = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   if (!chunks.length) return {};
@@ -25,16 +28,12 @@ function identityIds(session) {
 }
 function owns(car, ids) { return ids.has(text(car && car.ownerId)); }
 
-module.exports = async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return send(res, 405, { success: false, error: "method_not_allowed" });
-  }
+async function handleMembershipHealth(req, res, suppliedPayload) {
   try {
     const session = verifyMemberSession(readCookie(req));
     const ids = identityIds(session);
     if (!session.valid || ids.size === 0) return send(res, 401, { success: false, error: "login_required" });
-    const payload = await body(req);
+    const payload = suppliedPayload || await readBody(req);
     const action = text(payload.action);
     const db = getFirestore();
 
@@ -77,7 +76,7 @@ module.exports = async function handler(req, res) {
         try {
           const result = await initializeMembershipSnapshot({ groupId, carId, car });
           results.push({ carId, groupId, initialized: result.initialized === true, reason: result.reason });
-        } catch (error) {
+        } catch (_) {
           results.push({ carId, groupId, initialized: false, reason: "initialization_failed" });
         }
       }
@@ -89,4 +88,6 @@ module.exports = async function handler(req, res) {
     console.error("LINE membership health API failed.", error);
     return send(res, 500, { success: false, error: "line_membership_health_failed" });
   }
-};
+}
+
+module.exports = { handleMembershipHealth };
