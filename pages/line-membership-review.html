@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LINE 名單核對</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.review-head{position:sticky;top:0;background:#fff;padding:14px 0;z-index:2}.review-card{padding:16px;margin:12px 0;border:1px solid #ddd;border-radius:14px}.review-meta{font-size:13px;opacity:.72;line-height:1.7}.review-delta{margin:12px 0;padding:10px;background:#f6f6f6;border-radius:10px}.review-actions{display:flex;gap:8px}.review-actions button{flex:1}.empty{padding:28px 12px;text-align:center;opacity:.7}
+</style>
+</head>
+<body><div class="container">
+<div class="review-head"><button type="button" onclick="location.href='../index.html'">← 回首頁</button><h2>LINE 群組名單核對</h2><button id="catchupButton" type="button">補抓已綁定群組（最多 10 個）</button></div>
+<div id="reviewStatus" class="review-meta"></div><div id="reviewList"></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="/firebase/firebase.js?v=24"></script><script src="/js/core/identity.js?v=2"></script>
+<script>
+"use strict";
+function ownerId(){return String(window.JLYIdentity&&window.JLYIdentity.getCurrentPlayerId?window.JLYIdentity.getCurrentPlayerId():localStorage.getItem("currentPlayerId")||"").trim();}
+function esc(v){return String(v==null?"":v).replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+async function api(payload){const r=await fetch("/api/line-membership-health",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await r.json();if(!r.ok||!data.success)throw new Error(data.error||"request_failed");return data;}
+async function render(){const id=ownerId(),list=document.getElementById("reviewList"),status=document.getElementById("reviewStatus");if(!id){status.textContent="請先登入 JLY。";return;}status.textContent="讀取待核對名單…";try{const snap=await window.db.collection("lineGroupMembershipSnapshots").where("ownerId","==",id).get();const rows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="needs_review");status.textContent=rows.length?`目前 ${rows.length} 個群組需要處理。點擊確認後，下一次有人加入或退出才會再次提醒。`:"目前沒有待核對的 LINE 群組。";list.innerHTML=rows.length?rows.map(x=>`<div class="review-card"><strong>車團 ${esc(x.carId)}</strong><div class="review-meta">LINE 群組：${esc(x.groupId||x.id)}<br>目前 LINE 人數：${Number(x.lineMemberCount)||0}<br>最後異動：${esc(x.lastEventAt||x.initializedAt||"")}</div><div class="review-delta">加入異動：${(x.pendingJoinedUserIds||[]).length} 人<br>退出異動：${(x.pendingLeftUserIds||[]).length} 人${(x.pendingJoinedUserIds||[]).length&&(x.pendingLeftUserIds||[]).length?"<br>⚠️ 即使總人數相同，名單仍需重新核對。":""}</div><div class="review-actions"><button type="button" onclick="location.href='car-detail.html?id=${encodeURIComponent(x.carId||"")}'">查看車團</button><button type="button" onclick="verifyOne('${esc(x.carId)}','${esc(x.groupId||x.id)}')">確認名單</button></div></div>`).join(""):"<div class=\"empty\">✨ 名單目前都已整理完成</div>";}catch(e){console.error(e);status.textContent="名單提醒讀取失敗。";}}
+async function verifyOne(carId,groupId){if(!confirm("確認目前 LINE 群組與車團名單已核對完成？"))return;try{await api({action:"verify",carId,groupId});await render();}catch(e){alert("確認失敗，請稍後再試。");}}
+document.getElementById("catchupButton").addEventListener("click",async function(){this.disabled=true;document.getElementById("reviewStatus").textContent="正在補抓目前有效、已綁定但尚未初始化的群組…";try{const result=await api({action:"catchup",limit:10});document.getElementById("reviewStatus").textContent=`本次處理 ${result.processed||0} 個群組。`;await render();}catch(e){alert("補抓失敗，請確認已登入後再試。");}finally{this.disabled=false;}});
+document.addEventListener("DOMContentLoaded",render);
+</script></body></html>
