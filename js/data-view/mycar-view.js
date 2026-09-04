@@ -81,6 +81,103 @@ console.log("mycar-view.js V4 已成功載入！");
     return "flexible";
   }
 
+  function preserveSeatSummary(summary) {
+    const source =
+      summary &&
+      typeof summary === "object"
+        ? summary
+        : null;
+
+    if (!source) {
+      return null;
+    }
+
+    const normalized = {
+      totalSeatCount:
+        Math.max(
+          0,
+          Number(
+            source.totalSeatCount ||
+            0
+          )
+        ),
+      occupiedSeatCount:
+        Math.max(
+          0,
+          Number(
+            source.occupiedSeatCount ||
+            0
+          )
+        ),
+      maleTotal:
+        Math.max(
+          0,
+          Number(
+            source.maleTotal ||
+            0
+          )
+        ),
+      maleOccupied:
+        Math.max(
+          0,
+          Number(
+            source.maleOccupied ||
+            0
+          )
+        ),
+      femaleTotal:
+        Math.max(
+          0,
+          Number(
+            source.femaleTotal ||
+            0
+          )
+        ),
+      femaleOccupied:
+        Math.max(
+          0,
+          Number(
+            source.femaleOccupied ||
+            0
+          )
+        ),
+      flexibleTotal:
+        Math.max(
+          0,
+          Number(
+            source.flexibleTotal ||
+            0
+          )
+        ),
+      flexibleOccupied:
+        Math.max(
+          0,
+          Number(
+            source.flexibleOccupied ||
+            0
+          )
+        ),
+      waitingCount:
+        Math.max(
+          0,
+          Number(
+            source.waitingCount ||
+            0
+          )
+        )
+    };
+
+    const hasSeatData =
+      normalized.totalSeatCount > 0 ||
+      normalized.maleTotal > 0 ||
+      normalized.femaleTotal > 0 ||
+      normalized.flexibleTotal > 0;
+
+    return hasSeatData
+      ? normalized
+      : null;
+  }
+
   function buildSeatSummary(car) {
     const source =
       car &&
@@ -94,7 +191,9 @@ console.log("mycar-view.js V4 已成功載入！");
         : [];
 
     if (slots.length === 0) {
-      return null;
+      return preserveSeatSummary(
+        source.seatSummary
+      );
     }
 
     const activePlayerIds =
@@ -545,7 +644,8 @@ console.log("mycar-view.js V4 已成功載入！");
           group(b);
 
         if (
-          aGroup !== bGroup
+          aGroup !==
+          bGroup
         ) {
           return (
             aGroup -

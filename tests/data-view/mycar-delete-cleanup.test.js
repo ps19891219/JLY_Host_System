@@ -115,6 +115,6 @@ test("delete-test-car 將 owner MyCar View 與 Core car 放在同一 final batch
 test("我的車頁載入一次性幽靈卡 repair runtime", () => {
   assert.match(
     mycarPage,
-    /mycar\.js\?v=47[\s\S]*mycar-view-existence-repair\.js\?v=1/
+    /mycar\.js\?v=48[\s\S]*mycar-view-existence-repair\.js\?v=1/
   );
 });

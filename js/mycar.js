@@ -108,7 +108,7 @@ async function ensureMyCarViewModule() {
   myCarViewModulePromise =
     (async function () {
       await loadMyCarViewScript(
-        "/js/data-view/mycar-view.js?v=6",
+        "/js/data-view/mycar-view.js?v=7",
         "mycar-view"
       );
 
@@ -1084,26 +1084,37 @@ async function renderMyCars(
       正常 MyCar UI 永遠只讀
       myCarViews/{viewerId}。
 
-      View 不存在、版本不符或格式錯誤時直接報錯，
-      不得退回 Cars / Player Cars Query。
+      Prepared View 已在 mutation/build 階段 compact。
+      Runtime 僅消費 prepared cards，不再次投影，
+      避免缺少 Core slots 時洗掉 seatSummary。
     */
-    const myCarViewModule =
-      await ensureMyCarViewModule();
+    await ensureMyCarViewModule();
 
     const preparedView =
       await loadMyCarPreparedView(
         ownerId
       );
 
-    cars =
-      preparedView.cars.map(
-        function (car) {
-          return myCarViewModule.compactCar(
-            car,
-            preparedView.identityIds
-          );
-        }
-      );
+    cars = preparedView.cars.map(
+      function (car) {
+        return {
+          ...car,
+          seatSummary:
+            car &&
+            car.seatSummary &&
+            typeof car.seatSummary ===
+              "object"
+              ? { ...car.seatSummary }
+              : null,
+          players:
+            Array.isArray(car && car.players)
+              ? car.players.map(function (player) {
+                  return { ...player };
+                })
+              : []
+        };
+      }
+    );
 
     const currentFilter =
       buildCurrentCarFilter();
