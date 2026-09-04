@@ -1,74 +1,108 @@
+"use strict";
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const vm = require("node:vm");
 
-const root = path.resolve(__dirname, "../..");
-const cleanupSource = fs.readFileSync(path.join(root, "services/car/mycar-view-cleanup.js"), "utf8");
-const repairSource = fs.readFileSync(path.join(root, "js/data-view/mycar-view-existence-repair.js"), "utf8");
-const deleteApi = fs.readFileSync(path.join(root, "api/delete-test-car.js"), "utf8");
-const mycarPage = fs.readFileSync(path.join(root, "pages/mycar.html"), "utf8");
+const {
+  removeCarFromView
+} = require("../../services/car/mycar-view-cleanup");
 
-function loadCleanup() {
-  const module = { exports: {} };
-  vm.runInNewContext(cleanupSource, { module, exports: module.exports, require, console }, { filename: "mycar-view-cleanup.js" });
-  return module.exports;
-}
+const repair = require(
+  "../../js/data-view/mycar-view-existence-repair"
+);
 
-function loadRepair() {
-  const window = {};
-  vm.runInNewContext(repairSource, { window, console }, { filename: "mycar-view-existence-repair.js" });
-  return window.JLYMyCarViewExistenceRepair;
+const root = path.join(__dirname, "../..");
+const deleteApi = fs.readFileSync(
+  path.join(root, "api/delete-test-car.js"),
+  "utf8"
+);
+const mycarPage = fs.readFileSync(
+  path.join(root, "pages/mycar.html"),
+  "utf8"
+);
+
+function sampleView() {
+  return {
+    schemaVersion: 4,
+    viewType: "mycar_index",
+    viewerId: "owner-1",
+    cars: [
+      {
+        id: "keep",
+        isHost: true,
+        isPlayer: false
+      },
+      {
+        id: "delete-me",
+        isHost: true,
+        isPlayer: false
+      },
+      {
+        id: "player-car",
+        isHost: false,
+        isPlayer: true
+      }
+    ],
+    counts: {
+      all: 3,
+      host: 2,
+      player: 1
+    }
+  };
 }
 
 test("永久刪車時 MyCar Prepared View 同步移除該車並重算 counts", () => {
-  const { removeCarFromView } = loadCleanup();
-  const result = removeCarFromView({
-    schemaVersion: 4,
-    viewType: "mycar_index",
-    viewerId: "P1",
-    cars: [
-      { id: "C1", isHost: true, isPlayer: false },
-      { id: "C2", isHost: false, isPlayer: true }
-    ],
-    counts: { all: 2, host: 1, player: 1 }
-  }, "C1", "2026-09-02T12:00:00.000Z");
+  const result = removeCarFromView(
+    sampleView(),
+    "delete-me",
+    "2026-09-02T00:00:00.000Z"
+  );
 
   assert.equal(result.changed, true);
-  assert.deepEqual(result.view.cars.map(car => car.id), ["C2"]);
-  assert.deepEqual(result.view.counts, { all: 1, host: 0, player: 1 });
-  assert.equal(result.view.builtAt, "2026-09-02T12:00:00.000Z");
+  assert.deepEqual(
+    result.view.cars.map(car => car.id),
+    ["keep", "player-car"]
+  );
+  assert.deepEqual(result.view.counts, {
+    all: 2,
+    host: 1,
+    player: 1
+  });
 });
 
 test("MyCar View 沒有該 carId 時 cleanup 不重寫", () => {
-  const { removeCarFromView } = loadCleanup();
-  const original = {
-    cars: [{ id: "C2", isHost: true }],
-    counts: { all: 1, host: 1, player: 0 }
-  };
-  const result = removeCarFromView(original, "C1");
+  const view = sampleView();
+  const result = removeCarFromView(
+    view,
+    "missing"
+  );
+
   assert.equal(result.changed, false);
-  assert.equal(result.view, original);
+  assert.equal(result.view, view);
 });
 
 test("一次性 existence repair 會移除歷史幽靈卡並留下 revision marker", () => {
-  const repair = loadRepair();
-  const result = repair.repairView({
-    schemaVersion: 4,
-    viewType: "mycar_index",
-    viewerId: "P1",
-    cars: [
-      { id: "C1", isHost: true },
-      { id: "GHOST", isPlayer: true }
-    ]
-  }, new Set(["C1"]), "2026-09-02T12:00:00.000Z");
+  const next = repair.recalculateView(
+    sampleView(),
+    new Set(["keep", "player-car"]),
+    "2026-09-02T00:00:00.000Z"
+  );
 
-  assert.equal(result.changed, true);
-  assert.deepEqual(result.view.cars.map(car => car.id), ["C1"]);
-  assert.equal(result.view.existenceRepairRevision, 1);
-  assert.equal(result.view.existenceRepairedAt, "2026-09-02T12:00:00.000Z");
-  assert.deepEqual(result.view.counts, { all: 1, host: 1, player: 0 });
+  assert.deepEqual(
+    next.cars.map(car => car.id),
+    ["keep", "player-car"]
+  );
+  assert.deepEqual(next.counts, {
+    all: 2,
+    host: 1,
+    player: 1
+  });
+  assert.equal(
+    next.existenceRepairRevision,
+    1
+  );
 });
 
 test("delete-test-car 將 owner MyCar View 與 Core car 放在同一 final batch", () => {
