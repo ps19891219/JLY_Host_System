@@ -12,6 +12,12 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 function text(value) { return String(value == null ? "" : value).trim(); }
+function activePlayerCount(car) {
+  return (Array.isArray(car && car.players) ? car.players : []).filter(player => {
+    const status = text(player && player.status).toLowerCase();
+    return !["已取消", "取消", "cancelled", "canceled"].includes(status);
+  }).length;
+}
 async function readBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
   if (typeof req.body === "string") {
@@ -43,7 +49,7 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
       if (!carDoc.exists) return send(res, 404, { success: false, error: "car_not_found" });
       const car = { id: carDoc.id, ...carDoc.data() };
       if (!owns(car, ids)) return send(res, 403, { success: false, error: "owner_required" });
-      const result = await verifyMembershipSnapshot({ groupId, carId, verifiedBy: text(session.data.profileId || session.data.identityId) });
+      const result = await verifyMembershipSnapshot({ groupId, carId, verifiedBy: text(session.data.profileId || session.data.identityId), playerCount: activePlayerCount(car) });
       return send(res, 200, { success: true, result });
     }
 
@@ -62,16 +68,7 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
       const requested = Math.max(1, Math.min(20, Number(payload.limit) || 10));
       const bindings = await db.collection("lineGroupBindings").where("status", "==", "active").limit(50).get();
       const results = [];
-      const diagnostics = {
-        activeBindingsScanned: bindings.size,
-        missingBindingIds: 0,
-        existingSnapshots: 0,
-        missingCars: 0,
-        notOwnedByCurrentIdentity: 0,
-        expiredCars: 0,
-        initializationFailed: 0,
-        initialized: 0
-      };
+      const diagnostics = { activeBindingsScanned: bindings.size, missingBindingIds: 0, existingSnapshots: 0, missingCars: 0, notOwnedByCurrentIdentity: 0, expiredCars: 0, initializationFailed: 0, initialized: 0 };
       const samples = [];
       for (const doc of bindings.docs) {
         if (results.length >= requested) break;
@@ -83,11 +80,7 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
         const carDoc = await db.collection("cars").doc(carId).get();
         if (!carDoc.exists) { diagnostics.missingCars += 1; continue; }
         const car = { id: carDoc.id, ...carDoc.data() };
-        if (!owns(car, ids)) {
-          diagnostics.notOwnedByCurrentIdentity += 1;
-          if (samples.length < 5) samples.push({ carId, reason: "owner_identity_mismatch" });
-          continue;
-        }
+        if (!owns(car, ids)) { diagnostics.notOwnedByCurrentIdentity += 1; if (samples.length < 5) samples.push({ carId, reason: "owner_identity_mismatch" }); continue; }
         if (isCarExpired(car)) { diagnostics.expiredCars += 1; continue; }
         try {
           const result = await initializeMembershipSnapshot({ groupId, carId, car });
@@ -110,4 +103,4 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
   }
 }
 
-module.exports = { handleMembershipHealth };
+module.exports = { handleMembershipHealth, activePlayerCount };
