@@ -44,7 +44,10 @@ async function markMembershipChanged(input, dependencies = {}) {
     pendingJoinedUserIds: pendingJoined, pendingLeftUserIds: pendingLeft,
     lastEventType: text(input.eventType), lastEventAt: timestamp, updatedAt: timestamp,
     createdAt: text(previous && previous.createdAt) || timestamp,
-    verifiedAt: text(previous && previous.verifiedAt), verifiedBy: text(previous && previous.verifiedBy)
+    verifiedAt: text(previous && previous.verifiedAt), verifiedBy: text(previous && previous.verifiedBy),
+    verifiedMembershipRevision: Number(previous && previous.verifiedMembershipRevision) || 0,
+    verifiedLineMemberCount: Number(previous && previous.verifiedLineMemberCount) || 0,
+    verifiedPlayerCount: Number(previous && previous.verifiedPlayerCount) || 0
   });
   await saveAction(carId, buildPendingAction({ carId, groupId, ownerId: car.ownerId, timestamp, createdAt: previous && previous.reviewCreatedAt }));
   return { changed: true, reason: "membership_changed", snapshot: stored };
@@ -90,7 +93,15 @@ async function verifyMembershipSnapshot(input, dependencies = {}) {
   const complete = dependencies.completePendingAction || completePendingAction, previous = await read(groupId);
   if (!previous || text(previous.carId) !== carId) return { verified: false, reason: "snapshot_not_found" };
   const timestamp = nowIso(dependencies);
-  const stored = await save(groupId, { status: "verified", verifiedAt: timestamp, verifiedBy: text(input.verifiedBy), pendingJoinedUserIds: [], pendingLeftUserIds: [], updatedAt: timestamp });
+  const stored = await save(groupId, {
+    status: "verified",
+    verifiedAt: timestamp,
+    verifiedBy: text(input.verifiedBy),
+    verifiedMembershipRevision: Number(previous.membershipRevision) || 0,
+    verifiedLineMemberCount: Number(previous.lineMemberCount) || 0,
+    verifiedPlayerCount: Math.max(0, Number(input.playerCount) || 0),
+    pendingJoinedUserIds: [], pendingLeftUserIds: [], updatedAt: timestamp
+  });
   await complete(carId, ACTION_ID, timestamp);
   return { verified: true, reason: "snapshot_verified", snapshot: stored };
 }
