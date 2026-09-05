@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/batch-public-role-reminder-accounting-reset-20260828
+      - fix/line-catchup-group-name-diagnostics-20260906
 
 jobs:
   test:
