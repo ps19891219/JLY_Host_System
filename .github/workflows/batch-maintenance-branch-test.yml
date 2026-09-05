@@ -3,7 +3,7 @@ name: Batch maintenance branch test
 on:
   push:
     branches:
-      - fix/line-binding-snapshot-guarantee-20260905
+      - feat/batch-public-role-reminder-accounting-reset-20260828
 
 jobs:
   test:
