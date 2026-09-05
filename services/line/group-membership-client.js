@@ -17,6 +17,18 @@ async function lineGet(path, dependencies = {}) {
   return response.json();
 }
 
+async function getGroupSummary(groupId, dependencies = {}) {
+  const rawId = text(groupId);
+  const id = encodeURIComponent(rawId);
+  if (!id) throw new Error("line_group_id_required");
+  const result = await lineGet(`${id}/summary`, dependencies);
+  return {
+    groupId: text(result && result.groupId) || rawId,
+    groupName: text(result && result.groupName),
+    pictureUrl: text(result && result.pictureUrl)
+  };
+}
+
 async function getGroupMemberCount(groupId, dependencies = {}) {
   const id = encodeURIComponent(text(groupId));
   if (!id) throw new Error("line_group_id_required");
@@ -43,4 +55,4 @@ async function listGroupMemberIds(groupId, dependencies = {}) {
   return Array.from(new Set(ids));
 }
 
-module.exports = { getGroupMemberCount, listGroupMemberIds };
+module.exports = { getGroupSummary, getGroupMemberCount, listGroupMemberIds };

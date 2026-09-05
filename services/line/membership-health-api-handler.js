@@ -4,6 +4,7 @@ const { getFirestore } = require("../firebase/admin");
 const { readCookie, verifyMemberSession } = require("./member-session");
 const { initializeMembershipSnapshot, verifyMembershipSnapshot, isCarExpired } = require("./group-membership-health-service");
 const { getSnapshot } = require("../firebase/line-group-membership-repository");
+const { getGroupSummary } = require("./group-membership-client");
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -40,6 +41,20 @@ function diagnosticSample(binding, carId, groupId, reason) {
     reason,
     boundAt: binding.boundAt || binding.updatedAt || binding.createdAt || null
   };
+}
+async function enrichDiagnosticSample(sample) {
+  if (!sample.groupId) return { ...sample, groupName: "", groupSummaryStatus: "unavailable" };
+  try {
+    const summary = await getGroupSummary(sample.groupId);
+    return { ...sample, groupName: text(summary && summary.groupName), groupSummaryStatus: "available" };
+  } catch (_) {
+    return { ...sample, groupName: "", groupSummaryStatus: "unavailable" };
+  }
+}
+async function pushDiagnosticSample(samples, binding, carId, groupId, reason, extra = {}) {
+  if (samples.length >= 10) return;
+  const sample = await enrichDiagnosticSample({ ...diagnosticSample(binding, carId, groupId, reason), ...extra });
+  samples.push(sample);
 }
 
 async function handleMembershipHealth(req, res, suppliedPayload) {
@@ -84,7 +99,7 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
         const carId = text(binding.carId), groupId = text(binding.groupId || doc.id);
         if (!carId || !groupId) {
           diagnostics.missingBindingIds += 1;
-          if (samples.length < 10) samples.push(diagnosticSample(binding, carId, groupId, "missing_binding_ids"));
+          await pushDiagnosticSample(samples, binding, carId, groupId, "missing_binding_ids");
           continue;
         }
         const existing = await getSnapshot(groupId);
@@ -92,18 +107,18 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
         const carDoc = await db.collection("cars").doc(carId).get();
         if (!carDoc.exists) {
           diagnostics.missingCars += 1;
-          if (samples.length < 10) samples.push(diagnosticSample(binding, carId, groupId, "car_not_found"));
+          await pushDiagnosticSample(samples, binding, carId, groupId, "car_not_found");
           continue;
         }
         const car = { id: carDoc.id, ...carDoc.data() };
         if (!owns(car, ids)) {
           diagnostics.notOwnedByCurrentIdentity += 1;
-          if (samples.length < 10) samples.push(diagnosticSample(binding, carId, groupId, "owner_identity_mismatch"));
+          await pushDiagnosticSample(samples, binding, carId, groupId, "owner_identity_mismatch");
           continue;
         }
         if (isCarExpired(car)) {
           diagnostics.expiredCars += 1;
-          if (samples.length < 10) samples.push(diagnosticSample(binding, carId, groupId, "car_expired"));
+          await pushDiagnosticSample(samples, binding, carId, groupId, "car_expired");
           continue;
         }
         try {
@@ -113,7 +128,7 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
           results.push({ carId, groupId, initialized, reason: result.reason });
         } catch (error) {
           diagnostics.initializationFailed += 1;
-          if (samples.length < 10) samples.push({ ...diagnosticSample(binding, carId, groupId, "initialization_failed"), message: text(error && error.message).slice(0, 120) });
+          await pushDiagnosticSample(samples, binding, carId, groupId, "initialization_failed", { message: text(error && error.message).slice(0, 120) });
           results.push({ carId, groupId, initialized: false, reason: "initialization_failed" });
         }
       }
