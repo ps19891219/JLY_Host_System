@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/batch-public-role-reminder-accounting-reset-20260828
+      - feat/line-membership-verified-baseline-flow-20260905
 
 jobs:
   test:
