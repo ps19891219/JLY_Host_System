@@ -33,6 +33,14 @@ function identityIds(session) {
   return new Set([data.profileId, data.identityId].map(text).filter(Boolean));
 }
 function owns(car, ids) { return ids.has(text(car && car.ownerId)); }
+function diagnosticSample(binding, carId, groupId, reason) {
+  return {
+    carId,
+    groupId,
+    reason,
+    boundAt: binding.boundAt || binding.updatedAt || binding.createdAt || null
+  };
+}
 
 async function handleMembershipHealth(req, res, suppliedPayload) {
   try {
@@ -74,14 +82,30 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
         if (results.length >= requested) break;
         const binding = { id: doc.id, ...doc.data() };
         const carId = text(binding.carId), groupId = text(binding.groupId || doc.id);
-        if (!carId || !groupId) { diagnostics.missingBindingIds += 1; continue; }
+        if (!carId || !groupId) {
+          diagnostics.missingBindingIds += 1;
+          if (samples.length < 10) samples.push(diagnosticSample(binding, carId, groupId, "missing_binding_ids"));
+          continue;
+        }
         const existing = await getSnapshot(groupId);
         if (existing && ["verified", "needs_review"].includes(text(existing.status))) { diagnostics.existingSnapshots += 1; continue; }
         const carDoc = await db.collection("cars").doc(carId).get();
-        if (!carDoc.exists) { diagnostics.missingCars += 1; continue; }
+        if (!carDoc.exists) {
+          diagnostics.missingCars += 1;
+          if (samples.length < 10) samples.push(diagnosticSample(binding, carId, groupId, "car_not_found"));
+          continue;
+        }
         const car = { id: carDoc.id, ...carDoc.data() };
-        if (!owns(car, ids)) { diagnostics.notOwnedByCurrentIdentity += 1; if (samples.length < 5) samples.push({ carId, reason: "owner_identity_mismatch" }); continue; }
-        if (isCarExpired(car)) { diagnostics.expiredCars += 1; continue; }
+        if (!owns(car, ids)) {
+          diagnostics.notOwnedByCurrentIdentity += 1;
+          if (samples.length < 10) samples.push(diagnosticSample(binding, carId, groupId, "owner_identity_mismatch"));
+          continue;
+        }
+        if (isCarExpired(car)) {
+          diagnostics.expiredCars += 1;
+          if (samples.length < 10) samples.push(diagnosticSample(binding, carId, groupId, "car_expired"));
+          continue;
+        }
         try {
           const result = await initializeMembershipSnapshot({ groupId, carId, car });
           const initialized = result.initialized === true;
@@ -89,7 +113,7 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
           results.push({ carId, groupId, initialized, reason: result.reason });
         } catch (error) {
           diagnostics.initializationFailed += 1;
-          if (samples.length < 5) samples.push({ carId, reason: "initialization_failed", message: text(error && error.message).slice(0, 120) });
+          if (samples.length < 10) samples.push({ ...diagnosticSample(binding, carId, groupId, "initialization_failed"), message: text(error && error.message).slice(0, 120) });
           results.push({ carId, groupId, initialized: false, reason: "initialization_failed" });
         }
       }
