@@ -46,7 +46,7 @@ async function markMembershipChanged(input, dependencies = {}) {
     createdAt: text(previous && previous.createdAt) || timestamp,
     verifiedAt: text(previous && previous.verifiedAt), verifiedBy: text(previous && previous.verifiedBy),
     verifiedMembershipRevision: Number(previous && previous.verifiedMembershipRevision) || 0,
-    verifiedLineMemberCount: Number(previous && previous.verifiedLineMemberCount) || 0,
+    verifiedLineMemberCount: previous && previous.verifiedLineMemberCount == null ? null : Number(previous && previous.verifiedLineMemberCount) || 0,
     verifiedPlayerCount: Number(previous && previous.verifiedPlayerCount) || 0
   });
   await saveAction(carId, buildPendingAction({ carId, groupId, ownerId: car.ownerId, timestamp, createdAt: previous && previous.reviewCreatedAt }));
@@ -63,7 +63,18 @@ async function initializeMembershipSnapshot(input, dependencies = {}) {
   const save = dependencies.saveSnapshot || saveSnapshot, saveAction = dependencies.savePendingAction || savePendingAction;
   const timestamp = nowIso(dependencies);
 
-  const count = await countMembers(groupId);
+  let count = null;
+  let countStatus = "available";
+  let countError = "";
+  try {
+    const value = await countMembers(groupId);
+    count = Number.isFinite(Number(value)) ? Number(value) : null;
+    if (count == null) throw new Error("line_group_member_count_invalid");
+  } catch (error) {
+    countStatus = "unavailable";
+    countError = text(error && error.message).slice(0, 160);
+  }
+
   let ids = [];
   let memberIdsStatus = "available";
   let memberIdsError = "";
@@ -76,16 +87,16 @@ async function initializeMembershipSnapshot(input, dependencies = {}) {
 
   const stored = await save(groupId, {
     carId, ownerId: text(car.ownerId), status: "needs_review", lineMemberCount: count,
+    lineMemberCountStatus: countStatus, lineMemberCountError: countError,
     lineUserIds: unique(ids), lineMemberIdsStatus: memberIdsStatus, lineMemberIdsError: memberIdsError,
     membershipRevision: 1, pendingJoinedUserIds: [], pendingLeftUserIds: [], initializedAt: timestamp, updatedAt: timestamp,
     createdAt: text(previous && previous.createdAt) || timestamp
   });
   await saveAction(carId, buildPendingAction({ carId, groupId, ownerId: car.ownerId, timestamp }));
-  return {
-    initialized: true,
-    reason: memberIdsStatus === "available" ? "snapshot_initialized" : "snapshot_initialized_count_only",
-    snapshot: stored
-  };
+  let reason = "snapshot_initialized";
+  if (countStatus === "unavailable") reason = "snapshot_initialized_without_count";
+  else if (memberIdsStatus === "unavailable") reason = "snapshot_initialized_count_only";
+  return { initialized: true, reason, snapshot: stored };
 }
 async function verifyMembershipSnapshot(input, dependencies = {}) {
   const groupId = text(input.groupId), carId = text(input.carId);
@@ -98,7 +109,7 @@ async function verifyMembershipSnapshot(input, dependencies = {}) {
     verifiedAt: timestamp,
     verifiedBy: text(input.verifiedBy),
     verifiedMembershipRevision: Number(previous.membershipRevision) || 0,
-    verifiedLineMemberCount: Number(previous.lineMemberCount) || 0,
+    verifiedLineMemberCount: previous.lineMemberCount == null ? null : Number(previous.lineMemberCount) || 0,
     verifiedPlayerCount: Math.max(0, Number(input.playerCount) || 0),
     pendingJoinedUserIds: [], pendingLeftUserIds: [], updatedAt: timestamp
   });
