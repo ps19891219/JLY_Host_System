@@ -252,6 +252,10 @@
         )
       );
 
+    const canReadCoreCars =
+      coreCars &&
+      typeof coreCars.get === "function";
+
     let changedCount = 0;
     let removedCount = 0;
 
@@ -270,7 +274,7 @@
           );
 
         const coreCar =
-          coreCars instanceof Map
+          canReadCoreCars
             ? coreCars.get(carId)
             : null;
 
