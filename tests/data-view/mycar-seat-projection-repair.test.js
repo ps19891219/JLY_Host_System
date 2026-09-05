@@ -137,7 +137,7 @@ test("Seat Projection repair 同一次掃描也移除不存在的 ghost car", ()
     "2026-09-05T06:00:00.000Z"
   );
 
-  assert.deepEqual(next.cars.map(car => car.id), ["CAR-1"]);
+  assert.equal(Array.from(next.cars, car => car.id).join(","), "CAR-1");
   assert.equal(next.seatProjectionRepairRemovedCount, 1);
   assert.equal(next.existenceRepairRevision, 1);
 });
