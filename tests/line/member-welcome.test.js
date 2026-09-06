@@ -77,7 +77,7 @@ test(
 
     assert.match(
       buttons[1].action.uri,
-      /join\.html\?id=car-1/
+      /car-view\.html\?id=car-1/
     );
   }
 );
