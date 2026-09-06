@@ -3,7 +3,7 @@ name: Batch maintenance branch test
 on:
   push:
     branches:
-      - repair/line-person-identity-claim
+      - feat/batch-public-role-reminder-accounting-reset-20260828
 
 jobs:
   test:
@@ -14,14 +14,4 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - name: Run tests
-        shell: bash
-        run: |
-          set -o pipefail
-          npm test 2>&1 | tee test-output.txt
-      - name: Upload test output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: line-person-claim-test-output
-          path: test-output.txt
+      - run: npm test
