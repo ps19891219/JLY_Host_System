@@ -33,7 +33,7 @@ function sameLegacyName(value, session) {
   return Boolean(sessionName && lower(displayName(value)) === sessionName);
 }
 
-function matchesViewer(value, session) {
+function matchesViewerState(value, session) {
   return sameIdentity(value, session) || sameLegacyName(value, session);
 }
 
@@ -55,13 +55,15 @@ function isCarMember(car, session) {
     ...(Array.isArray(car && car.players) ? car.players : []),
     ...(Array.isArray(car && car.staffSlots) ? car.staffSlots : [])
   ];
-  return members.some(member => isActive(member) && matchesViewer(member, session));
+  // Full member access is identity-sensitive. Legacy display-name matching is
+  // intentionally NOT enough to unlock the complete car payload.
+  return members.some(member => isActive(member) && sameIdentity(member, session));
 }
 
 function viewerState(car, session) {
   const authenticated = Boolean(sessionIds(session).size);
   if (!authenticated) {
-    return { authenticated: false, role: "anonymous", playerStatus: "available", dmStatus: "available" };
+    return { authenticated: false, role: "anonymous", playerStatus: "available", dmStatus: "available", dmClaimableSlots: [] };
   }
 
   const players = Array.isArray(car && car.players) ? car.players : [];
@@ -69,10 +71,27 @@ function viewerState(car, session) {
   const playerApplications = Array.isArray(car && car.applications) ? car.applications : [];
   const dmApplications = Array.isArray(car && car.dmApplications) ? car.dmApplications : [];
 
-  const player = players.find(item => isActive(item) && matchesViewer(item, session));
-  const staffMember = staff.find(item => isActive(item) && matchesViewer(item, session));
-  const pendingPlayer = playerApplications.find(item => isPending(item) && matchesViewer(item, session));
-  const pendingDm = dmApplications.find(item => isPending(item) && matchesViewer(item, session));
+  // Existing formal membership requires an ID match. Name matching is kept
+  // only for legacy pending applications so old applications do not duplicate.
+  const player = players.find(item => isActive(item) && sameIdentity(item, session));
+  const staffMember = staff.find(item => isActive(item) && sameIdentity(item, session));
+  const pendingPlayer = playerApplications.find(item => isPending(item) && matchesViewerState(item, session));
+  const pendingDm = dmApplications.find(item => isPending(item) && matchesViewerState(item, session));
+
+  const dmClaimableSlots = staff
+    .filter(function (slot) {
+      return isActive(slot) &&
+        !text(slot && (slot.memberId || slot.profileId || slot.identityId)) &&
+        Boolean(displayName(slot));
+    })
+    .map(function (slot, index) {
+      return {
+        id: text(slot.id || slot.slotId),
+        label: text(slot.label || slot.roleLabel || slot.title || index + 1),
+        displayName: displayName(slot)
+      };
+    })
+    .filter(slot => slot.id);
 
   let role = "identified";
   if (staffMember) role = "staff";
@@ -84,7 +103,8 @@ function viewerState(car, session) {
     role,
     displayName: text(session && session.displayName),
     playerStatus: player ? "joined" : pendingPlayer ? "pending" : "available",
-    dmStatus: staffMember ? "joined" : pendingDm ? "pending" : "available"
+    dmStatus: staffMember ? "joined" : pendingDm ? "pending" : "available",
+    dmClaimableSlots: staffMember || pendingDm ? [] : dmClaimableSlots
   };
 }
 
@@ -147,9 +167,9 @@ function publicCar(car) {
     flexibleSlots: Number(source.flexibleSlots || source.flexSlots || source.anySlots || 0),
     studioName: text(source.studioName || source.studio || source.organizerName || source.organizer),
     location: text(source.location || source.locationName || source.address || source.gameLocation),
-    publicNote: text(source.publicNote || source.note),
+    publicNote: text(source.publicNote),
     players,
-    staffSlots: (Array.isArray(source.staffSlots) ? source.staffSlots : []).map(safeStaff),
+    staffSlots: (Array.isArray(source.staffSlots) ? source.staffSlots : []).filter(isActive).map(safeStaff),
     seatSlots
   };
 }
