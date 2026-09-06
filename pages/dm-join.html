@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>DM 身分連結｜JLY</title>
-<link rel="stylesheet" href="../css/style.css">
+<title>前往 DM 身分申請</title>
 </head>
 <body>
-<div class="container">
-<h1>🎭 DM 身分連結</h1>
-<div id="dmJoinBox" class="card">載入中...</div>
-</div>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="/firebase/firebase.js?v=39"></script>
-<script src="/js/core/identity.js"></script>
-<script src="/js/line.js"></script>
-<script src="/js/dm-join.js?v=3"></script>
+<script>
+(function () {
+  var p = new URLSearchParams(location.search);
+  var id = p.get("id") || p.get("carId") || "";
+  var next = new URLSearchParams();
+  if (id) next.set("id", id);
+  if (p.get("groupToken")) next.set("groupToken", p.get("groupToken"));
+  next.set("apply", "dm");
+  location.replace("/pages/car-view.html?" + next.toString());
+})();
+</script>
 </body>
 </html>
