@@ -28,10 +28,13 @@
     if (role === "dm") return text(app && app.targetStaffName);
     return text(app && app.targetPlayerName);
   }
+  function isExistingClaim(app) {
+    return Boolean(app && ["existing_person", "existing_slot"].includes(text(app.claimType)));
+  }
   function claimReviewLabel(app, role) {
     const who = claimant(app) || "LINE 使用者";
     const target = targetName(app, role);
-    if (app && app.claimType === "existing_person" && target) {
+    if (isExistingClaim(app) && target) {
       return `LINE「${who}」→ 認領「${target}」`;
     }
     if (app && app.claimType === "new_person") {
@@ -118,7 +121,7 @@
         const label = app.source === "car_view_identity_claim"
           ? claimReviewLabel(app, "dm")
           : `舊版 LINE「${claimant(app) || "使用者"}」申請，需拒絕後重新認領`;
-        const role = app.source === "car_view_identity_claim" && app.claimType === "existing_person"
+        const role = app.source === "car_view_identity_claim" && isExistingClaim(app)
           ? `角色：本場 DM／工作人員${text(app.targetStaffLabel) ? `（${text(app.targetStaffLabel)}）` : ""}`
           : "角色：本場 DM";
         return `
