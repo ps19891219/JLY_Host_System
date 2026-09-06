@@ -50,7 +50,15 @@ Production/data migration still pending:
 ## In progress in this batch
 
 ### 3. Canonical Person historical reference audit / migration design
-Status: IN PROGRESS, NO PRODUCTION WRITE
+Status: AUDIT HARDENED, REFERENCE INVENTORY NEXT, NO PRODUCTION WRITE
+
+Completed in batch:
+- Person duplicate audit now distinguishes strong-evidence groups from same-name-only groups.
+- Evidence includes canonical/merged Person references, formal person/profile/identity IDs, LINE user ID and linked historical player IDs.
+- Synthetic `line:<userId>` profile/identity values are excluded as formal evidence.
+- Same-name-only groups receive no suggested canonical Person.
+- Audit remains read-only and reports safety flags explicitly.
+- Regression tests cover same-name separation, shared LINE identity, synthetic LINE exclusion and canonical/historical linkage.
 
 Rules:
 - Preserve all historical Activity/Car membership history.
@@ -58,6 +66,10 @@ Rules:
 - Canonical priority: LINE linkage, identityId, profile relationship, linkedPlayerIds and complete historical linkage.
 - Same-name-only groups require manual review.
 - Migration must be dry-run/report first. Destructive apply is a separate explicit stage.
+
+Next:
+- Inventory every Person reference shape in current Car/Activity/Accounting/LINE code before designing migration apply.
+- Add a dry-run reference migration plan that reports proposed changes without writing Firestore.
 
 ## Deployment gate
 
