@@ -20,6 +20,17 @@ test("server-signed LINE login state survives browser transitions", function () 
   assert.equal(result.data.returnPath, "/pages/myprofile.html");
 });
 
+test("server-signed LINE login state preserves a car-entry purpose", function () {
+  const now = Date.now();
+  const state = createLoginState({
+    returnPath: "/pages/car-view.html?id=car-1&entry=dm",
+    purpose: "car_dm_entry"
+  }, "secret", now);
+  const result = verifyLoginState(state, "secret", now + 1000);
+  assert.equal(result.valid, true);
+  assert.equal(result.data.purpose, "car_dm_entry");
+});
+
 test("LINE login state rejects tampering and expiration", function () {
   const now = Date.now();
   const state = createLoginState({}, "secret", now);
