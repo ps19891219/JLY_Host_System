@@ -45,14 +45,13 @@ function buildMemberWelcomeCard(
 
   const title = getCarTitle(car);
 
+  // LINE is only an entry point. Both identities land on the same formal
+  // car view and then use the shared authenticated car-entry action.
   const dmUrl =
-    `${baseUrl}/pages/dm-join.html?id=${carId}`;
+    `${baseUrl}/pages/car-view.html?id=${carId}&entry=dm`;
 
-  // LINE is only an entry point. Players should land on the same
-  // formal public car view used by 車團總覽, where the current
-  // membership state decides whether the page offers registration.
   const playerUrl =
-    `${baseUrl}/pages/car-view.html?id=${carId}`;
+    `${baseUrl}/pages/car-view.html?id=${carId}&entry=player`;
 
   return {
     type: "flex",

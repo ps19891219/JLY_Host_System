@@ -10,7 +10,7 @@ function buttonUri(card, label) {
   return button && button.action && button.action.uri;
 }
 
-test("LINE welcome player entry uses the same formal car view as 車團總覽", function () {
+test("LINE welcome player and DM entries use the same formal car view", function () {
   const card = buildMemberWelcomeCard(
     { id: "car id/1", scriptName: "齒痕" },
     { baseUrl: "https://jly.example.com/" }
@@ -18,10 +18,10 @@ test("LINE welcome player entry uses the same formal car view as 車團總覽", 
 
   assert.equal(
     buttonUri(card, "🎮 我要報名玩家"),
-    "https://jly.example.com/pages/car-view.html?id=car%20id%2F1"
+    "https://jly.example.com/pages/car-view.html?id=car%20id%2F1&entry=player"
   );
   assert.equal(
     buttonUri(card, "🎭 我是本場 DM"),
-    "https://jly.example.com/pages/dm-join.html?id=car%20id%2F1"
+    "https://jly.example.com/pages/car-view.html?id=car%20id%2F1&entry=dm"
   );
 });
