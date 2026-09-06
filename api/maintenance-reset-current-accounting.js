@@ -27,6 +27,17 @@ function sessionIds(session) {
   ].filter(Boolean))];
 }
 
+function parseBody(req) {
+  if (typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body || "{}");
+    } catch (_error) {
+      return {};
+    }
+  }
+  return req.body || {};
+}
+
 async function deleteCollection(collectionRef) {
   let deleted = 0;
 
@@ -118,6 +129,29 @@ async function collectOwnedCars(db, ids) {
   return [...cars.values()];
 }
 
+async function clearAccounting(cars) {
+  let accountingDocumentsDeleted = 0;
+  let accountingCollectionsCleared = 0;
+
+  for (const car of cars) {
+    const collections = await car.ref.listCollections();
+    const accountingCollections = collections.filter(collection =>
+      /^accounting/i.test(collection.id)
+    );
+
+    for (const collection of accountingCollections) {
+      const deleted = await deleteCollection(collection);
+      accountingDocumentsDeleted += deleted;
+      accountingCollectionsCleared += 1;
+    }
+  }
+
+  return {
+    accountingDocumentsDeleted,
+    accountingCollectionsCleared
+  };
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     send(res, 405, { ok: false, error: "method_not_allowed" });
@@ -140,25 +174,32 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    const body = parseBody(req);
+    const accountingOnly = body.mode === "accounting_only";
+
+    if (accountingOnly && body.confirm !== "RESET_ACCOUNTING_ONLY") {
+      send(res, 400, { ok: false, error: "confirmation_required" });
+      return;
+    }
+
     const db = getFirestore();
     const cars = await collectOwnedCars(db, ids);
+    const accountingResult = await clearAccounting(cars);
 
-    let accountingDocumentsDeleted = 0;
-    let accountingCollectionsCleared = 0;
+    if (accountingOnly) {
+      send(res, 200, {
+        ok: true,
+        resetScope: "owned_cars_accounting_only",
+        carsChecked: cars.length,
+        accountingCollectionsCleared: accountingResult.accountingCollectionsCleared,
+        accountingDocumentsDeleted: accountingResult.accountingDocumentsDeleted,
+        remindersMigrated: 0
+      });
+      return;
+    }
+
     let remindersMigrated = 0;
-
     for (const car of cars) {
-      const collections = await car.ref.listCollections();
-      const accountingCollections = collections.filter(collection =>
-        /^accounting/i.test(collection.id)
-      );
-
-      for (const collection of accountingCollections) {
-        const deleted = await deleteCollection(collection);
-        accountingDocumentsDeleted += deleted;
-        accountingCollectionsCleared += 1;
-      }
-
       if (await migrateReminder(car.ref, car.data)) {
         remindersMigrated += 1;
       }
@@ -167,8 +208,8 @@ module.exports = async function handler(req, res) {
     send(res, 200, {
       ok: true,
       carsChecked: cars.length,
-      accountingCollectionsCleared,
-      accountingDocumentsDeleted,
+      accountingCollectionsCleared: accountingResult.accountingCollectionsCleared,
+      accountingDocumentsDeleted: accountingResult.accountingDocumentsDeleted,
       remindersMigrated,
       reminderDefault: "09:00",
       timezone: "Asia/Taipei"
