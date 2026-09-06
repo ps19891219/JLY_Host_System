@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/batch-public-role-reminder-accounting-reset-20260828
+      - feat/unify-line-player-dm-entry-and-group-view-20260906
 
 jobs:
   test:
