@@ -9,7 +9,7 @@
   }
 
   function actionHost() {
-    const oldButton = document.querySelector(".car-view-join-button");
+    const oldButton = document.querySelector("a.car-view-join-button");
     if (oldButton) {
       let host = document.getElementById("car-view-entry-actions");
       if (!host) {
@@ -45,7 +45,7 @@
   function button(host, label, handler, disabled) {
     const element = document.createElement("button");
     element.type = "button";
-    element.className = "car-view-join-button";
+    element.className = "car-view-entry-button";
     element.textContent = label;
     element.disabled = Boolean(disabled);
     if (handler) element.addEventListener("click", handler);
@@ -133,16 +133,34 @@
       note(host, "車團總覽不需要登入，只有送出 DM 身分申請時需要確認身分。");
       return;
     }
+
     note(host, `目前身分：${viewer.displayName || "JLY 成員"}`);
+    const slots = Array.isArray(viewer.dmClaimableSlots) ? viewer.dmClaimableSlots : [];
+    const row = document.createElement("div");
+    row.className = "car-view-entry-form";
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", "DM 身分選擇");
+    const newOption = document.createElement("option");
+    newOption.value = "";
+    newOption.textContent = "名單沒有我，新增我";
+    select.appendChild(newOption);
+    slots.forEach(function (slot) {
+      const option = document.createElement("option");
+      option.value = text(slot.id);
+      option.textContent = `我是 ${text(slot.label) || "DM"}｜${text(slot.displayName)}`;
+      select.appendChild(option);
+    });
+    row.appendChild(select);
+    host.appendChild(row);
     button(host, "🎭 送出本場 DM 身分申請", function () {
-      submit({ type: "dm" }, host);
+      submit({ type: "dm", targetStaffId: select.value }, host);
     });
   }
 
   async function renderActions() {
     const id = carId();
     if (!id) return;
-    let host = actionHost();
+    const host = actionHost();
     if (!host) return;
     host.innerHTML = "";
     try {
@@ -159,7 +177,7 @@
     const container = document.getElementById("car-view-content");
     if (!container) return;
     const observer = new MutationObserver(function () {
-      if (document.querySelector(".car-view-join-button")) renderActions();
+      if (document.querySelector("a.car-view-join-button")) renderActions();
     });
     observer.observe(container, { childList: true, subtree: true });
     renderActions();
