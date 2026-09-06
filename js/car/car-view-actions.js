@@ -25,7 +25,9 @@
 
   async function login(entry) {
     try {
-      const returnPath = location.pathname + location.search;
+      const paramsNow = new URLSearchParams(location.search);
+      paramsNow.set("entry", entry === "dm" ? "dm" : "player");
+      const returnPath = location.pathname + "?" + paramsNow.toString();
       const purpose = entry === "dm" ? "car_dm_entry" : "car_player_entry";
       const response = await fetch("/api/line-login-state", {
         method: "POST",
@@ -92,6 +94,32 @@
     host.appendChild(p);
   }
 
+  function claimSelect(host, ariaLabel, items, formatter) {
+    const row = document.createElement("div");
+    row.className = "car-view-entry-form";
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", ariaLabel);
+    const placeholder = document.createElement("option");
+    placeholder.value = "__choose__";
+    placeholder.textContent = "請選擇你的名字";
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+    (Array.isArray(items) ? items : []).forEach(function (item) {
+      const option = document.createElement("option");
+      option.value = text(item.id);
+      option.textContent = formatter(item);
+      select.appendChild(option);
+    });
+    const newOption = document.createElement("option");
+    newOption.value = "";
+    newOption.textContent = "名單沒有我／新增我的名字";
+    select.appendChild(newOption);
+    row.appendChild(select);
+    host.appendChild(row);
+    return select;
+  }
+
   async function submit(payload, host) {
     const controls = host.querySelectorAll("button,select,input");
     controls.forEach(item => { item.disabled = true; });
@@ -122,19 +150,25 @@
       return;
     }
     if (viewer.playerStatus === "pending") {
-      button(host, "🟡 玩家報名等待審核中", null, true);
+      button(host, "🟡 玩家身分申請等待主揪審核中", null, true);
       return;
     }
     if (!viewer.authenticated) {
       button(host, "🎮 使用 LINE 身分繼續報名", function () { login("player"); });
-      note(host, "車團資訊可直接查看，只有送出報名時需要確認身分。");
+      note(host, "車團資訊可直接查看，只有送出身分認領／報名時需要確認 LINE 身分。");
       return;
     }
+
+    note(host, `LINE 使用者：${viewer.displayName || "已驗證使用者"}。請先選擇本場哪個名字是你，主揪核准後才會正式綁定。`);
+    const people = Array.isArray(viewer.playerClaimablePeople) ? viewer.playerClaimablePeople : [];
+    const identitySelect = claimSelect(host, "玩家身分選擇", people, function (person) {
+      return `我是 ${text(person.displayName)}`;
+    });
 
     const row = document.createElement("div");
     row.className = "car-view-entry-form";
     const select = document.createElement("select");
-    select.setAttribute("aria-label", "報名位置");
+    select.setAttribute("aria-label", "新玩家報名位置");
     ["男位", "女位", "不限"].forEach(function (value) {
       const option = document.createElement("option");
       option.value = value; option.textContent = value; select.appendChild(option);
@@ -147,8 +181,26 @@
     row.appendChild(select);
     row.appendChild(crossLabel);
     host.appendChild(row);
-    button(host, "🎮 送出玩家報名", function () {
-      submit({ type: "player", position: select.value, isCrossPlay: cross.checked }, host);
+
+    function syncNewPersonFields() {
+      const isNew = identitySelect.value === "";
+      select.disabled = !isNew;
+      cross.disabled = !isNew;
+    }
+    identitySelect.addEventListener("change", syncNewPersonFields);
+    syncNewPersonFields();
+
+    button(host, "🎮 送出玩家身分申請", function () {
+      if (identitySelect.value === "__choose__") {
+        alert("請先選擇你的名字，或選擇「名單沒有我」。");
+        return;
+      }
+      submit({
+        type: "player",
+        targetPlayerId: identitySelect.value,
+        position: select.value,
+        isCrossPlay: cross.checked
+      }, host);
     });
   }
 
@@ -158,34 +210,26 @@
       return;
     }
     if (viewer.dmStatus === "pending") {
-      button(host, "🟡 DM 身分申請等待審核中", null, true);
+      button(host, "🟡 DM 身分申請等待主揪審核中", null, true);
       return;
     }
     if (!viewer.authenticated) {
       button(host, "🎭 使用 LINE 身分繼續 DM 申請", function () { login("dm"); });
-      note(host, "車團總覽不需要登入，只有送出 DM 身分申請時需要確認身分。");
+      note(host, "車團總覽不需要登入，只有送出 DM 身分認領時需要確認 LINE 身分。");
       return;
     }
 
-    note(host, `目前身分：${viewer.displayName || "JLY 成員"}`);
+    note(host, `LINE 使用者：${viewer.displayName || "已驗證使用者"}。請選擇本場哪個 DM／工作人員名字是你，主揪核准後才會正式綁定。`);
     const slots = Array.isArray(viewer.dmClaimableSlots) ? viewer.dmClaimableSlots : [];
-    const row = document.createElement("div");
-    row.className = "car-view-entry-form";
-    const select = document.createElement("select");
-    select.setAttribute("aria-label", "DM 身分選擇");
-    const newOption = document.createElement("option");
-    newOption.value = "";
-    newOption.textContent = "名單沒有我，新增我";
-    select.appendChild(newOption);
-    slots.forEach(function (slot) {
-      const option = document.createElement("option");
-      option.value = text(slot.id);
-      option.textContent = `我是 ${text(slot.label) || "DM"}｜${text(slot.displayName)}`;
-      select.appendChild(option);
+    const select = claimSelect(host, "DM 身分選擇", slots, function (slot) {
+      const role = text(slot.label);
+      return `我是 ${text(slot.displayName)}${role ? `（${role}）` : ""}`;
     });
-    row.appendChild(select);
-    host.appendChild(row);
     button(host, "🎭 送出本場 DM 身分申請", function () {
+      if (select.value === "__choose__") {
+        alert("請先選擇你的名字，或選擇「名單沒有我」。");
+        return;
+      }
       submit({ type: "dm", targetStaffId: select.value }, host);
     });
   }

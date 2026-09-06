@@ -2,6 +2,7 @@
 
 function text(value) { return String(value == null ? "" : value).trim(); }
 function lower(value) { return text(value).toLowerCase(); }
+function isSyntheticLineId(value) { return /^line:/i.test(text(value)); }
 
 function identityIds(value) {
   const source = value && typeof value === "object" ? value : {};
@@ -11,16 +12,29 @@ function identityIds(value) {
     source.identityId, ...(Array.isArray(source.linkedPlayerIds) ? source.linkedPlayerIds : []),
     nested.id, nested.personId, nested.memberId, nested.playerId, nested.profileId,
     nested.identityId, ...(Array.isArray(nested.linkedPlayerIds) ? nested.linkedPlayerIds : [])
-  ].map(text).filter(Boolean);
+  ].map(text).filter(id => id && !isSyntheticLineId(id));
 }
 
 function sessionIds(session) {
-  return new Set([session && session.profileId, session && session.identityId].map(text).filter(Boolean));
+  if (session && session.provisional === true) return new Set();
+  return new Set([
+    session && session.profileId,
+    session && session.identityId
+  ].map(text).filter(id => id && !isSyntheticLineId(id)));
+}
+
+function isAuthenticated(session) {
+  return Boolean(text(session && session.lineUserId) || sessionIds(session).size);
 }
 
 function sameIdentity(value, session) {
   const ids = sessionIds(session);
   return ids.size > 0 && identityIds(value).some(id => ids.has(id));
+}
+
+function sameLineIdentity(value, session) {
+  const expected = text(session && session.lineUserId);
+  return Boolean(expected && text(value && value.lineUserId) === expected);
 }
 
 function displayName(value) {
@@ -29,12 +43,13 @@ function displayName(value) {
 }
 
 function sameLegacyName(value, session) {
+  if (session && session.provisional === true) return false;
   const sessionName = lower(session && session.displayName);
   return Boolean(sessionName && lower(displayName(value)) === sessionName);
 }
 
 function matchesViewerState(value, session) {
-  return sameIdentity(value, session) || sameLegacyName(value, session);
+  return sameLineIdentity(value, session) || sameIdentity(value, session) || sameLegacyName(value, session);
 }
 
 function isActive(value) {
@@ -55,15 +70,31 @@ function isCarMember(car, session) {
     ...(Array.isArray(car && car.players) ? car.players : []),
     ...(Array.isArray(car && car.staffSlots) ? car.staffSlots : [])
   ];
-  // Full member access is identity-sensitive. Legacy display-name matching is
-  // intentionally NOT enough to unlock the complete car payload.
   return members.some(member => isActive(member) && sameIdentity(member, session));
 }
 
+function rosterPlayerId(player) {
+  const source = player && typeof player === "object" ? player : {};
+  return text(source.playerId || source.id || source.profileId || source.memberId);
+}
+
+function hasDifferentLineBinding(value, session) {
+  const bound = text(value && value.lineUserId);
+  const claimant = text(session && session.lineUserId);
+  return Boolean(bound && claimant && bound !== claimant);
+}
+
 function viewerState(car, session) {
-  const authenticated = Boolean(sessionIds(session).size);
+  const authenticated = isAuthenticated(session);
   if (!authenticated) {
-    return { authenticated: false, role: "anonymous", playerStatus: "available", dmStatus: "available", dmClaimableSlots: [] };
+    return {
+      authenticated: false,
+      role: "anonymous",
+      playerStatus: "available",
+      dmStatus: "available",
+      playerClaimablePeople: [],
+      dmClaimableSlots: []
+    };
   }
 
   const players = Array.isArray(car && car.players) ? car.players : [];
@@ -71,18 +102,30 @@ function viewerState(car, session) {
   const playerApplications = Array.isArray(car && car.applications) ? car.applications : [];
   const dmApplications = Array.isArray(car && car.dmApplications) ? car.dmApplications : [];
 
-  // Existing formal membership requires an ID match. Name matching is kept
-  // only for legacy pending applications so old applications do not duplicate.
-  const player = players.find(item => isActive(item) && sameIdentity(item, session));
-  const staffMember = staff.find(item => isActive(item) && sameIdentity(item, session));
+  const player = players.find(item => isActive(item) && (sameIdentity(item, session) || sameLineIdentity(item, session)));
+  const staffMember = staff.find(item => isActive(item) && (sameIdentity(item, session) || sameLineIdentity(item, session)));
   const pendingPlayer = playerApplications.find(item => isPending(item) && matchesViewerState(item, session));
   const pendingDm = dmApplications.find(item => isPending(item) && matchesViewerState(item, session));
 
+  const playerClaimablePeople = players
+    .filter(function (item) {
+      return isActive(item) && Boolean(displayName(item)) && Boolean(rosterPlayerId(item)) &&
+        !sameIdentity(item, session) && !sameLineIdentity(item, session) &&
+        !hasDifferentLineBinding(item, session);
+    })
+    .map(function (item) {
+      return {
+        id: rosterPlayerId(item),
+        displayName: displayName(item),
+        position: text(item.position || item.roleChoice || item.role)
+      };
+    });
+
   const dmClaimableSlots = staff
     .filter(function (slot) {
-      return isActive(slot) &&
-        !text(slot && (slot.memberId || slot.profileId || slot.identityId)) &&
-        Boolean(displayName(slot));
+      return isActive(slot) && Boolean(text(slot && (slot.id || slot.slotId))) && Boolean(displayName(slot)) &&
+        !sameIdentity(slot, session) && !sameLineIdentity(slot, session) &&
+        !hasDifferentLineBinding(slot, session);
     })
     .map(function (slot, index) {
       return {
@@ -90,8 +133,7 @@ function viewerState(car, session) {
         label: text(slot.label || slot.roleLabel || slot.title || index + 1),
         displayName: displayName(slot)
       };
-    })
-    .filter(slot => slot.id);
+    });
 
   let role = "identified";
   if (staffMember) role = "staff";
@@ -100,10 +142,12 @@ function viewerState(car, session) {
 
   return {
     authenticated: true,
+    provisional: session && session.provisional === true,
     role,
     displayName: text(session && session.displayName),
     playerStatus: player ? "joined" : pendingPlayer ? "pending" : "available",
     dmStatus: staffMember ? "joined" : pendingDm ? "pending" : "available",
+    playerClaimablePeople: player || pendingPlayer ? [] : playerClaimablePeople,
     dmClaimableSlots: staffMember || pendingDm ? [] : dmClaimableSlots
   };
 }
