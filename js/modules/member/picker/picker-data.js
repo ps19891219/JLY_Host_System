@@ -23,7 +23,7 @@ console.log("picker-data.js 已成功載入！");
     const safeMember = member || {};
     return text(
       safeMember.displayName || safeMember.nickname || safeMember.playerName ||
-      safeMember.lineDisplayName || safeMember.name || "未命名工作人員"
+      safeMember.lineDisplayName || safeMember.name || "未命名人員"
     );
   }
 
@@ -71,8 +71,6 @@ console.log("picker-data.js 已成功載入！");
       add("ref:", value);
     }
 
-    // Explicit document/reference relationships are strong evidence. The record's own id
-    // shares the same namespace so mergedIntoPersonId/profileId can resolve back to it.
     addReference(safe.id);
     addReference(safe.canonicalPersonId);
     addReference(safe.canonicalProfileId);
@@ -98,8 +96,8 @@ console.log("picker-data.js 已成功載入！");
     let score = 0;
     if (text(safe.lineUserId) || text(safe.lineIdentityId)) score += 100;
     if (text(safe.identityId)) score += 60;
-    if (text(safe.profileId)) score += 40;
-    if (text(safe.personId)) score += 30;
+    if (text(safe.profileId) && !isSyntheticLineId(safe.profileId)) score += 40;
+    if (text(safe.personId) && !isSyntheticLineId(safe.personId)) score += 30;
     if (Array.isArray(safe.linkedPlayerIds)) score += Math.min(safe.linkedPlayerIds.length, 20);
     if (safe.isCanonicalPerson === true || safe.isCanonicalProfile === true) score += 200;
     return score;
@@ -143,12 +141,48 @@ console.log("picker-data.js 已成功載入！");
     return Array.from(bestByRoot.values());
   }
 
+  function isLineLinked(member) {
+    const safe = member || {};
+    return Boolean(
+      safe.isLineLinked === true ||
+      text(safe.lineUserId) ||
+      text(safe.lineIdentityId)
+    );
+  }
+
+  function hasFormalIdentity(member) {
+    const safe = member || {};
+    return Boolean(
+      text(safe.identityId) ||
+      (text(safe.profileId) && !isSyntheticLineId(safe.profileId)) ||
+      (text(safe.personId) && !isSyntheticLineId(safe.personId)) ||
+      text(safe.canonicalPersonId)
+    );
+  }
+
+  function getIdentityState(member) {
+    if (isLineLinked(member)) return "line_linked";
+    if (hasFormalIdentity(member)) return "person_linked";
+    return "guest";
+  }
+
+  function getIdentityLabel(member) {
+    const state = getIdentityState(member);
+    if (state === "line_linked") return "已連結 LINE";
+    if (state === "person_linked") return "既有人員";
+    return "尚未連結";
+  }
+
   async function loadAllMembers() {
     const snapshot = await getDatabase().collection("players").get();
     const members = snapshot.docs.map(function (doc) {
       return { id: doc.id, ...doc.data() };
     });
     return sortMembersByName(dedupeCanonicalMembers(removeDeletedMembers(members)));
+  }
+
+  async function loadPersonDirectory() {
+    return loadAllMembers();
   }
 
   function searchMembers(members, keyword) {
@@ -227,7 +261,8 @@ console.log("picker-data.js 已成功載入！");
   window.JLYMemberPickerData = {
     normalizeText, getMemberName, getMemberSearchValues,
     getCanonicalMemberId, getStrongIdentityKeys, dedupeCanonicalMembers,
-    loadAllMembers, searchMembers,
+    isLineLinked, hasFormalIdentity, getIdentityState, getIdentityLabel,
+    loadAllMembers, loadPersonDirectory, searchMembers,
     loadStudioById, loadStudioMemberIds, getStudioMemberIds,
     getMembersByIds, findDuplicateMembers, findDuplicateMember
   };
