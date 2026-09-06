@@ -24,6 +24,13 @@ function safeReturnPath(value) {
     : "/index.html";
 }
 
+function safePurpose(value) {
+  const purpose = String(value || "").trim().toLowerCase();
+  return ["car_player_entry", "car_dm_entry"].includes(purpose)
+    ? purpose
+    : "";
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -37,7 +44,8 @@ module.exports = async function handler(req, res) {
   const state = createLoginState({
     playerProfileId: input.playerProfileId,
     identityId: input.identityId,
-    returnPath: safeReturnPath(input.returnPath)
+    returnPath: safeReturnPath(input.returnPath),
+    purpose: safePurpose(input.purpose)
   }, secret);
   return send(res, 200, { success: true, state });
 };

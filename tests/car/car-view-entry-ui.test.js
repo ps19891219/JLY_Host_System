@@ -14,7 +14,7 @@ test("car view loads the unified entry action layer without blocking anonymous r
   const controller = source("js/car/car-view.js");
   const actions = source("js/car/car-view-actions.js");
 
-  assert.match(html, /\/js\/car\/car-view-actions\.js\?v=3/);
+  assert.match(html, /\/js\/car\/car-view-actions\.js\?v=4/);
   assert.match(controller, /\/api\/car-view-context\?id=/);
   assert.doesNotMatch(controller, /location\.href\s*=\s*["'][^"']*login/i);
   assert.match(actions, /fetch\("\/api\/car-view-context"/);
@@ -22,12 +22,15 @@ test("car view loads the unified entry action layer without blocking anonymous r
   assert.match(actions, /車團資訊可直接查看/);
 });
 
-test("formal car view action layer launches LINE OAuth with the proven group-assistant path", () => {
+test("formal car view action layer launches LINE OAuth with a signed car-entry purpose", () => {
   const actions = source("js/car/car-view-actions.js");
   assert.doesNotMatch(actions, /join\.html/);
   assert.doesNotMatch(actions, /dm-join\.html/);
   assert.doesNotMatch(actions, /JLYLineLogin\.start/);
   assert.match(actions, /fetch\("\/api\/line-login-state"/);
+  assert.match(actions, /car_dm_entry/);
+  assert.match(actions, /car_player_entry/);
+  assert.match(actions, /purpose/);
   assert.match(actions, /client_id:\s*"2010653666"/);
   assert.match(actions, /redirect_uri:\s*`\$\{location\.origin\}\/pages\/line-callback\.html`/);
   assert.match(actions, /location\.assign\(`https:\/\/access\.line\.me\/oauth2\/v2\.1\/authorize\?/);
@@ -43,7 +46,5 @@ test("legacy join pages remain present but are no longer the LINE or car-view ac
   const renderer = source("js/car/car-view-render.js");
   assert.doesNotMatch(welcome, /dm-join\.html/);
   assert.doesNotMatch(welcome, /pages\/join\.html/);
-  // The legacy renderer link is intercepted by car-view-actions until the
-  // renderer itself can be simplified in a later cleanup without UI churn.
   assert.match(renderer, /pages\/join\.html/);
 });

@@ -30,7 +30,8 @@ function createLoginState(data, secret, now = Date.now()) {
     issuedAt: now,
     playerProfileId: text(data && data.playerProfileId),
     identityId: text(data && data.identityId),
-    returnPath: text(data && data.returnPath) || "/index.html"
+    returnPath: text(data && data.returnPath) || "/index.html",
+    purpose: text(data && data.purpose)
   }));
   return `${payload}.${sign(payload, secret)}`;
 }
