@@ -111,7 +111,7 @@ test("DM existing-person claim never writes line:<userId> into memberId/profileI
   }, { db });
 
   const app = db.car.dmApplications[0];
-  assert.equal(app.claimType, "existing_person");
+  assert.equal(app.claimType, "existing_slot");
   assert.equal(app.targetStaffName, "Ian");
   assert.equal(app.targetPersonId, "person-ian");
   assert.equal(app.lineDisplayName, "紫菱");
