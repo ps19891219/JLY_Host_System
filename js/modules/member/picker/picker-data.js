@@ -67,16 +67,27 @@ console.log("picker-data.js 已成功載入！");
       if (!safeValue || isSyntheticLineId(safeValue)) return;
       keys.push(prefix + safeValue);
     }
+    function addReference(value) {
+      add("ref:", value);
+    }
 
-    add("canonical:", safe.canonicalPersonId || safe.canonicalProfileId || safe.canonicalMemberId);
-    add("canonical:", safe.mergedIntoPersonId || safe.mergedIntoProfileId || safe.mergedIntoMemberId);
+    // Explicit document/reference relationships are strong evidence. The record's own id
+    // shares the same namespace so mergedIntoPersonId/profileId can resolve back to it.
+    addReference(safe.id);
+    addReference(safe.canonicalPersonId);
+    addReference(safe.canonicalProfileId);
+    addReference(safe.canonicalMemberId);
+    addReference(safe.mergedIntoPersonId);
+    addReference(safe.mergedIntoProfileId);
+    addReference(safe.mergedIntoMemberId);
+    addReference(safe.personId);
+    addReference(safe.profileId);
+
     add("line:", safe.lineUserId || safe.lineIdentityId);
     add("identity:", safe.identityId);
-    add("profile:", safe.profileId);
-    add("person:", safe.personId);
 
     if (Array.isArray(safe.linkedPlayerIds)) {
-      safe.linkedPlayerIds.forEach(function (id) { add("linked:", id); });
+      safe.linkedPlayerIds.forEach(addReference);
     }
 
     return [...new Set(keys)];
