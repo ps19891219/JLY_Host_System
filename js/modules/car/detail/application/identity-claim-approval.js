@@ -15,7 +15,7 @@
   }
 
   function isIdentityClaim(app) {
-    return Boolean(app && app.source === "car_view_identity_claim" && ["existing_person", "new_person"].includes(text(app.claimType)));
+    return Boolean(app && app.source === "car_view_identity_claim" && ["existing_person", "existing_slot", "new_person"].includes(text(app.claimType)));
   }
 
   function candidateIds(value, app) {
@@ -317,7 +317,7 @@
         const car = snap.data() || {};
         const app = list(car.dmApplications).find(item => text(item.id) === text(applicationId));
         if (!isIdentityClaim(app)) return originalDmApprove(applicationId);
-        if (app.claimType === "existing_person") await approveExistingDm(applicationId, app, car);
+        if (app.claimType === "existing_person" || app.claimType === "existing_slot") await approveExistingDm(applicationId, app, car);
         else await approveNewDm(applicationId, app);
         await refresh();
       } catch (error) {
