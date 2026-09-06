@@ -15,6 +15,10 @@ console.log("picker-data.js 已成功載入！");
     return String(value || "").trim();
   }
 
+  function isSyntheticLineId(value) {
+    return text(value).toLowerCase().startsWith("line:");
+  }
+
   function getMemberName(member) {
     const safeMember = member || {};
     return text(
@@ -51,8 +55,31 @@ console.log("picker-data.js 已成功載入！");
     return text(
       safe.canonicalPersonId || safe.canonicalProfileId || safe.canonicalMemberId ||
       safe.mergedIntoPersonId || safe.mergedIntoProfileId || safe.mergedIntoMemberId ||
-      safe.personId || safe.profileId || safe.identityId || safe.id
+      safe.personId || safe.profileId || safe.id
     );
+  }
+
+  function getStrongIdentityKeys(member) {
+    const safe = member || {};
+    const keys = [];
+    function add(prefix, value) {
+      const safeValue = text(value);
+      if (!safeValue || isSyntheticLineId(safeValue)) return;
+      keys.push(prefix + safeValue);
+    }
+
+    add("canonical:", safe.canonicalPersonId || safe.canonicalProfileId || safe.canonicalMemberId);
+    add("canonical:", safe.mergedIntoPersonId || safe.mergedIntoProfileId || safe.mergedIntoMemberId);
+    add("line:", safe.lineUserId || safe.lineIdentityId);
+    add("identity:", safe.identityId);
+    add("profile:", safe.profileId);
+    add("person:", safe.personId);
+
+    if (Array.isArray(safe.linkedPlayerIds)) {
+      safe.linkedPlayerIds.forEach(function (id) { add("linked:", id); });
+    }
+
+    return [...new Set(keys)];
   }
 
   function evidenceScore(member) {
@@ -68,16 +95,41 @@ console.log("picker-data.js 已成功載入！");
   }
 
   function dedupeCanonicalMembers(members) {
-    const byCanonical = new Map();
-    (Array.isArray(members) ? members : []).forEach(function (member) {
-      const key = getCanonicalMemberId(member) || text(member && member.id);
-      if (!key) return;
-      const existing = byCanonical.get(key);
+    const rows = Array.isArray(members) ? members : [];
+    const parent = rows.map(function (_, index) { return index; });
+    const ownerByKey = new Map();
+
+    function find(index) {
+      while (parent[index] !== index) {
+        parent[index] = parent[parent[index]];
+        index = parent[index];
+      }
+      return index;
+    }
+
+    function union(left, right) {
+      const leftRoot = find(left);
+      const rightRoot = find(right);
+      if (leftRoot !== rightRoot) parent[rightRoot] = leftRoot;
+    }
+
+    rows.forEach(function (member, index) {
+      getStrongIdentityKeys(member).forEach(function (key) {
+        if (ownerByKey.has(key)) union(index, ownerByKey.get(key));
+        else ownerByKey.set(key, index);
+      });
+    });
+
+    const bestByRoot = new Map();
+    rows.forEach(function (member, index) {
+      const root = find(index);
+      const existing = bestByRoot.get(root);
       if (!existing || evidenceScore(member) > evidenceScore(existing)) {
-        byCanonical.set(key, member);
+        bestByRoot.set(root, member);
       }
     });
-    return Array.from(byCanonical.values());
+
+    return Array.from(bestByRoot.values());
   }
 
   async function loadAllMembers() {
@@ -147,21 +199,25 @@ console.log("picker-data.js 已成功載入！");
     });
   }
 
-  function findDuplicateMember(members, displayName) {
+  function findDuplicateMembers(members, displayName) {
     const target = normalizeText(displayName);
-    if (!target) return null;
-    return (Array.isArray(members) ? members : []).find(function (member) {
+    if (!target) return [];
+    return (Array.isArray(members) ? members : []).filter(function (member) {
       return getMemberSearchValues(member).some(function (value) {
         return normalizeText(value) === target;
       });
-    }) || null;
+    });
+  }
+
+  function findDuplicateMember(members, displayName) {
+    return findDuplicateMembers(members, displayName)[0] || null;
   }
 
   window.JLYMemberPickerData = {
     normalizeText, getMemberName, getMemberSearchValues,
-    getCanonicalMemberId, dedupeCanonicalMembers,
+    getCanonicalMemberId, getStrongIdentityKeys, dedupeCanonicalMembers,
     loadAllMembers, searchMembers,
     loadStudioById, loadStudioMemberIds, getStudioMemberIds,
-    getMembersByIds, findDuplicateMember
+    getMembersByIds, findDuplicateMembers, findDuplicateMember
   };
 })();
