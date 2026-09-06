@@ -21,6 +21,19 @@ test("member session preserves verified LINE member identity", function () {
   assert.equal(result.data.lineUserId, "U-line-1");
 });
 
+test("verified first-time LINE identity may hold a provisional car-entry session", function () {
+  const token = createMemberSession({
+    profileId: "line:U-first",
+    lineUserId: "U-first",
+    displayName: "第一次使用者",
+    provisional: true
+  }, "test-secret");
+  const result = verifyMemberSession(token, "test-secret");
+  assert.equal(result.valid, true);
+  assert.equal(result.data.provisional, true);
+  assert.equal(result.data.lineUserId, "U-first");
+});
+
 test("member session rejects tampering and uses a secure HttpOnly cookie", function () {
   const token = createMemberSession({
     profileId: "profile-1",
