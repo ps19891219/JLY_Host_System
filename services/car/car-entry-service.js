@@ -44,7 +44,6 @@ function sameLineIdentity(value, session) {
 
 function matchesViewer(value, session) {
   if (sameLineIdentity(value, session) || sameIdentity(value, session)) return true;
-  // Legacy name fallback is only safe for already-linked/formal sessions.
   if (session && session.provisional === true) return false;
   const viewerName = lower(session && session.displayName);
   return Boolean(viewerName && lower(displayName(value)) === viewerName);
@@ -215,7 +214,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
       name: targetName || identity.displayName,
       status: "pending",
       source: "car_view_identity_claim",
-      claimType: target ? "existing_person" : "new_person",
+      claimType: target ? "existing_slot" : "new_person",
       targetStaffId: target ? text(target.id || target.slotId) : "",
       targetStaffName: targetName,
       targetStaffLabel: target ? text(target.label || target.roleLabel || target.title) : "",
@@ -225,7 +224,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
       updatedAt: timestamp
     });
     transaction.update(carRef, { dmApplications: applications, updatedAt: timestamp });
-    result = { id, status: "pending", type: "dm", claimType: target ? "existing_person" : "new_person" };
+    result = { id, status: "pending", type: "dm", claimType: target ? "existing_slot" : "new_person" };
   });
 
   return result;
