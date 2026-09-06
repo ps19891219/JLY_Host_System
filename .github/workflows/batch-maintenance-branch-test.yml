@@ -3,7 +3,7 @@ name: Batch maintenance branch test
 on:
   push:
     branches:
-      - feature/line-car-entry-unification
+      - feat/batch-public-role-reminder-accounting-reset-20260828
 
 jobs:
   test:
