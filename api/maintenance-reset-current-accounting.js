@@ -159,15 +159,13 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const session = await verifyMemberSession(
-      readCookie(req, "jly_member_session")
-    );
-
-    if (!session) {
+    const verified = verifyMemberSession(readCookie(req));
+    if (!verified.valid) {
       send(res, 401, { ok: false, error: "member_session_required" });
       return;
     }
 
+    const session = verified.data;
     const ids = sessionIds(session);
     if (!ids.length) {
       send(res, 403, { ok: false, error: "member_identity_required" });
