@@ -252,7 +252,8 @@
   margin-top: 18px;
 }
 
-.car-view-join-button {
+.car-view-join-button,
+.car-view-entry-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -261,10 +262,47 @@
 
   color: #fff;
   background: #6b5cff;
+  border: 0;
   border-radius: 14px;
 
+  font: inherit;
   font-weight: 800;
   text-decoration: none;
+}
+
+.car-view-entry-button:disabled {
+  opacity: 0.7;
+}
+
+#car-view-entry-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.car-view-entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: #f7f7f9;
+  border-radius: 12px;
+}
+
+.car-view-entry-form select {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.car-view-entry-note {
+  margin: 0;
+  color: #777;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .car-view-status-message {
