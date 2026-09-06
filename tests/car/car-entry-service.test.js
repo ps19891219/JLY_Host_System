@@ -100,7 +100,7 @@ test("DM entry preserves formal application shape and does not create staff befo
   assert.equal(after.dmApplications.length, 1);
   assert.equal(after.dmApplications[0].id, result.id);
   assert.equal(after.dmApplications[0].memberId, "person-1");
-  assert.equal(after.dmApplications[0].claimType, "existing_person");
+  assert.equal(after.dmApplications[0].claimType, "existing_slot");
   assert.equal(after.dmApplications[0].targetStaffId, "dm-1");
   assert.equal(after.dmApplications[0].status, "pending");
   assert.deepEqual(after.staffSlots, before.staffSlots);
