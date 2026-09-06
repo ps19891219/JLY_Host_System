@@ -3,11 +3,7 @@
 
 /**
  * Person canonical migration DRY RUN.
- *
- * This tool intentionally has no apply mode and no Firestore write calls.
- * It inventories every Firestore document reachable from top-level collections,
- * including nested car/accounting/reminder/application subcollections, then
- * reports exact fields containing candidate Person ids.
+ * No apply mode. No Firestore writes/deletes.
  */
 
 const admin = require("firebase-admin");
@@ -48,6 +44,31 @@ function referenceDomain(documentPath, fieldPath) {
   return "OTHER";
 }
 
+function personReferenceAliases(row) {
+  const aliases = new Set();
+  const ownId = audit.text(row && row.id);
+  if (ownId && !audit.isSyntheticLineId(ownId)) aliases.add(ownId);
+  const evidence = audit.ids(row || {});
+  if (evidence.personId && !audit.isSyntheticLineId(evidence.personId)) aliases.add(evidence.personId);
+  evidence.linkedPlayerIds.forEach(value => {
+    if (!audit.isSyntheticLineId(value)) aliases.add(value);
+  });
+  return [...aliases];
+}
+
+function buildAliasOwners(groups) {
+  const aliasOwners = new Map();
+  (Array.isArray(groups) ? groups : []).forEach(group => {
+    group.rows.forEach(row => {
+      personReferenceAliases(row).forEach(alias => {
+        if (!aliasOwners.has(alias)) aliasOwners.set(alias, new Set());
+        aliasOwners.get(alias).add(audit.text(row.id));
+      });
+    });
+  });
+  return aliasOwners;
+}
+
 async function walkCollection(collectionRef, visitor) {
   const snapshot = await collectionRef.get();
   for (const doc of snapshot.docs) {
@@ -57,14 +78,16 @@ async function walkCollection(collectionRef, visitor) {
   }
 }
 
-async function inventoryAllReferences(db, targetIds) {
+async function inventoryAllReferences(db, aliasOwners) {
   const references = [];
+  const targetIds = new Set(aliasOwners.keys());
   const topCollections = await db.listCollections();
   for (const collection of topCollections) {
     await walkCollection(collection, async doc => {
       const hits = findIdReferences(doc.data(), targetIds);
       hits.forEach(hit => references.push({
-        personId: hit.personId,
+        matchedAlias: hit.personId,
+        ownerPersonIds: [...(aliasOwners.get(hit.personId) || [])],
         documentPath: doc.ref.path,
         fieldPath: hit.fieldPath,
         domain: referenceDomain(doc.ref.path, hit.fieldPath)
@@ -75,14 +98,7 @@ async function inventoryAllReferences(db, targetIds) {
 }
 
 function buildGroups(players) {
-  const byName = new Map();
-  players.forEach(row => {
-    const key = audit.norm(audit.nameOf(row));
-    if (!key) return;
-    if (!byName.has(key)) byName.set(key, []);
-    byName.get(key).push(row);
-  });
-  return [...byName.values()].filter(rows => rows.length > 1).map(rows => {
+  return audit.buildCandidateGroups(players).map(rows => {
     const ranked = [...rows].sort((a, b) => audit.score(b) - audit.score(a) || audit.text(a.id).localeCompare(audit.text(b.id)));
     const classification = audit.classify(ranked);
     return { rows: ranked, classification, recommendation: audit.recommendCanonical(ranked, classification) };
@@ -92,25 +108,37 @@ function buildGroups(players) {
 function buildMigrationPlans(groups, references) {
   return groups.map(group => {
     const canonicalId = group.recommendation && group.recommendation.personId;
-    const personIds = group.rows.map(row => row.id);
-    const groupRefs = references.filter(ref => personIds.includes(ref.personId));
+    const personIds = group.rows.map(row => audit.text(row.id));
+    const aliasesByPerson = Object.fromEntries(group.rows.map(row => [audit.text(row.id), personReferenceAliases(row)]));
+    const groupRefs = references.filter(ref => ref.ownerPersonIds.some(id => personIds.includes(id)));
+    const ambiguousRefs = groupRefs.filter(ref => ref.ownerPersonIds.length > 1);
     const byDomain = groupRefs.reduce((out, ref) => {
       if (!out[ref.domain]) out[ref.domain] = [];
       out[ref.domain].push(ref);
       return out;
     }, {});
+    const safeCandidate = group.classification.disposition === "SAFE STRONG MATCH" && canonicalId && ambiguousRefs.length === 0;
     return {
-      name: audit.nameOf(group.rows[0]),
+      names: [...new Set(group.rows.map(audit.nameOf).filter(Boolean))],
       classification: group.classification.disposition,
+      strongConflicts: group.classification.strongConflicts || [],
       canonicalRecommendation: group.recommendation,
-      migrationStatus: group.classification.disposition === "SAFE STRONG MATCH" ? "DRY_RUN_CANDIDATE" : "BLOCKED_FOR_REVIEW",
-      moves: canonicalId ? personIds.filter(id => id !== canonicalId).map(fromPersonId => ({
+      migrationStatus: safeCandidate ? "DRY_RUN_CANDIDATE" : "BLOCKED_FOR_REVIEW",
+      migrationBlockers: [
+        ...(group.classification.disposition !== "SAFE STRONG MATCH" ? ["IDENTITY_REVIEW_REQUIRED"] : []),
+        ...(!canonicalId ? ["NO_UNIQUE_CANONICAL_RECOMMENDATION"] : []),
+        ...(ambiguousRefs.length ? ["AMBIGUOUS_HISTORICAL_ALIAS"] : [])
+      ],
+      moves: safeCandidate ? personIds.filter(id => id !== canonicalId).map(fromPersonId => ({
         fromPersonId,
         toPersonId: canonicalId,
-        references: groupRefs.filter(ref => ref.personId === fromPersonId),
+        aliases: aliasesByPerson[fromPersonId],
+        references: groupRefs.filter(ref => ref.ownerPersonIds.includes(fromPersonId)),
         writesPerformed: false
       })) : [],
       historicalReferenceInventory: byDomain,
+      ambiguousHistoricalReferences: ambiguousRefs,
+      aliasesByPerson,
       personIds
     };
   });
@@ -121,8 +149,8 @@ async function main() {
   const playerSnap = await db.collection("players").get();
   const players = playerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   const groups = buildGroups(players);
-  const targetIds = new Set(groups.flatMap(group => group.rows.map(row => row.id)));
-  const references = await inventoryAllReferences(db, targetIds);
+  const aliasOwners = buildAliasOwners(groups);
+  const references = await inventoryAllReferences(db, aliasOwners);
   const plans = buildMigrationPlans(groups, references);
   const domainCounts = references.reduce((out, ref) => { out[ref.domain] = (out[ref.domain] || 0) + 1; return out; }, {});
 
@@ -133,16 +161,19 @@ async function main() {
       applyModeExists: false,
       writesFirestore: false,
       deletesFirestore: false,
-      sameNameCreatesMigrationPlan: false
+      sameNameCreatesMigrationPlan: false,
+      syntheticLineIdUsedAsPersonAlias: false,
+      ambiguousAliasCanMigrate: false
     },
     summary: {
       candidateGroups: groups.length,
-      candidatePersonIds: targetIds.size,
+      candidatePersonIds: new Set(groups.flatMap(group => group.rows.map(row => audit.text(row.id)))).size,
+      candidateReferenceAliases: aliasOwners.size,
       historicalReferences: references.length,
       referenceDomains: domainCounts
     },
     coverage: {
-      strategy: "recursive Firestore traversal; all current top-level collections and nested subcollections",
+      strategy: "recursive Firestore traversal; candidate document ids + formal historical personId/linkedPlayerIds aliases; all current top-level collections and nested subcollections",
       expectedDomains: ["CAR", "MEMBERSHIP_PLAYER", "STAFF_DM", "APPLICATION", "SEAT", "ACCOUNTING", "PENDING_ACTION", "CALENDAR", "REMINDER", "LINE_PROFILE_IDENTITY", "OTHER"]
     },
     plans
@@ -150,4 +181,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });
-module.exports = { findIdReferences, referenceDomain, buildGroups, buildMigrationPlans };
+module.exports = { findIdReferences, referenceDomain, personReferenceAliases, buildAliasOwners, buildGroups, buildMigrationPlans };
