@@ -24,50 +24,27 @@ function uriButton(label, uri, color = "#2F6B57") {
   };
 }
 
-
 function reminderControl(reminder) {
-  const source =
-    reminder &&
-    typeof reminder === "object"
-      ? reminder
-      : null;
-
-  if (
-    source &&
-    source.enabled === true
-  ) {
-    const sent =
-      String(
-        source.status || ""
-      ).trim() === "sent";
-
+  const source = reminder && typeof reminder === "object" ? reminder : null;
+  if (source && source.enabled === true) {
+    const sent = String(source.status || "").trim() === "sent";
     return {
       type: "box",
       layout: "vertical",
       paddingAll: "12px",
       cornerRadius: "8px",
       backgroundColor: "#F2F2F2",
-      contents: [
-        {
-          type: "text",
-          text:
-            sent
-              ? "✅ 行前通知已發送"
-              : "✅ 行前通知已開啟",
-          align: "center",
-          color: "#777777",
-          size: "sm",
-          weight: "bold"
-        }
-      ]
+      contents: [{
+        type: "text",
+        text: sent ? "✅ 行前通知已發送" : "✅ 行前通知已開啟",
+        align: "center",
+        color: "#777777",
+        size: "sm",
+        weight: "bold"
+      }]
     };
   }
-
-  return messageButton(
-    "🔔 行前通知",
-    "開啟行前通知",
-    "#A66A45"
-  );
+  return messageButton("🔔 行前通知", "開啟行前通知", "#A66A45");
 }
 
 function buildCard(title, subtitle, buttons) {
@@ -132,8 +109,9 @@ function buildGroupAssistantCard(car, options = {}) {
 }
 
 function buildAccountingMenuCard(car, options = {}) {
-  const baseUrl=String(options.baseUrl||"").replace(/\/$/,""),token=encodeURIComponent(String(options.token||""));
-  const totalLink=`${baseUrl}/pages/group-assistant.html?token=${token}&tab=accounting`;
+  const baseUrl = String(options.baseUrl || "").replace(/\/$/, "");
+  const token = encodeURIComponent(String(options.token || ""));
+  const totalLink = `${baseUrl}/pages/group-assistant.html?token=${token}&tab=accounting`;
   return buildCard(
     `💰 ${getCarTitle(car)}｜車團帳務`,
     "選擇要使用的帳務功能",
@@ -147,21 +125,22 @@ function buildAccountingMenuCard(car, options = {}) {
 }
 
 function buildGroupAssistantQuickInfoCard(car, options = {}) {
-  const baseUrl = String(options.baseUrl || "").replace(/\/$/, ""), token = encodeURIComponent(String(options.token || ""));
+  const baseUrl = String(options.baseUrl || "").replace(/\/$/, "");
+  const token = encodeURIComponent(String(options.token || ""));
   const link = tab => `${baseUrl}/pages/group-assistant.html?token=${token}&tab=${tab}`;
   const carId = encodeURIComponent(text(options.carId || (car && (car.id || car.carId))));
   const playerViewLink = carId
-    ? `${baseUrl}/pages/car-view.html?id=${carId}`
+    ? `${baseUrl}/pages/car-view.html?id=${carId}&groupToken=${token}`
     : link("info");
   return buildCard(`🚗 ${getCarTitle(car)}`, getCarSubtitle(car), [
-  messageButton("🏠 店家資訊", "JLY 店家"),
-  messageButton("📅 時間資訊", "JLY 時間", "#487A91"),
-  messageButton("👥 人員資訊", "JLY 人員", "#806A9B"),
-  uriButton("⚡ 快速記帳", link("accounting"), "#B17B42"),
-  reminderControl(options.reminder),
-  uriButton("🚗 車團總覽", playerViewLink, "#9A5960"),
-  messageButton("❓ 使用說明", "JLY 使用說明", "#777777")
-]);
+    messageButton("🏠 店家資訊", "JLY 店家"),
+    messageButton("📅 時間資訊", "JLY 時間", "#487A91"),
+    messageButton("👥 人員資訊", "JLY 人員", "#806A9B"),
+    uriButton("⚡ 快速記帳", link("accounting"), "#B17B42"),
+    reminderControl(options.reminder),
+    uriButton("🚗 車團總覽", playerViewLink, "#9A5960"),
+    messageButton("❓ 使用說明", "JLY 使用說明", "#777777")
+  ]);
 }
 
 module.exports = {
@@ -170,4 +149,3 @@ module.exports = {
   getCarTitle,
   getCarSubtitle
 };
-
