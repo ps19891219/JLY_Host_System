@@ -2,7 +2,7 @@
 "use strict";
 
 // READ-ONLY audit. This script never updates or deletes Firestore documents.
-// Same-name records are candidates only. Auto-safe identity evidence must be strong and explicit.
+// Same-name is candidate discovery only. Safe identity requires consistent strong evidence.
 
 const admin = require("firebase-admin");
 
@@ -49,6 +49,11 @@ function hasReferenceRelationship(a, b) {
   return [ai.canonicalPersonId, ai.mergedIntoPersonId, ai.personId, ...ai.linkedPlayerIds].includes(bId)
     || [bi.canonicalPersonId, bi.mergedIntoPersonId, bi.personId, ...bi.linkedPlayerIds].includes(aId);
 }
+function sameNameCandidate(a, b) {
+  const left = norm(nameOf(a));
+  const right = norm(nameOf(b));
+  return Boolean(left && right && left === right);
+}
 function score(row) {
   const evidence = ids(row);
   let n = 0;
@@ -61,22 +66,78 @@ function score(row) {
   if (isSyntheticLineId(row.id)) n -= 1000;
   return n;
 }
+
+function strongConflicts(rows) {
+  const conflicts = [];
+  ["lineUserId", "identityId", "profileId"].forEach(field => {
+    const values = [...new Set(rows.map(row => ids(row)[field]).filter(Boolean))];
+    if (values.length > 1) conflicts.push({ field, values });
+  });
+  return conflicts;
+}
+
+function strongGraphConnected(rows, strongEdges) {
+  if (rows.length < 2) return false;
+  const adjacency = new Map(rows.map(row => [text(row.id), new Set()]));
+  strongEdges.forEach(edge => {
+    adjacency.get(text(edge.from))?.add(text(edge.to));
+    adjacency.get(text(edge.to))?.add(text(edge.from));
+  });
+  const start = text(rows[0].id);
+  const seen = new Set([start]);
+  const queue = [start];
+  while (queue.length) {
+    const current = queue.shift();
+    for (const next of adjacency.get(current) || []) {
+      if (!seen.has(next)) { seen.add(next); queue.push(next); }
+    }
+  }
+  return seen.size === rows.length;
+}
+
 function classify(rows) {
   const strongEdges = [];
   const referenceEdges = [];
+  const sameNameEdges = [];
   for (let i = 0; i < rows.length; i += 1) {
     for (let j = i + 1; j < rows.length; j += 1) {
       const shared = sharedStrongEvidence(rows[i], rows[j]);
       if (shared.length) strongEdges.push({ from: rows[i].id, to: rows[j].id, shared });
       if (hasReferenceRelationship(rows[i], rows[j])) referenceEdges.push({ from: rows[i].id, to: rows[j].id });
+      if (sameNameCandidate(rows[i], rows[j])) sameNameEdges.push({ from: rows[i].id, to: rows[j].id });
     }
   }
-  const disposition = strongEdges.length ? "SAFE STRONG MATCH" : referenceEdges.length ? "REVIEW REQUIRED" : "SAME NAME ONLY";
-  return { disposition, hasStrongEvidence: strongEdges.length > 0, strongEdges, referenceEdges };
+  const conflicts = strongConflicts(rows);
+  const allRowsStronglyConnected = strongGraphConnected(rows, strongEdges);
+  let disposition = "SAME NAME ONLY";
+  if (conflicts.length > 0) disposition = "REVIEW REQUIRED";
+  else if (strongEdges.length > 0 && allRowsStronglyConnected) disposition = "SAFE STRONG MATCH";
+  else if (strongEdges.length > 0 || referenceEdges.length > 0) disposition = "REVIEW REQUIRED";
+  return {
+    disposition,
+    hasStrongEvidence: strongEdges.length > 0,
+    allRowsStronglyConnected,
+    strongConflicts: conflicts,
+    strongEdges,
+    referenceEdges,
+    sameNameEdges
+  };
 }
+
 function recommendCanonical(rows, classification) {
-  if (classification.disposition === "SAME NAME ONLY") return null;
+  if (!classification || classification.disposition === "SAME NAME ONLY") return null;
   const ranked = [...rows].sort((a, b) => score(b) - score(a) || text(a.id).localeCompare(text(b.id)));
+  const topScore = score(ranked[0]);
+  const tied = ranked.filter(row => score(row) === topScore);
+  if (tied.length > 1) {
+    return {
+      personId: null,
+      score: topScore,
+      reasons: ["CANONICAL_TIE_REQUIRES_REVIEW"],
+      tiedPersonIds: tied.map(row => text(row.id)),
+      recommendationOnly: true
+    };
+  }
   const top = ranked[0];
   const evidence = ids(top);
   const reasons = [];
@@ -84,8 +145,38 @@ function recommendCanonical(rows, classification) {
   if (evidence.identityId) reasons.push("IDENTITY_MATCH");
   if (evidence.profileId) reasons.push("PROFILE_MATCH");
   if (evidence.linkedPlayerIds.length) reasons.push("LINKED_HISTORY");
-  if (classification.referenceEdges.some(edge => edge.to === top.id)) reasons.push("CANONICAL_REFERENCE");
-  return { personId: top.id, score: score(top), reasons, recommendationOnly: true };
+  if ((classification.referenceEdges || []).some(edge => edge.to === top.id)) reasons.push("CANONICAL_REFERENCE");
+  return { personId: top.id, score: topScore, reasons, recommendationOnly: true };
+}
+
+function buildCandidateGroups(rows) {
+  const source = Array.isArray(rows) ? rows : [];
+  const parent = source.map((_, index) => index);
+  function find(index) {
+    while (parent[index] !== index) {
+      parent[index] = parent[parent[index]];
+      index = parent[index];
+    }
+    return index;
+  }
+  function union(a, b) {
+    const left = find(a); const right = find(b);
+    if (left !== right) parent[right] = left;
+  }
+  for (let i = 0; i < source.length; i += 1) {
+    for (let j = i + 1; j < source.length; j += 1) {
+      if (sameNameCandidate(source[i], source[j]) || sharedStrongEvidence(source[i], source[j]).length || hasReferenceRelationship(source[i], source[j])) {
+        union(i, j);
+      }
+    }
+  }
+  const groups = new Map();
+  source.forEach((row, index) => {
+    const root = find(index);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(row);
+  });
+  return [...groups.values()].filter(group => group.length > 1);
 }
 
 function initFirebase() {
@@ -99,42 +190,36 @@ async function loadCollection(db, name) {
 async function main() {
   const db = initFirebase();
   const players = await loadCollection(db, "players");
-  const byName = new Map();
-  players.forEach(row => {
-    const key = norm(nameOf(row));
-    if (!key) return;
-    if (!byName.has(key)) byName.set(key, []);
-    byName.get(key).push(row);
-  });
-  const candidates = [];
-  for (const rows of byName.values()) {
-    if (rows.length < 2) continue;
+  const candidates = buildCandidateGroups(players).map(rows => {
     const ranked = [...rows].sort((a, b) => score(b) - score(a) || text(a.id).localeCompare(text(b.id)));
     const classification = classify(ranked);
-    candidates.push({
-      name: nameOf(ranked[0]),
+    return {
+      names: [...new Set(ranked.map(nameOf).filter(Boolean))],
       classification: classification.disposition,
       warning: classification.disposition === "SAFE STRONG MATCH"
-        ? "strong identity evidence exists; recommendation is still non-destructive until historical references are inventoried"
-        : classification.disposition === "REVIEW REQUIRED"
-          ? "reference relationship exists but is not sufficient identity proof; manual review required"
-          : "same-name only; never auto-merge",
+        ? "all candidate records are connected by consistent strong identity evidence; recommendation is still non-destructive until historical references are inventoried"
+        : classification.strongConflicts.length
+          ? "contradictory strong identity values detected; manual review required"
+          : classification.disposition === "REVIEW REQUIRED"
+            ? "candidate relationship exists but does not safely prove every record is the same Person"
+            : "same-name only; never auto-merge",
       canonicalRecommendation: recommendCanonical(ranked, classification),
       ...classification,
-      records: ranked.map(row => ({ id: row.id, score: score(row), ...ids(row), strongKeys: strongKeys(row), referenceKeys: referenceKeys(row), source: text(row.source) }))
-    });
-  }
+      records: ranked.map(row => ({ id: row.id, name: nameOf(row), score: score(row), ...ids(row), strongKeys: strongKeys(row), referenceKeys: referenceKeys(row), source: text(row.source) }))
+    };
+  });
   const counts = candidates.reduce((out, item) => { out[item.classification] = (out[item.classification] || 0) + 1; return out; }, {});
   console.log(JSON.stringify({
     readOnly: true,
     collection: "players",
     totalPlayers: players.length,
-    duplicateNameGroups: candidates.length,
+    candidateGroups: candidates.length,
+    candidateDiscovery: ["same normalized name", "shared lineUserId", "shared identityId", "shared formal profileId", "explicit canonical/merged/person/linkedPlayer relationship"],
     classifications: counts,
-    safety: { writesFirestore: false, deletesFirestore: false, sameNameIsIdentityProof: false, syntheticLineProfileIsFormalIdentity: false },
+    safety: { writesFirestore: false, deletesFirestore: false, sameNameIsIdentityProof: false, syntheticLineProfileIsFormalIdentity: false, contradictoryStrongEvidenceIsSafe: false },
     candidates
   }, null, 2));
 }
 
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });
-module.exports = { text, norm, isSyntheticLineId, nameOf, ids, strongKeys, referenceKeys, sharedStrongEvidence, hasReferenceRelationship, score, classify, recommendCanonical };
+module.exports = { text, norm, isSyntheticLineId, nameOf, ids, strongKeys, referenceKeys, sharedStrongEvidence, hasReferenceRelationship, sameNameCandidate, score, strongConflicts, strongGraphConnected, classify, recommendCanonical, buildCandidateGroups };
