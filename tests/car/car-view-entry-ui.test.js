@@ -14,7 +14,7 @@ test("car view loads the unified entry action layer without blocking anonymous r
   const controller = source("js/car/car-view.js");
   const actions = source("js/car/car-view-actions.js");
 
-  assert.match(html, /\/js\/car\/car-view-actions\.js/);
+  assert.match(html, /\/js\/car\/car-view-actions\.js\?v=2/);
   assert.match(html, /\/js\/line\.js/);
   assert.match(controller, /\/api\/car-view-context\?id=/);
   assert.doesNotMatch(controller, /location\.href\s*=\s*["'][^"']*login/i);
@@ -23,11 +23,14 @@ test("car view loads the unified entry action layer without blocking anonymous r
   assert.match(actions, /車團資訊可直接查看/);
 });
 
-test("formal car view action layer no longer routes player or DM writes to legacy join pages", () => {
+test("formal car view action layer uses the shared LINE login client and handles async login failures", () => {
   const actions = source("js/car/car-view-actions.js");
   assert.doesNotMatch(actions, /join\.html/);
   assert.doesNotMatch(actions, /dm-join\.html/);
-  assert.match(actions, /entry=\$\{encodeURIComponent\(entry\)\}/);
+  assert.match(actions, /async function login\(entry\)/);
+  assert.match(actions, /await window\.JLYLineLogin\.start/);
+  assert.match(actions, /returnUrl:\s*location\.pathname \+ location\.search/);
+  assert.match(actions, /車團報名 LINE 身分確認啟動失敗/);
 });
 
 test("legacy join pages remain present but are no longer the LINE or car-view action target", () => {

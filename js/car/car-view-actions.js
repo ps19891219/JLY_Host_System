@@ -23,13 +23,25 @@
     return document.getElementById("car-view-entry-actions");
   }
 
-  function login(entry) {
+  async function login(entry) {
     if (!window.JLYLineLogin || typeof window.JLYLineLogin.start !== "function") {
       alert("LINE 登入模組尚未載入");
-      return;
+      return false;
     }
-    const url = `/pages/car-view.html?id=${encodeURIComponent(carId())}&entry=${encodeURIComponent(entry)}`;
-    window.JLYLineLogin.start({ returnPath: url, returnUrl: url });
+    try {
+      await window.JLYLineLogin.start({
+        returnUrl: location.pathname + location.search
+      });
+      return true;
+    } catch (error) {
+      console.error("車團報名 LINE 身分確認啟動失敗：", error);
+      alert(
+        error && error.message
+          ? error.message
+          : "LINE 身分確認無法啟動，請稍後再試。"
+      );
+      return false;
+    }
   }
 
   async function loadContext() {
@@ -72,7 +84,8 @@
       });
       const result = await response.json();
       if (response.status === 401) {
-        login(payload.type);
+        const started = await login(payload.type);
+        if (!started) controls.forEach(item => { item.disabled = false; });
         return;
       }
       if (!response.ok || !result.success) throw new Error(result.error || "報名失敗");
@@ -184,5 +197,5 @@
   }
 
   document.addEventListener("DOMContentLoaded", observe);
-  window.JLYCarViewActions = { render: renderActions, submit };
+  window.JLYCarViewActions = { render: renderActions, submit, login };
 })();
