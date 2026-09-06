@@ -19,9 +19,13 @@ function displayName(value) {
   return text(source.displayName || source.playerName || source.name || source.nickname || source.staffName || source.dmName);
 }
 
-function matchesViewer(value, session) {
+function sameIdentity(value, session) {
   const ids = sessionIds(session);
-  if (ids.size && identityIds(value).some(id => ids.has(id))) return true;
+  return ids.size > 0 && identityIds(value).some(id => ids.has(id));
+}
+
+function matchesViewer(value, session) {
+  if (sameIdentity(value, session)) return true;
   const viewerName = lower(session && session.displayName);
   return Boolean(viewerName && lower(displayName(value)) === viewerName);
 }
@@ -60,7 +64,7 @@ function baseIdentity(session) {
 function assertPlayerAvailable(car, session) {
   const players = Array.isArray(car.players) ? car.players : [];
   const applications = Array.isArray(car.applications) ? car.applications : [];
-  if (players.some(item => active(item) && matchesViewer(item, session))) {
+  if (players.some(item => active(item) && sameIdentity(item, session))) {
     const error = new Error("already_player"); error.code = "already_player"; throw error;
   }
   if (applications.some(item => pending(item) && matchesViewer(item, session))) {
@@ -71,7 +75,7 @@ function assertPlayerAvailable(car, session) {
 function assertDmAvailable(car, session) {
   const staff = Array.isArray(car.staffSlots) ? car.staffSlots : [];
   const applications = Array.isArray(car.dmApplications) ? car.dmApplications : [];
-  if (staff.some(item => active(item) && matchesViewer(item, session))) {
+  if (staff.some(item => active(item) && sameIdentity(item, session))) {
     const error = new Error("already_staff"); error.code = "already_staff"; throw error;
   }
   if (applications.some(item => pending(item) && matchesViewer(item, session))) {
