@@ -14,8 +14,7 @@ test("car view loads the unified entry action layer without blocking anonymous r
   const controller = source("js/car/car-view.js");
   const actions = source("js/car/car-view-actions.js");
 
-  assert.match(html, /\/js\/car\/car-view-actions\.js\?v=2/);
-  assert.match(html, /\/js\/line\.js/);
+  assert.match(html, /\/js\/car\/car-view-actions\.js\?v=3/);
   assert.match(controller, /\/api\/car-view-context\?id=/);
   assert.doesNotMatch(controller, /location\.href\s*=\s*["'][^"']*login/i);
   assert.match(actions, /fetch\("\/api\/car-view-context"/);
@@ -23,14 +22,17 @@ test("car view loads the unified entry action layer without blocking anonymous r
   assert.match(actions, /車團資訊可直接查看/);
 });
 
-test("formal car view action layer uses the shared LINE login client and handles async login failures", () => {
+test("formal car view action layer launches LINE OAuth with the proven group-assistant path", () => {
   const actions = source("js/car/car-view-actions.js");
   assert.doesNotMatch(actions, /join\.html/);
   assert.doesNotMatch(actions, /dm-join\.html/);
-  assert.match(actions, /async function login\(entry\)/);
-  assert.match(actions, /await window\.JLYLineLogin\.start/);
-  assert.match(actions, /returnUrl:\s*location\.pathname \+ location\.search/);
-  assert.match(actions, /車團報名 LINE 身分確認啟動失敗/);
+  assert.doesNotMatch(actions, /JLYLineLogin\.start/);
+  assert.match(actions, /fetch\("\/api\/line-login-state"/);
+  assert.match(actions, /client_id:\s*"2010653666"/);
+  assert.match(actions, /redirect_uri:\s*`\$\{location\.origin\}\/pages\/line-callback\.html`/);
+  assert.match(actions, /location\.assign\(`https:\/\/access\.line\.me\/oauth2\/v2\.1\/authorize\?/);
+  assert.match(actions, /returnPath/);
+  assert.match(actions, /車團報名 LINE OAuth 啟動失敗/);
 });
 
 test("legacy join pages remain present but are no longer the LINE or car-view action target", () => {
