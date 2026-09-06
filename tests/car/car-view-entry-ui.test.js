@@ -18,8 +18,8 @@ test("car view loads the unified entry action layer without blocking anonymous r
   assert.match(html, /\/js\/line\.js/);
   assert.match(controller, /\/api\/car-view-context\?id=/);
   assert.doesNotMatch(controller, /location\.href\s*=\s*["'][^"']*login/i);
-  assert.match(actions, /\/api\/car-entry/);
-  assert.match(actions, /identity_required|response\.status === 401/);
+  assert.match(actions, /fetch\("\/api\/car-view-context"/);
+  assert.match(actions, /response\.status === 401/);
   assert.match(actions, /車團資訊可直接查看/);
 });
 
