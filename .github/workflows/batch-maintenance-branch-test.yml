@@ -3,7 +3,7 @@ name: Batch maintenance branch test
 on:
   push:
     branches:
-      - repair/person-dedupe-picker
+      - feat/batch-public-role-reminder-accounting-reset-20260828
 
 jobs:
   test:
