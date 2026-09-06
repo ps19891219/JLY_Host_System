@@ -18,17 +18,10 @@ Included behavior:
 - Clears Accounting collections for owned cars only.
 - Does NOT intentionally modify Person, player, DM/staff, seats, LINE identity, cars, Calendar, or reminders in accounting-only mode.
 - Requires explicit `RESET_ACCOUNTING_ONLY` confirmation.
-
-Important follow-up fix already in `main`:
-- Member session verification contract corrected: `verifyMemberSession()` result is read through `{ valid, data }`.
+- Member session verification contract corrected through `{ valid, data }`.
 - Regression test: `tests/accounting/accounting-reset-session-contract.test.js`.
 
-Production verification still required after next successful deployment:
-1. Open `/pages/accounting-reset.html` while signed in.
-2. Confirm no `member_identity_required` error.
-3. Run reset once.
-4. Verify old mutual receivable/payable/payment/settlement/pending accounting is zeroed.
-5. Verify cars, Person, player/DM/staff, seats, LINE, reminders and Calendar remain intact.
+Production verification remains required after the next successful deployment. Do not ask for retest before then.
 
 ### 2. Person / Member Picker duplicate prevention
 Status: CODE READY IN MAIN, NOT YET PRODUCTION-VERIFIED
@@ -39,37 +32,39 @@ Included behavior:
 - Existing Person selection is preferred.
 - Creating another same-name Person requires an explicit choice/confirmation.
 - Provisional `line:<userId>` is not treated as formal Person evidence.
-- Read-only audit script exists at `scripts/person-dedupe-audit.js`.
-
-Production/data migration still pending:
-- Audit actual Firestore duplicate candidates.
-- Select canonical Person using strong evidence.
-- Inventory and migrate historical references before any duplicate deletion.
-- Never delete duplicate Person records before reference verification.
 
 ## In progress in this batch
 
-### 3. Canonical Person historical reference audit / migration design
-Status: AUDIT HARDENED, REFERENCE INVENTORY NEXT, NO PRODUCTION WRITE
+### 3. Canonical Person audit + historical reference inventory + dry-run migration plan
+Status: CODE READY IN BATCH FOR TESTING, NO PRODUCTION WRITE, NOT MERGED
 
 Completed in batch:
-- Person duplicate audit now distinguishes strong-evidence groups from same-name-only groups.
-- Evidence includes canonical/merged Person references, formal person/profile/identity IDs, LINE user ID and linked historical player IDs.
-- Synthetic `line:<userId>` profile/identity values are excluded as formal evidence.
-- Same-name-only groups receive no suggested canonical Person.
-- Audit remains read-only and reports safety flags explicitly.
-- Regression tests cover same-name separation, shared LINE identity, synthetic LINE exclusion and canonical/historical linkage.
+- `scripts/person-dedupe-audit.js` classifies candidate groups as `SAFE STRONG MATCH`, `REVIEW REQUIRED`, or `SAME NAME ONLY`.
+- Same-name remains candidate discovery only and never becomes identity proof.
+- Strong match evidence is restricted to shared LINE user ID, identity ID, or formal profile ID.
+- Canonical/merged/person/linkedPlayer references can raise a group to review, but do not independently become safe identity proof.
+- Canonical recommendation records reasons such as `LINE_LINKED`, `IDENTITY_MATCH`, `PROFILE_MATCH`, `LINKED_HISTORY`, and `CANONICAL_REFERENCE`.
+- Provisional `line:<userId>` records are penalized as canonical candidates and are not treated as formal Person identity.
+- `scripts/person-canonical-migration-dry-run.js` performs recursive read-only Firestore traversal across current top-level collections and nested subcollections.
+- Historical reference inventory records exact document path, field path, referenced Person ID, and domain.
+- Inventory domains cover Car, player/membership, staff/DM, applications, seats, Accounting, Pending Action, Calendar, reminder, LINE/profile/identity, and uncategorized historical references.
+- Dry-run plans explicitly list `fromPersonId`, `toPersonId`, and every discovered reference that would require migration.
+- `SAME NAME ONLY` and non-strong review groups remain blocked from migration moves.
+- The dry-run tool has no apply mode and contains no update/delete migration path.
+- Regression coverage added in `tests/person-canonical-migration.test.js`.
 
-Rules:
+Safety rules:
 - Preserve all historical Activity/Car membership history.
 - Roles belong to Activity/Membership, not separate Person records.
-- Canonical priority: LINE linkage, identityId, profile relationship, linkedPlayerIds and complete historical linkage.
-- Same-name-only groups require manual review.
-- Migration must be dry-run/report first. Destructive apply is a separate explicit stage.
+- Never delete duplicate Person records before reference migration and verification.
+- Migration apply is a future separate explicit stage, not part of this batch dry run.
+- No production Firestore writes are authorized by these scripts.
 
-Next:
-- Inventory every Person reference shape in current Car/Activity/Accounting/LINE code before designing migration apply.
-- Add a dry-run reference migration plan that reports proposed changes without writing Firestore.
+Remaining before batch merge/deploy:
+- Run the complete `npm test` suite on final batch head.
+- Review dry-run output against real Firestore data with read-only credentials before any future apply design.
+- Confirm no missing Person reference shapes appear in the `OTHER` inventory domain.
+- Keep PR #32 Draft until the batch review is complete.
 
 ## Deployment gate
 
@@ -79,10 +74,11 @@ Before the next production deployment:
 - [ ] Confirm temporary CI workflow changes are absent.
 - [ ] Confirm top-level `/api` function count remains within Vercel Hobby limit.
 - [ ] Review `main` vs last successful production commit so every pending change is accounted for.
+- [ ] Confirm every pending item in this document is included in the deployment candidate.
 - [ ] Trigger ONE production deployment only after Vercel rate limit is restored.
 - [ ] Verify production deployment success before asking the user to test.
-- [ ] Perform the accounting reset production verification checklist above.
-- [ ] Mark deployed items in this file after production verification.
+- [ ] Perform accounting reset production verification only after successful deployment.
+- [ ] Mark items completed only after production verification.
 
 ## Do not forget
 
