@@ -3,23 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>加入車團</title>
-  <link rel="stylesheet" href="../css/style.css">
+  <title>前往車團報名</title>
 </head>
-
 <body>
-  <div class="container">
-    <h1>🎭 車團報名</h1>
-
-    <div id="joinBox" class="card">
-      載入中...
-    </div>
-  </div>
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
-  <script src="/firebase/firebase.js?v=39"></script>
-  <script src="/js/join.js?v=3"></script>
+<script>
+(function () {
+  var p = new URLSearchParams(location.search);
+  var id = p.get("id") || p.get("carId") || "";
+  var next = new URLSearchParams();
+  if (id) next.set("id", id);
+  if (p.get("groupToken")) next.set("groupToken", p.get("groupToken"));
+  next.set("apply", "player");
+  location.replace("/pages/car-view.html?" + next.toString());
+})();
+</script>
 </body>
 </html>
