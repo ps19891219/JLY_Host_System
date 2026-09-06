@@ -44,12 +44,80 @@ function publicCar(car) {
   };
 }
 
-function carViewPayload(car, session) {
-  const member = isCarMember(car, session);
+function safePlayer(player) {
+  const source = player && typeof player === "object" ? player : {};
   return {
-    access: member ? "member" : "public",
-    car: member ? { ...car } : publicCar(car)
+    playerName: text(source.playerName || source.name || source.displayName),
+    name: text(source.name || source.playerName || source.displayName),
+    displayName: text(source.displayName || source.playerName || source.name),
+    position: text(source.position || source.roleChoice || source.role),
+    roleChoice: text(source.roleChoice || source.position || source.role),
+    role: text(source.role || source.position || source.roleChoice),
+    isCrossPlay: source.isCrossPlay === true,
+    status: text(source.status)
   };
 }
 
-module.exports = { identityIds, isCarMember, publicCar, carViewPayload };
+function safeStaff(slot, index) {
+  const source = slot && typeof slot === "object" ? slot : {};
+  const nested = source.player && typeof source.player === "object" ? source.player : {};
+  return {
+    id: text(source.id || source.slotId) || `staff-${index + 1}`,
+    slotId: text(source.slotId || source.id),
+    order: Number(source.order || index + 1),
+    label: text(source.label || source.roleLabel || source.title || index + 1),
+    roleLabel: text(source.roleLabel || source.label || source.title),
+    title: text(source.title || source.label || source.roleLabel),
+    displayName: text(source.displayName || source.name || nested.displayName || nested.name),
+    name: text(source.name || source.displayName || nested.name || nested.displayName),
+    isCrossPlay: source.isCrossPlay === true || nested.isCrossPlay === true,
+    player: nested && Object.keys(nested).length ? safePlayer(nested) : null
+  };
+}
+
+function safeSeat(slot, index) {
+  const source = slot && typeof slot === "object" ? slot : {};
+  const player = source.player && typeof source.player === "object" ? source.player : null;
+  return {
+    id: text(source.id || source.slotId) || `seat-${index + 1}`,
+    slotId: text(source.slotId || source.id),
+    section: text(source.section || source.position || source.gender),
+    position: text(source.position || source.section || source.gender),
+    gender: text(source.gender || source.position || source.section),
+    order: Number(source.order || index + 1),
+    label: text(source.label || source.name || index + 1),
+    isOccupied: source.isOccupied === true || Boolean(player),
+    player: player ? safePlayer(player) : null,
+    displayName: text(source.displayName || source.playerName || source.name)
+  };
+}
+
+function groupCar(car) {
+  const source = car && typeof car === "object" ? car : {};
+  const base = publicCar(source);
+  return {
+    ...base,
+    maleSlots: Number(source.maleSlots || source.maleCount || 0),
+    femaleSlots: Number(source.femaleSlots || source.femaleCount || 0),
+    flexibleSlots: Number(source.flexibleSlots || source.flexSlots || source.anySlots || 0),
+    address: text(source.address),
+    locationName: text(source.locationName || source.location),
+    organizerName: text(source.organizerName || source.studioName || source.organizer),
+    note: text(source.publicNote || source.note),
+    players: (Array.isArray(source.players) ? source.players : []).map(safePlayer),
+    staffSlots: (Array.isArray(source.staffSlots) ? source.staffSlots : []).map(safeStaff),
+    seatSlots: (Array.isArray(source.seatSlots) ? source.seatSlots : Array.isArray(source.slots) ? source.slots : []).map(safeSeat),
+    slots: (Array.isArray(source.slots) ? source.slots : Array.isArray(source.seatSlots) ? source.seatSlots : []).map(safeSeat),
+    waitingPlayers: (Array.isArray(source.waitingPlayers) ? source.waitingPlayers : []).map(safePlayer),
+    unassignedPlayers: (Array.isArray(source.unassignedPlayers) ? source.unassignedPlayers : []).map(safePlayer)
+  };
+}
+
+function carViewPayload(car, session, options = {}) {
+  const member = isCarMember(car, session);
+  if (member) return { access: "member", car: { ...car } };
+  if (options.groupAccess === true) return { access: "group", car: groupCar(car) };
+  return { access: "public", car: publicCar(car) };
+}
+
+module.exports = { identityIds, isCarMember, publicCar, groupCar, carViewPayload };
