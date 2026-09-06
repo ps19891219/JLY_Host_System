@@ -64,7 +64,7 @@
     const controls = host.querySelectorAll("button,select,input");
     controls.forEach(item => { item.disabled = true; });
     try {
-      const response = await fetch("/api/car-entry", {
+      const response = await fetch("/api/car-view-context", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
