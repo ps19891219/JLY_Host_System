@@ -48,8 +48,11 @@ function buildMemberWelcomeCard(
   const dmUrl =
     `${baseUrl}/pages/dm-join.html?id=${carId}`;
 
+  // LINE is only an entry point. Players should land on the same
+  // formal public car view used by 車團總覽, where the current
+  // membership state decides whether the page offers registration.
   const playerUrl =
-    `${baseUrl}/pages/join.html?id=${carId}`;
+    `${baseUrl}/pages/car-view.html?id=${carId}`;
 
   return {
     type: "flex",
