@@ -60,10 +60,38 @@ Safety rules:
 - Migration apply is a future separate explicit stage, not part of this batch dry run.
 - No production Firestore writes are authorized by these scripts.
 
+### 4. Person Directory + reusable identity for manual add
+Status: CODE READY IN BATCH FOR TESTING, NOT MERGED, NOT DEPLOYED
+
+Purpose:
+- A Person who already completed LINE Identity → Host Approval → Person Binding should be reusable in later Activities without claiming identity again.
+- Player / DM / Staff remain Activity roles over the same Person, not separate identity records.
+
+Included in batch:
+- `js/modules/member/picker/picker-data.js` now exposes canonical Person Directory identity state and labels.
+- Existing canonical dedupe stays strong-evidence-only. Same-name People remain separate.
+- LINE-linked Person records are visibly marked `已連結 LINE`; formal non-LINE Person records remain reusable; provisional `line:<userId>` is not promoted to formal Person proof.
+- `pages/person-directory.html` adds a read-only mobile-friendly Person Directory surface over the existing `players` Person source.
+- `js/modules/member/person-directory.js` renders/searches the canonical directory without creating a second Person store.
+- `css/pages/person-directory.css` provides the directory UI.
+- Member Picker wording is generalized from staff-only wording to Person selection and shows identity linkage state.
+- `js/modules/car/detail/player/player-search.js` now loads the same canonical Person Directory before manual player creation.
+- Manual add of an existing LINE-linked Person reuses that Person ID and therefore does not require a new identity claim.
+- Creating another same-name Person requires an explicit confirmation that this is a different real person.
+- Regression coverage added in `tests/member-person-directory.test.js`.
+
+Safety rules:
+- No second Person / Player Person / DM Person / Staff Person system.
+- No name-based automatic merge.
+- No automatic LINE rebinding.
+- Existing LINE Identity Claim approval flow remains authoritative for first-time binding.
+- This batch does not migrate or delete production Person records.
+
 Remaining before batch merge/deploy:
 - Run the complete `npm test` suite on final batch head.
 - Review dry-run output against real Firestore data with read-only credentials before any future apply design.
 - Confirm no missing Person reference shapes appear in the `OTHER` inventory domain.
+- Confirm Person Directory responsibility is reflected in `docs/PROJECT_MAP.md` before the batch leaves Draft.
 - Keep PR #32 Draft until the batch review is complete.
 
 ## Deployment gate
@@ -75,6 +103,7 @@ Before the next production deployment:
 - [ ] Confirm top-level `/api` function count remains within Vercel Hobby limit.
 - [ ] Review `main` vs last successful production commit so every pending change is accounted for.
 - [ ] Confirm every pending item in this document is included in the deployment candidate.
+- [ ] Confirm `docs/PROJECT_MAP.md` includes the final Person Directory responsibility.
 - [ ] Trigger ONE production deployment only after Vercel rate limit is restored.
 - [ ] Verify production deployment success before asking the user to test.
 - [ ] Perform accounting reset production verification only after successful deployment.
