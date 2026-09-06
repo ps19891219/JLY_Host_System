@@ -15,6 +15,7 @@ function createMemberSession(data, secretValue) {
     identityId: String(data.identityId || "").trim(),
     lineUserId: String(data.lineUserId || "").trim(),
     displayName: String(data.displayName || "").trim(),
+    provisional: data.provisional === true,
     expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
   })).toString("base64url");
   const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
@@ -31,7 +32,13 @@ function verifyMemberSession(token, secretValue) {
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { valid: false };
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    if (!data.profileId || !data.lineUserId || Number(data.expiresAt) <= Date.now()) return { valid: false };
+    const hasFormalProfile = Boolean(data.profileId);
+    const hasVerifiedProvisionalLineIdentity = data.provisional === true && Boolean(data.lineUserId);
+    if (
+      (!hasFormalProfile && !hasVerifiedProvisionalLineIdentity) ||
+      !data.lineUserId ||
+      Number(data.expiresAt) <= Date.now()
+    ) return { valid: false };
     return { valid: true, data };
   } catch (_error) { return { valid: false }; }
 }
