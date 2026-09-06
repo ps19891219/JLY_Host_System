@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>JLY 帳務歸零</title>
+  <style>
+    :root { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#1f2937; background:#f8fafc; }
+    body { margin:0; padding:24px 16px 48px; }
+    .card { max-width:520px; margin:0 auto; background:#fff; border-radius:20px; padding:22px; box-shadow:0 10px 30px rgba(15,23,42,.08); }
+    h1 { font-size:24px; margin:0 0 12px; }
+    p { line-height:1.65; margin:8px 0; }
+    .scope { background:#f1f5f9; border-radius:14px; padding:14px 16px; margin:16px 0; }
+    .scope strong { display:block; margin-bottom:6px; }
+    button { width:100%; border:0; border-radius:14px; padding:15px 16px; font-size:17px; font-weight:700; cursor:pointer; }
+    #resetButton { background:#b91c1c; color:#fff; }
+    #resetButton:disabled { opacity:.5; cursor:not-allowed; }
+    #result { margin-top:16px; min-height:24px; white-space:pre-wrap; }
+    .ok { color:#166534; }
+    .error { color:#b91c1c; }
+    a { color:#2563eb; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>帳務重新歸零</h1>
+    <p>這個入口只會清除你名下車團目前的 Accounting 資料，讓彼此應收、應付、付款、結清與帳務待處理重新從 0 開始。</p>
+    <div class="scope">
+      <strong>不會刪除：</strong>
+      車團、人員 Person、玩家、DM、工作人員、席位、LINE 身份、提醒、行事曆。
+    </div>
+    <p>此操作不可復原。確認你就是要把前面的帳務全部清空後，再按下面按鈕。</p>
+    <button id="resetButton" type="button">清空前面的帳務</button>
+    <div id="result" aria-live="polite"></div>
+    <p><a href="/pages/mycar.html">返回我的車</a></p>
+  </main>
+  <script>
+    const button = document.getElementById("resetButton");
+    const result = document.getElementById("result");
+
+    button.addEventListener("click", async () => {
+      const confirmed = window.confirm("確定要清空你名下所有車團前面的帳務嗎？此操作不可復原。\n\n車團、人員、席位、LINE 身份與提醒都會保留。");
+      if (!confirmed) return;
+
+      button.disabled = true;
+      result.className = "";
+      result.textContent = "正在清空帳務…";
+
+      try {
+        const response = await fetch("/api/reset-accounting-only", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ confirm: "RESET_ACCOUNTING_ONLY" })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "reset_failed");
+        }
+        result.className = "ok";
+        result.textContent = `完成。已檢查 ${data.carsChecked || 0} 台車，清空 ${data.accountingCollectionsCleared || 0} 個帳務集合，共刪除 ${data.accountingDocumentsDeleted || 0} 筆帳務資料。`;
+        button.textContent = "帳務已清空";
+      } catch (error) {
+        result.className = "error";
+        if (error && error.message === "member_session_required") {
+          result.textContent = "目前沒有有效的 JLY 登入身份。請先回我的車頁確認登入後再重試。";
+        } else {
+          result.textContent = "清空失敗：" + (error && error.message ? error.message : "unknown_error");
+        }
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
