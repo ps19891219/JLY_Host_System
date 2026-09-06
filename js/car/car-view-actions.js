@@ -26,6 +26,7 @@
   async function login(entry) {
     try {
       const returnPath = location.pathname + location.search;
+      const purpose = entry === "dm" ? "car_dm_entry" : "car_player_entry";
       const response = await fetch("/api/line-login-state", {
         method: "POST",
         credentials: "same-origin",
@@ -33,7 +34,8 @@
         body: JSON.stringify({
           playerProfileId: text(localStorage.getItem("currentPlayerProfileId")),
           identityId: text(localStorage.getItem("currentPlayerId")),
-          returnPath
+          returnPath,
+          purpose
         })
       });
       const data = await response.json();
