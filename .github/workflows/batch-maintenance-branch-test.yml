@@ -3,7 +3,7 @@ name: Batch maintenance branch test
 on:
   push:
     branches:
-      - repair/accounting-reset-deploy-limit
+      - feat/batch-public-role-reminder-accounting-reset-20260828
 
 jobs:
   test:
