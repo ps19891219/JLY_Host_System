@@ -23,6 +23,10 @@ function requestBody(req) {
   return {};
 }
 
+function allowsVerifiedFirstLink(purpose) {
+  return ["car_player_entry", "car_dm_entry"].includes(text(purpose).toLowerCase());
+}
+
 async function exchangeAuthorizationCode(code) {
   const params = new URLSearchParams({
     grant_type: "authorization_code",
@@ -58,14 +62,24 @@ async function fetchLineProfile(accessToken) {
   return profile;
 }
 
-async function linkPlayerProfile(profileId, identityId, lineProfile) {
-  const db = getFirestore();
+async function linkPlayerProfile(profileId, identityId, lineProfile, options = {}) {
+  const db = options.db || getFirestore();
   const duplicate = await db.collection("players")
     .where("lineUserId", "==", lineProfile.userId)
     .limit(1)
     .get();
   if (!profileId || !identityId) {
     if (duplicate.empty) {
+      if (options.allowVerifiedFirstLink === true) {
+        return {
+          profileId: `line:${text(lineProfile.userId)}`,
+          identityId: "",
+          displayName: text(lineProfile.displayName),
+          linked: false,
+          recovered: false,
+          provisional: true
+        };
+      }
       const error = new Error("first_link_requires_original_browser");
       error.statusCode = 409;
       throw error;
@@ -77,7 +91,8 @@ async function linkPlayerProfile(profileId, identityId, lineProfile) {
       identityId: text(existingData.identityId),
       displayName: text(existingData.displayName || existingData.nickname),
       linked: true,
-      recovered: true
+      recovered: true,
+      provisional: false
     };
   }
   const profileRef = db.collection("players").doc(profileId);
@@ -114,7 +129,8 @@ async function linkPlayerProfile(profileId, identityId, lineProfile) {
     identityId: text(targetData.identityId || identityId),
     displayName: text(targetData.displayName || targetData.nickname),
     linked: true,
-    recovered: false
+    recovered: false,
+    provisional: false
   };
 }
 
@@ -162,12 +178,15 @@ function createHandler(dependencies = {}) {
     try {
       const accessToken = await exchange(code);
       const lineUser = await getProfile(accessToken);
-      const linkResult = await link(profileId, identityId, lineUser);
+      const linkResult = await link(profileId, identityId, lineUser, {
+        allowVerifiedFirstLink: allowsVerifiedFirstLink(stateResult.data.purpose)
+      });
       const memberSession = createMemberSession({
         profileId: linkResult.profileId,
         identityId: linkResult.identityId,
         lineUserId: lineUser.userId,
-        displayName: linkResult.displayName || lineUser.displayName
+        displayName: linkResult.displayName || lineUser.displayName,
+        provisional: linkResult.provisional === true
       }, dependencies.stateSecret || process.env.LINE_CHANNEL_SECRET);
       res.setHeader("Set-Cookie", cookieHeader(memberSession));
       return sendJson(res, 200, {
@@ -193,3 +212,4 @@ function createHandler(dependencies = {}) {
 module.exports = createHandler();
 module.exports.createHandler = createHandler;
 module.exports.linkPlayerProfile = linkPlayerProfile;
+module.exports.allowsVerifiedFirstLink = allowsVerifiedFirstLink;
