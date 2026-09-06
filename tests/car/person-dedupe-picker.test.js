@@ -23,7 +23,7 @@ test("Person picker never merges two records by name alone", () => {
   ]);
 
   assert.equal(result.length, 2);
-  assert.deepEqual(result.map(item => item.id).sort(), ["person-a", "person-b"]);
+  assert.deepEqual(Array.from(result, item => item.id).sort(), ["person-a", "person-b"]);
 });
 
 test("Person picker collapses records that share strong LINE identity evidence", () => {
