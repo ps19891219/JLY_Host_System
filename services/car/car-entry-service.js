@@ -214,7 +214,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
       name: targetName || identity.displayName,
       status: "pending",
       source: "car_view_identity_claim",
-      claimType: target ? "existing_slot" : "new_person",
+      claimType: target ? "existing_person" : "new_person",
       targetStaffId: target ? text(target.id || target.slotId) : "",
       targetStaffName: targetName,
       targetStaffLabel: target ? text(target.label || target.roleLabel || target.title) : "",
@@ -224,7 +224,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
       updatedAt: timestamp
     });
     transaction.update(carRef, { dmApplications: applications, updatedAt: timestamp });
-    result = { id, status: "pending", type: "dm", claimType: target ? "existing_slot" : "new_person" };
+    result = { id, status: "pending", type: "dm", claimType: target ? "existing_person" : "new_person" };
   });
 
   return result;
