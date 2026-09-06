@@ -143,6 +143,46 @@ console.log(
     getControllerModule().close();
   }
 
+  function sameNameWarning(name, candidates) {
+    const names = (Array.isArray(candidates) ? candidates : [])
+      .map(function (member) {
+        return String(member.displayName || member.nickname || member.playerName || name || "").trim();
+      })
+      .filter(Boolean);
+
+    const shownName = String(name || names[0] || "這個名字").trim();
+    return (
+      "已經找到同名 Person「" + shownName + "」。\n\n" +
+      "如果就是同一個人，請取消並直接點選上方既有 Person。\n" +
+      "只有確定是另一位不同的人，才按確定建立新的同名 Person。"
+    );
+  }
+
+  async function createStaffFromInput(input) {
+    const create = getCreateModule();
+    const displayName = input ? input.value : "";
+
+    try {
+      return await create.prepareMemberForStaff(displayName);
+    } catch (error) {
+      if (!error || error.code !== "same_name_person_requires_resolution") {
+        throw error;
+      }
+
+      const confirmed = window.confirm(
+        sameNameWarning(displayName, error.sameNameCandidates)
+      );
+
+      if (!confirmed) {
+        return null;
+      }
+
+      return create.prepareMemberForStaff(displayName, {
+        allowSameNamePerson: true
+      });
+    }
+  }
+
   function bindBodyEvents() {
     const render =
       getRenderModule();
@@ -209,12 +249,9 @@ console.log(
             );
 
           const result =
-            await getCreateModule()
-              .prepareMemberForStaff(
-                input
-                  ? input.value
-                  : ""
-              );
+            await createStaffFromInput(
+              input
+            );
 
           if (!result) {
             return;
@@ -243,6 +280,8 @@ console.log(
 
       removeGlobalEvents,
 
-      handleKeydown
+      handleKeydown,
+      sameNameWarning,
+      createStaffFromInput
     };
 })();
