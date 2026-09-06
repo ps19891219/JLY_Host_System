@@ -47,11 +47,14 @@
       result.textContent = "正在清空帳務…";
 
       try {
-        const response = await fetch("/api/reset-accounting-only", {
+        const response = await fetch("/api/maintenance-reset-current-accounting", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ confirm: "RESET_ACCOUNTING_ONLY" })
+          body: JSON.stringify({
+            mode: "accounting_only",
+            confirm: "RESET_ACCOUNTING_ONLY"
+          })
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || !data.ok) {
