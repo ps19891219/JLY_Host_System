@@ -24,7 +24,7 @@ function sessionIds(session) {
 }
 
 function isAuthenticated(session) {
-  return Boolean(text(session && session.lineUserId));
+  return Boolean(text(session && session.lineUserId) || sessionIds(session).size);
 }
 
 function sameIdentity(value, session) {
