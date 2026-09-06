@@ -24,20 +24,38 @@
   }
 
   async function login(entry) {
-    if (!window.JLYLineLogin || typeof window.JLYLineLogin.start !== "function") {
-      alert("LINE 登入模組尚未載入");
-      return false;
-    }
     try {
-      await window.JLYLineLogin.start({
-        returnUrl: location.pathname + location.search
+      const returnPath = location.pathname + location.search;
+      const response = await fetch("/api/line-login-state", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerProfileId: text(localStorage.getItem("currentPlayerProfileId")),
+          identityId: text(localStorage.getItem("currentPlayerId")),
+          returnPath
+        })
       });
+      const data = await response.json();
+      if (!response.ok || !data || !data.state) {
+        throw new Error((data && data.error) || "login_state_failed");
+      }
+
+      const params = new URLSearchParams({
+        response_type: "code",
+        client_id: "2010653666",
+        redirect_uri: `${location.origin}/pages/line-callback.html`,
+        state: data.state,
+        scope: "openid profile"
+      });
+
+      location.assign(`https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`);
       return true;
     } catch (error) {
-      console.error("車團報名 LINE 身分確認啟動失敗：", error);
+      console.error("車團報名 LINE OAuth 啟動失敗：", error);
       alert(
         error && error.message
-          ? error.message
+          ? `LINE 身分確認無法啟動：${error.message}`
           : "LINE 身分確認無法啟動，請稍後再試。"
       );
       return false;
