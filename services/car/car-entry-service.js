@@ -6,6 +6,9 @@ const { identityIds } = require("./car-view-access");
 function text(value) { return String(value == null ? "" : value).trim(); }
 function lower(value) { return text(value).toLowerCase(); }
 function nowIso() { return new Date().toISOString(); }
+function applicationId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function sessionIds(session) {
   return new Set([session && session.profileId, session && session.identityId].map(text).filter(Boolean));
@@ -92,7 +95,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
   if (!carId) {
     const error = new Error("car_id_required"); error.code = "car_id_required"; throw error;
   }
-  if (!['player', 'dm'].includes(type)) {
+  if (!["player", "dm"].includes(type)) {
     const error = new Error("entry_type_invalid"); error.code = "entry_type_invalid"; throw error;
   }
 
@@ -113,7 +116,9 @@ async function submitCarEntry(input, session, dependencies = {}) {
       assertPlayerAvailable(car, session);
       const position = text(input.position || input.role || "不限") || "不限";
       const applications = Array.isArray(car.applications) ? car.applications.map(item => ({ ...item })) : [];
+      const id = applicationId("player_app");
       applications.push({
+        id,
         ...identity,
         name: identity.displayName,
         playerName: identity.displayName,
@@ -126,7 +131,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
         updatedAt: timestamp
       });
       transaction.update(carRef, { applications, updatedAt: timestamp });
-      result = { status: "pending", type: "player" };
+      result = { id, status: "pending", type: "player" };
       return;
     }
 
@@ -136,7 +141,9 @@ async function submitCarEntry(input, session, dependencies = {}) {
       const error = new Error("staff_slot_unavailable"); error.code = "staff_slot_unavailable"; throw error;
     }
     const applications = Array.isArray(car.dmApplications) ? car.dmApplications.map(item => ({ ...item })) : [];
+    const id = applicationId("dm_app");
     applications.push({
+      id,
       ...identity,
       name: identity.displayName,
       status: "pending",
@@ -149,7 +156,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
       updatedAt: timestamp
     });
     transaction.update(carRef, { dmApplications: applications, updatedAt: timestamp });
-    result = { status: "pending", type: "dm" };
+    result = { id, status: "pending", type: "dm" };
   });
 
   return result;
