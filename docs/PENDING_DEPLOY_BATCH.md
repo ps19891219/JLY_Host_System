@@ -40,18 +40,22 @@ Status: CODE READY IN BATCH FOR TESTING, NO PRODUCTION WRITE, NOT MERGED
 
 Completed in batch:
 - `scripts/person-dedupe-audit.js` classifies candidate groups as `SAFE STRONG MATCH`, `REVIEW REQUIRED`, or `SAME NAME ONLY`.
+- Candidate discovery now includes same normalized name, shared `lineUserId`, shared `identityId`, shared formal `profileId`, and explicit canonical/merged/person/linkedPlayer relationships. Name changes or blank/legacy naming therefore do not hide a strong-identity candidate.
 - Same-name remains candidate discovery only and never becomes identity proof.
-- Strong match evidence is restricted to shared LINE user ID, identity ID, or formal profile ID.
+- A whole candidate group is `SAFE STRONG MATCH` only when every record is connected through consistent strong identity evidence. A partial strong edge cannot make unrelated same-name records safe.
+- Contradictory LINE / identity / formal profile values force `REVIEW REQUIRED` even when another strong key is shared.
 - Canonical/merged/person/linkedPlayer references can raise a group to review, but do not independently become safe identity proof.
-- Canonical recommendation records reasons such as `LINE_LINKED`, `IDENTITY_MATCH`, `PROFILE_MATCH`, `LINKED_HISTORY`, and `CANONICAL_REFERENCE`.
+- Canonical recommendation records reasons such as `LINE_LINKED`, `IDENTITY_MATCH`, `PROFILE_MATCH`, `LINKED_HISTORY`, and `CANONICAL_REFERENCE`; canonical score ties are surfaced for review instead of guessed.
 - Provisional `line:<userId>` records are penalized as canonical candidates and are not treated as formal Person identity.
 - `scripts/person-canonical-migration-dry-run.js` performs recursive read-only Firestore traversal across current top-level collections and nested subcollections.
-- Historical reference inventory records exact document path, field path, referenced Person ID, and domain.
+- Historical reference inventory scans candidate document IDs plus formal historical `personId` / `linkedPlayerIds` aliases. Provisional `line:<userId>` is excluded from Person migration aliases.
+- Historical reference inventory records exact document path, field path, matched alias, owning Person candidate(s), and domain.
 - Inventory domains cover Car, player/membership, staff/DM, applications, seats, Accounting, Pending Action, Calendar, reminder, LINE/profile/identity, and uncategorized historical references.
-- Dry-run plans explicitly list `fromPersonId`, `toPersonId`, and every discovered reference that would require migration.
-- `SAME NAME ONLY` and non-strong review groups remain blocked from migration moves.
+- If one historical alias maps to multiple Person candidates, the dry-run reports `AMBIGUOUS_HISTORICAL_ALIAS`, blocks the group, and produces no migration moves.
+- Dry-run plans explicitly list `fromPersonId`, `toPersonId`, aliases, and every discovered reference that would require migration only for unambiguous safe candidates.
+- `SAME NAME ONLY`, conflicting identity, partial-strong, ambiguous-alias, and other review groups remain blocked from migration moves.
 - The dry-run tool has no apply mode and contains no update/delete migration path.
-- Regression coverage added in `tests/person-canonical-migration.test.js`.
+- Regression coverage in `tests/person-canonical-migration.test.js` now covers renamed strong-identity candidates, conflicting strong identity, partial strong groups, historical aliases, ambiguous alias blocking, and same-name safety.
 
 Safety rules:
 - Preserve all historical Activity/Car membership history.
@@ -68,14 +72,14 @@ Purpose:
 - Player / DM / Staff remain Activity roles over the same Person, not separate identity records.
 
 Included in batch:
-- `js/modules/member/picker/picker-data.js` now exposes canonical Person Directory identity state and labels.
+- `js/modules/member/picker/picker-data.js` exposes canonical Person Directory identity state and labels.
 - Existing canonical dedupe stays strong-evidence-only. Same-name People remain separate.
 - LINE-linked Person records are visibly marked `已連結 LINE`; formal non-LINE Person records remain reusable; provisional `line:<userId>` is not promoted to formal Person proof.
 - `pages/person-directory.html` adds a read-only mobile-friendly Person Directory surface over the existing `players` Person source.
 - `js/modules/member/person-directory.js` renders/searches the canonical directory without creating a second Person store.
 - `css/pages/person-directory.css` provides the directory UI.
 - Member Picker wording is generalized from staff-only wording to Person selection and shows identity linkage state.
-- `js/modules/car/detail/player/player-search.js` now loads the same canonical Person Directory before manual player creation.
+- `js/modules/car/detail/player/player-search.js` loads the same canonical Person Directory before manual player creation.
 - Manual add of an existing LINE-linked Person reuses that Person ID and therefore does not require a new identity claim.
 - Creating another same-name Person requires an explicit confirmation that this is a different real person.
 - Regression coverage added in `tests/member-person-directory.test.js`.
@@ -91,7 +95,7 @@ Remaining before batch merge/deploy:
 - Run the complete `npm test` suite on final batch head.
 - Review dry-run output against real Firestore data with read-only credentials before any future apply design.
 - Confirm no missing Person reference shapes appear in the `OTHER` inventory domain.
-- Confirm Person Directory responsibility is reflected in `docs/PROJECT_MAP.md` before the batch leaves Draft.
+- Integrate the Person Directory Project Map supplement into canonical `docs/PROJECT_MAP.md` without truncating historical map entries.
 - Keep PR #32 Draft until the batch review is complete.
 
 ## Deployment gate
@@ -100,10 +104,10 @@ Before the next production deployment:
 - [ ] Finish the intended batch work.
 - [ ] Run full `npm test` on the final batch head.
 - [ ] Confirm temporary CI workflow changes are absent.
-- [ ] Confirm top-level `/api` function count remains within Vercel Hobby limit.
+- [x] Confirm top-level `/api` function count remains within Vercel Hobby limit: currently 12.
 - [ ] Review `main` vs last successful production commit so every pending change is accounted for.
 - [ ] Confirm every pending item in this document is included in the deployment candidate.
-- [ ] Confirm `docs/PROJECT_MAP.md` includes the final Person Directory responsibility.
+- [ ] Integrate final Person Directory responsibility into canonical `docs/PROJECT_MAP.md` without losing historical entries.
 - [ ] Trigger ONE production deployment only after Vercel rate limit is restored.
 - [ ] Verify production deployment success before asking the user to test.
 - [ ] Perform accounting reset production verification only after successful deployment.
