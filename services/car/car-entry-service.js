@@ -10,8 +10,21 @@ function applicationId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function isSyntheticLineId(value) {
+  return /^line:/i.test(text(value));
+}
+
+function formalProfileId(session) {
+  const value = text(session && session.profileId);
+  if (!value || session && session.provisional === true || isSyntheticLineId(value)) return "";
+  return value;
+}
+
 function sessionIds(session) {
-  return new Set([session && session.profileId, session && session.identityId].map(text).filter(Boolean));
+  return new Set([
+    formalProfileId(session),
+    session && session.identityId
+  ].map(text).filter(Boolean));
 }
 
 function displayName(value) {
@@ -24,8 +37,15 @@ function sameIdentity(value, session) {
   return ids.size > 0 && identityIds(value).some(id => ids.has(id));
 }
 
+function sameLineIdentity(value, session) {
+  const expected = text(session && session.lineUserId);
+  return Boolean(expected && text(value && value.lineUserId) === expected);
+}
+
 function matchesViewer(value, session) {
-  if (sameIdentity(value, session)) return true;
+  if (sameLineIdentity(value, session) || sameIdentity(value, session)) return true;
+  // Legacy name fallback is only safe for already-linked/formal sessions.
+  if (session && session.provisional === true) return false;
   const viewerName = lower(session && session.displayName);
   return Boolean(viewerName && lower(displayName(value)) === viewerName);
 }
@@ -41,22 +61,26 @@ function pending(value) {
 }
 
 function requireSession(session) {
-  const profileId = text(session && session.profileId);
-  if (!profileId) {
+  const lineUserId = text(session && session.lineUserId);
+  if (!lineUserId) {
     const error = new Error("identity_required");
     error.code = "identity_required";
     throw error;
   }
-  return profileId;
+  return session;
 }
 
 function baseIdentity(session) {
-  const profileId = requireSession(session);
+  requireSession(session);
+  const profileId = formalProfileId(session);
   return {
     memberId: profileId,
     profileId,
-    identityId: text(session && session.identityId),
+    identityId: profileId ? text(session && session.identityId) : "",
     lineUserId: text(session && session.lineUserId),
+    lineDisplayName: text(session && session.displayName),
+    claimantDisplayName: text(session && session.displayName),
+    provisionalIdentity: !profileId,
     displayName: text(session && session.displayName)
   };
 }
@@ -64,7 +88,7 @@ function baseIdentity(session) {
 function assertPlayerAvailable(car, session) {
   const players = Array.isArray(car.players) ? car.players : [];
   const applications = Array.isArray(car.applications) ? car.applications : [];
-  if (players.some(item => active(item) && sameIdentity(item, session))) {
+  if (players.some(item => active(item) && (sameIdentity(item, session) || sameLineIdentity(item, session)))) {
     const error = new Error("already_player"); error.code = "already_player"; throw error;
   }
   if (applications.some(item => pending(item) && matchesViewer(item, session))) {
@@ -75,7 +99,7 @@ function assertPlayerAvailable(car, session) {
 function assertDmAvailable(car, session) {
   const staff = Array.isArray(car.staffSlots) ? car.staffSlots : [];
   const applications = Array.isArray(car.dmApplications) ? car.dmApplications : [];
-  if (staff.some(item => active(item) && sameIdentity(item, session))) {
+  if (staff.some(item => active(item) && (sameIdentity(item, session) || sameLineIdentity(item, session)))) {
     const error = new Error("already_staff"); error.code = "already_staff"; throw error;
   }
   if (applications.some(item => pending(item) && matchesViewer(item, session))) {
@@ -83,14 +107,42 @@ function assertDmAvailable(car, session) {
   }
 }
 
-function findClaimableStaffSlot(car, targetStaffId) {
+function rosterId(value) {
+  const source = value && typeof value === "object" ? value : {};
+  return text(source.playerId || source.id || source.profileId || source.memberId);
+}
+
+function hasDifferentLineBinding(value, session) {
+  const bound = text(value && value.lineUserId);
+  const claimant = text(session && session.lineUserId);
+  return Boolean(bound && claimant && bound !== claimant);
+}
+
+function findClaimablePlayer(car, targetPlayerId, session) {
+  const id = text(targetPlayerId);
+  if (!id) return null;
+  return (Array.isArray(car.players) ? car.players : []).find(function (player) {
+    return active(player) && rosterId(player) === id && Boolean(displayName(player)) &&
+      !hasDifferentLineBinding(player, session);
+  }) || null;
+}
+
+function findClaimableStaffSlot(car, targetStaffId, session) {
   const id = text(targetStaffId);
   if (!id) return null;
   return (Array.isArray(car.staffSlots) ? car.staffSlots : []).find(function (slot) {
-    return text(slot && (slot.id || slot.slotId)) === id &&
-      !text(slot && (slot.memberId || slot.profileId || slot.identityId)) &&
-      Boolean(displayName(slot));
+    return active(slot) && text(slot && (slot.id || slot.slotId)) === id && Boolean(displayName(slot)) &&
+      !hasDifferentLineBinding(slot, session);
   }) || null;
+}
+
+function claimPersonId(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const nested = source.player && typeof source.player === "object" ? source.player : {};
+  return [
+    source.personId, source.memberId, source.profileId, source.playerId,
+    nested.personId, nested.memberId, nested.profileId, nested.playerId, nested.id
+  ].map(text).find(id => id && !isSyntheticLineId(id)) || "";
 }
 
 async function submitCarEntry(input, session, dependencies = {}) {
@@ -118,52 +170,74 @@ async function submitCarEntry(input, session, dependencies = {}) {
 
     if (type === "player") {
       assertPlayerAvailable(car, session);
-      const position = text(input.position || input.role || "不限") || "不限";
+      const target = findClaimablePlayer(car, input.targetPlayerId, session);
+      if (text(input.targetPlayerId) && !target) {
+        const error = new Error("player_claim_unavailable"); error.code = "player_claim_unavailable"; throw error;
+      }
+      const position = text(input.position || input.role || target && (target.position || target.roleChoice) || "不限") || "不限";
       const applications = Array.isArray(car.applications) ? car.applications.map(item => ({ ...item })) : [];
       const id = applicationId("player_app");
+      const targetName = target ? displayName(target) : "";
       applications.push({
         id,
         ...identity,
-        name: identity.displayName,
-        playerName: identity.displayName,
+        name: targetName || identity.displayName,
+        playerName: targetName || identity.displayName,
         role: position,
         position,
         isCrossPlay: input.isCrossPlay === true,
         status: "pending",
-        source: "car_view",
+        source: "car_view_identity_claim",
+        claimType: target ? "existing_person" : "new_person",
+        targetPlayerId: target ? rosterId(target) : "",
+        targetPlayerName: targetName,
+        targetPersonId: target ? claimPersonId(target) : "",
+        requestedActivityRole: "player",
         createdAt: timestamp,
         updatedAt: timestamp
       });
       transaction.update(carRef, { applications, updatedAt: timestamp });
-      result = { id, status: "pending", type: "player" };
+      result = { id, status: "pending", type: "player", claimType: target ? "existing_person" : "new_person" };
       return;
     }
 
     assertDmAvailable(car, session);
-    const target = findClaimableStaffSlot(car, input.targetStaffId);
+    const target = findClaimableStaffSlot(car, input.targetStaffId, session);
     if (text(input.targetStaffId) && !target) {
       const error = new Error("staff_slot_unavailable"); error.code = "staff_slot_unavailable"; throw error;
     }
     const applications = Array.isArray(car.dmApplications) ? car.dmApplications.map(item => ({ ...item })) : [];
     const id = applicationId("dm_app");
+    const targetName = target ? displayName(target) : "";
     applications.push({
       id,
       ...identity,
-      name: identity.displayName,
+      name: targetName || identity.displayName,
       status: "pending",
-      source: "car_view",
-      claimType: target ? "existing_slot" : "new",
+      source: "car_view_identity_claim",
+      claimType: target ? "existing_person" : "new_person",
       targetStaffId: target ? text(target.id || target.slotId) : "",
-      targetStaffName: target ? displayName(target) : "",
+      targetStaffName: targetName,
       targetStaffLabel: target ? text(target.label || target.roleLabel || target.title) : "",
+      targetPersonId: target ? claimPersonId(target) : "",
+      requestedActivityRole: "dm",
       createdAt: timestamp,
       updatedAt: timestamp
     });
     transaction.update(carRef, { dmApplications: applications, updatedAt: timestamp });
-    result = { id, status: "pending", type: "dm" };
+    result = { id, status: "pending", type: "dm", claimType: target ? "existing_person" : "new_person" };
   });
 
   return result;
 }
 
-module.exports = { submitCarEntry, matchesViewer, assertPlayerAvailable, assertDmAvailable, findClaimableStaffSlot };
+module.exports = {
+  submitCarEntry,
+  matchesViewer,
+  assertPlayerAvailable,
+  assertDmAvailable,
+  findClaimablePlayer,
+  findClaimableStaffSlot,
+  isSyntheticLineId,
+  formalProfileId
+};
