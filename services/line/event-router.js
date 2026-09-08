@@ -14,12 +14,6 @@ Responsibilities:
 6. Reply only when message-router requests a reply
 7. Resolve group binding when JLY Assistant is called in a group
 8. Show a quick reply menu inside group conversations
-
-V1.3 does NOT:
-- Write Firebase
-- Modify Player Profile
-- Bind Car / Group
-- Handle business commands
 */
 
 "use strict";
@@ -107,19 +101,11 @@ const {
   enableGroupPreTripReminder
 } = require("./reminder-service");
 
-// ============================================================
-// Normalize Text
-// ============================================================
-
 function normalizeText(value) {
   return String(
     value || ""
   ).trim();
 }
-
-// ============================================================
-// Normalize Source
-// ============================================================
 
 function normalizeSource(event) {
   const source =
@@ -152,10 +138,6 @@ function normalizeSource(event) {
   };
 }
 
-// ============================================================
-// Normalize Message
-// ============================================================
-
 function normalizeMessage(event) {
   const message =
     event &&
@@ -183,10 +165,6 @@ function normalizeMessage(event) {
         : ""
   };
 }
-
-// ============================================================
-// Basic Event Data
-// ============================================================
 
 function createEventContext(event) {
   const eventType =
@@ -241,10 +219,6 @@ function createEventContext(event) {
   };
 }
 
-// ============================================================
-// Log Event
-// ============================================================
-
 function logEvent(context) {
   console.log(
     "LINE Event:",
@@ -272,10 +246,6 @@ function logEvent(context) {
     }
   );
 }
-
-// ============================================================
-// Handle Message Event
-// ============================================================
 
 async function handleMessageEvent(
   context,
@@ -331,10 +301,6 @@ async function handleMessageEvent(
     dependencies.enableGroupPreTripReminder ||
     enableGroupPreTripReminder;
 
-  // ----------------------------------------------------------
-  // Non-text message
-  // ----------------------------------------------------------
-
   if (
     context.message.type !== "text"
   ) {
@@ -346,20 +312,10 @@ async function handleMessageEvent(
     };
   }
 
-  // ----------------------------------------------------------
-  // Ask Message Router
-  // ----------------------------------------------------------
-
   const messageResult =
     routeTextMessage(
       context.message.text
     );
-
-  // ----------------------------------------------------------
-  // Normal conversation
-  //
-  // JLY Assistant stays silent.
-  // ----------------------------------------------------------
 
   if (
     !messageResult.handled
@@ -382,11 +338,6 @@ async function handleMessageEvent(
       context
     };
   }
-
-  // ----------------------------------------------------------
-  // Resolve group binding only after the assistant is called.
-  // Normal group conversation must not read Firebase.
-  // ----------------------------------------------------------
 
   let groupBinding = null;
 
@@ -449,9 +400,10 @@ async function handleMessageEvent(
         pairing_not_found: "找不到這組配對碼，請回到車團頁面重新產生。",
         pairing_expired: "這組配對碼已超過 10 分鐘，請重新產生。",
         pairing_unavailable: "這組配對碼已使用或已取消，請重新產生。",
+        pairing_not_authorized: "這組配對碼不是由車團管理端授權產生，請回到車團頁面重新產生。",
         line_identity_unlinked: "請先完成 LINE 與 JLY Member 身分連結。",
         car_not_found: "找不到這個 JLY 車團。",
-        owner_required: "只有這個車團的建立主揪可以綁定群組。"
+        owner_required: "這組配對碼未通過車團權限驗證，請回到車團頁面重新產生。"
       };
       if (!prepared.prepared) {
         await replyWithText(context.replyToken, failureMessages[prepared.reason] || "車團配對失敗，請稍後再試。");
@@ -460,7 +412,7 @@ async function handleMessageEvent(
       const dateLine = prepared.car.date ? `\n日期：${prepared.car.date}` : "";
       await replyWithMessages(context.replyToken, [{
         type: "text",
-        text: `準備綁定車團：\n《${prepared.car.label}》${dateLine}\n\n請由建立主揪確認是否綁定到目前群組。`,
+        text: `準備綁定車團：\n《${prepared.car.label}》${dateLine}\n\n請確認是否要綁定到目前這個 LINE 群組。`,
         quickReply: {
           items: [
             { type: "action", action: { type: "message", label: "確認綁定", text: `JLY 確認綁定 ${prepared.code}` } },
@@ -482,11 +434,12 @@ async function handleMessageEvent(
       group_required: "車團綁定只能在 LINE 群組內執行。",
       line_identity_unlinked: "請先完成 LINE 與 JLY Member 身分連結。",
       car_not_found: "找不到這個 JLY 車團。",
-      owner_required: "只有這個車團的建立主揪可以綁定群組。",
-      binding_conflict: "這個 LINE 群組已綁定其他車團，為避免帳目混在一起，目前不會覆蓋。"
-      ,pairing_not_found: "找不到這組配對碼，請重新產生。"
-      ,pairing_expired: "這組配對碼已超過 10 分鐘，請重新產生。"
-      ,pairing_confirmation_mismatch: "只有在原群組提出配對的建立主揪可以確認。"
+      owner_required: "舊式直接綁定僅限車團建立主揪；請改由車團頁面產生配對碼。",
+      binding_conflict: "這個 LINE 群組已綁定其他車團，為避免帳目混在一起，目前不會覆蓋。",
+      pairing_not_found: "找不到這組配對碼，請重新產生。",
+      pairing_expired: "這組配對碼已超過 10 分鐘，請重新產生。",
+      pairing_not_authorized: "這組配對碼不是由車團管理端授權產生，請重新產生。",
+      pairing_confirmation_mismatch: "只能由在這個群組開始配對的同一位使用者確認。"
     };
 
     let bindingReply = failureMessages[bindResult.reason] ||
@@ -511,10 +464,6 @@ async function handleMessageEvent(
       bindResult
     };
   }
-
-  // ----------------------------------------------------------
-  // Pre-trip Reminder
-  // ----------------------------------------------------------
 
   if (
     messageResult.action ===
@@ -626,11 +575,6 @@ async function handleMessageEvent(
       reminderResult
     };
   }
-
-
-  // ----------------------------------------------------------
-  // Group accounting command
-  // ----------------------------------------------------------
 
   if (["assistant_store_info","assistant_time_info","assistant_people_info"].includes(messageResult.action)) {
     if (!context.replyToken) return { handled: false, route: "message_missing_reply_token", context, groupBinding };
@@ -845,12 +789,6 @@ async function handleMessageEvent(
             actorLabel,
             operationLabels
           ));
-          continue;
-          lines.push(
-            `[${getEntryCode(log.entryId)}] ` +
-            `${operationLabels[log.operation] || log.operation} ` +
-            `操作者：${actorLabel}`
-          );
         }
       }
 
@@ -1013,10 +951,6 @@ async function handleMessageEvent(
     };
   }
 
-  // ----------------------------------------------------------
-  // Reply requested
-  // ----------------------------------------------------------
-
   if (
     !messageResult.replyText
   ) {
@@ -1028,10 +962,6 @@ async function handleMessageEvent(
       groupBinding
     };
   }
-
-  // ----------------------------------------------------------
-  // replyToken required
-  // ----------------------------------------------------------
 
   if (!context.replyToken) {
     console.warn(
@@ -1045,10 +975,6 @@ async function handleMessageEvent(
       context
     };
   }
-
-  // ----------------------------------------------------------
-  // Send LINE reply
-  // ----------------------------------------------------------
 
   if (
     messageResult.action === "assistant_called" &&
@@ -1287,10 +1213,6 @@ function buildAuditDetailLines(log, actorLabel, operationLabels) {
   return lines;
 }
 
-// ============================================================
-// Route Single Event
-// ============================================================
-
 async function routeEvent(
   event,
   dependencies = {}
@@ -1361,10 +1283,6 @@ async function routeEvent(
   }
 }
 
-// ============================================================
-// Route Event List
-// ============================================================
-
 async function routeEvents(
   events,
   dependencies = {}
@@ -1394,13 +1312,8 @@ async function routeEvents(
   return results;
 }
 
-// ============================================================
-// Exports
-// ============================================================
-
 module.exports = {
   routeEvent,
   routeEvents,
   createEventContext
 };
-
