@@ -1,0 +1,1 @@
+"use strict";const test=require("node:test");const assert=require("node:assert/strict");const fs=require("node:fs");const path=require("node:path");test("home exposes 人員名單 as canonical roster entry",()=>{const s=fs.readFileSync(path.join(__dirname,"../index.html"),"utf8");assert.match(s,/👥 人員名單/);});

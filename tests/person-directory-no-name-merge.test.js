@@ -1,0 +1,1 @@
+"use strict";const test=require("node:test");const assert=require("node:assert/strict");const fs=require("node:fs");const path=require("node:path");test("same-name creation is explicitly marked instead of merged",()=>{const s=fs.readFileSync(path.join(__dirname,"../js/modules/car/detail/player/player-search.js"),"utf8");assert.match(s,/sameNameOverride=true/);});
