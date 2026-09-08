@@ -8,8 +8,10 @@ const {
   getPairingCode,
   updatePairingCode
 } = require("../firebase/line-group-pairing-repository");
-const { bindGroupToCar } = require("./group-car-binding-service");
-const { getIdentityIds } = require("./group-car-binding-service");
+const {
+  bindGroupToCar,
+  isCarOwner
+} = require("./group-car-binding-service");
 
 function expired(pairing, now = Date.now()) {
   return !pairing || Date.parse(pairing.expiresAt || "") <= now;
@@ -39,7 +41,7 @@ async function prepareGroupPairing(context, code, dependencies = {}) {
   if (!player) return { prepared: false, reason: "line_identity_unlinked" };
   const car = await getCar(pairing.carId);
   if (!car) return { prepared: false, reason: "car_not_found" };
-  if (!getIdentityIds(player).has(String(car.ownerId || ""))) {
+  if (!isCarOwner(player, car)) {
     return { prepared: false, reason: "owner_required" };
   }
   await updatePairing(code, {
