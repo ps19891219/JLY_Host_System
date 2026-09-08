@@ -85,6 +85,17 @@ function isCarOwner(player, car) {
   return [...ownerIds].some(id => actorIds.has(id));
 }
 
+function isAuthorizedPairing(dependencies) {
+  const pairing = dependencies && dependencies.pairingAuthorization;
+  return Boolean(
+    dependencies &&
+    dependencies.authorizedPairing === true &&
+    pairing &&
+    pairing.authorizationType === "car_owner_session" &&
+    text(pairing.authorizedByPersonId)
+  );
+}
+
 function getCarLabel(car) {
   return String(
     car && (car.scriptName || car.title || car.name || car.id) || "JLY 車團"
@@ -113,18 +124,25 @@ async function bindGroupToCar(
     return { bound: false, reason: "group_required" };
   }
 
-  const player = await findPlayer(context.source.userId);
-  if (!player) {
-    return { bound: false, reason: "line_identity_unlinked" };
-  }
-
   const car = await getCar(carId);
   if (!car) {
     return { bound: false, reason: "car_not_found" };
   }
 
-  if (!isCarOwner(player, car)) {
-    return { bound: false, reason: "owner_required" };
+  const pairingAuthorized = isAuthorizedPairing(dependencies);
+
+  // Direct/legacy binding still requires the LINE actor to be the car owner.
+  // The pairing-code flow is different: owner authority was already verified
+  // when the short-lived code was minted on the JLY car side. Therefore the
+  // LINE group executor may be any group participant holding that valid code.
+  if (!pairingAuthorized) {
+    const player = await findPlayer(context.source.userId);
+    if (!player) {
+      return { bound: false, reason: "line_identity_unlinked" };
+    }
+    if (!isCarOwner(player, car)) {
+      return { bound: false, reason: "owner_required" };
+    }
   }
 
   const existingBinding = await getBinding(
@@ -146,6 +164,14 @@ async function bindGroupToCar(
     groupId: context.source.groupId,
     carId,
     createdBy: context.source.userId,
+    authorizedByPersonId:
+      pairingAuthorized
+        ? text(dependencies.pairingAuthorization.authorizedByPersonId)
+        : null,
+    authorizationType:
+      pairingAuthorized
+        ? "car_owner_session"
+        : "direct_car_owner",
     status: "active"
   });
   const legacyEntries = await listLegacy(context.source.groupId);
@@ -189,5 +215,6 @@ module.exports = {
   getIdentityIds,
   getCarOwnerIds,
   isCarOwner,
+  isAuthorizedPairing,
   getCarLabel
 };
