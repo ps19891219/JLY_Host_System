@@ -1,45 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JLY 人員名單</title>
-  <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/pages/person-directory.css?v=1">
-</head>
-<body>
-  <main class="person-directory-page">
-    <header class="person-directory-header">
-      <div>
-        <p class="person-directory-eyebrow">JLY Person Directory</p>
-        <h1>人員名單</h1>
-        <p class="person-directory-description">
-          已連結過 LINE 的人員，之後加入新車時可直接選用既有 Person，不需要重新認領。
-        </p>
-      </div>
-      <a class="person-directory-back" href="/pages/mycar.html">返回我的車</a>
-    </header>
-
-    <section class="person-directory-toolbar" aria-label="人員名單工具列">
-      <input
-        id="personDirectorySearch"
-        type="search"
-        placeholder="搜尋姓名、暱稱或 LINE 顯示名稱"
-        autocomplete="off"
-      >
-      <div id="personDirectoryStats" class="person-directory-stats">讀取中…</div>
-    </section>
-
-    <section id="personDirectoryNotice" class="person-directory-notice" hidden></section>
-    <section id="personDirectoryList" class="person-directory-list" aria-live="polite">
-      <div class="person-directory-empty">正在讀取人員名單…</div>
-    </section>
-  </main>
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script src="/firebase/firebase.js?v=25"></script>
-  <script src="/js/modules/member/picker/picker-data.js?v=2"></script>
-  <script src="/js/modules/member/person-directory.js?v=1"></script>
-</body>
-</html>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>人員名單｜JLY</title>
+<link rel="stylesheet" href="../css/style.css"><link rel="stylesheet" href="../css/pages/person-directory.css?v=2">
+</head><body><main class="person-directory-page">
+<header class="person-directory-header"><div><p class="person-directory-eyebrow">JLY Person Directory</p><h1>👥 人員名單</h1><p class="person-directory-description">所有活動共用同一位 Person。訪客之後連結 LINE 時，直接升級同一筆人員資料。</p></div><a class="person-directory-back" href="/">返回首頁</a></header>
+<section class="person-directory-create card"><h2>＋ 新增人員</h2><label for="newPersonName">姓名／常用暱稱</label><input id="newPersonName" autocomplete="off" placeholder="例：小安"><label for="newPersonNote">備註</label><textarea id="newPersonNote" placeholder="選填"></textarea><button id="createPersonButton" type="button">新增為訪客</button><p class="person-directory-help">同名可以是不同真人，系統以 Person ID 區分，不會用姓名自動合併。</p></section>
+<section class="person-directory-toolbar" aria-label="人員名單工具列"><input id="personDirectorySearch" type="search" placeholder="搜尋姓名、暱稱、LINE 顯示名稱或備註" autocomplete="off"><div class="person-directory-tabs"><button type="button" data-person-filter="all" class="active">全部</button><button type="button" data-person-filter="member">會員</button><button type="button" data-person-filter="guest">訪客</button></div><div id="personDirectoryStats" class="person-directory-stats">讀取中…</div></section>
+<section id="personDirectoryNotice" class="person-directory-notice" hidden></section><section id="personDirectoryList" class="person-directory-list" aria-live="polite"><div class="person-directory-empty">正在讀取人員名單…</div></section>
+</main><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script><script src="/firebase/firebase.js?v=25"></script><script src="/js/modules/member/picker/picker-data.js?v=2"></script><script src="/js/modules/member/person-directory.js?v=2"></script></body></html>
