@@ -12,8 +12,9 @@ test("same-name alone never becomes strong identity evidence", () => {
   ];
   const result = audit.classify(rows);
   assert.equal(result.hasStrongEvidence, false);
-  assert.equal(result.disposition, "manual_same_name_review");
-  assert.deepEqual(result.evidenceEdges, []);
+  assert.equal(result.disposition, "SAME NAME ONLY");
+  assert.deepEqual(result.strongEdges, []);
+  assert.equal(result.sameNameEdges.length, 1);
 });
 
 test("shared LINE user id is strong evidence", () => {
@@ -23,7 +24,8 @@ test("shared LINE user id is strong evidence", () => {
   ];
   const result = audit.classify(rows);
   assert.equal(result.hasStrongEvidence, true);
-  assert.ok(result.evidenceEdges[0].shared.includes("lineUserId:U123"));
+  assert.equal(result.disposition, "SAFE STRONG MATCH");
+  assert.ok(result.strongEdges[0].shared.includes("lineUserId:U123"));
 });
 
 test("synthetic line profile id is excluded from formal identity evidence", () => {
@@ -34,10 +36,24 @@ test("synthetic line profile id is excluded from formal identity evidence", () =
   assert.deepEqual(audit.sharedStrongEvidence(a, b), []);
 });
 
-test("canonical and linked historical ids contribute evidence without using name", () => {
-  const a = { id: "person-a", canonicalPersonId: "person-c", linkedPlayerIds: ["legacy-1"] };
-  const b = { id: "person-b", canonicalPersonId: "person-c", linkedPlayerIds: ["legacy-1"] };
-  const shared = audit.sharedStrongEvidence(a, b);
-  assert.ok(shared.includes("canonicalPersonId:person-c"));
-  assert.ok(shared.includes("linkedPlayerId:legacy-1"));
+test("canonical and linked historical ids are reference evidence, not strong identity proof", () => {
+  const a = {
+    id: "person-a",
+    canonicalPersonId: "person-b",
+    linkedPlayerIds: ["legacy-1"]
+  };
+  const b = {
+    id: "person-b",
+    linkedPlayerIds: ["legacy-1"]
+  };
+
+  assert.deepEqual(audit.sharedStrongEvidence(a, b), []);
+  assert.ok(audit.referenceKeys(a).includes("canonicalPersonId:person-b"));
+  assert.ok(audit.referenceKeys(a).includes("linkedPlayerId:legacy-1"));
+  assert.equal(audit.hasReferenceRelationship(a, b), true);
+
+  const result = audit.classify([a, b]);
+  assert.equal(result.hasStrongEvidence, false);
+  assert.equal(result.disposition, "REVIEW REQUIRED");
+  assert.equal(result.referenceEdges.length, 1);
 });
