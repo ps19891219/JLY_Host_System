@@ -2,337 +2,72 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>我的車</title>
-
-  <link
-    rel="stylesheet"
-    href="../css/style.css"
-  >
-
-  <link
-    rel="stylesheet"
-    href="../css/mycar.css?v=6"
-  >
-
-  <link
-  rel="stylesheet"
-  href="../css/pages/recruit.css"
->
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/mycar.css?v=6">
+  <link rel="stylesheet" href="../css/pages/recruit.css">
 </head>
-
 <body>
-
 <div class="container">
-
-  <!-- 固定導覽列 -->
   <div class="mycar-header">
-
-    <div
-      class="header-back"
-      onclick="location.href='../index.html'"
-    >
-      ← 首頁
-    </div>
-
-    <div
-      class="header-title"
-      onclick="window.scrollTo({
-        top:0,
-        behavior:'smooth'
-      })"
-    >
-      我的車
-    </div>
-
-    <div
-      class="header-menu"
-      onclick="toggleMyCarMenu()"
-    >
-      ⋮
-    </div>
-
+    <div class="header-back" onclick="location.href='../index.html'">← 首頁</div>
+    <div class="header-title" onclick="window.scrollTo({top:0,behavior:'smooth'})">我的車</div>
+    <div class="header-menu" onclick="toggleMyCarMenu()">⋮</div>
   </div>
 
-  <!-- 三個點選單 -->
-  <div
-    id="mycarMenu"
-    class="mycar-menu"
-    hidden
-  >
-
-  <button
-  type="button"
-  onclick="location.href='createcar.html'"
->
-  ➕ 建立新車
-</button>
-
-<button
-  type="button"
-  onclick="openRecruitShareManager()"
->
-  🔗 我的揪團頁
-</button>
-
-    <button
-      type="button"
-      onclick="startBatchMode()"
-    >
-      ☑️ 批次操作
-    </button>
-
-    <button
-      type="button"
-    >
-      📁 已取消車團
-    </button>
-
-    <button
-      type="button"
-    >
-      📦 已封存車團
-    </button>
-
-    <button
-      type="button"
-    >
-      ⚙️ 顯示設定
-    </button>
-
-    <button
-      type="button"
-    >
-      📖 使用說明
-    </button>
-
+  <div id="mycarMenu" class="mycar-menu" hidden>
+    <button type="button" onclick="location.href='createcar.html'">➕ 建立新車</button>
+    <button type="button" onclick="openRecruitShareManager()">🔗 我的揪團頁</button>
+    <button type="button" onclick="startBatchMode()">☑️ 批次操作</button>
+    <button type="button" onclick="location.href='accounting-reset.html'">🧹 帳務重新歸零</button>
+    <button type="button">📁 已取消車團</button>
+    <button type="button">📦 已封存車團</button>
+    <button type="button">⚙️ 顯示設定</button>
+    <button type="button">📖 使用說明</button>
   </div>
 
-  <!-- 搜尋 -->
   <div class="sticky-search">
     <div class="mycar-search-box">
-      <input
-        id="searchInput"
-        placeholder="搜尋劇本、日期、地點、工作室、DM"
-        autocomplete="off"
-      >
-
-      <button
-        id="clearSearchButton"
-        class="mycar-search-clear"
-        type="button"
-        aria-label="清除搜尋"
-        title="清除搜尋"
-        hidden
-      >
-        ×
-      </button>
+      <input id="searchInput" placeholder="搜尋劇本、日期、地點、工作室、DM" autocomplete="off">
+      <button id="clearSearchButton" class="mycar-search-clear" type="button" aria-label="清除搜尋" title="清除搜尋" hidden>×</button>
     </div>
   </div>
 
-  <!-- 分頁 -->
   <div class="sticky-tabs">
-
-    
-
     <div class="mycar-tabs">
-
-      <button
-        class="tab active"
-        data-tab="all"
-        onclick="setMyCarTab('all')"
-      >
-        全部
-      </button>
-
-      <button
-  class="tab"
-  data-tab="planning"
-  onclick="setMyCarTab('planning')"
->
-  規劃中
-</button>
-
-      <button
-        class="tab"
-        data-tab="active"
-        onclick="setMyCarTab('active')"
-      >
-        開團中
-      </button>
-
-      <button
-        class="tab"
-        data-tab="done"
-        onclick="setMyCarTab('done')"
-      >
-        已結束
-      </button>
-
+      <button class="tab active" data-tab="all" onclick="setMyCarTab('all')">全部</button>
+      <button class="tab" data-tab="planning" onclick="setMyCarTab('planning')">規劃中</button>
+      <button class="tab" data-tab="active" onclick="setMyCarTab('active')">開團中</button>
+      <button class="tab" data-tab="done" onclick="setMyCarTab('done')">已結束</button>
     </div>
-
-    <div
-  id="activeRoleTabs"
-  class="mycar-role-tabs"
-  hidden
->
-  <button
-    type="button"
-    data-role-tab="all"
-    class="role-tab active"
-    onclick="
-      setMyCarActiveRoleTab(
-        'all'
-      )
-    "
-  >
-    全部
-  </button>
-
-  <button
-    type="button"
-    data-role-tab="host"
-    class="role-tab"
-    onclick="
-      setMyCarActiveRoleTab(
-        'host'
-      )
-    "
-  >
-    👑 我主揪的
-  </button>
-
-  <button
-    type="button"
-    data-role-tab="player"
-    class="role-tab"
-    onclick="
-      setMyCarActiveRoleTab(
-        'player'
-      )
-    "
-  >
-    🎮 我是玩家
-  </button>
-</div>
-
+    <div id="activeRoleTabs" class="mycar-role-tabs" hidden>
+      <button type="button" data-role-tab="all" class="role-tab active" onclick="setMyCarActiveRoleTab('all')">全部</button>
+      <button type="button" data-role-tab="host" class="role-tab" onclick="setMyCarActiveRoleTab('host')">👑 我主揪的</button>
+      <button type="button" data-role-tab="player" class="role-tab" onclick="setMyCarActiveRoleTab('player')">🎮 我是玩家</button>
+    </div>
   </div>
 
-  <!-- 批次工具列 -->
-  <div
-    id="batchToolbar"
-    hidden
-  >
-      <div class="batch-toolbar-title">
-      <strong>☑️ 批次操作中</strong>
-    </div>
-
-    <label class="batch-select-all">
-      <input
-        id="selectAllCars"
-        type="checkbox"
-        onchange="toggleSelectAllCars(this.checked)"
-      >
-      全選目前清單
-    </label>
-
-    <div id="selectedCarCount">
-      已選取 0 台車
-    </div>
-
-    <!--
-      暫時保留舊版按鈕供程式相容，
-      不會顯示，也不會讓使用者誤觸加入車團。
-    -->
-    <button
-      id="joinSelectedCarsButton"
-      type="button"
-      onclick="joinSelectedCars()"
-      hidden
-      disabled
-    >
-      加入已選取車團（0）
-    </button>
-
-    <button
-      type="button"
-      class="batch-convert-button"
-      disabled
-    >
-      📝 轉換文字檔（下一步製作）
-    </button>
-
-    <button
-      type="button"
-      class="gray"
-      onclick="cancelBatchMode()"
-    >
-      ✖️ 離開批次操作
-    </button>
+  <div id="batchToolbar" hidden>
+    <div class="batch-toolbar-title"><strong>☑️ 批次操作中</strong></div>
+    <label class="batch-select-all"><input id="selectAllCars" type="checkbox" onchange="toggleSelectAllCars(this.checked)"> 全選目前清單</label>
+    <div id="selectedCarCount">已選取 0 台車</div>
+    <button id="joinSelectedCarsButton" type="button" onclick="joinSelectedCars()" hidden disabled>加入已選取車團（0）</button>
+    <button type="button" class="batch-convert-button" disabled>📝 轉換文字檔（下一步製作）</button>
+    <button type="button" class="gray" onclick="cancelBatchMode()">✖️ 離開批次操作</button>
   </div>
 
-  <!--
-    保留舊版程式需要的元素，
-    新版畫面不顯示原本的一般工具列。
-  -->
-  <div
-    id="normalToolbar"
-    hidden
-  ></div>
-
-  <!-- 車團列表 -->
+  <div id="normalToolbar" hidden></div>
   <div id="carList"></div>
-
-  <div
-    id="mycarPagination"
-    style="
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:12px;
-      margin:18px 0 28px;
-    "
-  >
-    <button
-      id="mycarPrevPage"
-      type="button"
-      onclick="goMyCarPreviousPage()"
-      disabled
-    >
-      ← 上一頁
-    </button>
-
-    <span
-      id="mycarPageLabel"
-      style="font-weight:700;"
-    >
-      第 1 頁
-    </span>
-
-    <button
-      id="mycarNextPage"
-      type="button"
-      onclick="goMyCarNextPage()"
-      disabled
-    >
-      下一頁 →
-    </button>
+  <div id="mycarPagination" style="display:flex;align-items:center;justify-content:center;gap:12px;margin:18px 0 28px;">
+    <button id="mycarPrevPage" type="button" onclick="goMyCarPreviousPage()" disabled>← 上一頁</button>
+    <span id="mycarPageLabel" style="font-weight:700;">第 1 頁</span>
+    <button id="mycarNextPage" type="button" onclick="goMyCarNextPage()" disabled>下一頁 →</button>
   </div>
-
 </div>
 
-<script
-  src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
-></script>
-
-<script
-  src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"
-></script>
-
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="/firebase/firebase.js?v=39"></script>
 <script src="/js/carStatus.js?v=3"></script>
 <script src="/js/carCard.js?v=4"></script>
@@ -344,41 +79,18 @@
 <script src="../js/recruit/recruit-share.js"></script>
 <script src="/js/mycar.js?v=48"></script>
 <script src="/js/data-view/mycar-view-existence-repair.js?v=2"></script>
-
 <script>
   function toggleMyCarMenu() {
-    const menu =
-      document.getElementById("mycarMenu");
-
-    if (!menu) {
-      return;
-    }
-
+    const menu = document.getElementById("mycarMenu");
+    if (!menu) return;
     menu.hidden = !menu.hidden;
   }
-
-  document.addEventListener(
-    "click",
-    function (event) {
-      const menu =
-        document.getElementById("mycarMenu");
-
-      const menuButton =
-        document.querySelector(".header-menu");
-
-      if (
-        !menu ||
-        menu.hidden ||
-        menu.contains(event.target) ||
-        menuButton?.contains(event.target)
-      ) {
-        return;
-      }
-
-      menu.hidden = true;
-    }
-  );
+  document.addEventListener("click", function (event) {
+    const menu = document.getElementById("mycarMenu");
+    const menuButton = document.querySelector(".header-menu");
+    if (!menu || menu.hidden || menu.contains(event.target) || menuButton?.contains(event.target)) return;
+    menu.hidden = true;
+  });
 </script>
-
 </body>
 </html>
