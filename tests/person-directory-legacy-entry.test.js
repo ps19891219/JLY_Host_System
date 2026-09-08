@@ -1,0 +1,1 @@
+"use strict";const test=require("node:test");const assert=require("node:assert/strict");const fs=require("node:fs");const path=require("node:path");test("home no longer routes normal roster work to legacy players page",()=>{const s=fs.readFileSync(path.join(__dirname,"../index.html"),"utf8");assert.doesNotMatch(s,/pages\/players\.html/);assert.match(s,/人員名單/);});
