@@ -73,8 +73,9 @@ Included in batch:
 - Member Picker wording is generalized from staff-only wording to Person selection and shows identity linkage state.
 - `js/modules/car/detail/player/player-search.js` loads the same canonical Person Directory before manual player creation.
 - Manual add of an existing LINE-linked Person reuses that Person ID and therefore does not require a new identity claim.
+- `player-manual-add.js` now treats stable Person IDs as authoritative: if both selected Person and existing car member have stable IDs and the IDs differ, equal names do not make them the same person. Name fallback remains only for legacy missing-ID records.
 - Creating another same-name Person requires explicit confirmation.
-- Regression coverage added in `tests/member-person-directory.test.js`.
+- Regression coverage added in `tests/member-person-directory.test.js` and `tests/car/player-manual-add-identity.test.js`.
 
 Safety rules:
 - No second Person / Player Person / DM Person / Staff Person system.
@@ -98,36 +99,42 @@ Architecture correction:
 - Pairing confirmation remains restricted to the same LINE user in the same LINE group that initiated that pairing, preventing another participant from hijacking the flow mid-confirmation.
 - Old pairing records without authorization metadata are rejected as `pairing_not_authorized`; they must be regenerated from the car page after this version is deployed.
 - Direct/legacy binding without an authorized pairing code still requires the LINE actor to be the car owner.
-- Binding audit now keeps `createdBy` as the LINE executor while separately recording `authorizedByPersonId` and `authorizationType`.
+- Binding audit keeps `createdBy` as the LINE executor while separately recording pairing authorization metadata.
 - Owner identity matching remains canonical/history compatible and never uses display name as proof.
-- Regression coverage updated in `tests/line/group-car-pairing-service.test.js` and `tests/line/group-car-binding-service.test.js`.
+- `services/line/event-router.js` reply text is aligned with this model and no longer tells users that the LINE confirmer must be the car host.
+- Regression coverage updated in `tests/line/group-car-pairing-service.test.js`, `tests/line/group-car-binding-service.test.js`, and owner-identity coverage.
 
 This correction is code-only in the batch. Current production LINE behavior remains unchanged until the final batch deploy succeeds.
 
 Remaining before batch merge/deploy:
 - Run the complete `npm test` suite on final batch head.
-- Review dry-run output against real Firestore data with read-only credentials before any future apply design.
-- Confirm no missing Person reference shapes appear in the `OTHER` inventory domain.
-- Integrate the Person Directory Project Map supplement into canonical `docs/PROJECT_MAP.md` without truncating historical map entries.
-- Update LINE pairing reply wording so it no longer tells users the confirmer must be the car host.
+- Review dry-run output against real Firestore data with read-only credentials before any future destructive apply design; the current deployed tooling remains read-only and has no apply path.
+- Confirm no missing Person reference shapes appear in the static/reference inventory and `OTHER` inventory domain before any future migration apply.
+- Integrate the Person Directory Project Map supplement into canonical `docs/PROJECT_MAP.md` without truncating historical map entries, or retain the supplement as the authoritative additive map until a safe non-destructive canonical-file patch path is available.
 - Keep PR #32 Draft until the batch review is complete.
 
 ## Deployment gate
 
 Before the next production deployment:
-- [ ] Finish the intended batch work.
+- [x] Finish the intended code behavior for this batch.
 - [ ] Run full `npm test` on the final batch head.
-- [ ] Confirm temporary CI workflow changes are absent.
+- [x] Confirm temporary CI workflow changes are absent.
 - [x] Confirm top-level `/api` function count remains within Vercel Hobby limit: currently 12.
 - [ ] Review `main` vs last successful production commit so every pending change is accounted for.
 - [ ] Confirm every pending item in this document is included in the deployment candidate.
-- [ ] Integrate final Person Directory responsibility into canonical `docs/PROJECT_MAP.md` without losing historical entries.
+- [ ] Finalize Project Map responsibility without losing historical entries.
 - [ ] Trigger ONE production deployment only after the batch is complete and deployment capacity is available.
 - [ ] Verify production deployment success before asking the user to test.
 - [ ] Perform accounting reset production verification only after successful deployment.
 - [ ] Verify LINE group binding with a non-owner/non-creator LINE executor using a car-authorized pairing code after deployment.
 - [ ] Mark items completed only after production verification.
 
+## Current deployment evidence
+
+- GitHub Vercel status for batch head reports a successful Vercel Preview build.
+- Preview success is build/deployment evidence only. It is NOT Production deployment and does not replace the full test gate or production verification.
+- The current connected Vercel account can see the Host System status through GitHub integration but does not currently have permission to list the Host System deployment directly through the Vercel connector; do not use `deploy current project` blindly.
+
 ## Do not forget
 
-A GitHub merge is NOT the same as production deployment. Any item listed here remains pending until Vercel reports a successful deployment and production verification is completed.
+A GitHub merge is NOT the same as production deployment. Any item listed here remains pending until Vercel reports a successful production deployment and production verification is completed.
