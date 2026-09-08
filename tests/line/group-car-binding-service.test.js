@@ -9,17 +9,17 @@ const {
   "../../services/line/group-car-binding-service"
 );
 
-function context() {
+function context(userId = "line-owner") {
   return {
     source: {
       type: "group",
       groupId: "group-1",
-      userId: "line-owner"
+      userId
     }
   };
 }
 
-test("only the linked car owner can bind a group", async function () {
+test("direct binding still requires the linked car owner", async function () {
   const result = await bindGroupToCar(
     context(),
     "car-1",
@@ -38,6 +38,45 @@ test("only the linked car owner can bind a group", async function () {
 
   assert.equal(result.bound, false);
   assert.equal(result.reason, "owner_required");
+});
+
+test("authorized pairing binding does not require the LINE executor to be owner or group creator", async function () {
+  let playerLookupCalled = false;
+  let savedBinding = null;
+  const result = await bindGroupToCar(
+    context("line-friend"),
+    "car-1",
+    {
+      authorizedPairing: true,
+      pairingAuthorization: {
+        authorizationType: "car_owner_session",
+        authorizedByPersonId: "owner-1"
+      },
+      findPlayerByLineUserId: async () => {
+        playerLookupCalled = true;
+        return null;
+      },
+      getCarById: async () => ({
+        id: "car-1",
+        ownerId: "owner-1",
+        scriptName: "孤注"
+      }),
+      getBindingByGroupId: async () => null,
+      saveBinding: async binding => {
+        savedBinding = binding;
+        return binding;
+      },
+      listGroupAccountingEntries: async () => [],
+      migrateLegacyGroupAccounting: async () => ({ migrated: 0 }),
+      initializeMembershipSnapshot: async () => ({ initialized: true })
+    }
+  );
+
+  assert.equal(result.bound, true);
+  assert.equal(playerLookupCalled, false);
+  assert.equal(savedBinding.createdBy, "line-friend");
+  assert.equal(savedBinding.authorizedByPersonId, "owner-1");
+  assert.equal(savedBinding.authorizationType, "car_owner_session");
 });
 
 test("a car owner can bind through the member JLY identity id", async function () {
