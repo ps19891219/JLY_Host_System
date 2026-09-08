@@ -17,6 +17,17 @@ async function findPlayerByLineUserId(lineUserId) {
   return { id: document.id, ...document.data() };
 }
 
+async function listPlayersForIdentityResolution() {
+  const snapshot = await getFirestore()
+    .collection("players")
+    .get();
+
+  return snapshot.docs.map(document => ({
+    id: document.id,
+    ...document.data()
+  }));
+}
+
 async function getCarById(carId) {
   if (!carId) return null;
 
@@ -50,6 +61,7 @@ async function getActorNamesByLineUserIds(lineUserIds) {
 
 module.exports = {
   findPlayerByLineUserId,
+  listPlayersForIdentityResolution,
   getCarById,
   getActorNamesByLineUserIds
 };

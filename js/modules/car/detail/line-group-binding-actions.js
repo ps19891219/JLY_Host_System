@@ -1,15 +1,43 @@
 (function () {
   "use strict";
 
+  function pairingError(result, response) {
+    const error = new Error(result && result.error || "pairing_code_failed");
+    error.code = result && result.error || "pairing_code_failed";
+    error.status = response && response.status || 0;
+    error.details = result || {};
+    return error;
+  }
+
   async function getCommand(carId) {
     const response = await fetch("/api/line-group-pairing-code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({ carId: String(carId || "").trim() })
     });
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.error || "pairing_code_failed");
+    if (!response.ok || !result.success) throw pairingError(result, response);
     return result.command;
+  }
+
+  function errorMessage(error) {
+    switch (error && error.code) {
+      case "line_login_required":
+        return "這個瀏覽器尚未登入 JLY LINE 身份。請先用同一個瀏覽器完成 LINE 登入，再回來產生配對碼。";
+      case "line_identity_unlinked":
+        return "目前登入的 LINE 尚未連結到 JLY Person，請先完成身份連結。";
+      case "owner_required":
+        return "目前登入的 JLY Person 不是這台車的管理身份，暫時無法產生配對碼。";
+      case "owner_identity_conflict":
+        return "這台車的歷史 Person 身份資料有衝突，系統已停止自動判定，避免綁錯人。";
+      case "owner_identity_required":
+        return "找不到可用的正式 Person 身份，暫時無法產生配對碼。";
+      case "car_not_found":
+        return "找不到這台車，請重新整理後再試。";
+      default:
+        return "配對碼產生失敗，請稍後再試。";
+    }
   }
 
   async function copyText(text) {
@@ -42,7 +70,7 @@
     } catch (error) {
       console.error("複製 LINE 群組綁定指令失敗", error);
       if (button) { button.textContent = "產生 LINE 群組配對碼"; button.disabled = false; }
-      window.alert("配對碼產生失敗，請稍後再試。");
+      window.alert(errorMessage(error));
     }
   }
 
@@ -57,6 +85,6 @@
   }
 
   window.copyLineGroupBindingCommand = copyLineGroupBindingCommand;
-  window.JLYLineGroupBindingActions = { getCommand, copyLineGroupBindingCommand };
+  window.JLYLineGroupBindingActions = { getCommand, copyLineGroupBindingCommand, errorMessage };
   loadMembershipReviewControls();
 })();

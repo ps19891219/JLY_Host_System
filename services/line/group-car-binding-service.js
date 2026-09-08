@@ -27,62 +27,150 @@ function isSyntheticLineId(value) {
   return text(value).toLowerCase().startsWith("line:");
 }
 
+function addFormalId(target, value) {
+  const safe = text(value);
+  if (!safe || isSyntheticLineId(safe)) return;
+  target.add(safe);
+}
+
 function getIdentityIds(player) {
   const source = player && typeof player === "object" ? player : {};
   const ids = new Set();
 
-  function add(value) {
-    const safe = text(value);
-    if (!safe || isSyntheticLineId(safe)) return;
-    ids.add(safe);
-  }
-
-  add(source.id);
-  add(source.playerId);
-  add(source.personId);
-  add(source.profileId);
-  add(source.identityId);
-  add(source.canonicalPersonId);
-  add(source.canonicalProfileId);
-  add(source.canonicalMemberId);
-  add(source.mergedIntoPersonId);
-  add(source.mergedIntoProfileId);
-  add(source.mergedIntoMemberId);
+  addFormalId(ids, source.id);
+  addFormalId(ids, source.playerId);
+  addFormalId(ids, source.personId);
+  addFormalId(ids, source.profileId);
+  addFormalId(ids, source.identityId);
+  addFormalId(ids, source.canonicalPersonId);
+  addFormalId(ids, source.canonicalProfileId);
+  addFormalId(ids, source.canonicalMemberId);
+  addFormalId(ids, source.mergedIntoPersonId);
+  addFormalId(ids, source.mergedIntoProfileId);
+  addFormalId(ids, source.mergedIntoMemberId);
 
   const linkedPlayerIds = Array.isArray(source.linkedPlayerIds)
     ? source.linkedPlayerIds
     : [];
-  linkedPlayerIds.forEach(add);
+  linkedPlayerIds.forEach(value => addFormalId(ids, value));
 
   return ids;
+}
+
+function getReferenceIds(player) {
+  const source = player && typeof player === "object" ? player : {};
+  const ids = new Set();
+  [
+    source.playerId,
+    source.personId,
+    source.canonicalPersonId,
+    source.canonicalProfileId,
+    source.canonicalMemberId,
+    source.mergedIntoPersonId,
+    source.mergedIntoProfileId,
+    source.mergedIntoMemberId
+  ].forEach(value => addFormalId(ids, value));
+  (Array.isArray(source.linkedPlayerIds) ? source.linkedPlayerIds : [])
+    .forEach(value => addFormalId(ids, value));
+  return ids;
+}
+
+function formalStrongValues(player) {
+  const source = player && typeof player === "object" ? player : {};
+  const out = {};
+  ["lineUserId", "identityId", "profileId"].forEach(field => {
+    const value = text(source[field]);
+    out[field] = value && !isSyntheticLineId(value) ? value : "";
+  });
+  return out;
+}
+
+function sharesStrongIdentity(a, b) {
+  const left = formalStrongValues(a);
+  const right = formalStrongValues(b);
+  return ["lineUserId", "identityId", "profileId"]
+    .some(field => left[field] && left[field] === right[field]);
+}
+
+function hasExplicitIdentityReference(a, b) {
+  const aId = text(a && a.id);
+  const bId = text(b && b.id);
+  if (!aId || !bId) return false;
+  return getReferenceIds(a).has(bId) || getReferenceIds(b).has(aId);
+}
+
+function getIdentityComponentConflicts(rows) {
+  const conflicts = [];
+  ["lineUserId", "identityId", "profileId"].forEach(field => {
+    const values = [...new Set((rows || [])
+      .map(row => formalStrongValues(row)[field])
+      .filter(Boolean))];
+    if (values.length > 1) conflicts.push({ field, values });
+  });
+  return conflicts;
+}
+
+function buildIdentityComponent(rows, lineUserId) {
+  const source = Array.isArray(rows) ? rows : [];
+  const targetLineUserId = text(lineUserId);
+  const seeds = source.filter(row => text(row && row.lineUserId) === targetLineUserId);
+  if (!targetLineUserId || !seeds.length) {
+    return { rows: [], ids: new Set(), conflicts: [], valid: false };
+  }
+
+  const selected = new Set(seeds);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    source.forEach(candidate => {
+      if (selected.has(candidate)) return;
+      const related = [...selected].some(current =>
+        sharesStrongIdentity(current, candidate) ||
+        hasExplicitIdentityReference(current, candidate)
+      );
+      if (related) {
+        selected.add(candidate);
+        changed = true;
+      }
+    });
+  }
+
+  const componentRows = [...selected];
+  const conflicts = getIdentityComponentConflicts(componentRows);
+  const ids = new Set();
+  componentRows.forEach(row => getIdentityIds(row).forEach(id => ids.add(id)));
+  return {
+    rows: componentRows,
+    ids,
+    conflicts,
+    valid: componentRows.length > 0 && conflicts.length === 0
+  };
 }
 
 function getCarOwnerIds(car) {
   const source = car && typeof car === "object" ? car : {};
   const ids = new Set();
 
-  function add(value) {
-    const safe = text(value);
-    if (!safe || isSyntheticLineId(safe)) return;
-    ids.add(safe);
-  }
-
-  add(source.ownerId);
-  add(source.ownerPersonId);
-  add(source.hostPersonId);
-  add(source.createdByPersonId);
-  add(source.hostProfileId);
-  add(source.ownerProfileId);
-  add(source.hostId);
+  addFormalId(ids, source.ownerId);
+  addFormalId(ids, source.ownerPersonId);
+  addFormalId(ids, source.hostPersonId);
+  addFormalId(ids, source.createdByPersonId);
+  addFormalId(ids, source.hostProfileId);
+  addFormalId(ids, source.ownerProfileId);
+  addFormalId(ids, source.hostId);
 
   return ids;
 }
 
-function isCarOwner(player, car) {
-  const actorIds = getIdentityIds(player);
+function identityIdsOwnCar(identityIds, car) {
+  const actorIds = identityIds instanceof Set ? identityIds : new Set(identityIds || []);
   const ownerIds = getCarOwnerIds(car);
   if (!actorIds.size || !ownerIds.size) return false;
   return [...ownerIds].some(id => actorIds.has(id));
+}
+
+function isCarOwner(player, car) {
+  return identityIdsOwnCar(getIdentityIds(player), car);
 }
 
 function isAuthorizedPairing(dependencies) {
@@ -213,7 +301,14 @@ async function bindGroupToCar(
 module.exports = {
   bindGroupToCar,
   getIdentityIds,
+  getReferenceIds,
+  formalStrongValues,
+  sharesStrongIdentity,
+  hasExplicitIdentityReference,
+  getIdentityComponentConflicts,
+  buildIdentityComponent,
   getCarOwnerIds,
+  identityIdsOwnCar,
   isCarOwner,
   isAuthorizedPairing,
   getCarLabel
