@@ -1,7 +1,6 @@
 "use strict";
 
 const {
-  findPlayerByLineUserId,
   getCarById
 } = require("../firebase/line-accounting-authorization-repository");
 const {
@@ -9,7 +8,6 @@ const {
   updatePairingCode
 } = require("../firebase/line-group-pairing-repository");
 const { bindGroupToCar } = require("./group-car-binding-service");
-const { getIdentityIds } = require("./group-car-binding-service");
 
 function expired(pairing, now = Date.now()) {
   return !pairing || Date.parse(pairing.expiresAt || "") <= now;
@@ -21,12 +19,19 @@ function carLabel(car) {
   ).trim();
 }
 
+function hasAuthorizedPairing(pairing) {
+  return Boolean(
+    pairing &&
+    pairing.authorizationType === "car_owner_session" &&
+    String(pairing.authorizedByPersonId || "").trim()
+  );
+}
+
 async function prepareGroupPairing(context, code, dependencies = {}) {
   if (!context || context.source.type !== "group") {
     return { prepared: false, reason: "group_required" };
   }
   const getPairing = dependencies.getPairingCode || getPairingCode;
-  const findPlayer = dependencies.findPlayerByLineUserId || findPlayerByLineUserId;
   const getCar = dependencies.getCarById || getCarById;
   const updatePairing = dependencies.updatePairingCode || updatePairingCode;
   const pairing = await getPairing(code);
@@ -35,13 +40,18 @@ async function prepareGroupPairing(context, code, dependencies = {}) {
   if (pairing.status !== "pending") {
     return { prepared: false, reason: "pairing_unavailable" };
   }
-  const player = await findPlayer(context.source.userId);
-  if (!player) return { prepared: false, reason: "line_identity_unlinked" };
+
+  // Authorization belongs to the short-lived pairing code, which was minted
+  // from the car management side after verifying the car owner session.
+  // The LINE group participant who pastes the code is only executing that
+  // already-authorized pairing and need not be the car owner/group creator.
+  if (!hasAuthorizedPairing(pairing)) {
+    return { prepared: false, reason: "pairing_not_authorized" };
+  }
+
   const car = await getCar(pairing.carId);
   if (!car) return { prepared: false, reason: "car_not_found" };
-  if (!getIdentityIds(player).has(String(car.ownerId || ""))) {
-    return { prepared: false, reason: "owner_required" };
-  }
+
   await updatePairing(code, {
     status: "awaiting_confirmation",
     groupId: context.source.groupId,
@@ -64,6 +74,9 @@ async function confirmGroupPairing(context, code, dependencies = {}) {
   const pairing = await getPairing(code);
   if (!pairing) return { bound: false, reason: "pairing_not_found" };
   if (expired(pairing)) return { bound: false, reason: "pairing_expired" };
+  if (!hasAuthorizedPairing(pairing)) {
+    return { bound: false, reason: "pairing_not_authorized" };
+  }
   if (
     pairing.status !== "awaiting_confirmation" ||
     pairing.groupId !== context.source.groupId ||
@@ -71,7 +84,12 @@ async function confirmGroupPairing(context, code, dependencies = {}) {
   ) {
     return { bound: false, reason: "pairing_confirmation_mismatch" };
   }
-  const result = await bind(context, pairing.carId);
+
+  const result = await bind(context, pairing.carId, {
+    ...dependencies,
+    authorizedPairing: true,
+    pairingAuthorization: pairing
+  });
   if (result.bound) {
     await updatePairing(code, {
       status: "used",
@@ -101,6 +119,7 @@ async function cancelGroupPairing(context, code, dependencies = {}) {
 
 module.exports = {
   expired,
+  hasAuthorizedPairing,
   prepareGroupPairing,
   confirmGroupPairing,
   cancelGroupPairing

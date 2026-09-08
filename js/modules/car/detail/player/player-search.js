@@ -1,97 +1,46 @@
 /*
 ====================================================
-
 JLY Host System V3
-
-Module：
-Car Detail Player Search
+Module：Car Detail Player Search
 
 用途：
-1. 正規化玩家名稱
-2. 取得玩家資料庫顯示名稱
-3. 搜尋同名玩家
-4. 建立訪客玩家
-5. 選擇既有玩家或建立新玩家
+1. 主揪手動新增玩家時優先選擇既有 Person
+2. 已綁 LINE / Identity 的 Person 沿用原身份，不重新認領
+3. 同名只作候選，不作自動身份合併
+4. 真正新人才能建立新的 guest Person
 
 規則：
-- 只處理 Player 資料庫
-- 不修改車團 players
-- 不修改 slots
-- 不操作 Seat Engine
-- 不 Render 車團詳情頁
-
-依賴：
-- window.db
-
+- 正式 Person 來源仍是既有 players collection
+- 優先共用 JLYMemberPickerData 的 canonical directory
+- 不修改車團 players / slots / Seat Engine
 ====================================================
 */
 
-console.log(
-  "player-search.js 已成功載入！"
-);
+console.log("player-search.js 已成功載入！");
 
 (function () {
   "use strict";
-
-  // ------------------------------------------------------------
-  // 時間
-  // ------------------------------------------------------------
 
   function nowTime() {
     return new Date().toISOString();
   }
 
-  // ------------------------------------------------------------
-  // 名稱正規化
-  // ------------------------------------------------------------
+  function text(value) {
+    return String(value == null ? "" : value).trim();
+  }
 
   function normalizePlayerName(name) {
-    return String(
-      name == null
-        ? ""
-        : name
-    )
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "");
+    return text(name).toLowerCase().replace(/\s+/g, "");
   }
-
-  // ------------------------------------------------------------
-  // 取得玩家資料庫名稱
-  // ------------------------------------------------------------
 
   function getPlayerDatabaseName(player) {
-    const source =
-      player &&
-      typeof player === "object"
-        ? player
-        : {};
-
-    return (
-      source.displayName ||
-      source.nickname ||
-      source.playerName ||
-      source.name ||
-      "未命名玩家"
-    );
+    const source = player && typeof player === "object" ? player : {};
+    return source.displayName || source.nickname || source.playerName || source.lineDisplayName || source.name || "未命名人員";
   }
 
-  // ------------------------------------------------------------
-  // 取得玩家所有可搜尋名稱
-  // ------------------------------------------------------------
-
   function getSearchableNames(player) {
-    const source =
-      player &&
-      typeof player === "object"
-        ? player
-        : {};
-
-    const aliases =
-      Array.isArray(source.aliases)
-        ? source.aliases
-        : [];
-
+    const source = player && typeof player === "object" ? player : {};
+    const aliases = Array.isArray(source.aliases) ? source.aliases : [];
     return [
       source.displayName,
       source.nickname,
@@ -99,418 +48,191 @@ console.log(
       source.name,
       source.lineDisplayName,
       ...aliases
-    ]
-      .map(normalizePlayerName)
-      .filter(Boolean);
+    ].map(normalizePlayerName).filter(Boolean);
   }
 
-  // ------------------------------------------------------------
-  // 搜尋玩家
-  //
-  // 現階段沿用原本完整讀取 players Collection 的方式。
-  // 後續建立 normalizedName 索引後，再改為 Firestore Query。
-  // ------------------------------------------------------------
+  function getPersonDataModule() {
+    return window.JLYMemberPickerData || null;
+  }
+
+  async function loadCanonicalPeople() {
+    const dataModule = getPersonDataModule();
+    if (dataModule && typeof dataModule.loadPersonDirectory === "function") {
+      return dataModule.loadPersonDirectory();
+    }
+
+    const db = window.db;
+    if (!db) throw new Error("Firebase 尚未載入");
+
+    const snapshot = await db.collection("players").get();
+    const rows = snapshot.docs.map(function (doc) {
+      return { id: doc.id, ...doc.data() };
+    });
+
+    if (dataModule && typeof dataModule.dedupeCanonicalMembers === "function") {
+      return dataModule.dedupeCanonicalMembers(rows);
+    }
+
+    return rows;
+  }
 
   async function searchPlayersByName(name) {
-    const db =
-      window.db;
+    const targetName = normalizePlayerName(name);
+    if (!targetName) return [];
 
-    if (!db) {
-      throw new Error(
-        "Firebase 尚未載入"
-      );
-    }
-
-    const targetName =
-      normalizePlayerName(name);
-
-    if (!targetName) {
-      return [];
-    }
-
-    const snapshot =
-      await db
-        .collection("players")
-        .get();
-
-    return snapshot.docs
-      .map(function (doc) {
-        return {
-          id:
-            doc.id,
-
-          ...doc.data()
-        };
-      })
-      .filter(function (player) {
-        return getSearchableNames(
-          player
-        ).some(function (item) {
-          return item === targetName;
-        });
+    const people = await loadCanonicalPeople();
+    return people.filter(function (person) {
+      return getSearchableNames(person).some(function (item) {
+        return item === targetName;
       });
+    });
   }
 
-  // ------------------------------------------------------------
-  // 建立訪客玩家資料
-  // ------------------------------------------------------------
-
-  function buildGuestPlayerData(
-    playerName,
-    playerId
-  ) {
-    const cleanName =
-      String(
-        playerName || ""
-      ).trim();
-
-    const now =
-      nowTime();
-
+  function buildGuestPlayerData(playerName, playerId) {
+    const cleanName = text(playerName);
+    const now = nowTime();
     return {
-      id:
-        playerId || "",
-
-      displayName:
-        cleanName,
-
-      nickname:
-        cleanName,
-
-      aliases:
-        cleanName
-          ? [cleanName]
-          : [],
-
-      normalizedName:
-        normalizePlayerName(
-          cleanName
-        ),
-
-      memberType:
-        "guest",
-
-      type:
-        "guest",
-
-      status:
-        "active",
-
-      isLineLinked:
-        false,
-
-      lineUserId:
-        null,
-
-      lineDisplayName:
-        "",
-
-      linePictureUrl:
-        "",
-
-      defaultPosition:
-        "不限",
-
-      defaultCrossPlay:
-        false,
-
-      playCount:
-        0,
-
-      source:
-        "host_manual",
-
-      createdAt:
-        now,
-
-      updatedAt:
-        now
+      id: playerId || "",
+      displayName: cleanName,
+      nickname: cleanName,
+      aliases: cleanName ? [cleanName] : [],
+      normalizedName: normalizePlayerName(cleanName),
+      memberType: "guest",
+      type: "guest",
+      status: "active",
+      isLineLinked: false,
+      lineUserId: null,
+      lineDisplayName: "",
+      linePictureUrl: "",
+      defaultPosition: "不限",
+      defaultCrossPlay: false,
+      playCount: 0,
+      source: "host_manual",
+      createdAt: now,
+      updatedAt: now
     };
   }
 
-  // ------------------------------------------------------------
-  // 建立訪客玩家
-  // ------------------------------------------------------------
+  async function createGuestPlayer(playerName) {
+    const db = window.db;
+    if (!db) throw new Error("Firebase 尚未載入");
 
-  async function createGuestPlayer(
-    playerName
-  ) {
-    const db =
-      window.db;
+    const cleanName = text(playerName);
+    if (!cleanName) throw new Error("玩家名稱不可空白");
 
-    if (!db) {
-      throw new Error(
-        "Firebase 尚未載入"
-      );
+    const sameNamePeople = await searchPlayersByName(cleanName);
+    if (sameNamePeople.length > 0) {
+      const error = new Error("找到同名 Person，必須先明確選擇既有人員或確認建立另一位真人。");
+      error.code = "same_name_person_requires_resolution";
+      error.sameNameCandidates = sameNamePeople;
+      throw error;
     }
 
-    const cleanName =
-      String(
-        playerName || ""
-      ).trim();
-
-    if (!cleanName) {
-      throw new Error(
-        "玩家名稱不可空白"
-      );
-    }
-
-    const playerRef =
-      db
-        .collection("players")
-        .doc();
-
-    const playerData =
-      buildGuestPlayerData(
-        cleanName,
-        playerRef.id
-      );
-
-    await playerRef.set(
-      playerData,
-      {
-        merge: true
-      }
-    );
-
+    const playerRef = db.collection("players").doc();
+    const playerData = buildGuestPlayerData(cleanName, playerRef.id);
+    await playerRef.set(playerData, { merge: true });
     return playerData;
   }
 
-  // ------------------------------------------------------------
-  // 建立同名玩家選擇文字
-  // ------------------------------------------------------------
+  function getIdentityLabel(player) {
+    const dataModule = getPersonDataModule();
+    if (dataModule && typeof dataModule.getIdentityLabel === "function") {
+      return dataModule.getIdentityLabel(player);
+    }
+    return player && (player.isLineLinked === true || text(player.lineUserId))
+      ? "已連結 LINE"
+      : "尚未連結";
+  }
 
-  function buildPlayerSelectionMessage(
-    matches
-  ) {
-    const sourceMatches =
-      Array.isArray(matches)
-        ? matches
-        : [];
+  function buildPlayerSelectionMessage(matches) {
+    const sourceMatches = Array.isArray(matches) ? matches : [];
+    let message = "找到以下既有人員：\n\n";
 
-    let message =
-      "找到以下玩家：\n\n";
+    sourceMatches.forEach(function (player, index) {
+      const defaultPosition = player.defaultPosition || "不限";
+      const crossPlayText = player.defaultCrossPlay === true ? "／反串" : "";
+      const playCount = Number(player.playCount || 0);
+      message += `${index + 1}. ${getPlayerDatabaseName(player)}／${getIdentityLabel(player)}／${defaultPosition}${crossPlayText}／歷史 ${playCount} 場\n`;
+    });
 
-    sourceMatches.forEach(
-      function (
-        player,
-        index
-      ) {
-        const linkedText =
-          player.isLineLinked === true
-            ? "已串 LINE"
-            : "訪客玩家";
-
-        const defaultPosition =
-          player.defaultPosition ||
-          "不限";
-
-        const crossPlayText =
-          player.defaultCrossPlay === true
-            ? "／反串"
-            : "";
-
-        const playCount =
-          Number(
-            player.playCount || 0
-          );
-
-        message +=
-          `${index + 1}. ` +
-          `${getPlayerDatabaseName(
-            player
-          )}` +
-          `／${linkedText}` +
-          `／${defaultPosition}` +
-          `${crossPlayText}` +
-          `／已玩 ${playCount} 本\n`;
-      }
-    );
-
-    message +=
-      "\n請輸入玩家前面的編號。\n" +
-      "輸入 0 可建立新的訪客玩家。";
-
+    message += "\n請輸入人員前面的編號。\n輸入 0 代表這是另一位不同的真人，準備建立新人。";
     return message;
   }
 
-  // ------------------------------------------------------------
-  // 選擇既有玩家
-  // ------------------------------------------------------------
-
-  function selectPlayerFromMatches(
-    matches
-  ) {
-    const sourceMatches =
-      Array.isArray(matches)
-        ? matches
-        : [];
-
+  function selectPlayerFromMatches(matches) {
+    const sourceMatches = Array.isArray(matches) ? matches : [];
     if (sourceMatches.length === 0) {
-      return {
-        cancelled:
-          false,
-
-        selectedPlayer:
-          null,
-
-        createNew:
-          true
-      };
+      return { cancelled: false, selectedPlayer: null, createNew: true };
     }
 
-    const selectedInput =
-      prompt(
-        buildPlayerSelectionMessage(
-          sourceMatches
-        ),
-        "1"
-      );
-
+    const selectedInput = prompt(buildPlayerSelectionMessage(sourceMatches), "1");
     if (selectedInput === null) {
-      return {
-        cancelled:
-          true,
-
-        selectedPlayer:
-          null,
-
-        createNew:
-          false
-      };
+      return { cancelled: true, selectedPlayer: null, createNew: false };
     }
 
-    const selectedNumber =
-      Number(
-        String(selectedInput).trim()
-      );
-
-    if (
-      !Number.isInteger(
-        selectedNumber
-      ) ||
-      selectedNumber < 0 ||
-      selectedNumber >
-        sourceMatches.length
-    ) {
-      alert(
-        "輸入的編號不正確"
-      );
-
-      return {
-        cancelled:
-          true,
-
-        selectedPlayer:
-          null,
-
-        createNew:
-          false
-      };
+    const selectedNumber = Number(String(selectedInput).trim());
+    if (!Number.isInteger(selectedNumber) || selectedNumber < 0 || selectedNumber > sourceMatches.length) {
+      alert("輸入的編號不正確");
+      return { cancelled: true, selectedPlayer: null, createNew: false };
     }
 
     if (selectedNumber === 0) {
-      return {
-        cancelled:
-          false,
-
-        selectedPlayer:
-          null,
-
-        createNew:
-          true
-      };
+      return { cancelled: false, selectedPlayer: null, createNew: true };
     }
 
     return {
-      cancelled:
-        false,
-
-      selectedPlayer:
-        sourceMatches[
-          selectedNumber - 1
-        ],
-
-      createNew:
-        false
+      cancelled: false,
+      selectedPlayer: sourceMatches[selectedNumber - 1],
+      createNew: false
     };
   }
 
-  // ------------------------------------------------------------
-  // 選擇或建立玩家
-  // ------------------------------------------------------------
+  async function selectOrCreatePlayer(playerName) {
+    const cleanName = text(playerName);
+    if (!cleanName) return null;
 
-  async function selectOrCreatePlayer(
-    playerName
-  ) {
-    const cleanName =
-      String(
-        playerName || ""
-      ).trim();
+    const matches = await searchPlayersByName(cleanName);
+    const selection = selectPlayerFromMatches(matches);
+    if (selection.cancelled) return null;
+    if (selection.selectedPlayer) return selection.selectedPlayer;
 
-    if (!cleanName) {
-      return null;
-    }
-
-    const matches =
-      await searchPlayersByName(
-        cleanName
-      );
-
-    const selection =
-      selectPlayerFromMatches(
-        matches
-      );
-
-    if (selection.cancelled) {
-      return null;
-    }
-
-    if (selection.selectedPlayer) {
-      return selection.selectedPlayer;
-    }
-
-    const createNew =
-      confirm(
-        matches.length > 0
-          ? `確定要建立另一位新的「${cleanName}」嗎？`
-          : `目前沒有「${cleanName}」的資料，是否建立為訪客玩家？`
-      );
-
-    if (!createNew) {
-      return null;
-    }
-
-    return createGuestPlayer(
-      cleanName
+    const createNew = confirm(
+      matches.length > 0
+        ? `確定「${cleanName}」是另一位不同的真人，要建立新的 Person 嗎？\n\n如果是上方已存在的人，請取消並選擇既有人員。`
+        : `目前沒有人員「${cleanName}」，是否建立為新的 Person？`
     );
-  }
+    if (!createNew) return null;
 
-  // ------------------------------------------------------------
-  // 對外公開
-  // ------------------------------------------------------------
+    if (matches.length > 0) {
+      const db = window.db;
+      if (!db) throw new Error("Firebase 尚未載入");
+      const playerRef = db.collection("players").doc();
+      const playerData = buildGuestPlayerData(cleanName, playerRef.id);
+      playerData.sameNameOverride = true;
+      playerData.sameNameReferenceIds = matches.map(function (person) {
+        return text(person.id);
+      }).filter(Boolean);
+      playerData.source = "host_manual_same_name_override";
+      await playerRef.set(playerData, { merge: true });
+      return playerData;
+    }
+
+    return createGuestPlayer(cleanName);
+  }
 
   window.JLYCarDetailPlayerSearch = {
     normalizePlayerName,
-
     getPlayerDatabaseName,
-
     getSearchableNames,
-
+    loadCanonicalPeople,
     searchPlayersByName,
-
     buildGuestPlayerData,
-
     createGuestPlayer,
-
+    getIdentityLabel,
     buildPlayerSelectionMessage,
-
     selectPlayerFromMatches,
-
     selectOrCreatePlayer
   };
 
-  console.log(
-    "✅ Car Detail Player Search 已載入"
-  );
+  console.log("✅ Car Detail Player Search 已載入");
 })();

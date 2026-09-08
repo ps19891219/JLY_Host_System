@@ -39,11 +39,6 @@ console.log(
 (function () {
   "use strict";
 
-  // ============================================================
-  // JLY Cloud View Core V1 Phase F
-  // Direct Slot Mutation → Car Detail View
-  // ============================================================
-
   let jlyManualAddViewRuntimePromise =
     null;
 
@@ -153,12 +148,6 @@ console.log(
     }
   }
 
-
-
-  // ============================================================
-  // 共用工具
-  // ============================================================
-
   function getText(value) {
     return String(
       value == null
@@ -225,10 +214,6 @@ console.log(
     return module;
   }
 
-  // ============================================================
-  // 席位 Selector
-  // ============================================================
-
   function escapeCssValue(value) {
     const text =
       getText(value);
@@ -270,21 +255,12 @@ console.log(
         targetId
       );
 
-    /*
-     * Seat Engine 現行主要使用 data-slot-id。
-     * 舊版席位可能使用 data-seat-id 或元素 id，
-     * 因此保留多組相容選擇器。
-     */
     return [
       `[data-slot-id="${escapedId}"]`,
       `[data-seat-id="${escapedId}"]`,
       `#${escapedId}`
     ].join(",");
   }
-
-  // ============================================================
-  // 保存目前操作位置
-  // ============================================================
 
   function captureCurrentPosition(
     seatId,
@@ -298,11 +274,6 @@ console.log(
         seatId
       );
 
-    /*
-     * 保存給 Player Editor 使用。
-     * 新玩家要等編輯器按下儲存後才會重新 Render，
-     * 因此把此次操作的席位留在全域暫存。
-     */
     window.JLYPendingCarDetailPosition = {
       seatId:
         getText(
@@ -347,10 +318,6 @@ console.log(
     window.JLYPendingCarDetailPosition =
       null;
   }
-
-  // ============================================================
-  // 保留原位重新整理
-  // ============================================================
 
   async function refreshPage(
     options
@@ -399,10 +366,6 @@ console.log(
         });
     }
 
-    /*
-     * 舊版相容：
-     * Controller 尚未載入時，至少保存 scrollY。
-     */
     const scrollX =
       window.scrollX ||
       window.pageXOffset ||
@@ -460,10 +423,6 @@ console.log(
       );
   }
 
-  // ============================================================
-  // 取得車團玩家穩定 ID
-  // ============================================================
-
   function getCarPlayerId(player) {
     const source =
       player &&
@@ -478,10 +437,6 @@ console.log(
       source.applicationId
     );
   }
-
-  // ============================================================
-  // 取得資料庫玩家 ID
-  // ============================================================
 
   function getDatabasePlayerId(
     player
@@ -498,10 +453,6 @@ console.log(
     );
   }
 
-  // ============================================================
-  // 取得車團玩家名稱
-  // ============================================================
-
   function getCarPlayerName(player) {
     const source =
       player &&
@@ -516,10 +467,6 @@ console.log(
       source.name
     );
   }
-
-  // ============================================================
-  // 複製 Slots
-  // ============================================================
 
   function cloneSlots(car) {
     const currentCar =
@@ -563,10 +510,6 @@ console.log(
     );
   }
 
-  // ============================================================
-  // 搜尋指定 Seat
-  // ============================================================
-
   function findSeat(
     slots,
     seatId
@@ -608,10 +551,6 @@ console.log(
     );
   }
 
-  // ============================================================
-  // 判斷 Seat 是否已有玩家
-  // ============================================================
-
   function isSeatOccupied(seat) {
     if (!seat) {
       return false;
@@ -626,10 +565,6 @@ console.log(
       )
     );
   }
-
-  // ============================================================
-  // 找出玩家目前所在 Seat
-  // ============================================================
 
   function findPlayerSeat(
     slots,
@@ -709,10 +644,6 @@ console.log(
     );
   }
 
-  // ============================================================
-  // 找出資料庫玩家是否已在車上
-  // ============================================================
-
   function findExistingCarPlayer(
     players,
     selectedPlayer
@@ -741,14 +672,15 @@ console.log(
               player
             );
 
-          if (
-            selectedId &&
-            carPlayerId ===
-              selectedId
-          ) {
-            return true;
+          // Stable Person IDs are authoritative. When both sides have a
+          // stable ID and they differ, same display name must never collapse
+          // two distinct real people into one Activity member.
+          if (selectedId && carPlayerId) {
+            return carPlayerId === selectedId;
           }
 
+          // Name fallback is legacy compatibility only for records where at
+          // least one side genuinely lacks a stable Person ID.
           const carPlayerName =
             normalizePlayerName(
               getCarPlayerName(
@@ -766,10 +698,6 @@ console.log(
       null
     );
   }
-
-  // ============================================================
-  // 彈性席位依玩家位置切換類型
-  // ============================================================
 
   function applyFlexibleSeatType(
     seat,
@@ -812,10 +740,6 @@ console.log(
     seat.type =
       "flexible";
   }
-
-  // ============================================================
-  // 將既有玩家安排進指定 Seat
-  // ============================================================
 
   async function assignExistingPlayerToSeat(
     carRef,
@@ -928,9 +852,6 @@ console.log(
       afterCar
     );
 
-    /*
-     * 先更新本地資料，讓重新 Render 時立即使用新 Slots。
-     */
     if (
       window.currentCarData &&
       typeof window.currentCarData ===
@@ -958,10 +879,6 @@ console.log(
 
     return true;
   }
-
-  // ============================================================
-  // 選擇或建立玩家
-  // ============================================================
 
   async function choosePlayer(
     playerName
@@ -1011,10 +928,6 @@ console.log(
       );
   }
 
-  // ============================================================
-  // 主揪手動新增玩家
-  // ============================================================
-
   async function addPlayerManually(
     seatId
   ) {
@@ -1045,11 +958,6 @@ console.log(
         seatId
       );
 
-    /*
-     * prompt 出現之前就記住目前位置。
-     * 避免 prompt 關閉後 activeElement 改變，
-     * 導致抓不到原本點擊的席位。
-     */
     captureCurrentPosition(
       targetSeatId,
       document.activeElement
@@ -1138,10 +1046,6 @@ console.log(
           selectedPlayer
         );
 
-      // --------------------------------------------------------
-      // 玩家已在車上
-      // --------------------------------------------------------
-
       if (existingPlayer) {
         const addingSeatId =
           getText(
@@ -1170,11 +1074,6 @@ console.log(
         return;
       }
 
-      // --------------------------------------------------------
-      // 玩家尚未加入車團
-      // 交給 Player Editor 輸入本場資料
-      // --------------------------------------------------------
-
       getEditorModule()
         .openPlayerEditor({
           mode:
@@ -1185,10 +1084,6 @@ console.log(
           seatId:
             targetSeatId,
 
-          /*
-           * Player Editor 下一步可直接讀取，
-           * 儲存後精準回到原本席位。
-           */
           returnPosition: {
             seatId:
               targetSeatId,
@@ -1231,10 +1126,6 @@ console.log(
       clearPendingPosition();
     }
   }
-
-  // ============================================================
-  // 對外公開
-  // ============================================================
 
   window.JLYCarDetailPlayerManualAdd = {
     getText,

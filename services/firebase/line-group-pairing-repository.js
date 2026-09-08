@@ -17,13 +17,27 @@ function generateCode() {
   return code;
 }
 
-async function createPairingCode(carId, ttlMinutes = 10) {
+async function createPairingCode(carId, ttlMinutes = 10, authorization = {}) {
   const db = getFirestore();
   const normalizedCarId = String(carId || "").trim();
   const now = new Date();
   const expiresAt = new Date(
     now.getTime() + Math.max(1, Number(ttlMinutes) || 10) * 60 * 1000
   ).toISOString();
+
+  const authorizationType = String(
+    authorization.authorizationType || ""
+  ).trim();
+  const authorizedByPersonId = String(
+    authorization.authorizedByPersonId || ""
+  ).trim();
+  const authorizedByLineUserId = String(
+    authorization.authorizedByLineUserId || ""
+  ).trim();
+
+  if (!normalizedCarId || authorizationType !== "car_owner_session" || !authorizedByPersonId) {
+    throw new Error("pairing_code_authorization_required");
+  }
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = generateCode();
@@ -34,6 +48,9 @@ async function createPairingCode(carId, ttlMinutes = 10) {
       code,
       carId: normalizedCarId,
       status: "pending",
+      authorizationType,
+      authorizedByPersonId,
+      authorizedByLineUserId: authorizedByLineUserId || null,
       createdAt: now.toISOString(),
       expiresAt
     };

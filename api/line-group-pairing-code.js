@@ -1,8 +1,19 @@
 "use strict";
 
-const { getCarById } = require("../services/firebase/line-accounting-authorization-repository");
+const {
+  findPlayerByLineUserId,
+  getCarById
+} = require("../services/firebase/line-accounting-authorization-repository");
 const { createPairingCode } = require("../services/firebase/line-group-pairing-repository");
 const { handleMembershipHealth } = require("../services/line/membership-health-api-handler");
+const {
+  readCookie,
+  verifyMemberSession
+} = require("../services/line/member-session");
+const {
+  getIdentityIds,
+  isCarOwner
+} = require("../services/line/group-car-binding-service");
 
 function send(res, status, data) {
   res.statusCode = status;
@@ -21,6 +32,21 @@ function getCarLabel(car) {
     .slice(0, 60);
 }
 
+function getAuthorizedPersonId(player) {
+  const ids = getIdentityIds(player);
+  const preferred = [
+    player && player.canonicalPersonId,
+    player && player.personId,
+    player && player.id,
+    player && player.profileId,
+    player && player.identityId
+  ]
+    .map(value => String(value || "").trim())
+    .filter(value => value && !value.toLowerCase().startsWith("line:"));
+
+  return preferred.find(value => ids.has(value)) || [...ids][0] || "";
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -35,10 +61,36 @@ module.exports = async function handler(req, res) {
       return handleMembershipHealth(req, res, input);
     }
 
+    // Pairing authorization happens here, at code creation time.
+    // The LINE group member who later pastes the authorized code does not need
+    // to be the car owner or the LINE group creator.
+    const verifiedSession = verifyMemberSession(readCookie(req));
+    if (!verifiedSession.valid) {
+      return send(res, 401, { success: false, error: "line_login_required" });
+    }
+
+    const session = verifiedSession.data;
     const carId = String(input.carId || "").trim();
-    const car = await getCarById(carId);
+    const [car, player] = await Promise.all([
+      getCarById(carId),
+      findPlayerByLineUserId(session.lineUserId)
+    ]);
+
     if (!car) return send(res, 404, { success: false, error: "car_not_found" });
-    const pairing = await createPairingCode(carId, 10);
+    if (!player || !isCarOwner(player, car)) {
+      return send(res, 403, { success: false, error: "owner_required" });
+    }
+
+    const authorizedByPersonId = getAuthorizedPersonId(player);
+    if (!authorizedByPersonId) {
+      return send(res, 403, { success: false, error: "owner_identity_required" });
+    }
+
+    const pairing = await createPairingCode(carId, 10, {
+      authorizationType: "car_owner_session",
+      authorizedByPersonId,
+      authorizedByLineUserId: session.lineUserId
+    });
     const carLabel = getCarLabel(car);
     return send(res, 200, {
       success: true,
@@ -54,3 +106,4 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.getCarLabel = getCarLabel;
+module.exports.getAuthorizedPersonId = getAuthorizedPersonId;
