@@ -83,31 +83,33 @@ Safety rules:
 - Existing LINE Identity Claim approval flow remains authoritative for first-time binding.
 - This batch does not migrate or delete production Person records.
 
-### 5. LINE group binding owner identity compatibility
+### 5. LINE group binding authorization correction
 Status: CODE READY IN BATCH FOR TESTING, NOT MERGED, NOT DEPLOYED
 
 Observed production symptom:
-- A real car creator can enter a valid `JLY 綁定` pairing code in the LINE group but receive `只有這個車團的建立主揪可以綁定群組。`.
+- A valid `JLY 綁定` pairing code can be rejected with `只有這個車團的建立主揪可以綁定群組。`.
 
-Root cause:
-- `services/line/group-car-binding-service.js` previously recognized only current player document `id`, `identityId`, and `linkedPlayerIds` when comparing against `car.ownerId`.
-- Existing JLY identity history may identify the same Person through `personId`, `profileId`, canonical/merged aliases, or legacy owner fields, so a legitimate creator could fail the owner check.
+Architecture correction:
+- LINE group creator, car host/owner, pairing-code sender, and pairing confirmer are separate concepts and must NOT be assumed to be the same Person.
+- Authorization happens on the JLY car-management side when the short-lived pairing code is created.
+- `api/line-group-pairing-code.js` now requires a verified member session and verifies that the session resolves to the car owner identity before minting a pairing code.
+- Authorized pairing codes store `authorizationType=car_owner_session`, `authorizedByPersonId`, and the authorizing LINE user id for audit.
+- A valid authorized pairing code may then be pasted in the target LINE group by any group participant. That participant does not need to be the car owner and does not need to be the LINE group creator.
+- Pairing confirmation remains restricted to the same LINE user in the same LINE group that initiated that pairing, preventing another participant from hijacking the flow mid-confirmation.
+- Old pairing records without authorization metadata are rejected as `pairing_not_authorized`; they must be regenerated from the car page after this version is deployed.
+- Direct/legacy binding without an authorized pairing code still requires the LINE actor to be the car owner.
+- Binding audit now keeps `createdBy` as the LINE executor while separately recording `authorizedByPersonId` and `authorizationType`.
+- Owner identity matching remains canonical/history compatible and never uses display name as proof.
+- Regression coverage updated in `tests/line/group-car-pairing-service.test.js` and `tests/line/group-car-binding-service.test.js`.
 
-Included fix:
-- `getIdentityIds()` now includes formal current/historical aliases: document id, playerId, personId, profileId, identityId, canonical Person/Profile/Member ids, mergedInto aliases, and linkedPlayerIds.
-- Provisional `line:<userId>` values remain excluded from formal owner proof.
-- `getCarOwnerIds()` recognizes existing owner compatibility fields such as ownerId, ownerPersonId, hostPersonId, createdByPersonId, host/owner profile ids, and hostId.
-- Both pairing preparation and final group binding now use the same `isCarOwner()` identity comparison.
-- Display name is never used as owner proof.
-- Regression coverage added in `tests/line/group-car-owner-identity.test.js`.
-
-This fix is code-only in the batch. The user's current production LINE group will continue showing the old behavior until the final batch is deployed successfully.
+This correction is code-only in the batch. Current production LINE behavior remains unchanged until the final batch deploy succeeds.
 
 Remaining before batch merge/deploy:
 - Run the complete `npm test` suite on final batch head.
 - Review dry-run output against real Firestore data with read-only credentials before any future apply design.
 - Confirm no missing Person reference shapes appear in the `OTHER` inventory domain.
 - Integrate the Person Directory Project Map supplement into canonical `docs/PROJECT_MAP.md` without truncating historical map entries.
+- Update LINE pairing reply wording so it no longer tells users the confirmer must be the car host.
 - Keep PR #32 Draft until the batch review is complete.
 
 ## Deployment gate
@@ -123,7 +125,7 @@ Before the next production deployment:
 - [ ] Trigger ONE production deployment only after the batch is complete and deployment capacity is available.
 - [ ] Verify production deployment success before asking the user to test.
 - [ ] Perform accounting reset production verification only after successful deployment.
-- [ ] Verify LINE group binding with the real creator identity after successful deployment.
+- [ ] Verify LINE group binding with a non-owner/non-creator LINE executor using a car-authorized pairing code after deployment.
 - [ ] Mark items completed only after production verification.
 
 ## Do not forget
