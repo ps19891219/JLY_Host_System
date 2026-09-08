@@ -1,8 +1,8 @@
 "use strict";
 
 const {
-  findPlayerByLineUserId,
-  getCarById
+  getCarById,
+  listPlayersForIdentityResolution
 } = require("../services/firebase/line-accounting-authorization-repository");
 const { createPairingCode } = require("../services/firebase/line-group-pairing-repository");
 const { handleMembershipHealth } = require("../services/line/membership-health-api-handler");
@@ -11,8 +11,9 @@ const {
   verifyMemberSession
 } = require("../services/line/member-session");
 const {
-  getIdentityIds,
-  isCarOwner
+  buildIdentityComponent,
+  getCarOwnerIds,
+  identityIdsOwnCar
 } = require("../services/line/group-car-binding-service");
 
 function send(res, status, data) {
@@ -20,6 +21,10 @@ function send(res, status, data) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(data));
+}
+
+function text(value) {
+  return String(value || "").trim();
 }
 
 function getCarLabel(car) {
@@ -32,17 +37,31 @@ function getCarLabel(car) {
     .slice(0, 60);
 }
 
-function getAuthorizedPersonId(player) {
-  const ids = getIdentityIds(player);
-  const preferred = [
-    player && player.canonicalPersonId,
-    player && player.personId,
-    player && player.id,
-    player && player.profileId,
-    player && player.identityId
-  ]
-    .map(value => String(value || "").trim())
-    .filter(value => value && !value.toLowerCase().startsWith("line:"));
+function getAuthorizedPersonId(component, car) {
+  const ids = component && component.ids instanceof Set
+    ? component.ids
+    : new Set();
+
+  const ownerIds = getCarOwnerIds(car);
+  const matchedOwnerId = [...ownerIds].find(id => ids.has(id));
+  if (matchedOwnerId) return matchedOwnerId;
+
+  const rows = component && Array.isArray(component.rows)
+    ? component.rows
+    : [];
+  const preferred = [];
+  rows.forEach(player => {
+    [
+      player && player.canonicalPersonId,
+      player && player.personId,
+      player && player.id,
+      player && player.profileId,
+      player && player.identityId
+    ].forEach(value => {
+      const safe = text(value);
+      if (safe && !safe.toLowerCase().startsWith("line:")) preferred.push(safe);
+    });
+  });
 
   return preferred.find(value => ids.has(value)) || [...ids][0] || "";
 }
@@ -61,27 +80,45 @@ module.exports = async function handler(req, res) {
       return handleMembershipHealth(req, res, input);
     }
 
-    // Pairing authorization happens here, at code creation time.
-    // The LINE group member who later pastes the authorized code does not need
-    // to be the car owner or the LINE group creator.
+    // Authorization happens when the short-lived code is minted. The LINE
+    // participant who later pastes the code is not required to be the host.
     const verifiedSession = verifyMemberSession(readCookie(req));
     if (!verifiedSession.valid) {
-      return send(res, 401, { success: false, error: "line_login_required" });
+      return send(res, 401, {
+        success: false,
+        error: "line_login_required",
+        sessionReason: verifiedSession.reason || ""
+      });
     }
 
     const session = verifiedSession.data;
-    const carId = String(input.carId || "").trim();
-    const [car, player] = await Promise.all([
+    const carId = text(input.carId);
+    const [car, players] = await Promise.all([
       getCarById(carId),
-      findPlayerByLineUserId(session.lineUserId)
+      listPlayersForIdentityResolution()
     ]);
 
     if (!car) return send(res, 404, { success: false, error: "car_not_found" });
-    if (!player || !isCarOwner(player, car)) {
+
+    // Resolve the signed-in LINE identity across the canonical / historical
+    // Person component. Same-name is deliberately not used. Conflicting strong
+    // identity evidence fails closed instead of guessing an owner.
+    const component = buildIdentityComponent(players, session.lineUserId);
+    if (!component.rows.length) {
+      return send(res, 403, { success: false, error: "line_identity_unlinked" });
+    }
+    if (!component.valid) {
+      return send(res, 409, {
+        success: false,
+        error: "owner_identity_conflict",
+        conflictFields: component.conflicts.map(item => item.field)
+      });
+    }
+    if (!identityIdsOwnCar(component.ids, car)) {
       return send(res, 403, { success: false, error: "owner_required" });
     }
 
-    const authorizedByPersonId = getAuthorizedPersonId(player);
+    const authorizedByPersonId = getAuthorizedPersonId(component, car);
     if (!authorizedByPersonId) {
       return send(res, 403, { success: false, error: "owner_identity_required" });
     }
