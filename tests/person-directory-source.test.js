@@ -1,0 +1,1 @@
+"use strict";const test=require("node:test");const assert=require("node:assert/strict");const fs=require("node:fs");const path=require("node:path");test("Person Directory reads canonical shared loader",()=>{const s=fs.readFileSync(path.join(__dirname,"../js/modules/member/person-directory.js"),"utf8");assert.match(s,/loadPersonDirectory\(\)/);});
