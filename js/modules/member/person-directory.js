@@ -1,134 +1,19 @@
-console.log("person-directory.js 已成功載入！");
-
-(function () {
-  "use strict";
-
-  function getDataModule() {
-    const module = window.JLYMemberPickerData;
-    if (!module) throw new Error("JLYMemberPickerData 尚未載入");
-    return module;
-  }
-
-  function escapeHtml(value) {
-    return String(value == null ? "" : value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function text(value) {
-    return String(value == null ? "" : value).trim();
-  }
-
-  function getPersonMeta(person) {
-    const safe = person || {};
-    const data = getDataModule();
-    const labels = [];
-
-    labels.push(data.getIdentityLabel(safe));
-
-    if (safe.staffEnabled === true || (Array.isArray(safe.roles) && safe.roles.includes("staff"))) {
-      labels.push("Staff");
-    }
-    if (Array.isArray(safe.roles) && safe.roles.includes("dm")) {
-      labels.push("DM");
-    }
-    if (Number(safe.playCount || 0) > 0) {
-      labels.push(`歷史 ${Number(safe.playCount || 0)} 場`);
-    }
-
-    return [...new Set(labels)];
-  }
-
-  function renderPerson(person) {
-    const data = getDataModule();
-    const name = data.getMemberName(person);
-    const identityState = data.getIdentityState(person);
-    const meta = getPersonMeta(person);
-    const lineName = text(person && person.lineDisplayName);
-
-    return `
-      <article class="person-directory-card" data-identity-state="${escapeHtml(identityState)}">
-        <div class="person-directory-avatar" aria-hidden="true">${escapeHtml(name.slice(0, 1) || "人")}</div>
-        <div class="person-directory-card-body">
-          <div class="person-directory-card-title-row">
-            <h2>${escapeHtml(name)}</h2>
-            <span class="person-directory-status person-directory-status-${escapeHtml(identityState)}">
-              ${escapeHtml(data.getIdentityLabel(person))}
-            </span>
-          </div>
-          ${lineName && lineName !== name ? `<p class="person-directory-line-name">LINE：${escapeHtml(lineName)}</p>` : ""}
-          <div class="person-directory-meta">
-            ${meta.map(function (label) {
-              return `<span>${escapeHtml(label)}</span>`;
-            }).join("")}
-          </div>
-        </div>
-      </article>
-    `;
-  }
-
-  function renderList(people) {
-    const list = document.getElementById("personDirectoryList");
-    if (!list) return;
-
-    if (!Array.isArray(people) || people.length === 0) {
-      list.innerHTML = '<div class="person-directory-empty">找不到符合的人員。</div>';
-      return;
-    }
-
-    list.innerHTML = people.map(renderPerson).join("");
-  }
-
-  function renderStats(allPeople, visiblePeople) {
-    const stats = document.getElementById("personDirectoryStats");
-    if (!stats) return;
-
-    const all = Array.isArray(allPeople) ? allPeople : [];
-    const visible = Array.isArray(visiblePeople) ? visiblePeople : [];
-    const linkedCount = all.filter(function (person) {
-      return getDataModule().isLineLinked(person);
-    }).length;
-
-    stats.textContent = `共 ${all.length} 人｜LINE 已連結 ${linkedCount} 人${visible.length !== all.length ? `｜目前顯示 ${visible.length} 人` : ""}`;
-  }
-
-  function showNotice(message) {
-    const notice = document.getElementById("personDirectoryNotice");
-    if (!notice) return;
-    notice.hidden = !message;
-    notice.textContent = message || "";
-  }
-
-  async function init() {
-    const data = getDataModule();
-    const searchInput = document.getElementById("personDirectorySearch");
-
-    try {
-      const allPeople = await data.loadPersonDirectory();
-      renderList(allPeople);
-      renderStats(allPeople, allPeople);
-
-      if (searchInput) {
-        searchInput.addEventListener("input", function () {
-          const keyword = searchInput.value.trim();
-          const visiblePeople = keyword ? data.searchMembers(allPeople, keyword) : allPeople;
-          renderList(visiblePeople);
-          renderStats(allPeople, visiblePeople);
-        });
-      }
-    } catch (error) {
-      console.error("人員名單讀取失敗：", error);
-      showNotice("人員名單讀取失敗，請稍後再試。");
-      renderList([]);
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+console.log("person-directory.js V2 已成功載入！");
+(function(){"use strict";
+let allPeople=[];let activeFilter="all";
+function data(){if(!window.JLYMemberPickerData)throw new Error("JLYMemberPickerData 尚未載入");return window.JLYMemberPickerData;}
+function text(v){return String(v==null?"":v).trim();}
+function esc(v){return text(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");}
+function isMember(p){return data().hasFormalIdentity(p)||data().isLineLinked(p);}
+function statusLabel(p){return isMember(p)?"會員":"訪客";}
+function meta(p){const out=[];if(text(p.lineDisplayName)&&text(p.lineDisplayName)!==data().getMemberName(p))out.push("LINE："+text(p.lineDisplayName));if(Number(p.playCount||0)>0)out.push("歷史 "+Number(p.playCount||0)+" 場");if(text(p.note||p.hostNote))out.push(text(p.note||p.hostNote));return out;}
+function renderPerson(p){const name=data().getMemberName(p);const id=text(p.id);return `<article class="person-directory-card"><div class="person-directory-avatar">${esc(name.slice(0,1)||"人")}</div><div class="person-directory-card-body"><div class="person-directory-card-title-row"><h2>${esc(name)}</h2><span class="person-directory-status ${isMember(p)?"person-directory-status-line_linked":""}">${statusLabel(p)}</span></div><div class="person-directory-meta">${meta(p).map(x=>`<span>${esc(x)}</span>`).join("")}</div><button type="button" class="person-directory-edit" data-person-id="${esc(id)}">修改</button></div></article>`;}
+function visible(){const q=text(document.getElementById("personDirectorySearch")?.value);let rows=q?data().searchMembers(allPeople,q):allPeople.slice();if(activeFilter==="member")rows=rows.filter(isMember);if(activeFilter==="guest")rows=rows.filter(p=>!isMember(p));return rows;}
+function render(){const rows=visible();const list=document.getElementById("personDirectoryList");if(list)list.innerHTML=rows.length?rows.map(renderPerson).join(""):'<div class="person-directory-empty">找不到符合的人員。</div>';const stats=document.getElementById("personDirectoryStats");if(stats){const members=allPeople.filter(isMember).length;stats.textContent=`共 ${allPeople.length} 人｜會員 ${members}｜訪客 ${allPeople.length-members}｜目前顯示 ${rows.length}`;}document.querySelectorAll("[data-person-id]").forEach(btn=>btn.addEventListener("click",()=>editPerson(btn.dataset.personId)));}
+function notice(message){const n=document.getElementById("personDirectoryNotice");if(!n)return;n.hidden=!message;n.textContent=message||"";}
+async function reload(){allPeople=await data().loadPersonDirectory();render();}
+async function createPerson(){const name=text(document.getElementById("newPersonName")?.value);const note=text(document.getElementById("newPersonNote")?.value);if(!name){alert("請輸入姓名或常用暱稱");return;}if(!window.db){alert("Firebase 尚未載入");return;}if(!confirm(`新增「${name}」為訪客人員？\n同名的人會保留為不同 Person。`))return;const now=new Date().toISOString();await window.db.collection("players").add({displayName:name,playerName:name,nickname:name,note,identityStatus:"guest",source:"person_directory",createdAt:now,updatedAt:now});document.getElementById("newPersonName").value="";document.getElementById("newPersonNote").value="";await reload();}
+async function editPerson(id){const p=allPeople.find(x=>text(x.id)===text(id));if(!p||!window.db)return;const oldName=data().getMemberName(p);const next=prompt("修改姓名／常用暱稱：",oldName);if(next===null)return;const name=text(next);if(!name){alert("姓名不可空白");return;}const note=prompt("修改備註：",text(p.note||p.hostNote));if(note===null)return;await window.db.collection("players").doc(id).update({displayName:name,playerName:name,nickname:name,note:text(note),updatedAt:new Date().toISOString()});await reload();}
+async function init(){try{await reload();document.getElementById("personDirectorySearch")?.addEventListener("input",render);document.getElementById("createPersonButton")?.addEventListener("click",()=>createPerson().catch(e=>{console.error(e);alert("新增失敗："+e.message);}));document.querySelectorAll("[data-person-filter]").forEach(btn=>btn.addEventListener("click",()=>{activeFilter=btn.dataset.personFilter;document.querySelectorAll("[data-person-filter]").forEach(x=>x.classList.toggle("active",x===btn));render();}));}catch(e){console.error("人員名單讀取失敗：",e);notice("人員名單讀取失敗，請稍後再試。");}}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();
