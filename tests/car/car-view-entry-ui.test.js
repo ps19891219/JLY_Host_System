@@ -14,7 +14,7 @@ test("car view loads the unified entry action layer without blocking anonymous r
   const controller = source("js/car/car-view.js");
   const actions = source("js/car/car-view-actions.js");
 
-  assert.match(html, /\/js\/car\/car-view-actions\.js\?v=4/);
+  assert.match(html, /\/js\/car\/car-view-actions\.js\?v=5/);
   assert.match(controller, /\/api\/car-view-context\?id=/);
   assert.doesNotMatch(controller, /location\.href\s*=\s*["'][^"']*login/i);
   assert.match(actions, /fetch\("\/api\/car-view-context"/);
