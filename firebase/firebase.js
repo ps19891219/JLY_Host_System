@@ -28,6 +28,121 @@ try {
   console.warn("Firestore transport settings skipped:", error);
 }
 
+// Work Schedule 專用唯讀 fallback。
+// 正常情況仍走 Firebase SDK；若 mobile Safari 的 Query.get() 卡住超過 2.5 秒，
+// 以 Firestore REST structuredQuery 讀取同一份 workShifts 資料。
+// 只包裝 Work Schedule 頁的 workShifts 查詢，不影響其他 collection，也不改寫寫入流程。
+if (typeof window !== "undefined" && /\/pages\/work-schedule\.html$/.test(window.location.pathname)) {
+  const nativeCollection = db.collection.bind(db);
+
+  function decodeFirestoreValue(value) {
+    if (!value || typeof value !== "object") return null;
+    if ("nullValue" in value) return null;
+    if ("stringValue" in value) return value.stringValue;
+    if ("booleanValue" in value) return value.booleanValue;
+    if ("integerValue" in value) return Number(value.integerValue);
+    if ("doubleValue" in value) return Number(value.doubleValue);
+    if ("timestampValue" in value) return value.timestampValue;
+    if ("referenceValue" in value) return value.referenceValue;
+    if ("geoPointValue" in value) return value.geoPointValue;
+    if ("arrayValue" in value) {
+      return (value.arrayValue.values || []).map(decodeFirestoreValue);
+    }
+    if ("mapValue" in value) {
+      return decodeFirestoreFields(value.mapValue.fields || {});
+    }
+    return null;
+  }
+
+  function decodeFirestoreFields(fields) {
+    const out = {};
+    Object.entries(fields || {}).forEach(([key, value]) => {
+      out[key] = decodeFirestoreValue(value);
+    });
+    return out;
+  }
+
+  async function readWorkShiftsByRest(monthKey) {
+    const projectId = firebase.app().options.projectId;
+    const apiKey = firebase.app().options.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents:runQuery?key=${encodeURIComponent(apiKey)}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: "workShifts" }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: "monthKey" },
+              op: "EQUAL",
+              value: { stringValue: monthKey }
+            }
+          }
+        }
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`Firestore REST ${response.status}`);
+    }
+    const payload = await response.json();
+    const docs = (Array.isArray(payload) ? payload : [])
+      .filter(item => item && item.document)
+      .map(item => {
+        const document = item.document;
+        const id = String(document.name || "").split("/").pop();
+        const data = decodeFirestoreFields(document.fields || {});
+        return { id, data: () => data };
+      });
+    return { docs, empty: docs.length === 0 };
+  }
+
+  function wrapQuery(query, filters) {
+    return new Proxy(query, {
+      get(target, prop) {
+        if (prop === "where") {
+          return (field, op, value) => wrapQuery(target.where(field, op, value), [...filters, { field, op, value }]);
+        }
+        if (prop === "get") {
+          return async (...args) => {
+            const monthFilter = filters.find(f => f.field === "monthKey" && f.op === "==" && typeof f.value === "string");
+            if (!monthFilter) return target.get(...args);
+
+            const nativePromise = target.get(...args);
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("SDK_QUERY_TIMEOUT")), 2500));
+            try {
+              return await Promise.race([nativePromise, timeout]);
+            } catch (error) {
+              if (error?.message !== "SDK_QUERY_TIMEOUT") {
+                console.warn("Work Schedule SDK query failed, trying REST fallback:", error);
+              } else {
+                console.warn("Work Schedule SDK query timed out, using REST fallback.");
+              }
+              return readWorkShiftsByRest(monthFilter.value);
+            }
+          };
+        }
+        const value = Reflect.get(target, prop, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+    });
+  }
+
+  db.collection = function patchedCollection(name) {
+    const collection = nativeCollection(name);
+    if (name !== "workShifts") return collection;
+    return new Proxy(collection, {
+      get(target, prop) {
+        if (prop === "where") {
+          return (field, op, value) => wrapQuery(target.where(field, op, value), [{ field, op, value }]);
+        }
+        const value = Reflect.get(target, prop, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+    });
+  };
+}
+
 // 給其他 JS 使用
 window.db = db;
 
