@@ -5,45 +5,34 @@ Work Schedule is independent from My Car. It records work first and may later li
 
 ## Canonical rules
 - Person remains the canonical human identity. No actor/NPC/DM person database.
-- `workShifts` remains the V1 source of truth for work shifts; every saved date/role shift has a stable document ID.
-- Work name, role, studio and headcount are configurable data, never hard-coded to a script, role or fixed team size.
-- Same-name Person records are never automatically merged. Work setup searches canonical Person and stores Person IDs.
-- A Person may belong to multiple role pools in the same work, e.g. DM and NPC.
-- `scriptId`, `studioId`, `branchId`, `activityId` remain nullable future links.
+- `workShifts` is the source of truth for individual scheduled shifts.
+- `workScheduleWorks` stores reusable Work configuration and role pools. It is configuration, not a second shift source.
+- Role Pool answers「這個工作／角色有哪些人可以排」; Shift Assignment answers「這一天實際是誰上班」. Never collapse these two layers again.
+- Work name, location, roles, eligible people, date, time, required count, actual assignments and note remain editable after creation.
+- Same-name Person records are never automatically merged. Person IDs are canonical.
+- A Person may belong to multiple role pools in the same work.
 - Cross-midnight time such as 19:00–02:00 produces the next end date.
 
-## Real scheduling workflow
-1. Create/select the work.
-2. Create arbitrary role pools such as 主 G, DM, NPC, 演員 or 場控.
-3. Search Person Directory and add only this work's schedulable people to each role pool.
-4. Select one or many dates from an actual calendar.
-5. Select start/end time and role.
-6. Set required headcount for that role.
-7. For every selected date, tap people independently. Selected people are highlighted; unselected people remain grey.
-8. Save once after the batch is arranged. Draft taps do not write Firestore individually.
+## Edit contract
+Opening an existing shift must restore the full Work role pool, not only the people assigned that day. The original assigned people are highlighted; other eligible people remain available. Editing may add/remove/rename roles, add/remove eligible people, replace daily assignees, change work/location/date/time/headcount/note, and save the updated configuration.
 
-## Staffing completeness / Pending
-- Each saved shift stores `requiredCount`, `missingCount` and `staffingStatus`.
-- Assigned < required => `pending`, and the month view shows `待處理 · <role> 尚缺 N 人`.
-- Assigned >= required => `complete`.
-- This is the Work Schedule staffing pending state. Future platform Pending Action projection may surface these items without making a second source of truth.
+## Google Calendar
+- JLY Shift remains canonical; Google Calendar is the synchronization destination.
+- New shifts default to `syncEnabled=true` in the Work Schedule UI.
+- First sync creates one Google event and stores its `eventId` mapping on the shift.
+- Later edits update the mapped Google event instead of creating duplicates.
+- Cross-midnight duration is preserved.
+- The old ICS/bulk-download flow is no longer the primary Work Schedule path.
+- iPhone/Apple Calendar may display the same Google calendar through the user's Google account; JLY does not create a second Apple-specific calendar core.
+
+## Staffing completeness
+Each shift stores `requiredCount`, `missingCount` and `staffingStatus`. Assigned < required is pending; assigned >= required is complete.
 
 ## Mobile UX
-- Dialog must fit the viewport and keep the close control compact.
-- Full Person Directory is never dumped into the scheduling screen.
-- Person lookup is search-first and results are bounded.
-- Date selection is touch-first multi-select calendar.
-- Daily assignment is a per-date matrix using the selected role pool.
+Search Person rather than dumping the full directory. Date selection is touch-first. Candidate people stay visible during editing, selected people are highlighted, unselected candidates remain available.
 
 ## Read-volume direction
-V1 starts with month-scoped reads. The public/player surface must not directly query the internal schedule. Before public player traffic is enabled, add Schedule/Public Projections so normal reads consume prebuilt views and writes only rebuild affected projections.
+V1 uses month-scoped reads. Before public player traffic is enabled, add Schedule/Public Projections so high-volume readers consume prebuilt views and writes only rebuild affected projections.
 
-## Future, not V1 contracts
-- Persisted reusable Work/Team/Role Pool master records. The V1 batch UI proves the interaction before introducing another source collection.
-- Availability and conflict/continuous-shift warnings.
-- Owner scheduling assistance.
-- Attendance and payroll/pay rules.
-- Script/Studio Master claiming by stable ID, never automatic name merge.
-- Activity/Recruitment/player purchase-request flow.
-- Formal JLY Calendar synchronization and event update mapping.
-- Accounting integration after payroll obligations are formalized.
+## Future
+Availability/conflict warnings, attendance, payroll/pay rules, Script/Studio stable-ID claiming, Activity/Recruitment flow, and public schedule projections remain later phases.
