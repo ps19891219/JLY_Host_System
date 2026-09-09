@@ -19,10 +19,10 @@ if (!firebase.apps.length) {
 // 建立 Firestore
 const db = firebase.firestore();
 
-// Safari / 行動網路有時會讓 Firestore WebChannel 長時間停在 pending。
-// 讓 SDK 自動偵測並切換 long-polling transport，避免讀取永遠卡住。
+// iPhone Safari / 部分行動網路會讓 Firestore WebChannel 長時間停在 pending。
+// 直接強制 long-polling，避免自動偵測仍卡在 WebChannel。
 try {
-  db.settings({ experimentalAutoDetectLongPolling: true });
+  db.settings({ experimentalForceLongPolling: true });
 } catch (error) {
   // settings 只能在 Firestore 第一次使用前套用；若其他入口已先使用，保留既有設定即可。
   console.warn("Firestore transport settings skipped:", error);
