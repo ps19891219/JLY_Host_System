@@ -1,0 +1,9 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');const js=fs.readFileSync('js/modules/work-schedule/work-schedule.js','utf8');const doc=fs.readFileSync('docs/WORK_SCHEDULE_V1.md','utf8');const home=fs.readFileSync('index.html','utf8');
+test('work schedule has independent home entry and mobile page',()=>{assert.match(home,/工作班表/);assert.match(home,/pages\/work-schedule\.html/);assert.match(page,/全部班表/);assert.match(page,/只看我的/)});
+test('batch scheduling creates independent work shift documents',()=>{assert.match(page,/新增／批次排班/);assert.match(js,/const ref=shifts\.doc\(\)/);assert.match(js,/batch\.set\(ref/)});
+test('work roles and future master links are not hard coded',()=>{assert.match(page,/id="roleName"/);assert.match(js,/scriptId:null/);assert.match(js,/studioId:null/);assert.match(js,/activityId:null/);assert.match(doc,/not hard-coded/)});
+test('person picker uses canonical person directory',()=>{assert.match(page,/picker-data\.js/);assert.match(js,/loadPersonDirectory/);assert.doesNotMatch(js,/collection\(['"]actors/)});
+test('cross midnight shifts retain a next-day end date',()=>{assert.match(js,/end<=start/);assert.match(js,/endDate:endDate/)});
+test('calendar export is available but documented as non-sync',()=>{assert.match(js,/calendar\.google\.com\/calendar\/render/);assert.match(doc,/not yet bidirectional Calendar Sync/)});
+test('public player schedule remains outside V1 internal schedule',()=>{assert.match(doc,/public\/player surface must not directly query the internal schedule/)});
