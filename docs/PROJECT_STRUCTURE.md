@@ -1,6 +1,6 @@
 # JLY Host System 專案分類規則
 
-> Version：1.2
+> Version：1.3
 >
 > 更新日期：2026-09-10
 >
@@ -148,7 +148,8 @@ Work Schedule 正式責任邊界：
 - `work-schedule-shift-delete.js`：單場 Shift 刪除流程。若已有 Google Calendar eventId，必須先刪除對應事件並清除 mapping，成功後才刪除該場所有 Shift rows，最後重建受影響月份 View。Google 刪除失敗時不得假裝排班已刪除。
 - `work-schedule-work-hub.js`：Work 與 Role Pool 設定、從既有 Work 建立 Shift。Work 首頁讀 Work Index View；進入編輯後才讀取單一正式 Work。
 - `work-schedule-person-create.js`：在 Role Pool 搜尋時建立 canonical Person 並掛回該 Role Pool。不得承擔 Work 修復、排班儲存或頁面 reload。
-- `work-schedule-google.js`：Work Schedule 對既有 Calendar Core 的 Adapter，不建立第二套 Google OAuth／Calendar Provider。
+- `work-schedule-google.js`：Work Schedule 對既有 Calendar Core 的 Adapter，不建立第二套 Google OAuth／Calendar Provider；同步失敗必須保留 eventId 並標記 failed／lastError，供安全補登。
+- `work-schedule-calendar-repair.js`：店家排班後台 Google 補登入口。只重試 `syncEnabled` 且尚未成功／已失敗的當月 Shift，不重建已成功 Event；授權在使用者按下補登時執行，避免背景 popup。
 - `work-schedule-v2.js`：保留作歷史／回退參考，不再載入正式 Work Schedule 頁面，不得在背景執行重複讀取或綁定事件。
 
 ### Work Schedule 三層生命週期
@@ -165,7 +166,7 @@ Work Schedule 正式責任邊界：
 
 Domain Outbox：`workScheduleChangeEvents`。只記錄本次正式變動、受影響 Person、Calendar plan、Notification plan、衝突確認與處理狀態，可供未來 Notification Core、個人 Google Calendar、「我的工作」及 LINE 入口消費；不得作為班表正式來源。
 
-目前店家排班階段只建立上述共用生命週期與待處理計畫。工作人員個人 Google OAuth／自動補登、LINE 身份認領與「我的工作」屬後續 Person 端功能，必須消費同一套 Core／Outbox，不得另建排班、Person、Calendar 或 Notification 核心。
+目前店家排班階段已提供 Shift Google 同步失敗狀態與後台一鍵補登；工作人員個人 Google OAuth／自動補登、LINE 身份認領與「我的工作」屬後續 Person 端功能，必須消費同一套 Core／Outbox，不得另建排班、Person、Calendar 或 Notification 核心。
 
 嚴禁在正常頁面啟動流程中使用全域 `MutationObserver` 反覆改寫 Dashboard DOM、重複載入 Dashboard script、掃描全部 Works、掃描全部 Person Directory、或以 `location.reload()` 作為寫入後同步方式。
 

@@ -1,0 +1,13 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const code=fs.readFileSync('js/modules/work-schedule/work-schedule-calendar-repair.js','utf8');
+const db={collection:()=>({doc:id=>({id})})};
+function firestore(){return db}firestore.FieldValue={serverTimestamp:()=>({serverTimestamp:true})};
+const document={readyState:'loading',getElementById:()=>null,addEventListener:()=>{}};
+const window={db,JLYWorkScheduleReadView:{},JLYWorkScheduleDashboard:{getRows:()=>[]},addEventListener:()=>{}};
+vm.runInNewContext(code,{window,document,firebase:{firestore},alert:()=>{},console});
+const R=window.JLYWorkScheduleCalendarRepair;assert.ok(R,'repair module loads');
+assert.equal(R.needsRepair({calendar:{syncEnabled:false}}),false);
+assert.equal(R.needsRepair({calendar:{syncEnabled:true,eventId:'evt-1',syncStatus:'synced',lastError:''}}),false);
+assert.equal(R.needsRepair({calendar:{syncEnabled:true,eventId:'',syncStatus:'pending'}}),true);
+assert.equal(R.needsRepair({calendar:{syncEnabled:true,eventId:'evt-1',syncStatus:'failed',lastError:'expired'}}),true);
+console.log('work-schedule-calendar-repair ok');
