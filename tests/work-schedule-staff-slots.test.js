@@ -8,7 +8,7 @@ const js=fs.readFileSync(path.join(root,'js/modules/work-schedule/work-schedule-
 const html=fs.readFileSync(path.join(root,'pages/work-schedule.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'css/pages/work-schedule-staff-slots.css'),'utf8');
 
-test('staff-slot module parses and is wired after View-first dashboard',()=>{assert.doesNotThrow(()=>new vm.Script(js));assert.match(html,/work-schedule-dashboard\.js\?v=5[\s\S]*work-schedule-staff-slots\.js\?v=4/);assert.match(html,/id="bulkBoardOpen"[^>]*>批次修改/)});
+test('staff-slot module parses and is wired after View-first dashboard',()=>{assert.doesNotThrow(()=>new vm.Script(js));assert.match(html,/work-schedule-dashboard\.js\?v=5[\s\S]*work-schedule-staff-slots\.js\?v=5/);assert.match(html,/id="bulkBoardOpen"[^>]*>批次修改/)});
 test('staff slots preserve canonical Person IDs without importing Seat Engine',()=>{for(const term of ['staffSlots','assignedPersonIds','personIds','eligiblePersonIds','loadPersonDirectory'])assert.match(js,new RegExp(term));assert.doesNotMatch(js,/js\/car\/seat|JLYSeatData|JLYSeatRender|JLYSeatDrag/)});
 test('detail edits Shift Assignment only and never creates Work main roles',()=>{assert.doesNotMatch(js,/staffAddRole|新增主要角色|createRoleForShift/);assert.match(js,/主要角色與常駐人員請回工作設定管理/);assert.match(js,/這裡只修改這一天/)});
 test('legacy empty staffSlots restores existing assigned Person IDs',()=>{assert.match(js,/Array\.isArray\(row\.staffSlots\)&&row\.staffSlots\.length/);assert.match(js,/personId:String\(assigned\[i\]\|\|''\)/)});
