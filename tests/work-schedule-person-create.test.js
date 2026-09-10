@@ -10,4 +10,6 @@ assert(js.includes("source:'work-schedule-role-pool'"),'must record creation sou
 assert(js.includes('batch.set(personRef'),'Person and role-pool attachment must share one batch');
 assert(html.includes('work-schedule-person-create.js?v=1'),'page must load direct-create enhancement');
 assert(!js.includes('workActors')&&!js.includes('npcMembers')&&!js.includes('dmMembers'),'must not create duplicate staff collections');
+assert(!js.includes('new MutationObserver'),'Person-create enhancement must not globally observe/rewrite DOM while mobile IME is typing');
+assert(js.includes("document.addEventListener('input'"),'direct-create enhancement must react to the focused search input only');
 console.log('work-schedule-person-create.test.js passed');

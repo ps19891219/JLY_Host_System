@@ -39,12 +39,14 @@ async function createAndAttach(input){
 
 function decorate(input){
   const box=input.parentElement?.querySelector('[data-role-results]');if(!box)return;
-  const name=txt(input.value);if(!name)return;
-  const existing=[...box.querySelectorAll('button')].some(b=>normalize(b.textContent)===normalize(name));
+  const name=txt(input.value);
   let add=box.querySelector('[data-create-person]');
+  if(!name){add?.remove();return}
+  const existing=[...box.querySelectorAll('button:not([data-create-person])')].some(b=>normalize(b.textContent)===normalize(name));
   if(existing){add?.remove();return}
   if(!add){add=document.createElement('button');add.type='button';add.dataset.createPerson='1';add.className='work-create-person';box.appendChild(add)}
-  add.textContent=`＋ 新增正式人員：${name}`;
+  const label=`＋ 新增正式人員：${name}`;
+  if(add.textContent!==label)add.textContent=label;
   add.onclick=()=>createAndAttach(input).catch(e=>{console.error('[WorkSchedulePersonCreate]',e);alert(`新增人員失敗：${e.message||e}`)});
 }
 
@@ -52,9 +54,6 @@ document.addEventListener('click',e=>{
   const card=e.target.closest?.('[data-work-id]');if(card?.dataset.workId)activeWorkId=card.dataset.workId;
 });
 document.addEventListener('input',e=>{
-  const input=e.target.closest?.('[data-role-search]');if(input)setTimeout(()=>decorate(input),0);
+  const input=e.target.closest?.('[data-role-search]');if(input)decorate(input);
 });
-new MutationObserver(()=>{
-  document.querySelectorAll('[data-role-search]').forEach(input=>{if(txt(input.value))decorate(input)});
-}).observe(document.documentElement,{childList:true,subtree:true});
 })();
