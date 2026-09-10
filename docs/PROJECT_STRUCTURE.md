@@ -141,6 +141,7 @@ Work Schedule 正式責任邊界：
 - `work-schedule-read-view.js`：Cloud View／Projection Builder。一般 Dashboard 與 Work Hub 只讀這層；僅在缺 View 的 bootstrap 或正式 write 後重建受影響範圍。
 - `work-schedule-dashboard.js`：每日班表 View、月份切換、只看我的、批次入口、Google 同步入口。不得在一般瀏覽時掃描 Person Directory 或直接查整月 Core Shift。
 - `work-schedule-staff-slots.js`：單日 Shift Assignment／工作人員欄位與批次欄位修改。資料來源由 Dashboard View 傳入；只有開啟人員選擇時才載入 Person Directory。
+- `work-schedule-shift-delete.js`：單場 Shift 刪除流程。若已有 Google Calendar eventId，必須先刪除對應事件並清除 mapping，成功後才刪除該場所有 Shift rows，最後重建受影響月份 View。Google 刪除失敗時不得假裝排班已刪除。
 - `work-schedule-work-hub.js`：Work 與 Role Pool 設定、從既有 Work 建立 Shift。Work 首頁讀 Work Index View；進入編輯後才讀取單一正式 Work。
 - `work-schedule-person-create.js`：在 Role Pool 搜尋時建立 canonical Person 並掛回該 Role Pool。不得承擔 Work 修復、排班儲存或頁面 reload。
 - `work-schedule-google.js`：Work Schedule 對既有 Calendar Core 的 Adapter，不建立第二套 Google OAuth／Calendar Provider。
