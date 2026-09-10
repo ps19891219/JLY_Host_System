@@ -1,0 +1,16 @@
+const fs=require('fs'),assert=require('assert');
+const dashboard=fs.readFileSync('js/modules/work-schedule/work-schedule-dashboard.js','utf8');
+const google=fs.readFileSync('js/modules/work-schedule/work-schedule-google.js','utf8');
+const del=fs.readFileSync('js/modules/work-schedule/work-schedule-shift-delete.js','utf8');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');
+assert.ok(page.includes('id="batchSelectAll"'),'dashboard exposes select-all');
+assert.ok(page.includes('id="batchDelete"'),'batch bar exposes batch delete');
+assert.ok(dashboard.includes('function selectAllVisible()'),'dashboard can select all visible workdays');
+assert.ok(dashboard.includes('deleteGroups?.(keys)'),'dashboard delegates safe batch delete');
+assert.ok(dashboard.includes('JLYWorkScheduleGoogle.syncGroup(g.rows)'),'dashboard syncs one grouped event per workday');
+assert.ok(google.includes('async function syncGroup(rows)'),'google adapter supports grouped shift rows');
+assert.ok(google.includes('groupEvent:true'),'group calendar mapping is shared across role rows');
+assert.ok(google.includes("activityName:`${row.workName||'未命名工作'}`"),'store calendar title omits role suffix');
+assert.ok(del.includes('async function deleteGroups(keys)'),'delete module supports selected groups');
+assert.ok(del.includes('new Map()'),'delete module de-duplicates shared Google event IDs');
+console.log('work-schedule batch/group actions ok');
