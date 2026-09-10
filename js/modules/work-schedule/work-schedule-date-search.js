@@ -5,7 +5,7 @@ window.__JLYWorkScheduleDateSearchInitialized=true;
 const $=id=>document.getElementById(id),form=$('scheduleDateSearch'),input=$('scheduleDateQuery'),clear=$('scheduleDateClear'),host=$('scheduleDashboard'),title=$('scheduleResultsTitle'),V=window.JLYWorkScheduleReadView;
 if(!form||!input||!host||!V)return;
 if(clear){clear.textContent='×';clear.setAttribute('aria-label','清除日期搜尋');clear.hidden=!input.value}
-const pad=n=>String(n).padStart(2,'0'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function parseDate(raw){const s=String(raw||'').trim().replace(/[.\-]/g,'/'),p=s.split('/').filter(Boolean).map(Number);let y=null,m,d;if(p.length===2){[m,d]=p}else if(p.length===3){[y,m,d]=p;if(y<100)y+=2000}else return null;const checkYear=y||2000,dt=new Date(checkYear,m-1,d);if(dt.getMonth()!==m-1||dt.getDate()!==d||m<1||m>12)return null;if(y&&dt.getFullYear()!==y)return null;return{year:y,month:m,day:d,monthText:pad(m),dayText:pad(d),explicitYear:!!y}}
 function idsOf(r){return(r.assignedPersonIds||r.personIds||[]).map(String)}
 function personName(id,r){const p=(r.people||[]).find(x=>String(x.personId||x.id)===String(id));return p?.name||'未命名'}
