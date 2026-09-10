@@ -12,4 +12,12 @@ assert(html.includes('work-schedule-person-create.js?v=1'),'page must load direc
 assert(!js.includes('workActors')&&!js.includes('npcMembers')&&!js.includes('dmMembers'),'must not create duplicate staff collections');
 assert(!js.includes('new MutationObserver'),'Person-create enhancement must not globally observe/rewrite DOM while mobile IME is typing');
 assert(js.includes("document.addEventListener('input'"),'direct-create enhancement must react to the focused search input only');
+assert(js.includes('repairDuplicateWorks'),'must repair accidental duplicate Works');
+assert(js.includes("shifts.where('workId','==',duplicate.id)"),'duplicate repair must preserve and re-point existing shifts');
+assert(js.includes('batch.delete(works.doc(duplicate.id))'),'duplicate repair must delete only the empty duplicate Work after repointing shifts');
+assert(js.includes("candidateCount(duplicate)!==0"),'must not auto-delete duplicate Works that contain configured candidates');
+assert(js.includes("e.target.closest?.('#dashboardCreate')"),'dashboard create inside a Work must be intercepted');
+assert(js.includes("document.getElementById('workWorkspaceSchedule')?.click()"),'scheduling inside a Work must use the existing Work flow');
+assert(js.includes('saveQuickWithoutReload'),'quick scheduling must save without a full page reload');
+assert(js.includes("document.addEventListener('submit'"),'quick scheduling no-reload guard must run before legacy submit handler');
 console.log('work-schedule-person-create.test.js passed');
