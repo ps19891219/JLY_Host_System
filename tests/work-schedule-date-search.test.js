@@ -1,0 +1,14 @@
+const fs=require('fs'),assert=require('assert');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');
+const js=fs.readFileSync('js/modules/work-schedule/work-schedule-date-search.js','utf8');
+assert(!page.includes('近期班表'),'legacy upcoming block should be removed');
+assert(!page.includes('指定月份'),'month browser label should be removed');
+assert(page.includes('id="scheduleDateSearch"'),'date search form should exist');
+assert(page.indexOf('id="scheduleDateSearch"')<page.indexOf('id="scheduleDashboard"'),'controls must stay above schedule results');
+assert(js.includes("p.length===2"),'M/D shorthand should be supported');
+assert(js.includes('new Date().getFullYear()'),'M/D should default to current year');
+assert(js.includes("p.length===3"),'explicit year/M/D should be supported');
+assert(js.includes("key.startsWith(targetDate+'|')"),'search should filter exact start date only');
+assert(!js.includes('workShifts'),'date search must not scan authoritative shifts');
+assert(!js.includes('location.reload'),'date search must not reload the page');
+console.log('work-schedule-date-search.test.js passed');
