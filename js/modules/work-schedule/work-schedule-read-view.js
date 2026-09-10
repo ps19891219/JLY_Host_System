@@ -1,0 +1,18 @@
+(function(){
+'use strict';
+const db=window.db||firebase.firestore();
+const views=db.collection('workScheduleViews');
+const shifts=db.collection('workShifts');
+const works=db.collection('workScheduleWorks');
+const serverTime=()=>firebase.firestore.FieldValue.serverTimestamp();
+const txt=v=>String(v??'').trim();
+function rowFromDoc(d){const x={id:d.id,...d.data()};return {id:x.id,workId:x.workId||'',workName:x.workName||'',studioName:x.studioName||'',roleName:x.roleName||'',rolePoolId:x.rolePoolId||'',eligiblePersonIds:(x.eligiblePersonIds||[]).map(String),date:x.date||'',monthKey:x.monthKey||String(x.date||'').slice(0,7),startTime:x.startTime||'',endTime:x.endTime||'',endDate:x.endDate||x.date||'',requiredCount:Number(x.requiredCount||0),staffSlots:Array.isArray(x.staffSlots)?x.staffSlots:[],assignedPersonIds:(x.assignedPersonIds||x.personIds||[]).map(String),personIds:(x.personIds||x.assignedPersonIds||[]).map(String),people:Array.isArray(x.people)?x.people:[],missingCount:Number(x.missingCount||0),staffingStatus:x.staffingStatus||'',note:x.note||'',status:x.status||'scheduled',calendar:x.calendar||{}}}
+function workView(w){const roles=(w.roles||[]).map((r,i)=>({id:String(r.id||r.name||`role-${i+1}`),name:txt(r.name),eligiblePersonIds:(r.eligiblePersonIds||r.personIds||[]).map(String),staffSlots:Array.isArray(r.staffSlots)?r.staffSlots:Array.isArray(r.slots)?r.slots:[]}));return {id:w.id,name:w.name||w.workName||'',studioName:w.studioName||'',roles,roleCount:roles.filter(r=>r.name).length,candidateCount:new Set(roles.flatMap(r=>r.eligiblePersonIds)).size}}
+async function rebuildMonth(monthKey){if(!monthKey)return[];const snap=await shifts.where('monthKey','==',monthKey).get();const rows=snap.docs.map(rowFromDoc).filter(r=>r.status!=='cancelled');await views.doc(`month-${monthKey}`).set({type:'work-schedule-month',monthKey,rows,updatedAt:serverTime()},{merge:true});return rows}
+async function loadMonth(monthKey){const ref=views.doc(`month-${monthKey}`),doc=await ref.get();if(doc.exists&&Array.isArray(doc.data()?.rows))return doc.data().rows;return rebuildMonth(monthKey)}
+async function rebuildWorkIndex(){const snap=await works.get();const list=snap.docs.map(d=>workView({id:d.id,...d.data()})).sort((a,b)=>txt(a.name).localeCompare(txt(b.name),'zh-Hant'));await views.doc('work-index').set({type:'work-schedule-work-index',works:list,updatedAt:serverTime()},{merge:true});return list}
+async function loadWorkIndex(){const doc=await views.doc('work-index').get();if(doc.exists&&Array.isArray(doc.data()?.works))return doc.data().works;return rebuildWorkIndex()}
+async function updateWork(work){const ref=views.doc('work-index'),doc=await ref.get(),current=doc.exists&&Array.isArray(doc.data()?.works)?doc.data().works:[];const next=workView(work),list=current.filter(x=>String(x.id)!==String(next.id));list.push(next);list.sort((a,b)=>txt(a.name).localeCompare(txt(b.name),'zh-Hant'));await ref.set({type:'work-schedule-work-index',works:list,updatedAt:serverTime()},{merge:true});return next}
+async function removeWork(workId){const ref=views.doc('work-index'),doc=await ref.get();if(!doc.exists)return;const list=(doc.data()?.works||[]).filter(x=>String(x.id)!==String(workId));await ref.set({works:list,updatedAt:serverTime()},{merge:true})}
+window.JLYWorkScheduleReadView={loadMonth,rebuildMonth,loadWorkIndex,rebuildWorkIndex,updateWork,removeWork,rowFromDoc};
+})();
