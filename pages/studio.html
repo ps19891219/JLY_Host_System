@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>工作室管理｜JLY</title>
+  <title>工作室管理｜JLY 劇本村</title>
   <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
@@ -11,21 +11,27 @@
     <div class="hero">
       <div class="jelly">🏢</div>
       <h1>工作室管理</h1>
-      <p>工作室／店家專用管理入口</p>
+      <p>劇本村的工作室／店家管理入口</p>
     </div>
 
     <div class="card">
-      <h2>人員與排班</h2>
-      <p>這裡管理工作室的 Work、角色候選池、每日 Shift、實際 Assignment 與店家 Google Calendar。</p>
-      <button type="button" style="width:100%;" onclick="location.href='work-schedule.html'">🎭 工作排班</button>
+      <h2>我的工作室</h2>
+      <p>先選擇要管理的工作室。每個工作室各自管理劇本與排班，但共用 JLY Person、Calendar 與 Work Schedule Core。</p>
     </div>
 
-    <div class="card">
-      <h2>入口定位</h2>
-      <p>這是工作室管理端，不是個人的「我的工作」。未來個人班表會從 Person 身份進入另一個「我的工作」頁面。</p>
+    <button type="button" style="width:100%;text-align:left;" onclick="location.href='studio-detail.html?studio=kaiwei-private'">
+      🏢 <strong>凱崴私團</strong><br>
+      <span style="font-size:13px;opacity:.72;">劇本・排班・工作室設定</span>
+    </button>
+
+    <button type="button" style="width:100%;margin-top:12px;" onclick="alert('新增工作室會在下一階段接正式 Studio／Organization 建立流程；目前不會建立假的第二套資料。')">＋ 新增工作室</button>
+
+    <div class="card" style="margin-top:18px;">
+      <h2>個人與工作室分開</h2>
+      <p>這裡是工作室管理端。首頁未來的「我的工作」只顯示目前 Person 自己被安排的工作，不會進入工作室完整班表。</p>
     </div>
 
-    <button type="button" class="gray" onclick="location.href='../index.html'">← 返回主揪助手</button>
+    <button type="button" class="gray" onclick="location.href='../index.html'">← 返回劇本村首頁</button>
   </main>
 </body>
 </html>
