@@ -2,134 +2,57 @@
 'use strict';
 const db=window.db||firebase.firestore();
 const shifts=db.collection('workShifts');
+const works=db.collection('workScheduleWorks');
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const txt=v=>String(v??'').trim();
-let people=[];
-let rows=[];
-let detail=null;
-let dragFrom=null;
-let refreshTimer=0;
+let people=[],rows=[],detail=null,dragFrom=null,refreshTimer=0,pointerDrag=null;
+const workCache=new Map();
 
 function idsOf(r){return (r.assignedPersonIds||r.personIds||[]).map(String)}
-function personName(id,r={}){
-  const snap=(r.people||[]).find(p=>String(p.personId||p.id)===String(id));
-  if(snap?.name)return snap.name;
-  const p=people.find(x=>String(x.id)===String(id));
-  return window.JLYMemberPickerData?.getMemberName?.(p)||p?.displayName||p?.playerName||p?.nickname||'未命名';
-}
-function alpha(i){let n=i+1,out='';while(n>0){n--;out=String.fromCharCode(65+n%26)+out;n=Math.floor(n/26)}return out}
-function normalizeSlots(r){
-  const ids=idsOf(r),stored=Array.isArray(r.staffSlots)?r.staffSlots:[];
-  const count=Math.max(Number(r.requiredCount||0),ids.length,stored.length);
-  const slots=[];
-  for(let i=0;i<count;i++){
-    const s=stored[i]||{};
-    slots.push({id:String(s.id||`${r.id||r.rolePoolId||'role'}-slot-${i+1}`),label:txt(s.label)||alpha(i),personId:String(s.personId||ids[i]||'')});
-  }
-  const used=new Set(slots.map(s=>s.personId).filter(Boolean));
-  ids.forEach(id=>{if(!used.has(id)){slots.push({id:`${r.id||'role'}-slot-${slots.length+1}`,label:alpha(slots.length),personId:id});used.add(id)}});
-  return slots;
-}
+function personName(id,r={}){const snap=(r.people||[]).find(p=>String(p.personId||p.id)===String(id));if(snap?.name)return snap.name;const p=people.find(x=>String(x.id)===String(id));return window.JLYMemberPickerData?.getMemberName?.(p)||p?.displayName||p?.playerName||p?.nickname||'未命名'}
+function slotKey(i,s={}){return String(s.slotKey||s.key||`slot-${i+1}`)}
+function defaultLabel(i){return String(i+1)}
 function groupKey(r){return [r.date,r.workId||r.workName,r.startTime,r.endTime,r.studioName||''].join('|')}
-function parseMonth(){
-  const m=($('dashboardMonthLabel')?.textContent||'').match(/(\d{4})\s*年\s*(\d{1,2})\s*月/);
-  if(m)return `${m[1]}-${String(Number(m[2])).padStart(2,'0')}`;
-  const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+function roleMatches(a,b){return String(a.rolePoolId||'')===String(b.rolePoolId||'')||txt(a.roleName)===txt(b.roleName)}
+function parseMonth(){const m=($('dashboardMonthLabel')?.textContent||'').match(/(\d{4})\s*年\s*(\d{1,2})\s*月/);if(m)return `${m[1]}-${String(Number(m[2])).padStart(2,'0')}`;const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
+async function getWork(id){if(!id)return null;if(workCache.has(id))return workCache.get(id);try{const d=await works.doc(id).get(),w=d.exists?{id:d.id,...d.data()}:null;workCache.set(id,w);return w}catch(_){return null}}
+function templateFor(row,work){const rs=work?.roles||[];return rs.find(r=>String(r.id||'')===String(row.rolePoolId||'')||txt(r.name)===txt(row.roleName))||null}
+function normalizeSlots(row,template){
+  const assigned=idsOf(row),stored=Array.isArray(row.staffSlots)?row.staffSlots:null,defaults=template&&(Array.isArray(template.staffSlots)?template.staffSlots:Array.isArray(template.slots)?template.slots:[]);
+  if(stored){return stored.map((s,i)=>({id:String(s.id||`${row.id}-slot-${i+1}`),slotKey:slotKey(i,s),label:txt(s.label)||defaultLabel(i),personId:String(s.personId||assigned[i]||'')}))}
+  const count=Math.max(Number(row.requiredCount||0),assigned.length,defaults?.length||0),out=[];
+  for(let i=0;i<count;i++){const s=defaults?.[i]||{};out.push({id:`${row.id||row.rolePoolId||'role'}-slot-${i+1}`,slotKey:slotKey(i,s),label:txt(s.label)||defaultLabel(i),personId:String(assigned[i]||'')})}
+  assigned.slice(count).forEach((id,i)=>out.push({id:`${row.id}-slot-${count+i+1}`,slotKey:`slot-${count+i+1}`,label:defaultLabel(count+i),personId:id}));
+  return out;
 }
 async function loadPeople(){try{people=await window.JLYMemberPickerData.loadPersonDirectory()}catch(_){people=[]}}
-async function refreshRows(){
-  const key=parseMonth();
-  try{
-    const snap=await shifts.where('monthKey','==',key).get();
-    rows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.status!=='cancelled');
-    enhanceCards();
-  }catch(e){console.error('[WorkScheduleStaffSlots] refresh failed',e)}
-}
+async function refreshRows(){try{const snap=await shifts.where('monthKey','==',parseMonth()).get();rows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.status!=='cancelled');await Promise.all([...new Set(rows.map(r=>r.workId).filter(Boolean))].map(getWork));enhanceCards()}catch(e){console.error('[WorkScheduleStaffSlots] refresh failed',e)}}
 function rowsForGroup(key){return rows.filter(r=>groupKey(r)===key)}
-function enhanceCards(){
-  document.querySelectorAll('.work-day-card[data-group]').forEach(card=>{
-    const rs=rowsForGroup(card.dataset.group);if(!rs.length)return;
-    const list=card.querySelector('.role-summary-list');
-    if(list){
-      list.innerHTML=rs.map(r=>{const slots=normalizeSlots(r),missing=slots.filter(s=>!s.personId).length;return `<div class="role-summary"><strong>${esc(r.roleName||'未設定角色')}</strong><span>${slots.length?esc(slots.map(s=>s.label).join('・')):'尚未建立欄位'}</span>${missing?`<em>缺 ${missing}</em>`:''}</div>`}).join('');
-    }
-    const date=card.querySelector('.group-date');
-    if(date&&rs[0]?.date){
-      const d=new Date(`${rs[0].date}T00:00:00`),week='日一二三四五六'[d.getDay()];
-      date.textContent=`${d.getMonth()+1}/${d.getDate()}（${week}）　${rs[0].startTime||''}–${rs[0].endDate!==rs[0].date?'翌日 ':''}${rs[0].endTime||''}`;
-    }
-    card.classList.add('staff-slots-card');
-  });
-}
-function ensurePicker(){
-  let dlg=$('staffPersonDialog');if(dlg)return dlg;
-  dlg=document.createElement('dialog');dlg.id='staffPersonDialog';dlg.className='staff-person-dialog';
-  dlg.innerHTML='<div class="staff-picker-shell"><header><div><small>選擇工作人員</small><h3 id="staffPersonTitle"></h3></div><button type="button" id="staffPersonClose" class="dialog-close" aria-label="關閉">×</button></header><div id="staffPersonList" class="staff-person-list"></div></div>';
-  document.body.appendChild(dlg);$('staffPersonClose').onclick=()=>dlg.close();return dlg;
-}
-function slotHtml(ri,s,si,row){
-  return `<div class="staff-slot-row ${s.personId?'is-filled':'is-empty'}" draggable="true" data-staff-slot="${ri}|${si}"><span class="staff-slot-handle" aria-label="拖曳欄位">☰</span><input class="staff-slot-label" value="${esc(s.label)}" data-slot-label="${ri}|${si}" aria-label="欄位名稱"><button type="button" class="staff-person-button" data-pick-person="${ri}|${si}">${esc(s.personId?personName(s.personId,row):'點此選擇人員')}</button><button type="button" class="staff-slot-remove" data-remove-slot="${ri}|${si}" aria-label="刪除欄位">×</button></div>`;
-}
-function roleHtml(item,ri){
-  return `<section class="staff-role-card"><div class="staff-role-header"><div><strong>${esc(item.row.roleName||'未設定角色')}</strong><span>${item.slots.length} 位</span></div><button type="button" class="staff-role-save" data-save-role="${ri}">儲存</button></div><p class="staff-role-help">欄位名稱可修改，拖曳整列可排序，點名字可更換人員。</p><div class="staff-slot-list">${item.slots.map((s,si)=>slotHtml(ri,s,si,item.row)).join('')}</div><button type="button" class="staff-slot-add" data-add-slot="${ri}">＋ 新增工作人員</button></section>`;
-}
-function renderDetail(){
-  const g=detail?.group;if(!g)return;
-  $('groupDetailTitle').textContent=g[0]?.workName||'工作明細';
-  const r=g[0]||{};$('groupDetailMeta').textContent=`${r.date||''}　${r.startTime||''}–${r.endDate!==r.date?'翌日 ':''}${r.endTime||''}${r.studioName?' · '+r.studioName:''}`;
-  $('groupDetailRoles').innerHTML=detail.roles.map(roleHtml).join('');
-  bindDetail();
-}
-function openDetail(key){
-  const g=rowsForGroup(key);if(!g.length)return;
-  detail={key,group:g,roles:g.map(row=>({row,slots:normalizeSlots(row)}))};
-  renderDetail();$('groupDetailDialog')?.showModal();
-}
-function bindDetail(){
-  const host=$('groupDetailRoles');if(!host)return;
-  host.querySelectorAll('[data-slot-label]').forEach(i=>i.oninput=()=>{const [ri,si]=i.dataset.slotLabel.split('|').map(Number);detail.roles[ri].slots[si].label=i.value});
-  host.querySelectorAll('[data-pick-person]').forEach(b=>b.onclick=()=>{const [ri,si]=b.dataset.pickPerson.split('|').map(Number);openPicker(ri,si)});
-  host.querySelectorAll('[data-remove-slot]').forEach(b=>b.onclick=()=>{const [ri,si]=b.dataset.removeSlot.split('|').map(Number);detail.roles[ri].slots.splice(si,1);renderDetail()});
-  host.querySelectorAll('[data-add-slot]').forEach(b=>b.onclick=()=>{const ri=Number(b.dataset.addSlot),slots=detail.roles[ri].slots;slots.push({id:`slot-${Date.now()}-${slots.length}`,label:alpha(slots.length),personId:''});renderDetail()});
-  host.querySelectorAll('[data-save-role]').forEach(b=>b.onclick=()=>saveRole(Number(b.dataset.saveRole)));
-  host.querySelectorAll('[data-staff-slot]').forEach(el=>{
-    el.ondragstart=()=>{dragFrom=el.dataset.staffSlot;el.classList.add('dragging')};
-    el.ondragend=()=>{dragFrom=null;el.classList.remove('dragging')};
-    el.ondragover=e=>e.preventDefault();
-    el.ondrop=e=>{e.preventDefault();if(!dragFrom)return;const [fr,fi]=dragFrom.split('|').map(Number),[tr,ti]=el.dataset.staffSlot.split('|').map(Number);if(fr!==tr)return;const slots=detail.roles[tr].slots,[moved]=slots.splice(fi,1);slots.splice(ti,0,moved);renderDetail()};
-  });
-}
-function openPicker(ri,si){
-  const dlg=ensurePicker(),item=detail.roles[ri],slot=item.slots[si];
-  const eligible=(item.row.eligiblePersonIds||item.row.personIds||[]).map(String),ids=[...new Set([...eligible,...(slot.personId?[slot.personId]:[])])];
-  $('staffPersonTitle').textContent=`${item.row.roleName||'角色'} · ${slot.label}`;
-  $('staffPersonList').innerHTML=`<button type="button" class="staff-person-option ${slot.personId?'':'selected'}" data-person-id="">清空此欄位</button>${ids.map(id=>`<button type="button" class="staff-person-option ${id===slot.personId?'selected':''}" data-person-id="${esc(id)}">${esc(personName(id,item.row))}</button>`).join('')}`;
-  $('staffPersonList').querySelectorAll('[data-person-id]').forEach(b=>b.onclick=()=>{slot.personId=b.dataset.personId;dlg.close();renderDetail()});
-  dlg.showModal();
-}
-async function saveRole(ri){
-  const item=detail.roles[ri],row=item.row,slots=item.slots.map((s,i)=>({id:s.id||`${row.id}-slot-${i+1}`,label:txt(s.label)||alpha(i),personId:String(s.personId||'')}));
-  const personIds=slots.map(s=>s.personId).filter(Boolean),persons=personIds.map(id=>({personId:id,name:personName(id,row)})),missing=slots.filter(s=>!s.personId).length;
-  try{
-    await shifts.doc(row.id).update({staffSlots:slots,assignedPersonIds:personIds,personIds,people:persons,requiredCount:slots.length,missingCount:missing,staffingStatus:missing?'pending':'complete',updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    row.staffSlots=slots;row.assignedPersonIds=personIds;row.personIds=personIds;row.people=persons;row.requiredCount=slots.length;row.missingCount=missing;
-    renderDetail();enhanceCards();
-    const btn=document.querySelector(`[data-save-role="${ri}"]`);if(btn){btn.textContent='已儲存 ✓';setTimeout(()=>{if(btn.isConnected)btn.textContent='儲存'},1200)}
-  }catch(e){alert(`儲存工作人員失敗：${e.message||e}`)}
-}
-function intercept(e){
-  const card=e.target.closest?.('.work-day-card[data-group]');if(!card)return;
-  if(e.target.closest('input,label'))return;
-  e.preventDefault();e.stopImmediatePropagation();e.stopPropagation();openDetail(card.dataset.group);
-}
-function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refreshRows,80)}
-async function init(){
-  await loadPeople();await refreshRows();
-  document.addEventListener('click',intercept,true);
-  const host=$('scheduleDashboard');if(host)new MutationObserver(()=>{enhanceCards();scheduleRefresh()}).observe(host,{childList:true,subtree:true});
-  const label=$('dashboardMonthLabel');if(label)new MutationObserver(scheduleRefresh).observe(label,{childList:true,characterData:true,subtree:true});
-}
+function rowNames(r){const work=workCache.get(r.workId),slots=normalizeSlots(r,templateFor(r,work)),names=slots.filter(s=>s.personId).map(s=>personName(s.personId,r));return {names,missing:Math.max(0,slots.filter(s=>!s.personId).length)}}
+function enhanceCards(){document.querySelectorAll('.work-day-card[data-group]').forEach(card=>{const rs=rowsForGroup(card.dataset.group);if(!rs.length)return;const list=card.querySelector('.role-summary-list');if(list)list.innerHTML=rs.map(r=>{const s=rowNames(r);return `<div class="role-summary"><strong>${esc(r.roleName||'未設定角色')}</strong><span>${esc(s.names.join('、')||'尚未排人')}</span>${s.missing?`<em>缺 ${s.missing}</em>`:''}</div>`}).join('');const r=rs[0],date=card.querySelector('.group-date');if(date&&r.date){const d=new Date(`${r.date}T00:00:00`),week='日一二三四五六'[d.getDay()];date.textContent=`${d.getMonth()+1}/${d.getDate()}（${week}）　${r.startTime||''}–${r.endDate!==r.date?'翌日 ':''}${r.endTime||''}`}
+card.classList.add('staff-slots-card');card.setAttribute('role','button');card.tabIndex=0;if(card.dataset.staffOpenBound!=='1'){card.dataset.staffOpenBound='1';const open=e=>{if(e.target.closest('input,label,[data-sync-group]'))return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openDetail(card.dataset.group)};card.addEventListener('click',open,true);card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openDetail(card.dataset.group)}})}})}
+
+function ensurePicker(){let dlg=$('staffPersonDialog');if(dlg)return dlg;dlg=document.createElement('dialog');dlg.id='staffPersonDialog';dlg.className='staff-person-dialog';dlg.innerHTML='<div class="staff-picker-shell"><header><div><small>選擇工作人員</small><h3 id="staffPersonTitle"></h3></div><button type="button" id="staffPersonClose" class="dialog-close" aria-label="關閉">×</button></header><input id="staffPersonSearch" class="staff-person-search" placeholder="搜尋 Person"><div id="staffPersonList" class="staff-person-list"></div></div>';document.body.appendChild(dlg);$('staffPersonClose').onclick=()=>dlg.close();return dlg}
+function slotHtml(ri,s,si,row){return `<div class="staff-slot-row ${s.personId?'is-filled':'is-empty'}" draggable="true" data-staff-slot="${ri}|${si}"><span class="staff-slot-handle" data-slot-handle="${ri}|${si}" aria-label="拖曳欄位">☰</span><input class="staff-slot-label" value="${esc(s.label)}" data-slot-label="${ri}|${si}" aria-label="分工名稱"><button type="button" class="staff-person-button" data-pick-person="${ri}|${si}">${esc(s.personId?personName(s.personId,row):'點此選擇人員')}</button><button type="button" class="staff-slot-remove" data-remove-slot="${ri}|${si}" aria-label="刪除欄位">×</button></div>`}
+function roleHtml(item,ri){return `<section class="staff-role-card"><div class="staff-role-header"><div><strong>${esc(item.row.roleName||'未設定角色')}</strong><span>${item.slots.length} 位</span></div><div class="staff-role-actions"><button type="button" data-batch-role="${ri}">批次修改</button><button type="button" data-default-role="${ri}">設為工作預設</button><button type="button" class="staff-role-save" data-save-role="${ri}">儲存</button></div></div><p class="staff-role-help">左邊是分工／角色欄位，右邊是這場實際人員。可改名、換人、增減與拖曳排序。</p><div class="staff-slot-list">${item.slots.map((s,si)=>slotHtml(ri,s,si,item.row)).join('')}</div><button type="button" class="staff-slot-add" data-add-slot="${ri}">＋ 新增工作人員欄位</button></section>`}
+function renderDetail(){if(!detail?.group?.length)return;const r=detail.group[0];$('groupDetailTitle').textContent=r.workName||'工作明細';$('groupDetailMeta').textContent=`${r.date||''}　${r.startTime||''}–${r.endDate!==r.date?'翌日 ':''}${r.endTime||''}${r.studioName?' · '+r.studioName:''}`;$('groupDetailRoles').innerHTML=detail.roles.map(roleHtml).join('');bindDetail()}
+async function openDetail(key){const g=rowsForGroup(key);if(!g.length)return;const roles=[];for(const row of g){const work=await getWork(row.workId);roles.push({row,slots:normalizeSlots(row,templateFor(row,work)),work})}detail={key,group:g,roles};renderDetail();const dlg=$('groupDetailDialog');if(dlg&&!dlg.open)dlg.showModal()}
+function moveSlot(ri,from,to){if(from===to)return;const slots=detail.roles[ri].slots,[moved]=slots.splice(from,1);if(moved){slots.splice(to,0,moved);renderDetail()}}
+function bindPointerDrag(handle){handle.onpointerdown=e=>{if(e.pointerType==='mouse')return;const [ri,si]=handle.dataset.slotHandle.split('|').map(Number);pointerDrag={ri,si,pointerId:e.pointerId};handle.setPointerCapture?.(e.pointerId);handle.closest('.staff-slot-row')?.classList.add('dragging');e.preventDefault()};handle.onpointermove=e=>{if(!pointerDrag||pointerDrag.pointerId!==e.pointerId)return;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-staff-slot]');if(!target)return;const [ri,ti]=target.dataset.staffSlot.split('|').map(Number);if(ri===pointerDrag.ri&&ti!==pointerDrag.si){moveSlot(ri,pointerDrag.si,ti);pointerDrag.si=ti}};handle.onpointerup=handle.onpointercancel=e=>{if(!pointerDrag||pointerDrag.pointerId!==e.pointerId)return;pointerDrag=null;document.querySelectorAll('.staff-slot-row.dragging').forEach(x=>x.classList.remove('dragging'))}}
+function bindDetail(){const host=$('groupDetailRoles');if(!host)return;host.querySelectorAll('[data-slot-label]').forEach(i=>i.oninput=()=>{const [ri,si]=i.dataset.slotLabel.split('|').map(Number);detail.roles[ri].slots[si].label=i.value});host.querySelectorAll('[data-pick-person]').forEach(b=>b.onclick=()=>{const [ri,si]=b.dataset.pickPerson.split('|').map(Number);openPicker(ri,si)});host.querySelectorAll('[data-remove-slot]').forEach(b=>b.onclick=()=>{const [ri,si]=b.dataset.removeSlot.split('|').map(Number),s=detail.roles[ri].slots[si];if(s?.personId&&!confirm(`「${personName(s.personId,detail.roles[ri].row)}」仍在此欄位，確定移除此場欄位？`))return;detail.roles[ri].slots.splice(si,1);renderDetail()});host.querySelectorAll('[data-add-slot]').forEach(b=>b.onclick=()=>{const ri=Number(b.dataset.addSlot),slots=detail.roles[ri].slots,i=slots.length;slots.push({id:`${detail.roles[ri].row.id}-slot-${Date.now()}`,slotKey:`slot-${i+1}-${Date.now()}`,label:defaultLabel(i),personId:''});renderDetail()});host.querySelectorAll('[data-save-role]').forEach(b=>b.onclick=()=>saveRole(Number(b.dataset.saveRole)));host.querySelectorAll('[data-default-role]').forEach(b=>b.onclick=()=>saveAsDefault(Number(b.dataset.defaultRole)));host.querySelectorAll('[data-batch-role]').forEach(b=>b.onclick=()=>openBatch(Number(b.dataset.batchRole)));host.querySelectorAll('[data-staff-slot]').forEach(el=>{el.ondragstart=()=>{dragFrom=el.dataset.staffSlot;el.classList.add('dragging')};el.ondragend=()=>{dragFrom=null;el.classList.remove('dragging')};el.ondragover=e=>e.preventDefault();el.ondrop=e=>{e.preventDefault();if(!dragFrom)return;const [fr,fi]=dragFrom.split('|').map(Number),[tr,ti]=el.dataset.staffSlot.split('|').map(Number);if(fr===tr)moveSlot(fr,fi,ti)}});host.querySelectorAll('[data-slot-handle]').forEach(bindPointerDrag)}
+function renderPicker(ri,si,q=''){const item=detail.roles[ri],slot=item.slots[si],needle=txt(q).toLowerCase(),eligible=new Set((item.row.eligiblePersonIds||[]).map(String));const ordered=[...people].sort((a,b)=>(eligible.has(String(b.id))-eligible.has(String(a.id))));const filtered=ordered.filter(p=>!needle||personName(p.id).toLowerCase().includes(needle)).slice(0,100);$('staffPersonList').innerHTML=`<button type="button" class="staff-person-option ${slot.personId?'':'selected'}" data-person-id="">清空此欄位</button>${filtered.map(p=>`<button type="button" class="staff-person-option ${String(p.id)===slot.personId?'selected':''}" data-person-id="${esc(p.id)}">${esc(personName(p.id))}${eligible.has(String(p.id))?' <small>角色名單</small>':''}</button>`).join('')}`;$('staffPersonList').querySelectorAll('[data-person-id]').forEach(b=>b.onclick=()=>{slot.personId=b.dataset.personId;$('staffPersonDialog').close();renderDetail()})}
+function openPicker(ri,si){const dlg=ensurePicker(),item=detail.roles[ri],slot=item.slots[si];$('staffPersonTitle').textContent=`${item.row.roleName||'角色'} · ${slot.label}`;$('staffPersonSearch').value='';$('staffPersonSearch').oninput=e=>renderPicker(ri,si,e.target.value);renderPicker(ri,si);dlg.showModal();setTimeout(()=>$('staffPersonSearch')?.focus(),50)}
+function normalizedForSave(item){return item.slots.map((s,i)=>({id:String(s.id||`${item.row.id}-slot-${i+1}`),slotKey:slotKey(i,s),label:txt(s.label)||defaultLabel(i),personId:String(s.personId||'')}))}
+function payloadFromSlots(row,slots){const personIds=slots.map(s=>s.personId).filter(Boolean),persons=personIds.map(id=>({personId:id,name:personName(id,row)})),missing=slots.filter(s=>!s.personId).length;return {staffSlots:slots,assignedPersonIds:personIds,personIds,people:persons,requiredCount:slots.length,missingCount:missing,staffingStatus:missing?'pending':'complete',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
+async function saveRole(ri){const item=detail.roles[ri],slots=normalizedForSave(item);try{await shifts.doc(item.row.id).update(payloadFromSlots(item.row,slots));Object.assign(item.row,payloadFromSlots(item.row,slots));item.slots=slots;renderDetail();enhanceCards()}catch(e){alert(`儲存工作人員失敗：${e.message||e}`)}}
+async function saveAsDefault(ri){const item=detail.roles[ri],work=item.work||await getWork(item.row.workId);if(!work)return alert('找不到 Work 設定。');const roles=(work.roles||[]).map(r=>({...r})),idx=roles.findIndex(r=>String(r.id||'')===String(item.row.rolePoolId||'')||txt(r.name)===txt(item.row.roleName));if(idx<0)return alert('找不到這個 Work 角色。');roles[idx].staffSlots=normalizedForSave(item).map(({slotKey,label})=>({slotKey,label}));try{await works.doc(work.id).set({roles,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});work.roles=roles;workCache.set(work.id,work);alert('已設為之後新場次的工作預設；既有場次不會被強制改動。')}catch(e){alert(`設定工作預設失敗：${e.message||e}`)}}
+
+function ensureBatchDialog(){let dlg=$('staffBatchDialog');if(dlg)return dlg;dlg=document.createElement('dialog');dlg.id='staffBatchDialog';dlg.className='staff-batch-dialog';dlg.innerHTML=`<div class="staff-picker-shell"><header><div><small>大量修改</small><h3 id="staffBatchTitle">批次修改欄位</h3></div><button type="button" id="staffBatchClose" class="dialog-close">×</button></header><label>欄位<select id="staffBatchSlot"></select></label><div class="staff-batch-dates" id="staffBatchDates"></div><label class="staff-batch-check"><input type="checkbox" id="staffBatchLabelEnabled"> 修改分工名稱</label><input id="staffBatchLabel" placeholder="新的分工名稱"><label class="staff-batch-check"><input type="checkbox" id="staffBatchPersonEnabled"> 修改人員</label><select id="staffBatchPerson"></select><label class="staff-batch-check"><input type="checkbox" id="staffBatchCreateMissing"> 沒有這個欄位的場次也建立</label><label class="staff-batch-check"><input type="checkbox" id="staffBatchSetDefault"> 同時設為 Work 預設</label><button type="button" id="staffBatchApply">套用到已選日期</button></div>`;document.body.appendChild(dlg);$('staffBatchClose').onclick=()=>dlg.close();return dlg}
+function openBatch(ri){const item=detail.roles[ri],dlg=ensureBatchDialog(),roleRows=rows.filter(r=>r.workId===item.row.workId&&roleMatches(r,item.row)).sort((a,b)=>String(a.date).localeCompare(String(b.date)));dlg.dataset.roleIndex=String(ri);$('staffBatchTitle').textContent=`${item.row.workName} · ${item.row.roleName}`;$('staffBatchSlot').innerHTML=item.slots.map((s,i)=>`<option value="${esc(s.slotKey)}" data-index="${i}">${esc(s.label||defaultLabel(i))}</option>`).join('');$('staffBatchDates').innerHTML=`<div class="staff-batch-tools"><button type="button" id="staffBatchAll">全選</button><button type="button" id="staffBatchNone">取消全選</button></div>${roleRows.map(r=>`<label><input type="checkbox" data-batch-date="${esc(r.id)}" checked><span>${esc(r.date)}　${esc(r.startTime||'')}–${esc(r.endTime||'')}</span></label>`).join('')}`;$('staffBatchPerson').innerHTML=`<option value="">清空人員</option>${people.map(p=>`<option value="${esc(p.id)}">${esc(personName(p.id))}</option>`).join('')}`;$('staffBatchLabelEnabled').checked=false;$('staffBatchPersonEnabled').checked=false;$('staffBatchCreateMissing').checked=false;$('staffBatchSetDefault').checked=false;$('staffBatchLabel').value='';$('staffBatchAll').onclick=()=>$('staffBatchDates').querySelectorAll('[data-batch-date]').forEach(x=>x.checked=true);$('staffBatchNone').onclick=()=>$('staffBatchDates').querySelectorAll('[data-batch-date]').forEach(x=>x.checked=false);$('staffBatchApply').onclick=applyBatch;dlg.showModal()}
+async function applyBatch(){const dlg=$('staffBatchDialog'),ri=Number(dlg.dataset.roleIndex),source=detail.roles[ri],slotKeyValue=$('staffBatchSlot').value,slotIndex=$('staffBatchSlot').selectedOptions[0]?.dataset.index?Number($('staffBatchSlot').selectedOptions[0].dataset.index):0,ids=[...$('staffBatchDates').querySelectorAll('[data-batch-date]:checked')].map(x=>x.dataset.batchDate),changeLabel=$('staffBatchLabelEnabled').checked,changePerson=$('staffBatchPersonEnabled').checked,createMissing=$('staffBatchCreateMissing').checked,newLabel=txt($('staffBatchLabel').value),newPerson=$('staffBatchPerson').value;if(!ids.length)return alert('請至少選一個日期。');if(!changeLabel&&!changePerson)return alert('請選擇要修改分工名稱或人員。');let changed=0,skipped=0;for(const id of ids){const row=rows.find(r=>r.id===id);if(!row)continue;const work=await getWork(row.workId),slots=normalizeSlots(row,templateFor(row,work));let idx=slots.findIndex(s=>s.slotKey===slotKeyValue);if(idx<0&&slotIndex<slots.length)idx=slotIndex;if(idx<0&&!createMissing){skipped++;continue}if(idx<0){while(slots.length<=slotIndex){const i=slots.length;slots.push({id:`${row.id}-slot-${Date.now()}-${i}`,slotKey:i===slotIndex?slotKeyValue:`slot-${i+1}`,label:defaultLabel(i),personId:''})}idx=slotIndex}if(changeLabel)slots[idx].label=newLabel||defaultLabel(idx);if(changePerson)slots[idx].personId=newPerson;await shifts.doc(row.id).update(payloadFromSlots(row,slots));Object.assign(row,payloadFromSlots(row,slots));changed++}if($('staffBatchSetDefault').checked){const current=source.slots.find(s=>s.slotKey===slotKeyValue)||source.slots[slotIndex];if(current){if(changeLabel)current.label=newLabel||current.label;if(changePerson)current.personId=newPerson}await saveAsDefault(ri)}dlg.close();await refreshRows();if(detail)await openDetail(detail.key);alert(`批次修改完成：${changed} 場${skipped?`，略過 ${skipped} 場（沒有此欄位）`:''}`)}
+function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refreshRows,120)}
+async function init(){await loadPeople();await refreshRows();$('groupDetailClose')?.addEventListener('click',()=>{if($('groupDetailDialog')?.open)$('groupDetailDialog').close()});document.addEventListener('click',e=>{const c=e.target.closest?.('.work-day-card[data-group]');if(c&&!e.target.closest('input,label,[data-sync-group]'))openDetail(c.dataset.group)},true);const host=$('scheduleDashboard');if(host)new MutationObserver(()=>{enhanceCards();scheduleRefresh()}).observe(host,{childList:true,subtree:true});const label=$('dashboardMonthLabel');if(label)new MutationObserver(scheduleRefresh).observe(label,{childList:true,characterData:true,subtree:true})}
 function start(){init().catch(e=>console.error('[WorkScheduleStaffSlots] init failed',e))}
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',start):start();
 })();
