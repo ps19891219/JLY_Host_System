@@ -3,7 +3,7 @@
 if(window.JLYWorkScheduleChangePolicy)return;
 const ids=v=>[...new Set((v||[]).map(String).filter(Boolean))];
 const assigned=row=>ids(row?.assignedPersonIds||row?.personIds||[]);
-const TIME_FIELDS=['date','startTime','endTime','endDate','location','studioName'];
+const TIME_FIELDS=['date','startTime','endTime','endDate','location','studioId','organizationId'];
 const ASSIGNMENT_FIELDS=['assignedPersonIds','personIds','people'];
 const DUTY_FIELDS=['staffSlots','duty','dutyLabel','slotLabel'];
 function stable(v){return JSON.stringify(v??null)}
@@ -12,7 +12,7 @@ function classify(before,after){
  const shift=changed(before,after,TIME_FIELDS);
  const assignment=changed(before,after,ASSIGNMENT_FIELDS);
  const duty=changed(before,after,DUTY_FIELDS);
- return {shift,assignment,duty,calendarRequired:shift,calendarForbidden:!shift&&duty&&!assignment};
+ return {shift,assignment,duty,calendarRequired:shift||assignment,calendarForbidden:!shift&&!assignment&&duty};
 }
 function assignmentDelta(before,after){
  const oldSet=new Set(assigned(before)),newSet=new Set(assigned(after));
@@ -20,7 +20,7 @@ function assignmentDelta(before,after){
 }
 function affected(before,after){
  const c=classify(before,after),d=assignmentDelta(before,after);
- if(c.shift)return ids([...assigned(before),...assigned(after)]);
+ if(c.shift)return ids([...d.added,...d.removed,...d.retained]);
  if(c.assignment)return ids([...d.added,...d.removed]);
  if(c.duty){
   const oldSlots=before?.staffSlots||[],newSlots=after?.staffSlots||[];
@@ -33,8 +33,8 @@ function affected(before,after){
 }
 function calendarPlan(before,after){
  const c=classify(before,after),d=assignmentDelta(before,after);
- if(c.shift)return {update:ids(assigned(after)),create:[],remove:d.removed,reason:'shift'};
- if(c.assignment)return {update:[],create:d.added,remove:d.removed,reason:'assignment'};
+ if(c.shift)return {update:ids(d.retained),create:ids(d.added),remove:ids(d.removed),reason:'shift'};
+ if(c.assignment)return {update:[],create:ids(d.added),remove:ids(d.removed),reason:'assignment'};
  return {update:[],create:[],remove:[],reason:c.duty?'duty':'none'};
 }
 function conflictDisclosure({viewerStudioId,conflictStudioId,viewerIsSelf=false,source='jly'}={}){
@@ -47,7 +47,7 @@ function notificationPlan(before,after){
  const c=classify(before,after),d=assignmentDelta(before,after),out=[];
  d.added.forEach(personId=>out.push({personId,type:'shift_added'}));
  d.removed.forEach(personId=>out.push({personId,type:'shift_removed'}));
- if(c.shift)assigned(after).forEach(personId=>out.push({personId,type:'shift_changed'}));
+ if(c.shift)d.retained.forEach(personId=>out.push({personId,type:'shift_changed'}));
  if(c.duty&&!c.shift&&!c.assignment)affected(before,after).forEach(personId=>out.push({personId,type:'duty_changed',calendar:false}));
  return out;
 }
