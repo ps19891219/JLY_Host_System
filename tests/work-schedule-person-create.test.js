@@ -1,0 +1,13 @@
+const fs=require('fs'),assert=require('assert');
+const js=fs.readFileSync('js/modules/work-schedule/work-schedule-person-create.js','utf8');
+const html=fs.readFileSync('pages/work-schedule.html','utf8');
+assert(js.includes("db.collection('players').doc()"),'must create in canonical Person collection');
+assert(js.includes("eligiblePersonIds=eligible"),'must attach new Person to Work role pool');
+assert(js.includes("findIndex((r,i)=>roleKey(r,i)===key)"),'must target exact Work role');
+assert(js.includes('已有同名 Person'),'must warn rather than auto-merge same-name people');
+assert(js.includes('仍要建立另一位'),'must allow distinct same-name Person after confirmation');
+assert(js.includes("source:'work-schedule-role-pool'"),'must record creation source');
+assert(js.includes('batch.set(personRef'),'Person and role-pool attachment must share one batch');
+assert(html.includes('work-schedule-person-create.js?v=1'),'page must load direct-create enhancement');
+assert(!js.includes('workActors')&&!js.includes('npcMembers')&&!js.includes('dmMembers'),'must not create duplicate staff collections');
+console.log('work-schedule-person-create.test.js passed');
