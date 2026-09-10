@@ -4,8 +4,6 @@ if(window.JLYWorkScheduleLifecycle)return;
 const db=window.db||firebase.firestore();
 const P=window.JLYWorkScheduleChangePolicy;
 const changeEvents=db.collection('workScheduleChangeEvents');
-const notificationOutbox=db.collection('workScheduleNotificationOutbox');
-const calendarOutbox=db.collection('workScheduleCalendarOutbox');
 const ids=v=>[...new Set((v||[]).map(String).filter(Boolean))];
 const assigned=row=>ids(row?.assignedPersonIds||row?.personIds||[]);
 const isFormalPerson=id=>id&&!String(id).startsWith('temp:');
@@ -45,27 +43,17 @@ function conflictMessage(conflicts,{personLabel=id=>id}={}){
 }
 function summarize(before,after){
  const c=P.classify(before,after),delta=P.assignmentDelta(before,after);
- return {classification:c,assignmentDelta:delta,affectedPersonIds:P.affected(before,after),calendarPlan:P.calendarPlan(before,after),notificationPlan:P.notificationPlan(before,after)};
+ const notificationPlan=P.notificationPlan(before,after).filter(x=>isFormalPerson(x.personId));
+ const cp=P.calendarPlan(before,after),calendarPlan={reason:cp.reason,create:(cp.create||[]).filter(isFormalPerson),update:(cp.update||[]).filter(isFormalPerson),remove:(cp.remove||[]).filter(isFormalPerson)};
+ return {classification:c,assignmentDelta:delta,affectedPersonIds:P.affected(before,after).filter(isFormalPerson),calendarPlan,notificationPlan};
 }
 function appendToBatch(batch,shiftRef,before,after,context={}){
  if(!P)throw new Error('Work Schedule Change Policy 尚未載入');
  const summary=summarize(before,after),shiftId=String(shiftRef?.id||after?.id||before?.id||''),studioId=studioIdOf(after)||studioIdOf(before),workId=String(after?.workId||before?.workId||'');
+ const hasCalendar=summary.calendarPlan.create.length||summary.calendarPlan.update.length||summary.calendarPlan.remove.length;
  const eventRef=changeEvents.doc();
- batch.set(eventRef,{shiftId,workId,studioId,workName:after?.workName||before?.workName||'',date:after?.date||before?.date||'',startTime:after?.startTime||before?.startTime||'',endTime:after?.endTime||before?.endTime||'',classification:summary.classification,affectedPersonIds:summary.affectedPersonIds,calendarPlan:summary.calendarPlan,source:context.source||'work_schedule',actorPersonId:String(context.actorPersonId||''),createdAt:ts()});
- for(const n of summary.notificationPlan){
-  if(!isFormalPerson(n.personId))continue;
-  const ref=notificationOutbox.doc();
-  batch.set(ref,{changeEventId:eventRef.id,shiftId,workId,studioId,personId:String(n.personId),type:n.type,status:'pending',channel:'future_notification_core',calendar:n.calendar!==false,workName:after?.workName||before?.workName||'',roleName:after?.roleName||before?.roleName||'',date:after?.date||before?.date||'',startTime:after?.startTime||before?.startTime||'',endTime:after?.endTime||before?.endTime||'',createdAt:ts()});
- }
- const cp=summary.calendarPlan;
- for(const action of ['create','update','remove']){
-  for(const personId of cp[action]||[]){
-   if(!isFormalPerson(personId))continue;
-   const ref=calendarOutbox.doc();
-   batch.set(ref,{changeEventId:eventRef.id,shiftId,workId,studioId,personId:String(personId),action,status:'waiting_person_calendar',reason:cp.reason,workName:after?.workName||before?.workName||'',roleName:after?.roleName||before?.roleName||'',date:after?.date||before?.date||'',startTime:after?.startTime||before?.startTime||'',endTime:after?.endTime||before?.endTime||'',createdAt:ts(),lastError:''});
-  }
- }
- return summary;
+ batch.set(eventRef,{shiftId,workId,studioId,workName:after?.workName||before?.workName||'',roleName:after?.roleName||before?.roleName||'',date:after?.date||before?.date||'',startTime:after?.startTime||before?.startTime||'',endTime:after?.endTime||before?.endTime||'',classification:summary.classification,affectedPersonIds:summary.affectedPersonIds,assignmentDelta:summary.assignmentDelta,calendarPlan:summary.calendarPlan,notificationPlan:summary.notificationPlan,notificationStatus:summary.notificationPlan.length?'pending':'none',personalCalendarStatus:hasCalendar?'waiting_person_calendar':'none',source:context.source||'work_schedule',actorPersonId:String(context.actorPersonId||''),createdAt:ts(),lastError:''});
+ return {...summary,changeEventId:eventRef.id};
 }
 function buildAfter(row,payload){return {...row,...payload,updatedAt:undefined}}
 window.JLYWorkScheduleLifecycle={studioIdOf,rangeOf,overlaps,findConflicts,conflictMessage,summarize,appendToBatch,buildAfter};
