@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const code=fs.readFileSync('js/modules/work-schedule/work-schedule-change-policy.js','utf8');
+const window={};vm.runInNewContext(code,{window});const P=window.JLYWorkScheduleChangePolicy;
+const base={date:'2026-10-01',startTime:'19:00',endTime:'23:00',studioId:'studio-a',assignedPersonIds:['p1','p2'],staffSlots:[{id:'s1',label:'1',personId:'p1'}]};
+let next={...base,startTime:'20:00'};assert.equal(P.classify(base,next).calendarRequired,true);assert.deepEqual([...P.calendarPlan(base,next).update],['p1','p2']);
+next={...base,assignedPersonIds:['p2','p3']};let plan=P.calendarPlan(base,next);assert.deepEqual([...plan.create],['p3']);assert.deepEqual([...plan.remove],['p1']);assert.deepEqual([...plan.update],[]);
+next={...base,startTime:'20:00',assignedPersonIds:['p2','p3']};plan=P.calendarPlan(base,next);assert.deepEqual([...plan.create],['p3']);assert.deepEqual([...plan.update],['p2']);assert.deepEqual([...plan.remove],['p1']);
+let notices=P.notificationPlan(base,next);assert.deepEqual(notices.map(x=>`${x.personId}:${x.type}`).sort(),['p1:shift_removed','p2:shift_changed','p3:shift_added']);
+next={...base,staffSlots:[{id:'s1',label:'A位',personId:'p1'}]};assert.equal(P.classify(base,next).calendarForbidden,true);plan=P.calendarPlan(base,next);assert.equal(plan.create.length+plan.update.length+plan.remove.length,0);assert.deepEqual(P.notificationPlan(base,next).map(x=>x.type),['duty_changed']);
+assert.equal(P.conflictDisclosure({viewerStudioId:'A',conflictStudioId:'A'}),'same-studio-detail');assert.equal(P.conflictDisclosure({viewerStudioId:'A',conflictStudioId:'B'}),'busy-only');assert.equal(P.conflictDisclosure({viewerStudioId:'A',source:'google-private'}),'busy-only');assert.equal(P.conflictDisclosure({viewerIsSelf:true,source:'google-private'}),'full');
+console.log('work-schedule-change-policy ok');

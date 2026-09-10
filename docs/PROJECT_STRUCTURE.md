@@ -1,6 +1,6 @@
 # JLY Host System 專案分類規則
 
-> Version：1.1
+> Version：1.2
 >
 > 更新日期：2026-09-10
 >
@@ -141,15 +141,31 @@ Work Schedule 正式責任邊界：
 - `work-schedule-read-view.js`：Cloud View／Projection Builder。一般 Dashboard 與 Work Hub 只讀這層；僅在缺 View 的 bootstrap 或正式 write 後重建受影響範圍。
 - `work-schedule-dashboard.js`：每日班表 View、月份切換、只看我的、批次入口、Google 同步入口。不得在一般瀏覽時掃描 Person Directory 或直接查整月 Core Shift。
 - `work-schedule-staff-slots.js`：單日 Shift Assignment／工作人員欄位與批次欄位修改。資料來源由 Dashboard View 傳入；只有開啟人員選擇時才載入 Person Directory。
+- `work-schedule-change-policy.js`：排班三層變更的純規則。Shift 時間層決定既有 Calendar Event 是否需要更新；Assignment 人員層只對新增、移除或受影響 Person 規劃 Calendar／Notification 動作；Staff Slot／Duty 層只處理角色位置與分工，不得因此觸發 Calendar 同步。
+- `work-schedule-lifecycle.js`：排班變動生命週期、JLY 排班衝突檢查、衝突資訊揭露規則，以及 `workScheduleChangeEvents` Domain Outbox。正式 Shift write 與 change event 必須在同一 Firestore batch；這個 event 只保存後續 Calendar／Notification 計畫與狀態，不是第二份 Shift、Calendar 或 Notification Core。
+- `work-schedule-date-picker.js`：手機優先的排班日期多選行事曆 UI。日期以 ISO 值回寫既有多日期建立流程，不建立第二份日期資料。
+- `work-schedule-multi-date.js`：從既有 Work 一次建立多個日期的 Shift。支援跨月、既有角色 add／replace／skip、批次衝突確認；只建立 `workShifts`，不得因此建立重複 Work。
 - `work-schedule-shift-delete.js`：單場 Shift 刪除流程。若已有 Google Calendar eventId，必須先刪除對應事件並清除 mapping，成功後才刪除該場所有 Shift rows，最後重建受影響月份 View。Google 刪除失敗時不得假裝排班已刪除。
 - `work-schedule-work-hub.js`：Work 與 Role Pool 設定、從既有 Work 建立 Shift。Work 首頁讀 Work Index View；進入編輯後才讀取單一正式 Work。
 - `work-schedule-person-create.js`：在 Role Pool 搜尋時建立 canonical Person 並掛回該 Role Pool。不得承擔 Work 修復、排班儲存或頁面 reload。
 - `work-schedule-google.js`：Work Schedule 對既有 Calendar Core 的 Adapter，不建立第二套 Google OAuth／Calendar Provider。
 - `work-schedule-v2.js`：保留作歷史／回退參考，不再載入正式 Work Schedule 頁面，不得在背景執行重複讀取或綁定事件。
 
+### Work Schedule 三層生命週期
+
+1. **Shift 時間層**：日期、開始／結束時間、地點或正式 Studio／Organization 關聯變更時，只更新受影響且已存在的 Calendar Mapping；不得重建整批不相干 Event。
+2. **Assignment 人員層**：新增人員只產生該 Person 的新增計畫；移除人員只產生該 Person 的移除計畫與取消通知；保留人員在 Shift 時間改變時才更新自己的既有 Event。
+3. **Staff Slot／Duty 層**：角色位置、座位／欄位名稱、細分工作內容變更只更新 Shift 與 View，可產生通知，但 Calendar plan 必須為空。
+
+衝突檢查採最小揭露：同一 `studioId`／`organizationId` 的店家排班可顯示本店必要內容；其他店家的排班只顯示 busy；私人 Google 行程對店家也只能顯示 busy；本人查看自己的行程時才可看完整內容。不同 Work 若缺正式 Studio／Organization ID，預設採 busy-only，不可依店名文字猜測同店。若管理者明知有衝突仍確認排入，change event 必須保存 acknowledgement。
+
 正式資料：`workScheduleWorks`、`workShifts`、canonical Person `players`。
 
 可重建 View：`workScheduleViews`。View 不是第二份正式資料來源。
+
+Domain Outbox：`workScheduleChangeEvents`。只記錄本次正式變動、受影響 Person、Calendar plan、Notification plan、衝突確認與處理狀態，可供未來 Notification Core、個人 Google Calendar、「我的工作」及 LINE 入口消費；不得作為班表正式來源。
+
+目前店家排班階段只建立上述共用生命週期與待處理計畫。工作人員個人 Google OAuth／自動補登、LINE 身份認領與「我的工作」屬後續 Person 端功能，必須消費同一套 Core／Outbox，不得另建排班、Person、Calendar 或 Notification 核心。
 
 嚴禁在正常頁面啟動流程中使用全域 `MutationObserver` 反覆改寫 Dashboard DOM、重複載入 Dashboard script、掃描全部 Works、掃描全部 Person Directory、或以 `location.reload()` 作為寫入後同步方式。
 
