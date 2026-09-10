@@ -9,12 +9,13 @@ const jsPath = path.join(root, 'js/modules/work-schedule/work-schedule-staff-slo
 const htmlPath = path.join(root, 'pages/work-schedule.html');
 const cssPath = path.join(root, 'css/pages/work-schedule-staff-slots.css');
 
-test('Work Schedule staff-slot enhancement parses and v2 assets are wired after dashboard', () => {
+test('Work Schedule staff-slot enhancement parses and v3 assets are wired after dashboard', () => {
   const js = fs.readFileSync(jsPath, 'utf8');
   const html = fs.readFileSync(htmlPath, 'utf8');
   assert.doesNotThrow(() => new vm.Script(js));
-  assert.match(html, /work-schedule-dashboard\.js\?v=4[\s\S]*work-schedule-staff-slots\.js\?v=2/);
-  assert.match(html, /work-schedule-staff-slots\.css\?v=2/);
+  assert.match(html, /work-schedule-dashboard\.js\?v=4[\s\S]*work-schedule-staff-slots\.js\?v=3/);
+  assert.match(html, /work-schedule-staff-slots\.css\?v=3/);
+  assert.match(html, /id="bulkBoardOpen"[^>]*>批次修改</);
 });
 
 test('staff slots preserve canonical Person IDs without importing player Seat Engine', () => {
@@ -25,6 +26,17 @@ test('staff slots preserve canonical Person IDs without importing player Seat En
   assert.match(js, /eligiblePersonIds/);
   assert.match(js, /loadPersonDirectory/);
   assert.doesNotMatch(js, /js\/car\/seat|JLYSeatData|JLYSeatRender|JLYSeatDrag/);
+});
+
+test('detail is single-day editing and can add a main role', () => {
+  const js = fs.readFileSync(jsPath, 'utf8');
+  assert.match(js, /staffAddRole/);
+  assert.match(js, /新增主要角色/);
+  assert.match(js, /createRoleForShift/);
+  assert.match(js, /這裡只修改這一天/);
+  assert.doesNotMatch(js, /data-batch-role/);
+  assert.doesNotMatch(js, /data-default-role/);
+  assert.doesNotMatch(js, /saveAsDefault/);
 });
 
 test('staff-slot detail supports configurable labels, people, add-remove and desktop plus touch drag', () => {
@@ -41,14 +53,15 @@ test('staff-slot detail supports configurable labels, people, add-remove and des
   assert.match(css, /staff-slot-handle[^}]*touch-action:none/);
 });
 
-test('dashboard summary shows actual assigned person names, not duty-slot labels', () => {
+test('dashboard summary renders every role row with actual assigned person names', () => {
   const js = fs.readFileSync(jsPath, 'utf8');
+  assert.match(js, /rs\.map\(r=>/);
   assert.match(js, /s\.names\.join\('、'\)/);
   assert.match(js, /rowNames\(r\)/);
   assert.doesNotMatch(js, /slots\.map\(s=>s\.label\)\.join\('・'\)/);
 });
 
-test('Shift slots are flexible overrides with stable keys and numeric default labels', () => {
+test('Shift slots remain flexible overrides with stable keys and numeric default labels', () => {
   const js = fs.readFileSync(jsPath, 'utf8');
   assert.match(js, /slotKey/);
   assert.match(js, /defaultLabel\(i\)/);
@@ -57,13 +70,14 @@ test('Shift slots are flexible overrides with stable keys and numeric default la
   assert.match(js, /requiredCount:slots\.length/);
 });
 
-test('batch editing can select dates, change duty label or Person, create missing slots and update Work defaults', () => {
+test('batch editing lives on dashboard and can change duty or Person across selected dates', () => {
   const js = fs.readFileSync(jsPath, 'utf8');
+  assert.match(js, /bulkBoardOpen/);
+  assert.match(js, /openDashboardBatch/);
   assert.match(js, /staffBatchDates/);
   assert.match(js, /staffBatchLabelEnabled/);
   assert.match(js, /staffBatchPersonEnabled/);
   assert.match(js, /staffBatchCreateMissing/);
-  assert.match(js, /staffBatchSetDefault/);
-  assert.match(js, /saveAsDefault/);
-  assert.match(js, /workScheduleWorks/);
+  assert.match(js, /applyBatch/);
+  assert.doesNotMatch(js, /staffBatchSetDefault/);
 });
