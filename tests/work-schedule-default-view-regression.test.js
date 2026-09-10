@@ -1,0 +1,13 @@
+const fs=require('fs'),assert=require('assert');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');
+const js=fs.readFileSync('js/modules/work-schedule/work-schedule-date-search.js','utf8');
+const view=fs.readFileSync('js/modules/work-schedule/work-schedule-read-view.js','utf8');
+assert(page.includes('id="scheduleDateQuery" type="text" inputmode="text"'),'date search must allow slash on iPhone keyboard');
+assert(page.includes('輸入 9/27 可查看所有年份'),'helper text should match cross-year search behavior');
+assert(js.includes('currentMonth'),'default view should anchor on current month');
+assert(js.includes('loadMonthSnapshot(currentMonth)'),'default view must read current-month snapshot even if month-index is stale');
+assert(js.includes('indexedFuture'),'default view may add indexed future months after current month');
+assert(view.includes('async function loadMonthSnapshot'),'read model should expose snapshot-only month read');
+assert(view.includes('loadMonth,loadMonthSnapshot,rebuildMonth'),'snapshot-only reader should be exported');
+assert(!js.includes('location.reload'),'default/search view must not reload');
+console.log('work-schedule-default-view-regression.test.js passed');
