@@ -1,10 +1,17 @@
 "use strict";
 
 const { getFirestore } = require("../firebase/admin");
+const {
+  listPlayersForIdentityResolution
+} = require("../firebase/line-accounting-authorization-repository");
 const { readCookie, verifyMemberSession } = require("./member-session");
 const { initializeMembershipSnapshot, verifyMembershipSnapshot, isCarExpired } = require("./group-membership-health-service");
 const { getSnapshot } = require("../firebase/line-group-membership-repository");
 const { getGroupSummary } = require("./group-membership-client");
+const {
+  buildIdentityComponent,
+  identityIdsOwnCar
+} = require("./group-car-binding-service");
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -33,7 +40,25 @@ function identityIds(session) {
   const data = session && session.data ? session.data : {};
   return new Set([data.profileId, data.identityId].map(text).filter(Boolean));
 }
-function owns(car, ids) { return ids.has(text(car && car.ownerId)); }
+async function authorizedIdentityIds(session) {
+  const ids = identityIds(session);
+  const data = session && session.data ? session.data : {};
+  const lineUserId = text(data.lineUserId);
+  if (!lineUserId) return ids;
+
+  try {
+    const players = await listPlayersForIdentityResolution();
+    const component = buildIdentityComponent(players, lineUserId);
+    if (component.valid) component.ids.forEach(id => ids.add(id));
+  } catch (error) {
+    // Keep the direct session IDs usable even if historical Person resolution
+    // temporarily fails. The ownership check still fails closed if they do not
+    // match the car.
+    console.warn("LINE membership owner identity expansion skipped.", error);
+  }
+  return ids;
+}
+function owns(car, ids) { return identityIdsOwnCar(ids, car); }
 function diagnosticSample(binding, carId, groupId, reason) {
   return {
     carId,
@@ -60,8 +85,9 @@ async function pushDiagnosticSample(samples, binding, carId, groupId, reason, ex
 async function handleMembershipHealth(req, res, suppliedPayload) {
   try {
     const session = verifyMemberSession(readCookie(req));
-    const ids = identityIds(session);
-    if (!session.valid || ids.size === 0) return send(res, 401, { success: false, error: "login_required" });
+    if (!session.valid) return send(res, 401, { success: false, error: "login_required" });
+    const ids = await authorizedIdentityIds(session);
+    if (ids.size === 0) return send(res, 401, { success: false, error: "login_required" });
     const payload = suppliedPayload || await readBody(req);
     const action = text(payload.action);
     const db = getFirestore();
@@ -73,6 +99,9 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
       const car = { id: carDoc.id, ...carDoc.data() };
       if (!owns(car, ids)) return send(res, 403, { success: false, error: "owner_required" });
       const result = await verifyMembershipSnapshot({ groupId, carId, verifiedBy: text(session.data.profileId || session.data.identityId), playerCount: activePlayerCount(car) });
+      if (!result || result.verified !== true) {
+        return send(res, 409, { success: false, error: result && result.reason || "verify_failed", result });
+      }
       return send(res, 200, { success: true, result });
     }
 
@@ -142,4 +171,4 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
   }
 }
 
-module.exports = { handleMembershipHealth, activePlayerCount };
+module.exports = { handleMembershipHealth, activePlayerCount, identityIds, authorizedIdentityIds, owns };
