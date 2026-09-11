@@ -47,13 +47,30 @@
     return null;
   }
 
-  async function resolveLinePerson(db, app) {
+  async function resolveLinePersons(db, app) {
     const lineUserId = text(app && app.lineUserId);
     if (!lineUserId) throw new Error("這筆申請缺少已驗證 LINE Identity");
-    const snapshot = await db.collection("players").where("lineUserId", "==", lineUserId).limit(2).get();
-    if (snapshot.docs.length > 1) throw new Error("這個 LINE Identity 對到多個正式 Person，請先做人員資料修復後再核准");
-    if (snapshot.docs.length === 1) return { id: snapshot.docs[0].id, data: snapshot.docs[0].data() || {} };
-    return null;
+    const snapshot = await db.collection("players").where("lineUserId", "==", lineUserId).limit(20).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() || {} }));
+  }
+
+  async function resolveLinePerson(db, app) {
+    const people = await resolveLinePersons(db, app);
+    if (people.length > 1) throw new Error("這個 LINE Identity 對到多個正式 Person，請改由既有名單認領流程核准，系統會依明確目標安全修復；新增 Person 不會自動猜測");
+    return people[0] || null;
+  }
+
+  function strongIdentityConflictFields(people) {
+    const rows = list(people).filter(Boolean);
+    const conflicts = [];
+    ["identityId", "profileId"].forEach(field => {
+      const values = Array.from(new Set(rows.map(person => {
+        const value = text(person && person.data && person.data[field]);
+        return isSynthetic(value) ? "" : value;
+      }).filter(Boolean)));
+      if (values.length > 1) conflicts.push(field);
+    });
+    return conflicts;
   }
 
   function assertLineCanBind(person, app) {
@@ -77,12 +94,19 @@
     };
   }
 
-  function mergePersonPatch(person, legacyPerson, target, app, role) {
+  function mergePersonPatch(person, legacyPerson, target, app, role, duplicateLinePeople = []) {
     const patch = personLinePatch(person, app, role);
     const linkedPlayerIds = new Set(list(person && person.data && person.data.linkedPlayerIds).map(text).filter(Boolean));
     const aliases = new Set(list(person && person.data && person.data.aliases).map(text).filter(Boolean));
     if (legacyPerson && legacyPerson.id && legacyPerson.id !== person.id) linkedPlayerIds.add(legacyPerson.id);
     list(legacyPerson && legacyPerson.data && legacyPerson.data.linkedPlayerIds).map(text).filter(Boolean).forEach(id => linkedPlayerIds.add(id));
+    list(duplicateLinePeople).forEach(item => {
+      if (!item || item.id === person.id) return;
+      linkedPlayerIds.add(item.id);
+      list(item.data && item.data.linkedPlayerIds).map(text).filter(Boolean).forEach(id => linkedPlayerIds.add(id));
+      const alias = text(item.data && (item.data.displayName || item.data.nickname || item.data.playerName));
+      if (alias) aliases.add(alias);
+    });
     candidateIds(target, app).filter(id => id !== person.id).forEach(id => linkedPlayerIds.add(id));
     [
       legacyPerson && legacyPerson.data && (legacyPerson.data.displayName || legacyPerson.data.nickname),
@@ -90,6 +114,18 @@
       app && (app.targetPlayerName || app.targetStaffName)
     ].map(text).filter(Boolean).forEach(name => aliases.add(name));
     return { ...patch, linkedPlayerIds: Array.from(linkedPlayerIds), aliases: Array.from(aliases) };
+  }
+
+  function duplicateLineRepairPatch(canonicalPersonId) {
+    return {
+      lineUserId: "",
+      isLineLinked: false,
+      canonicalPersonId: text(canonicalPersonId),
+      mergedIntoPersonId: text(canonicalPersonId),
+      lineIdentityReassignedAt: nowIso(),
+      lineIdentityReassignedReason: "host_approved_existing_claim",
+      updatedAt: nowIso()
+    };
   }
 
   function newPersonPayload(app, role) {
@@ -126,15 +162,28 @@
   }
 
   async function canonicalForExistingClaim(db, target, app) {
-    const linePerson = await resolveLinePerson(db, app);
     const targetPerson = await resolveFormalPerson(db, target, app);
-    if (targetPerson) assertLineCanBind(targetPerson, app);
-    if (linePerson) {
-      assertLineCanBind(linePerson, app);
-      return { person: linePerson, legacyPerson: targetPerson && targetPerson.id !== linePerson.id ? targetPerson : null };
-    }
     if (!targetPerson) throw new Error("這個既有名字目前缺少可安全辨識的 Person 證據，請先用 Member Picker 串回正式 Person；系統不會只靠同名自動合併");
-    return { person: targetPerson, legacyPerson: null };
+    assertLineCanBind(targetPerson, app);
+
+    const linePeople = await resolveLinePersons(db, app);
+    linePeople.forEach(person => assertLineCanBind(person, app));
+    const identityGroup = [targetPerson, ...linePeople.filter(person => person.id !== targetPerson.id)];
+    const conflicts = strongIdentityConflictFields(identityGroup);
+    if (conflicts.length) {
+      throw new Error(`這個 LINE Identity 的 Person 資料同時存在 ${conflicts.join("、")} 衝突，不能自動修復，請先做人員資料人工核對`);
+    }
+
+    // Existing-person claims have an explicit host-approved target. When old
+    // duplicate Person rows share the same LINE identity and no other strong
+    // identity conflicts exist, keep the selected target as canonical. Do not
+    // use same-name matching. Historical rows remain as aliases/references and
+    // only their duplicate LINE binding is detached.
+    return {
+      person: targetPerson,
+      legacyPerson: null,
+      duplicateLinePeople: linePeople.filter(person => person.id !== targetPerson.id)
+    };
   }
 
   async function approveExistingPlayer(appIndex, app, car) {
@@ -143,11 +192,14 @@
     if (!target) throw new Error("找不到要認領的既有玩家，可能已被修改或移除");
     const resolved = await canonicalForExistingClaim(db, target, app);
     const person = resolved.person;
+    const duplicateRefs = list(resolved.duplicateLinePeople).map(item => db.collection("players").doc(item.id));
     const carRef = db.collection("cars").doc(carId());
     const personRef = db.collection("players").doc(person.id);
     await db.runTransaction(async transaction => {
       const freshCarSnap = await transaction.get(carRef);
       const freshPersonSnap = await transaction.get(personRef);
+      const duplicateSnaps = [];
+      for (const ref of duplicateRefs) duplicateSnaps.push(await transaction.get(ref));
       if (!freshCarSnap.exists || !freshPersonSnap.exists) throw new Error("核准時資料已變動，請重新整理後再試");
       const freshCar = freshCarSnap.data() || {};
       const applications = list(freshCar.applications).map(item => ({ ...item }));
@@ -157,10 +209,18 @@
       const freshTarget = findPlayer(players, current);
       if (!freshTarget) throw new Error("找不到要認領的既有玩家");
       const latestPerson = { id: freshPersonSnap.id, data: freshPersonSnap.data() || {} };
+      const freshDuplicates = duplicateSnaps.filter(snap => snap.exists).map(snap => ({ id: snap.id, data: snap.data() || {} }));
+      const currentLineUserId = text(current.lineUserId);
+      freshDuplicates.forEach(item => {
+        if (text(item.data.lineUserId) !== currentLineUserId) throw new Error("LINE Identity 重複 Person 資料在核准期間已變動，請重新整理後再試");
+      });
+      const conflicts = strongIdentityConflictFields([latestPerson, ...freshDuplicates]);
+      if (conflicts.length) throw new Error("LINE Identity 重複 Person 出現正式 Identity 衝突，已停止自動修復");
       assertLineCanBind(latestPerson, current);
       updateExistingRosterIdentity(freshTarget, latestPerson, current);
       applications.splice(Number(appIndex), 1);
-      transaction.set(personRef, mergePersonPatch(latestPerson, resolved.legacyPerson, freshTarget, current, "player"), { merge: true });
+      transaction.set(personRef, mergePersonPatch(latestPerson, null, freshTarget, current, "player", freshDuplicates), { merge: true });
+      freshDuplicates.forEach((item, index) => transaction.set(duplicateRefs[index], duplicateLineRepairPatch(latestPerson.id), { merge: true }));
       transaction.update(carRef, { players, applications, updatedAt: nowIso() });
     });
     alert(`✅ 已核准：LINE「${claimantName(app)}」已認領既有玩家「${text(app.targetPlayerName) || text(target.playerName || target.displayName || target.name)}」`);
@@ -210,11 +270,14 @@
     if (!target) throw new Error("找不到要認領的既有 DM／工作人員");
     const resolved = await canonicalForExistingClaim(db, target, app);
     const person = resolved.person;
+    const duplicateRefs = list(resolved.duplicateLinePeople).map(item => db.collection("players").doc(item.id));
     const carRef = db.collection("cars").doc(carId());
     const personRef = db.collection("players").doc(person.id);
     await db.runTransaction(async transaction => {
       const freshCarSnap = await transaction.get(carRef);
       const freshPersonSnap = await transaction.get(personRef);
+      const duplicateSnaps = [];
+      for (const ref of duplicateRefs) duplicateSnaps.push(await transaction.get(ref));
       if (!freshCarSnap.exists || !freshPersonSnap.exists) throw new Error("核准時資料已變動，請重新整理後再試");
       const freshCar = freshCarSnap.data() || {};
       const applications = list(freshCar.dmApplications).map(item => ({ ...item }));
@@ -225,11 +288,19 @@
       const freshTarget = findStaff(staffSlots, current);
       if (!freshTarget) throw new Error("找不到要認領的既有 DM／工作人員");
       const latestPerson = { id: freshPersonSnap.id, data: freshPersonSnap.data() || {} };
+      const freshDuplicates = duplicateSnaps.filter(snap => snap.exists).map(snap => ({ id: snap.id, data: snap.data() || {} }));
+      const currentLineUserId = text(current.lineUserId);
+      freshDuplicates.forEach(item => {
+        if (text(item.data.lineUserId) !== currentLineUserId) throw new Error("LINE Identity 重複 Person 資料在核准期間已變動，請重新整理後再試");
+      });
+      const conflicts = strongIdentityConflictFields([latestPerson, ...freshDuplicates]);
+      if (conflicts.length) throw new Error("LINE Identity 重複 Person 出現正式 Identity 衝突，已停止自動修復");
       assertLineCanBind(latestPerson, current);
       updateExistingRosterIdentity(freshTarget, latestPerson, current);
       freshTarget.source = "dm_application_identity_claimed";
       applications[appIndex] = { ...current, status: "approved", approvedAt: nowIso(), updatedAt: nowIso(), resolvedPersonId: latestPerson.id };
-      transaction.set(personRef, mergePersonPatch(latestPerson, resolved.legacyPerson, freshTarget, current, "dm"), { merge: true });
+      transaction.set(personRef, mergePersonPatch(latestPerson, null, freshTarget, current, "dm", freshDuplicates), { merge: true });
+      freshDuplicates.forEach((item, index) => transaction.set(duplicateRefs[index], duplicateLineRepairPatch(latestPerson.id), { merge: true }));
       transaction.update(carRef, { staffSlots, dmApplications: applications, updatedAt: nowIso() });
     });
     alert(`✅ 已核准：LINE「${claimantName(app)}」已認領既有 DM「${text(app.targetStaffName) || text(target.displayName || target.name)}」`);
@@ -305,7 +376,7 @@
     };
     playerActions.__identityClaimWrapped = true;
     dmActions.__identityClaimWrapped = true;
-    window.JLYIdentityClaimApproval = { resolveFormalPerson, resolveLinePerson, canonicalForExistingClaim, isIdentityClaim };
+    window.JLYIdentityClaimApproval = { resolveFormalPerson, resolveLinePerson, resolveLinePersons, canonicalForExistingClaim, strongIdentityConflictFields, isIdentityClaim };
   }
 
   install();
