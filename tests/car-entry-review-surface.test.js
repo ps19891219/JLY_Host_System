@@ -1,0 +1,11 @@
+const fs=require('fs'),assert=require('assert');
+const api=fs.readFileSync('api/car-view-context.js','utf8');
+const review=fs.readFileSync('js/application-review.js','utf8');
+const page=fs.readFileSync('pages/application-review.html','utf8');
+assert(api.includes('"player_capacity_full"'),'player capacity full must be mapped as an expected conflict');
+assert(api.includes('"dm_capacity_full"'),'dm capacity full must be mapped as an expected conflict');
+assert(review.includes('existing_person'),'player review must distinguish an existing-person claim');
+assert(review.includes('認領既有玩家'),'player review must label existing-player claims for the host');
+assert(review.includes('新增玩家報名'),'player review must label genuinely new player applications');
+assert(page.includes('/js/application-review.js?v=2'),'application review cache version must advance');
+console.log('car-entry-review-surface.test.js passed');
