@@ -1,8 +1,13 @@
 const fs=require('fs'),assert=require('assert');
+const view=fs.readFileSync('js/modules/work-schedule/work-schedule-read-view.js','utf8');
 const js=fs.readFileSync('js/modules/work-schedule/work-schedule-date-search.js','utf8');
 const page=fs.readFileSync('pages/work-schedule.html','utf8');
-assert(js.includes("currentRows=V.ensureMonthSnapshot?await V.ensureMonthSnapshot(currentMonth):await V.loadMonth(currentMonth)"),'default view should load current month snapshot');
-assert(!js.includes("String(r.date||'')>=today"),'default view must not hide already-scheduled earlier dates in the current month');
-assert(js.includes("filter(r=>r.status!=='cancelled')"),'default view should only exclude cancelled rows');
-assert(page.includes('work-schedule-date-search.js?v=4'),'date search cache version should be bumped');
+assert(view.includes("shifts.where('workName','==',name)"),'one-time repair should target only the selected work');
+assert(view.includes('loadAllWorkRows'),'read model should expose all-history Work rows');
+assert(view.includes("type:'work-schedule-work-history-repair'"),'repair should leave a marker so normal browsing does not re-scan formal shifts');
+assert(js.includes("await V.loadAllWorkRows('孤注')"),'default view should load every Guzhu schedule row');
+assert(!js.includes("String(r.date||'')>=today"),'default view must not apply a today cutoff');
+assert(!js.includes('indexedFuture'),'default view must not limit display to current/future indexed months');
+assert(page.includes('work-schedule-read-view.js?v=4'),'read-view cache version should be bumped');
+assert(page.includes('work-schedule-date-search.js?v=5'),'date-search cache version should be bumped');
 console.log('work-schedule-current-month-all.test.js passed');
