@@ -1,0 +1,14 @@
+const fs=require('fs'),assert=require('assert');
+const js=fs.readFileSync('js/modules/work-schedule/work-schedule-session-composer.js','utf8');
+const css=fs.readFileSync('css/pages/work-schedule-session-composer.css','utf8');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');
+assert(js.includes('workSessionCalendarYear'),'session composer should expose a year selector');
+assert(js.includes('workSessionCalendarMonth'),'session composer should expose a month selector');
+assert(js.includes('session-composer-calendar-week'),'session composer should render a 7-day calendar header');
+assert(js.includes('selectedDates.has(key)'),'selected dates must persist independently of the visible month');
+assert(!js.includes('workSessionMoreDates'),'rolling 14-day pagination must be removed');
+assert(!js.includes('visibleDayCount'),'rolling visible day count must be removed');
+assert(css.includes('.session-composer-calendar{display:grid;grid-template-columns:repeat(7'),'calendar must use a seven-column month grid');
+assert(page.includes('work-schedule-session-composer.css?v=2'),'session composer CSS cache version should be bumped');
+assert(page.includes('work-schedule-session-composer.js?v=2'),'session composer JS cache version should be bumped');
+console.log('work-schedule-session-calendar.test.js passed');
