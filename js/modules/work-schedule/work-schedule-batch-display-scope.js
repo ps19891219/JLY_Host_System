@@ -3,29 +3,54 @@
 if(window.__JLYWorkScheduleBatchDisplayScopeInitialized)return;
 window.__JLYWorkScheduleBatchDisplayScopeInitialized=true;
 
-const dashboard=window.JLYWorkScheduleDashboard;
-const staffSlots=window.JLYWorkScheduleStaffSlots;
-if(!dashboard||!staffSlots||typeof staffSlots.openBatch!=='function')return;
+const $=id=>document.getElementById(id),dashboard=window.JLYWorkScheduleDashboard,staffSlots=window.JLYWorkScheduleStaffSlots,V=window.JLYWorkScheduleReadView,L=window.JLYWorkScheduleLifecycle;
+if(!dashboard||!staffSlots)return;
+const db=window.db||firebase.firestore(),shifts=db.collection('workShifts'),works=db.collection('workScheduleWorks');
+const txt=v=>String(v??'').trim(),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const selected=new Set(),workCache=new Map();let people=null;
 
-const originalOpenBatch=staffSlots.openBatch.bind(staffSlots);
+function scope(){return window.JLYWorkScheduleDisplayScope}
+function scopeRows(){const s=scope();return Array.isArray(s?.rows)?s.rows.slice():[]}
+function externalActive(){return scope()?.source==='date-search'&&!!document.getElementById('scheduleDashboard')?.querySelector('.date-search-result')}
+function groupKey(r){return[r.date,r.workId||r.workName,r.startTime,r.endTime,r.studioName||''].join('|')}
+function groups(source=scopeRows()){const m=new Map();source.forEach(r=>{const key=groupKey(r);if(!m.has(key))m.set(key,{key,date:r.date,workId:r.workId||'',workName:r.workName||'未命名工作',startTime:r.startTime||'',endTime:r.endTime||'',endDate:r.endDate||r.date,studioName:r.studioName||'',studioId:r.studioId||r.organizationId||'',rows:[]});m.get(key).rows.push(r)});return[...m.values()].sort((a,b)=>(a.date+a.startTime+a.workName).localeCompare(b.date+b.startTime+b.workName))}
+function idsOf(r){return(r.assignedPersonIds||r.personIds||[]).map(String)}
+function selectedGroups(){return groups().filter(g=>selected.has(g.key))}
+function updateSelectionUI(){if(!externalActive())return;const host=$('scheduleDashboard');host?.querySelectorAll('.work-day-card[data-group]').forEach(card=>{const on=selected.has(card.dataset.group);card.classList.toggle('batch-selected',on);const input=card.querySelector('[data-select-group]');if(input)input.checked=on});if($('batchBar'))$('batchBar').hidden=selected.size===0;if($('batchCount'))$('batchCount').textContent=`已選 ${selected.size} 個工作日`}
+function clearSelection(){selected.clear();updateSelectionUI()}
+function selectAll(){groups().forEach(g=>selected.add(g.key));updateSelectionUI()}
+async function refreshScope(){selected.clear();await window.JLYWorkScheduleDateSearch?.refresh?.();updateSelectionUI()}
 
-function displayedRows(){
-  const host=document.getElementById('scheduleDashboard');
-  const scope=window.JLYWorkScheduleDisplayScope;
-  if(!host?.querySelector('.date-search-result'))return null;
-  return Array.isArray(scope?.rows)?scope.rows.slice():null;
-}
+const originalGetRows=typeof dashboard.getRows==='function'?dashboard.getRows.bind(dashboard):()=>[];
+dashboard.getRows=()=>externalActive()?scopeRows():originalGetRows();
 
-staffSlots.openBatch=async function(){
-  const scopedRows=displayedRows();
-  if(!scopedRows)return originalOpenBatch();
+async function ensurePeople(){if(people)return people;try{people=await window.JLYMemberPickerData?.loadPersonDirectory?.()||[]}catch(_){people=[]}return people}
+function personName(id,row={}){const snap=(row.people||[]).find(p=>String(p.personId||p.id)===String(id));if(snap?.name)return snap.name;const p=(people||[]).find(x=>String(x.id)===String(id));return window.JLYMemberPickerData?.getMemberName?.(p)||p?.displayName||p?.playerName||p?.nickname||'未命名'}
+async function getWork(id){if(!id)return null;if(workCache.has(id))return workCache.get(id);const d=await works.doc(id).get(),w=d.exists?{id:d.id,...d.data()}:null;workCache.set(id,w);return w}
+function assignmentPayload(row,nextIds,mode){const existingSlots=(row?.staffSlots||[]).map((s,i)=>({id:String(s.id||`${row.id||'shift'}-slot-${i+1}`),slotKey:String(s.slotKey||`slot-${i+1}`),label:txt(s.label)||String(i+1),personId:String(s.personId||'')}));const required=Math.max(Number(row?.requiredCount||0),nextIds.length,existingSlots.length);while(existingSlots.length<required){const i=existingSlots.length;existingSlots.push({id:`${row?.id||'shift'}-slot-${i+1}`,slotKey:`slot-${i+1}`,label:String(i+1),personId:''})}if(mode==='replace'){existingSlots.forEach((s,i)=>s.personId=nextIds[i]||'')}else{const already=new Set(existingSlots.map(s=>s.personId).filter(Boolean));nextIds.forEach(id=>{if(already.has(id))return;const empty=existingSlots.find(s=>!s.personId);if(empty)empty.personId=id;else{const i=existingSlots.length;existingSlots.push({id:`${row?.id||'shift'}-slot-${i+1}`,slotKey:`slot-${i+1}`,label:String(i+1),personId:id})}already.add(id)})}const finalIds=existingSlots.map(s=>s.personId).filter(Boolean),persons=finalIds.map(id=>({personId:id,name:personName(id,row||{})})),missing=existingSlots.filter(s=>!s.personId).length;return{staffSlots:existingSlots,assignedPersonIds:finalIds,personIds:finalIds,people:persons,requiredCount:existingSlots.length,missingCount:missing,staffingStatus:missing?'pending':'complete',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
+function newRoleRow(g,role,personIds,ref){const slots=personIds.map((id,i)=>({id:`${ref.id}-slot-${i+1}`,slotKey:`slot-${i+1}`,label:String(i+1),personId:id}));return{workId:g.workId,workName:g.workName,studioName:g.studioName,studioId:g.studioId||'',roleName:role.name,rolePoolId:role.id,eligiblePersonIds:role.eligiblePersonIds||[],date:g.date,monthKey:g.date.slice(0,7),startTime:g.startTime,endTime:g.endTime,endDate:g.endDate,requiredCount:personIds.length,staffSlots:slots,assignedPersonIds:personIds,personIds,people:personIds.map(id=>({personId:id,name:personName(id)})),missingCount:0,staffingStatus:'complete',note:'',calendar:{syncEnabled:false,autoUpdate:false,provider:'google',calendarId:'primary'},schemaVersion:6,status:'scheduled',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
+async function applyAssignments(gs,role,personIds,mode){await ensurePeople();if(!L)return alert('排班變動規則尚未載入，請重新整理後再試。'),false;const batch=db.batch(),changes=[],allConflicts=[],sourceRows=scopeRows();for(const g of gs){const row=g.rows.find(r=>String(r.rolePoolId)===String(role.id)||txt(r.roleName)===txt(role.name)),existing=row?idsOf(row):[],wanted=mode==='replace'?personIds:[...new Set([...existing,...personIds])],ref=row?shifts.doc(row.id):shifts.doc(),after=row?{...row,...assignmentPayload(row,wanted,mode)}:{id:ref.id,...newRoleRow(g,role,personIds,ref)},before=row?{...row}:{};const summary=L.summarize(before,after),conflicts=L.findConflicts({personIds:summary.assignmentDelta.added,candidate:after,rows:sourceRows,ignoreShiftIds:row?[row.id]:[]});allConflicts.push(...conflicts);changes.push({ref,row,before,after})}let conflictAcknowledged=false;if(allConflicts.length){const message=L.conflictMessage(allConflicts,{personLabel:id=>personName(id)});if(!confirm(message))return false;conflictAcknowledged=true}for(const c of changes){if(c.row){const payload={...c.after};delete payload.id;delete payload.createdAt;batch.update(c.ref,payload)}else{const payload={...c.after};delete payload.id;batch.set(c.ref,payload)}L.appendToBatch(batch,c.ref,c.before,c.after,{source:'dashboard_batch_assignment',conflictAcknowledged,conflictCount:allConflicts.length})}await batch.commit();const months=[...new Set(gs.map(g=>String(g.date||'').slice(0,7)).filter(Boolean))];for(const mk of months)await V?.rebuildMonth?.(mk);return true}
 
-  const originalGetRows=dashboard.getRows;
-  dashboard.getRows=()=>scopedRows.slice();
-  try{
-    return await originalOpenBatch();
-  }finally{
-    dashboard.getRows=originalGetRows;
-  }
-};
+async function renderExternalBatchPeople(){const dlg=$('batchAssignDialog'),roles=JSON.parse(dlg?.dataset.roles||'[]'),role=roles.find(r=>String(r.id)===String($('batchAssignRole')?.value));await ensurePeople();if($('batchAssignPeople'))$('batchAssignPeople').innerHTML=(role?.eligiblePersonIds||[]).map(String).map(id=>`<label class="batch-person"><input type="checkbox" value="${esc(id)}"><span>${esc(personName(id))}</span></label>`).join('')||'<div class="empty-mini">這個角色目前沒有可排班人員。</div>'}
+async function openExternalBatchAssign(){const gs=selectedGroups();if(!gs.length)return alert('請先勾選要批次排人的工作日。');const ids=[...new Set(gs.map(g=>g.workId).filter(Boolean))];if(ids.length!==1)return alert('批次排人目前請選同一個工作／劇本的日期。');const work=await getWork(ids[0]);if(!work)return alert('找不到 Work 設定。');await ensurePeople();const roles=(work.roles||[]).filter(r=>txt(r.name)).map(r=>({id:r.id||r.name,name:r.name,eligiblePersonIds:r.eligiblePersonIds||r.personIds||[]}));$('batchAssignRole').innerHTML=roles.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');$('batchAssignDialog').dataset.roles=JSON.stringify(roles);await renderExternalBatchPeople();$('batchAssignDialog').showModal()}
+async function applyExternalBatchAssign(){const roles=JSON.parse($('batchAssignDialog')?.dataset.roles||'[]'),role=roles.find(r=>String(r.id)===String($('batchAssignRole')?.value)),personIds=[...($('batchAssignPeople')?.querySelectorAll('input:checked')||[])].map(i=>i.value),gs=selectedGroups();if(!role||!personIds.length||!gs.length)return alert('請選角色、至少一位人員與工作日。');const ok=await applyAssignments(gs,role,personIds,$('batchAssignMode')?.value||'add');if(ok===false)return;$('batchAssignDialog').close();const count=gs.length;await refreshScope();alert(`已套用 ${role.name} 到 ${count} 個工作日。`)}
+async function authorizeCalendar(){if(!window.JLYCalendarAuth)throw new Error('Google Calendar 授權模組尚未載入');await window.JLYCalendarAuth.requestAccessToken()}
+async function syncExternal(keys){const wanted=new Set((keys||[]).map(String)),targets=groups().filter(g=>wanted.has(g.key));if(!targets.length)return alert('請先選擇要同步的工作日。');try{await authorizeCalendar()}catch(e){return alert(`Google 授權失敗：${e.message||e}`)}let ok=0,fail=[];for(const g of targets)try{await window.JLYWorkScheduleGoogle.syncGroup(g.rows);ok++}catch(e){fail.push(`${g.date} ${g.workName||''}: ${e.message||e}`)}const months=[...new Set(targets.map(g=>String(g.date||'').slice(0,7)).filter(Boolean))];for(const mk of months)try{await V?.rebuildMonth?.(mk)}catch(_){}await refreshScope();alert(fail.length?`完成 ${ok} 個工作日，失敗 ${fail.length} 個\n${fail.join('\n')}`:`已同步 ${ok} 個工作日到 Google Calendar`)}
+async function deleteExternal(){const keys=[...selected];if(!keys.length)return alert('請先勾選要刪除的工作日。');const ok=await window.JLYWorkScheduleShiftDelete?.deleteGroups?.(keys);if(ok)await refreshScope()}
+
+function wrapButton(id,externalHandler){const el=$(id);if(!el)return;const original=el.onclick;el.onclick=function(e){if(externalActive())return externalHandler(e);return original?.call(this,e)}}
+wrapButton('batchSelectAll',selectAll);
+wrapButton('batchAssignOpen',openExternalBatchAssign);
+wrapButton('batchSync',()=>syncExternal([...selected]));
+wrapButton('batchDelete',deleteExternal);
+wrapButton('batchClear',clearSelection);
+wrapButton('batchAssignApply',applyExternalBatchAssign);
+const role=$('batchAssignRole');if(role){const original=role.onchange;role.onchange=function(e){if(externalActive())return renderExternalBatchPeople();return original?.call(this,e)}}
+
+const host=$('scheduleDashboard');
+host?.addEventListener('change',e=>{if(!externalActive())return;const input=e.target.closest?.('[data-select-group]');if(!input)return;e.stopImmediatePropagation();input.checked?selected.add(input.dataset.selectGroup):selected.delete(input.dataset.selectGroup);updateSelectionUI()},true);
+host?.addEventListener('click',e=>{if(!externalActive())return;const sync=e.target.closest?.('[data-sync-group]');if(sync){e.preventDefault();e.stopImmediatePropagation();syncExternal([sync.dataset.syncGroup])}},true);
+window.addEventListener('jly:work-schedule:display-scope',()=>{selected.clear();setTimeout(updateSelectionUI,0)});
+document.querySelector('[data-dashboard-view="mine"]')?.addEventListener('click',()=>{selected.clear();window.JLYWorkScheduleDisplayScope=null},true);
+setTimeout(updateSelectionUI,0);
 })();
