@@ -1,0 +1,14 @@
+const fs=require('fs'),assert=require('assert');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');
+const owner=fs.readFileSync('js/modules/work-schedule/work-schedule-default-display-owner.js','utf8');
+const dashboard=fs.readFileSync('js/modules/work-schedule/work-schedule-dashboard.js','utf8');
+const search=fs.readFileSync('js/modules/work-schedule/work-schedule-date-search.js','utf8');
+assert(page.includes('work-schedule-default-display-owner.js?v=1'),'default display owner must be loaded');
+assert(page.indexOf('work-schedule-date-search.js?v=6')<page.indexOf('work-schedule-default-display-owner.js?v=1'),'owner must load after all-history search view');
+assert(owner.includes("window.addEventListener('jly:work-schedule:rows',restoreDefaultHistory)"),'owner must recover after late month dashboard renders');
+assert(owner.includes("[data-dashboard-view=\"mine\"]"),'mine view must stay owned by the month dashboard');
+assert(owner.includes("String(input.value||'').trim()"),'active date search must not be overwritten');
+assert(owner.includes("clear.click()"),'default recovery must reuse the existing all-history loader instead of duplicating read logic');
+assert(dashboard.includes("'這個月還沒有班表。'"),'regression fixture requires the legacy month renderer to still exist');
+assert(search.includes("await V.loadAllWorkRows('孤注')"),'default history remains sourced from the existing all-history read model');
+console.log('work-schedule-default-display-owner.test.js passed');
