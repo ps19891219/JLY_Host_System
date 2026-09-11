@@ -51,7 +51,22 @@ function verifyLineSignature(rawBody, signature, channelSecret) {
   return crypto.timingSafeEqual(receivedBuffer, expectedBuffer);
 }
 
-module.exports = async function handler(req, res) {
+async function processVerifiedEvents(events, dependencies = {}) {
+  const route = dependencies.routeEvents || routeEvents;
+  const processMembership = dependencies.processMembershipEvents || processMembershipEvents;
+
+  /*
+   * Reply-capable routing must run first. LINE reply tokens are time-sensitive,
+   * while roster-health bookkeeping is secondary work. A slow membership health
+   * update must never delay or suppress the memberJoined welcome reply.
+   */
+  const routeResults = await route(events);
+  const membershipResults = await processMembership(events);
+
+  return { routeResults, membershipResults };
+}
+
+async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return sendJson(res, 405, { success: false, error: "method_not_allowed" });
@@ -89,15 +104,7 @@ module.exports = async function handler(req, res) {
     }
 
     const events = Array.isArray(body.events) ? body.events : [];
-
-    /*
-     * Membership health is intentionally event-driven and per-group.
-     * A memberJoined/memberLeft event touches only its own binding/car.
-     * No global group scan is performed here.
-     * Failures are isolated so the existing LINE reply router can still run.
-     */
-    const membershipResults = await processMembershipEvents(events);
-    const routeResults = await routeEvents(events);
+    const { routeResults, membershipResults } = await processVerifiedEvents(events);
 
     console.log("LINE webhook verified.", {
       eventCount: events.length,
@@ -110,4 +117,8 @@ module.exports = async function handler(req, res) {
     console.error("LINE webhook server error.", error);
     return sendJson(res, 500, { success: false, error: "line_webhook_server_error" });
   }
-};
+}
+
+module.exports = handler;
+module.exports.processVerifiedEvents = processVerifiedEvents;
+module.exports.verifyLineSignature = verifyLineSignature;
