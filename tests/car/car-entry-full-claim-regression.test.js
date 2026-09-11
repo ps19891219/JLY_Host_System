@@ -166,10 +166,12 @@ test("I new DM application is limited by formal slot availability while legacy c
 
 test("full-car UI keeps a LINE action host and separates existing claim from new signup", () => {
   const actions = fs.readFileSync(path.join(__dirname, "../../js/car/car-view-actions.js"), "utf8");
+  const service = fs.readFileSync(path.join(__dirname, "../../services/car/car-entry-service.js"), "utf8");
   assert.match(actions, /car-view-entry-actions/);
   assert.match(actions, /container\.appendChild\(host\)/);
   assert.match(actions, /認領名單中的我/);
   assert.match(actions, /認領既有人員不會再占一個名額/);
   assert.match(actions, /目前已滿，暫停新增報名/);
-  assert.match(actions, /if\(!target\) assertNewPlayerCapacity/);
+  assert.match(service, /if \(!target\) assertNewPlayerCapacity\(car\)/);
+  assert.match(service, /if \(!target\) assertNewDmCapacity\(car\)/);
 });
