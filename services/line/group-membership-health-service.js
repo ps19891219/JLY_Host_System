@@ -113,7 +113,27 @@ async function verifyMembershipSnapshot(input, dependencies = {}) {
     verifiedPlayerCount: Math.max(0, Number(input.playerCount) || 0),
     pendingJoinedUserIds: [], pendingLeftUserIds: [], updatedAt: timestamp
   });
-  await complete(carId, ACTION_ID, timestamp);
-  return { verified: true, reason: "snapshot_verified", snapshot: stored };
+
+  let pendingActionCompleted = true;
+  let pendingActionError = "";
+  try {
+    await complete(carId, ACTION_ID, timestamp);
+  } catch (error) {
+    // The verified snapshot is the source of truth for roster review. A stale
+    // dashboard pending-action marker must not turn a successful verification
+    // into a user-visible failure. Keep the cleanup best-effort and expose the
+    // condition for diagnostics so it can be repaired separately.
+    pendingActionCompleted = false;
+    pendingActionError = text(error && error.message).slice(0, 160);
+    console.error("LINE membership pending-action completion failed.", error);
+  }
+
+  return {
+    verified: true,
+    reason: pendingActionCompleted ? "snapshot_verified" : "snapshot_verified_pending_action_cleanup_failed",
+    snapshot: stored,
+    pendingActionCompleted,
+    pendingActionError
+  };
 }
 module.exports = { ACTION_ID, isCarExpired, buildPendingAction, markMembershipChanged, initializeMembershipSnapshot, verifyMembershipSnapshot };
