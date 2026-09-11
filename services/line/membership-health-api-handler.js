@@ -20,6 +20,9 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 function text(value) { return String(value == null ? "" : value).trim(); }
+function safeErrorCode(error) {
+  return text(error && (error.code || error.details || error.name)).replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 80);
+}
 function activePlayerCount(car) {
   return (Array.isArray(car && car.players) ? car.players : []).filter(player => {
     const status = text(player && player.status).toLowerCase();
@@ -51,9 +54,6 @@ async function authorizedIdentityIds(session) {
     const component = buildIdentityComponent(players, lineUserId);
     if (component.valid) component.ids.forEach(id => ids.add(id));
   } catch (error) {
-    // Keep the direct session IDs usable even if historical Person resolution
-    // temporarily fails. The ownership check still fails closed if they do not
-    // match the car.
     console.warn("LINE membership owner identity expansion skipped.", error);
   }
   return ids;
@@ -94,15 +94,39 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
 
     if (action === "verify") {
       const carId = text(payload.carId), groupId = text(payload.groupId);
-      const carDoc = await db.collection("cars").doc(carId).get();
+      let carDoc;
+      try {
+        carDoc = await db.collection("cars").doc(carId).get();
+      } catch (error) {
+        console.error("LINE membership verify car read failed.", error);
+        return send(res, 500, { success: false, error: "verify_car_read_failed", stage: "car_read", detailCode: safeErrorCode(error) });
+      }
       if (!carDoc.exists) return send(res, 404, { success: false, error: "car_not_found" });
       const car = { id: carDoc.id, ...carDoc.data() };
       if (!owns(car, ids)) return send(res, 403, { success: false, error: "owner_required" });
-      const result = await verifyMembershipSnapshot({ groupId, carId, verifiedBy: text(session.data.profileId || session.data.identityId), playerCount: activePlayerCount(car) });
-      if (!result || result.verified !== true) {
-        return send(res, 409, { success: false, error: result && result.reason || "verify_failed", result });
+
+      let previous;
+      try {
+        previous = await getSnapshot(groupId);
+      } catch (error) {
+        console.error("LINE membership verify snapshot read failed.", error);
+        return send(res, 500, { success: false, error: "verify_snapshot_read_failed", stage: "snapshot_read", detailCode: safeErrorCode(error) });
       }
-      return send(res, 200, { success: true, result });
+      if (!previous || text(previous.carId) !== carId) {
+        return send(res, 409, { success: false, error: "snapshot_not_found", stage: "snapshot_read" });
+      }
+
+      let result;
+      try {
+        result = await verifyMembershipSnapshot({ groupId, carId, verifiedBy: text(session.data.profileId || session.data.identityId), playerCount: activePlayerCount(car) });
+      } catch (error) {
+        console.error("LINE membership verify snapshot write failed.", error);
+        return send(res, 500, { success: false, error: "verify_snapshot_write_failed", stage: "snapshot_write", detailCode: safeErrorCode(error) });
+      }
+      if (!result || result.verified !== true) {
+        return send(res, 409, { success: false, error: result && result.reason || "verify_failed", stage: "snapshot_write", result });
+      }
+      return send(res, 200, { success: true, result, stage: "verified" });
     }
 
     if (action === "initialize") {
@@ -167,8 +191,8 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
     return send(res, 400, { success: false, error: "unsupported_action" });
   } catch (error) {
     console.error("LINE membership health API failed.", error);
-    return send(res, 500, { success: false, error: "line_membership_health_failed" });
+    return send(res, 500, { success: false, error: "line_membership_health_failed", stage: "unknown", detailCode: safeErrorCode(error) });
   }
 }
 
-module.exports = { handleMembershipHealth, activePlayerCount, identityIds, authorizedIdentityIds, owns };
+module.exports = { handleMembershipHealth, activePlayerCount, identityIds, authorizedIdentityIds, owns, safeErrorCode };
