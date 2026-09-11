@@ -1,0 +1,13 @@
+const fs=require('fs'),assert=require('assert');
+const handler=fs.readFileSync('services/line/membership-health-api-handler.js','utf8');
+const page=fs.readFileSync('js/line/membership-review-page.js','utf8');
+const html=fs.readFileSync('pages/line-membership-review.html','utf8');
+assert(handler.includes('listPlayersForIdentityResolution'),'membership review must resolve historical/canonical Person identities');
+assert(handler.includes('buildIdentityComponent'),'membership review must expand the signed-in LINE identity component');
+assert(handler.includes('identityIdsOwnCar'),'membership review ownership must accept formal historical owner IDs');
+assert(handler.includes('result.verified !== true'),'verify action must not report success when the snapshot was not persisted');
+assert(page.includes('errorLabel(error)'),'membership review should show actionable save errors');
+assert(page.includes('確認中…'),'single confirm must guard against duplicate taps');
+assert(page.includes('已儲存目前核對狀態'),'successful confirm must give explicit persisted-state feedback');
+assert(html.includes('/js/line/membership-review-page.js?v=5'),'membership review cache version must advance');
+console.log('membership-review-save.test.js passed');
