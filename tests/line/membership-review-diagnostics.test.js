@@ -1,0 +1,12 @@
+const fs=require('fs'),assert=require('assert');
+const api=fs.readFileSync('services/line/membership-health-api-handler.js','utf8');
+const ui=fs.readFileSync('js/line/membership-review-page.js','utf8');
+const page=fs.readFileSync('pages/line-membership-review.html','utf8');
+assert(api.includes('verify_car_read_failed'),'verify must distinguish car read failures');
+assert(api.includes('verify_snapshot_read_failed'),'verify must distinguish snapshot read failures');
+assert(api.includes('verify_snapshot_write_failed'),'verify must distinguish snapshot write failures');
+assert(api.includes('detailCode'),'verify diagnostics must expose a safe detail code');
+assert(ui.includes('診斷代碼'),'mobile review UI must surface the safe diagnostic code');
+assert(ui.includes('寫入已確認狀態時失敗'),'mobile review UI must label snapshot write failures');
+assert(page.includes('/js/line/membership-review-page.js?v=6'),'membership review asset cache must advance');
+console.log('membership-review-diagnostics.test.js passed');
