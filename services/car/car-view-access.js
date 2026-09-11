@@ -49,7 +49,9 @@ function sameLegacyName(value, session) {
 }
 
 function matchesViewerState(value, session) {
-  return sameLineIdentity(value, session) || sameIdentity(value, session) || sameLegacyName(value, session);
+  if (sameLineIdentity(value, session) || sameIdentity(value, session)) return true;
+  if (text(session && session.lineUserId)) return false;
+  return sameLegacyName(value, session);
 }
 
 function isActive(value) {
