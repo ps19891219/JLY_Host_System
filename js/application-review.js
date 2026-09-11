@@ -78,6 +78,20 @@ function buildPlayerItem(app) {
       ? "／反串"
       : "";
 
+  const claim =
+    app.claimType ===
+      "existing_person"
+      ? (
+          "認領既有玩家｜" +
+          reviewEscape(
+            app.targetPlayerName ||
+            app.name ||
+            app.playerName ||
+            "既有玩家"
+          )
+        )
+      : "新增玩家報名";
+
   return `
     <div
       style="
@@ -88,6 +102,10 @@ function buildPlayerItem(app) {
       <strong>
         🎮 ${name}
       </strong>
+
+      <div>
+        ${claim}
+      </div>
 
       <div>
         ${position}${cross}

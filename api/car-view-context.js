@@ -25,7 +25,7 @@ function entryStatus(code) {
   if (code === "car_not_found") return 404;
   if ([
     "already_player", "player_application_pending", "already_staff", "dm_application_pending",
-    "staff_slot_unavailable", "player_claim_unavailable"
+    "staff_slot_unavailable", "player_claim_unavailable", "player_capacity_full", "dm_capacity_full"
   ].includes(code)) return 409;
   if (["car_id_required", "entry_type_invalid"].includes(code)) return 400;
   return 500;
