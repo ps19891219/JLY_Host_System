@@ -80,3 +80,23 @@ test("viewer state distinguishes joined and pending formal identities", () => {
   assert.equal(viewerState(car, { profileId: "member-1", displayName: "詩婕" }).playerStatus, "joined");
   assert.equal(viewerState(car, { profileId: "staff-1", displayName: "DM A" }).dmStatus, "joined");
 });
+
+test("LINE viewer state never treats a same-name pending application as its own", () => {
+  const sameNameCar = {
+    ...car,
+    applications: [{ id: "app-same-name", memberId: "other-person", displayName: "小安", status: "pending", lineUserId: "line-other" }],
+    dmApplications: [{ id: "dm-app-same-name", memberId: "other-dm", displayName: "小安", status: "pending", lineUserId: "line-other" }]
+  };
+  const viewer = viewerState(sameNameCar, { lineUserId: "line-current", displayName: "小安" });
+  assert.equal(viewer.playerStatus, "available");
+  assert.equal(viewer.dmStatus, "available");
+});
+
+test("legacy non-LINE viewer state keeps display-name fallback compatibility", () => {
+  const legacyCar = {
+    ...car,
+    applications: [{ id: "app-legacy", displayName: "舊玩家", status: "pending" }],
+    dmApplications: []
+  };
+  assert.equal(viewerState(legacyCar, { identityId: "legacy-session", displayName: "舊玩家" }).playerStatus, "pending");
+});

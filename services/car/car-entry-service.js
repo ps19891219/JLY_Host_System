@@ -44,7 +44,7 @@ function sameLineIdentity(value, session) {
 
 function matchesViewer(value, session) {
   if (sameLineIdentity(value, session) || sameIdentity(value, session)) return true;
-  if (session && session.provisional === true) return false;
+  if (text(session && session.lineUserId) || session && session.provisional === true) return false;
   const viewerName = lower(session && session.displayName);
   return Boolean(viewerName && lower(displayName(value)) === viewerName);
 }
@@ -103,6 +103,34 @@ function assertDmAvailable(car, session) {
   }
   if (applications.some(item => pending(item) && matchesViewer(item, session))) {
     const error = new Error("dm_application_pending"); error.code = "dm_application_pending"; throw error;
+  }
+}
+
+function playerCapacity(car) {
+  const value = Number(car && (car.totalPeople || car.capacity || 0));
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function activePlayerCount(car) {
+  return (Array.isArray(car && car.players) ? car.players : []).filter(active).length;
+}
+
+function assertNewPlayerCapacity(car) {
+  const capacity = playerCapacity(car);
+  if (capacity > 0 && activePlayerCount(car) >= capacity) {
+    const error = new Error("player_capacity_full"); error.code = "player_capacity_full"; throw error;
+  }
+}
+
+function hasAvailableStaffSlot(car) {
+  const slots = Array.isArray(car && car.staffSlots) ? car.staffSlots.filter(active) : [];
+  if (!slots.length) return true;
+  return slots.some(slot => !displayName(slot));
+}
+
+function assertNewDmCapacity(car) {
+  if (!hasAvailableStaffSlot(car)) {
+    const error = new Error("dm_capacity_full"); error.code = "dm_capacity_full"; throw error;
   }
 }
 
@@ -173,6 +201,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
       if (text(input.targetPlayerId) && !target) {
         const error = new Error("player_claim_unavailable"); error.code = "player_claim_unavailable"; throw error;
       }
+      if (!target) assertNewPlayerCapacity(car);
       const position = text(input.position || input.role || target && (target.position || target.roleChoice) || "不限") || "不限";
       const applications = Array.isArray(car.applications) ? car.applications.map(item => ({ ...item })) : [];
       const id = applicationId("player_app");
@@ -205,6 +234,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
     if (text(input.targetStaffId) && !target) {
       const error = new Error("staff_slot_unavailable"); error.code = "staff_slot_unavailable"; throw error;
     }
+    if (!target) assertNewDmCapacity(car);
     const applications = Array.isArray(car.dmApplications) ? car.dmApplications.map(item => ({ ...item })) : [];
     const id = applicationId("dm_app");
     const targetName = target ? displayName(target) : "";
@@ -235,6 +265,8 @@ module.exports = {
   matchesViewer,
   assertPlayerAvailable,
   assertDmAvailable,
+  assertNewPlayerCapacity,
+  assertNewDmCapacity,
   findClaimablePlayer,
   findClaimableStaffSlot,
   isSyntheticLineId,
