@@ -62,12 +62,25 @@ async function fetchLineProfile(accessToken) {
   return profile;
 }
 
+function recoveredLinkedProfile(document) {
+  const existingData = document.data() || {};
+  return {
+    profileId: document.id,
+    identityId: text(existingData.identityId),
+    displayName: text(existingData.displayName || existingData.nickname),
+    linked: true,
+    recovered: true,
+    provisional: false
+  };
+}
+
 async function linkPlayerProfile(profileId, identityId, lineProfile, options = {}) {
   const db = options.db || getFirestore();
   const duplicate = await db.collection("players")
     .where("lineUserId", "==", lineProfile.userId)
     .limit(1)
     .get();
+
   if (!profileId || !identityId) {
     if (duplicate.empty) {
       if (options.allowVerifiedFirstLink === true) {
@@ -84,17 +97,25 @@ async function linkPlayerProfile(profileId, identityId, lineProfile, options = {
       error.statusCode = 409;
       throw error;
     }
-    const existing = duplicate.docs[0];
-    const existingData = existing.data() || {};
-    return {
-      profileId: existing.id,
-      identityId: text(existingData.identityId),
-      displayName: text(existingData.displayName || existingData.nickname),
-      linked: true,
-      recovered: true,
-      provisional: false
-    };
+    return recoveredLinkedProfile(duplicate.docs[0]);
   }
+
+  /*
+   * A verified LINE OAuth login proves ownership of this LINE userId. During a
+   * car player/DM entry, an already-linked LINE account must reuse its existing
+   * canonical Player/Person identity instead of trying to bind the temporary
+   * entry profile again. This keeps one LINE identity attached to one existing
+   * profile and lets the current car flow continue through the original
+   * returnPath. Other login purposes retain the strict conflict error below.
+   */
+  if (
+    options.recoverExistingLinkedProfile === true &&
+    !duplicate.empty &&
+    duplicate.docs[0].id !== profileId
+  ) {
+    return recoveredLinkedProfile(duplicate.docs[0]);
+  }
+
   const profileRef = db.collection("players").doc(profileId);
   const target = await profileRef.get();
   if (!target.exists) {
@@ -178,8 +199,10 @@ function createHandler(dependencies = {}) {
     try {
       const accessToken = await exchange(code);
       const lineUser = await getProfile(accessToken);
+      const isCarEntry = allowsVerifiedFirstLink(stateResult.data.purpose);
       const linkResult = await link(profileId, identityId, lineUser, {
-        allowVerifiedFirstLink: allowsVerifiedFirstLink(stateResult.data.purpose)
+        allowVerifiedFirstLink: isCarEntry,
+        recoverExistingLinkedProfile: isCarEntry
       });
       const memberSession = createMemberSession({
         profileId: linkResult.profileId,
