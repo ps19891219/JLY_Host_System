@@ -19,6 +19,7 @@ let people=null;
 let selectedDates=new Set();
 let timeSlots=[{start:'11:00',end:''}];
 let assignments={};
+let sessionHosts={};
 let calendarCursor=new Date();
 
 function roleIds(r){return(r?.eligiblePersonIds||r?.personIds||[]).map(String)}
@@ -62,6 +63,7 @@ function fmtDate(date){
 }
 function sessionKey(date,ti){return`${date}|${ti}`}
 function assignmentKey(date,ti,role){return`${sessionKey(date,ti)}|${role}`}
+function hostKey(date,ti){return sessionKey(date,ti)}
 function slotTimeText(t){
   const end=effectiveEnd(t.start,t.end);
   return t.end?`${t.start}–${end}`:`${t.start}–${end}（預設 1 小時）`;
@@ -73,7 +75,7 @@ function ensureDialog(){
   dlg=document.createElement('dialog');
   dlg.id='workSessionComposerDialog';
   dlg.className='session-composer';
-  dlg.innerHTML=`<form id="workSessionComposerForm" class="session-composer-shell"><header><div><small>快速建立班表</small><h3 id="workSessionComposerTitle">新增排班</h3></div><button type="button" id="workSessionComposerClose" class="dialog-close">×</button></header><section class="session-composer-dates"><strong>1. 選日期</strong><div class="session-composer-calendar-nav"><button type="button" class="ghost" id="workSessionCalendarPrev" aria-label="上個月">‹</button><select id="workSessionCalendarYear" aria-label="年份"></select><select id="workSessionCalendarMonth" aria-label="月份"></select><button type="button" class="ghost" id="workSessionCalendarNext" aria-label="下個月">›</button></div><div class="session-composer-calendar-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div><div id="workSessionCalendar" class="session-composer-calendar"></div><div class="session-composer-calendar-foot"><span id="workSessionSelectedCount">已選 0 天</span><button type="button" id="workSessionClearDates" class="ghost">清除日期</button></div></section><section class="session-composer-times"><strong>2. 選時段</strong><div id="workSessionTimeRows"></div><button type="button" id="workSessionAddTime" class="ghost">＋ 新增時段</button></section><section><strong>3. 每場直接排人</strong><div id="workSessionSessions" class="session-composer-sessions"></div></section><label>主揪<input id="workSessionHost" type="text" placeholder="選填"></label><label>備註<textarea id="workSessionNote" placeholder="選填"></textarea></label><div class="session-composer-footer"><div id="workSessionSummary" class="session-composer-summary"></div><button type="submit">建立全部排班</button></div></form>`;
+  dlg.innerHTML=`<form id="workSessionComposerForm" class="session-composer-shell"><header><div><small>快速建立班表</small><h3 id="workSessionComposerTitle">新增排班</h3></div><button type="button" id="workSessionComposerClose" class="dialog-close">×</button></header><section class="session-composer-dates"><strong>1. 選日期</strong><div class="session-composer-calendar-nav"><button type="button" class="ghost" id="workSessionCalendarPrev" aria-label="上個月">‹</button><select id="workSessionCalendarYear" aria-label="年份"></select><select id="workSessionCalendarMonth" aria-label="月份"></select><button type="button" class="ghost" id="workSessionCalendarNext" aria-label="下個月">›</button></div><div class="session-composer-calendar-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div><div id="workSessionCalendar" class="session-composer-calendar"></div><div class="session-composer-calendar-foot"><span id="workSessionSelectedCount">已選 0 天</span><button type="button" id="workSessionClearDates" class="ghost">清除日期</button></div></section><section class="session-composer-times"><strong>2. 選時段</strong><div id="workSessionTimeRows"></div><button type="button" id="workSessionAddTime" class="ghost">＋ 新增時段</button></section><section><strong>3. 每場直接排人</strong><div id="workSessionSessions" class="session-composer-sessions"></div></section><label>備註<textarea id="workSessionNote" placeholder="選填"></textarea></label><div class="session-composer-footer"><div id="workSessionSummary" class="session-composer-summary"></div><button type="submit">建立全部排班</button></div></form>`;
   document.body.appendChild(dlg);
   $('workSessionComposerClose').onclick=()=>dlg.close();
   $('workSessionComposerForm').onsubmit=save;
@@ -82,7 +84,7 @@ function ensureDialog(){
   $('workSessionCalendarNext').onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);renderCalendar()};
   $('workSessionCalendarYear').onchange=e=>{calendarCursor=new Date(Number(e.target.value),calendarCursor.getMonth(),1);renderCalendar()};
   $('workSessionCalendarMonth').onchange=e=>{calendarCursor=new Date(calendarCursor.getFullYear(),Number(e.target.value)-1,1);renderCalendar()};
-  $('workSessionClearDates').onclick=()=>{selectedDates.clear();assignments={};renderCalendar();renderSessions()};
+  $('workSessionClearDates').onclick=()=>{selectedDates.clear();assignments={};sessionHosts={};renderCalendar();renderSessions()};
   return dlg;
 }
 function yearOptions(){
@@ -113,7 +115,7 @@ function renderTimes(){
   host.innerHTML=timeSlots.map((t,i)=>`<div class="session-composer-time-row" data-time-index="${i}"><label>開始<input type="time" value="${esc(t.start)}" data-time-start="${i}"></label><label>結束<input type="time" value="${esc(t.end)}" data-time-end="${i}" aria-describedby="workSessionEndHint-${i}"><small id="workSessionEndHint-${i}">未填則自動抓 1 小時</small></label><button type="button" class="ghost" data-time-remove="${i}" aria-label="刪除時段">×</button></div>`).join('');
   host.querySelectorAll('[data-time-start]').forEach(i=>i.onchange=()=>{timeSlots[Number(i.dataset.timeStart)].start=i.value;renderSessions()});
   host.querySelectorAll('[data-time-end]').forEach(i=>i.onchange=()=>{timeSlots[Number(i.dataset.timeEnd)].end=i.value;renderSessions()});
-  host.querySelectorAll('[data-time-remove]').forEach(b=>b.onclick=()=>{if(timeSlots.length===1)return alert('至少保留一個時段。');const idx=Number(b.dataset.timeRemove);timeSlots.splice(idx,1);assignments={};renderTimes();renderSessions()});
+  host.querySelectorAll('[data-time-remove]').forEach(b=>b.onclick=()=>{if(timeSlots.length===1)return alert('至少保留一個時段。');const idx=Number(b.dataset.timeRemove);timeSlots.splice(idx,1);assignments={};sessionHosts={};renderTimes();renderSessions()});
 }
 function selectedIds(date,ti,rk){return assignments[assignmentKey(date,ti,rk)]||[]}
 function togglePerson(date,ti,rk,pid){
@@ -125,8 +127,9 @@ function togglePerson(date,ti,rk,pid){
 function renderSessions(){
   const host=$('workSessionSessions'),roles=(activeWork?.roles||[]).filter(r=>txt(r.name)),dates=[...selectedDates].sort();
   if(!dates.length){host.innerHTML='<div class="empty-mini">先選日期，下面才會出現每一場的人員選單。</div>';updateSummary();return}
-  host.innerHTML=dates.flatMap(date=>timeSlots.map((t,ti)=>`<section class="session-composer-session"><header><strong>${fmtDate(date)}</strong><span>${esc(slotTimeText(t))}</span></header>${roles.map((r,ri)=>{const rk=roleKey(r,ri),sel=new Set(selectedIds(date,ti,rk));return`<div class="session-composer-role"><strong>${esc(r.name)}</strong><div class="session-composer-person-chips">${roleIds(r).map(pid=>`<button type="button" data-session-person="${esc(date)}|${ti}|${esc(rk)}|${esc(pid)}" class="${sel.has(pid)?'selected':''}">${esc(personName(pid))}</button>`).join('')||'<span class="empty-mini">尚未設定候選人</span>'}</div></div>`}).join('')}</section>`)).join('');
+  host.innerHTML=dates.flatMap(date=>timeSlots.map((t,ti)=>`<section class="session-composer-session"><header><strong>${fmtDate(date)}</strong><span>${esc(slotTimeText(t))}</span></header>${roles.map((r,ri)=>{const rk=roleKey(r,ri),sel=new Set(selectedIds(date,ti,rk));return`<div class="session-composer-role"><strong>${esc(r.name)}</strong><div class="session-composer-person-chips">${roleIds(r).map(pid=>`<button type="button" data-session-person="${esc(date)}|${ti}|${esc(rk)}|${esc(pid)}" class="${sel.has(pid)?'selected':''}">${esc(personName(pid))}</button>`).join('')||'<span class="empty-mini">尚未設定候選人</span>'}</div></div>`}).join('')}<label class="session-composer-host">主揪（本場次） <small>選填</small><input type="text" data-session-host="${esc(hostKey(date,ti))}" value="${esc(sessionHosts[hostKey(date,ti)]||'')}" placeholder="選填"></label></section>`)).join('');
   host.querySelectorAll('[data-session-person]').forEach(b=>b.onclick=()=>{const parts=b.dataset.sessionPerson.split('|'),date=parts[0],ti=Number(parts[1]),pid=parts.pop(),rk=parts.slice(2).join('|');togglePerson(date,ti,rk,pid)});
+  host.querySelectorAll('[data-session-host]').forEach(input=>input.oninput=()=>{sessionHosts[input.dataset.sessionHost]=input.value});
   updateSummary();
 }
 function updateSummary(){
@@ -141,10 +144,10 @@ async function open(){
   selectedDates=new Set();
   timeSlots=[{start:'11:00',end:''}];
   assignments={};
+  sessionHosts={};
   const now=new Date();
   calendarCursor=new Date(now.getFullYear(),now.getMonth(),1);
   $('workSessionComposerTitle').textContent=activeWork.name||activeWork.workName||'新增排班';
-  $('workSessionHost').value='';
   $('workSessionNote').value='';
   renderCalendar();renderTimes();renderSessions();
   $('workSessionComposerDialog').showModal();
@@ -197,13 +200,12 @@ async function save(e){
   if(timeSlots.some(t=>!t.start))return alert('請填寫開始時間。');
   const roles=(activeWork.roles||[]).filter(r=>txt(r.name));
   const note=txt($('workSessionNote').value);
-  const hostName=txt($('workSessionHost').value);
   const months=[...new Set(dates.map(d=>d.slice(0,7)))],monthRows=new Map();
   for(const mk of months){try{monthRows.set(mk,await V.loadMonth(mk))}catch(_){monthRows.set(mk,[])}}
   const working=[...monthRows.values()].flat().map(r=>({...r})),changes=[],conflicts=[];
   for(const date of dates){
     for(let ti=0;ti<timeSlots.length;ti++){
-      const t=timeSlots[ti],resolvedEnd=effectiveEnd(t.start,t.end),endWasExplicit=!!txt(t.end);
+      const t=timeSlots[ti],resolvedEnd=effectiveEnd(t.start,t.end),endWasExplicit=!!txt(t.end),hostName=txt(sessionHosts[hostKey(date,ti)]||'');
       for(let ri=0;ri<roles.length;ri++){
         const role=roles[ri],rk=roleKey(role,ri),ids=selectedIds(date,ti,rk);
         if(!ids.length)continue;
