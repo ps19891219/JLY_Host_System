@@ -27,6 +27,14 @@ function allowsVerifiedFirstLink(purpose) {
   return ["car_player_entry", "car_dm_entry"].includes(text(purpose).toLowerCase());
 }
 
+function allowsExistingIdentityRecovery(purpose) {
+  return [
+    "car_player_entry",
+    "car_dm_entry",
+    "work_schedule_staff_entry"
+  ].includes(text(purpose).toLowerCase());
+}
+
 async function exchangeAuthorizationCode(code) {
   const params = new URLSearchParams({
     grant_type: "authorization_code",
@@ -62,12 +70,25 @@ async function fetchLineProfile(accessToken) {
   return profile;
 }
 
+function recoveredLinkedProfile(document) {
+  const existingData = document.data() || {};
+  return {
+    profileId: document.id,
+    identityId: text(existingData.identityId),
+    displayName: text(existingData.displayName || existingData.nickname),
+    linked: true,
+    recovered: true,
+    provisional: false
+  };
+}
+
 async function linkPlayerProfile(profileId, identityId, lineProfile, options = {}) {
   const db = options.db || getFirestore();
   const duplicate = await db.collection("players")
     .where("lineUserId", "==", lineProfile.userId)
     .limit(1)
     .get();
+
   if (!profileId || !identityId) {
     if (duplicate.empty) {
       if (options.allowVerifiedFirstLink === true) {
@@ -84,17 +105,24 @@ async function linkPlayerProfile(profileId, identityId, lineProfile, options = {
       error.statusCode = 409;
       throw error;
     }
-    const existing = duplicate.docs[0];
-    const existingData = existing.data() || {};
-    return {
-      profileId: existing.id,
-      identityId: text(existingData.identityId),
-      displayName: text(existingData.displayName || existingData.nickname),
-      linked: true,
-      recovered: true,
-      provisional: false
-    };
+    return recoveredLinkedProfile(duplicate.docs[0]);
   }
+
+  /*
+   * A verified LINE OAuth login proves ownership of this LINE userId. Car entry
+   * and Work Schedule staff entry may reuse an already-linked canonical
+   * Player/Person identity instead of attempting to bind a temporary browser
+   * profile again. First-time provisional identities remain limited to car
+   * player/DM entry so staff access cannot create an unreviewed employee link.
+   */
+  if (
+    options.recoverExistingLinkedProfile === true &&
+    !duplicate.empty &&
+    duplicate.docs[0].id !== profileId
+  ) {
+    return recoveredLinkedProfile(duplicate.docs[0]);
+  }
+
   const profileRef = db.collection("players").doc(profileId);
   const target = await profileRef.get();
   if (!target.exists) {
@@ -178,8 +206,11 @@ function createHandler(dependencies = {}) {
     try {
       const accessToken = await exchange(code);
       const lineUser = await getProfile(accessToken);
+      const allowFirstLink = allowsVerifiedFirstLink(stateResult.data.purpose);
+      const recoverExisting = allowsExistingIdentityRecovery(stateResult.data.purpose);
       const linkResult = await link(profileId, identityId, lineUser, {
-        allowVerifiedFirstLink: allowsVerifiedFirstLink(stateResult.data.purpose)
+        allowVerifiedFirstLink: allowFirstLink,
+        recoverExistingLinkedProfile: recoverExisting
       });
       const memberSession = createMemberSession({
         profileId: linkResult.profileId,
@@ -213,3 +244,4 @@ module.exports = createHandler();
 module.exports.createHandler = createHandler;
 module.exports.linkPlayerProfile = linkPlayerProfile;
 module.exports.allowsVerifiedFirstLink = allowsVerifiedFirstLink;
+module.exports.allowsExistingIdentityRecovery = allowsExistingIdentityRecovery;
