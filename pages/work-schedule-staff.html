@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作室班表</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .staff-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.staff-toolbar button.active{font-weight:700}.staff-shift-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.staff-shift-card h3{margin:.55rem 0}.staff-shift-card p{line-height:1.65}.staff-actions{position:sticky;bottom:0;padding:10px 0;background:rgba(255,255,255,.96)}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="staffGate"><div class="card">正在確認 LINE 與工作室身分…</div></div>
+    <main id="staffApp" hidden>
+      <h1 id="staffStudioTitle">工作室班表</h1>
+      <p id="staffIdentity"></p>
+      <div class="staff-toolbar">
+        <button type="button" data-staff-view="all" class="active">全部班表</button>
+        <button type="button" data-staff-view="mine">只看我的</button>
+      </div>
+      <div id="staffMineActions" class="staff-actions" hidden>
+        <button id="staffSelectAll" type="button">全選</button>
+        <button id="staffClear" type="button" class="gray">清除</button>
+        <button id="staffSync" type="button">匯入 Google Calendar</button>
+        <small>只能匯入自己的班。重複匯入會更新同一筆事件。</small>
+      </div>
+      <div id="staffSchedule"></div>
+    </main>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="/js/line.js?v=3"></script>
+  <script src="/js/modules/calendar/calendar-config.js?v=1"></script>
+  <script src="/js/modules/calendar/calendar-auth.js?v=1"></script>
+  <script src="/js/modules/work-schedule/work-schedule-staff-page.js?v=1"></script>
+</body>
+</html>

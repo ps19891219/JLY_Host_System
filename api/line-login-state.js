@@ -26,7 +26,11 @@ function safeReturnPath(value) {
 
 function safePurpose(value) {
   const purpose = String(value || "").trim().toLowerCase();
-  return ["car_player_entry", "car_dm_entry"].includes(purpose)
+  return [
+    "car_player_entry",
+    "car_dm_entry",
+    "work_schedule_staff_entry"
+  ].includes(purpose)
     ? purpose
     : "";
 }
