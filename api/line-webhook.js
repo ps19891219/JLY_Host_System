@@ -2,15 +2,16 @@
 JLY Host System
 
 Module:
-LINE Messaging Webhook V1.2
+LINE Messaging Webhook V1.3
 
 Responsibilities:
 1. Receive webhook events from LINE Messaging API
 2. Verify LINE webhook signature
 3. Parse webhook events
 4. Route verified events to services/line/event-router.js
-5. Process membership health only for the affected LINE group
-6. Return HTTP 200 after successful processing
+5. Prioritize memberJoined welcome replies through a fast path
+6. Process membership health only for the affected LINE group
+7. Return HTTP 200 after successful processing
 
 Environment Variable:
 LINE_MESSAGING_CHANNEL_SECRET
@@ -20,6 +21,7 @@ LINE_MESSAGING_CHANNEL_SECRET
 
 const crypto = require("crypto");
 const { routeEvents } = require("../services/line/event-router");
+const { sendMemberJoinedWelcome } = require("../services/line/member-welcome-fastpath");
 const {
   processMembershipEvents
 } = require("../services/line/group-membership-event-service");
@@ -53,15 +55,27 @@ function verifyLineSignature(rawBody, signature, channelSecret) {
 
 async function processVerifiedEvents(events, dependencies = {}) {
   const route = dependencies.routeEvents || routeEvents;
+  const welcome = dependencies.sendMemberJoinedWelcome || sendMemberJoinedWelcome;
   const processMembership = dependencies.processMembershipEvents || processMembershipEvents;
+  const eventList = Array.isArray(events) ? events : [];
+  const routeResults = [];
 
   /*
-   * Reply-capable routing must run first. LINE reply tokens are time-sensitive,
-   * while roster-health bookkeeping is secondary work. A slow membership health
-   * update must never delay or suppress the memberJoined welcome reply.
+   * memberJoined replies use a dedicated fast path. They only need the group
+   * binding and can fall back to a generic card if car metadata is slow. This
+   * keeps LINE reply-token work ahead of all secondary routing/bookkeeping.
    */
-  const routeResults = await route(events);
-  const membershipResults = await processMembership(events);
+  for (const event of eventList) {
+    if (event && event.type === "memberJoined") {
+      routeResults.push(await welcome(event));
+      continue;
+    }
+
+    const routed = await route([event]);
+    if (Array.isArray(routed)) routeResults.push(...routed);
+  }
+
+  const membershipResults = await processMembership(eventList);
 
   return { routeResults, membershipResults };
 }
