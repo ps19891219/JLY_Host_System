@@ -165,14 +165,15 @@ module.exports = async function handler(req, res) {
         a.workName.localeCompare(b.workName, "zh-Hant")
       );
 
+    const cancelledOwnRows = rows.filter(row => row.status === "cancelled" && row.isMine);
+
     return send(res, 200, {
       success: true,
       studioName,
       displayName: text(verified.data.displayName),
       rows: rows.filter(row => row.status !== "cancelled"),
-      cancelledOwnShiftIds: rows
-        .filter(row => row.status === "cancelled" && row.isMine)
-        .map(row => row.id)
+      cancelledOwnShiftIds: cancelledOwnRows.map(row => row.id),
+      cancelledOwnRows
     });
   } catch (error) {
     console.error("Work Schedule staff context failed.", error);
