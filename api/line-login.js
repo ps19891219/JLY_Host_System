@@ -27,6 +27,14 @@ function allowsVerifiedFirstLink(purpose) {
   return ["car_player_entry", "car_dm_entry"].includes(text(purpose).toLowerCase());
 }
 
+function allowsExistingIdentityRecovery(purpose) {
+  return [
+    "car_player_entry",
+    "car_dm_entry",
+    "work_schedule_staff_entry"
+  ].includes(text(purpose).toLowerCase());
+}
+
 async function exchangeAuthorizationCode(code) {
   const params = new URLSearchParams({
     grant_type: "authorization_code",
@@ -101,12 +109,11 @@ async function linkPlayerProfile(profileId, identityId, lineProfile, options = {
   }
 
   /*
-   * A verified LINE OAuth login proves ownership of this LINE userId. During a
-   * car player/DM entry, an already-linked LINE account must reuse its existing
-   * canonical Player/Person identity instead of trying to bind the temporary
-   * entry profile again. This keeps one LINE identity attached to one existing
-   * profile and lets the current car flow continue through the original
-   * returnPath. Other login purposes retain the strict conflict error below.
+   * A verified LINE OAuth login proves ownership of this LINE userId. Car entry
+   * and Work Schedule staff entry may reuse an already-linked canonical
+   * Player/Person identity instead of attempting to bind a temporary browser
+   * profile again. First-time provisional identities remain limited to car
+   * player/DM entry so staff access cannot create an unreviewed employee link.
    */
   if (
     options.recoverExistingLinkedProfile === true &&
@@ -199,10 +206,11 @@ function createHandler(dependencies = {}) {
     try {
       const accessToken = await exchange(code);
       const lineUser = await getProfile(accessToken);
-      const isCarEntry = allowsVerifiedFirstLink(stateResult.data.purpose);
+      const allowFirstLink = allowsVerifiedFirstLink(stateResult.data.purpose);
+      const recoverExisting = allowsExistingIdentityRecovery(stateResult.data.purpose);
       const linkResult = await link(profileId, identityId, lineUser, {
-        allowVerifiedFirstLink: isCarEntry,
-        recoverExistingLinkedProfile: isCarEntry
+        allowVerifiedFirstLink: allowFirstLink,
+        recoverExistingLinkedProfile: recoverExisting
       });
       const memberSession = createMemberSession({
         profileId: linkResult.profileId,
@@ -236,3 +244,4 @@ module.exports = createHandler();
 module.exports.createHandler = createHandler;
 module.exports.linkPlayerProfile = linkPlayerProfile;
 module.exports.allowsVerifiedFirstLink = allowsVerifiedFirstLink;
+module.exports.allowsExistingIdentityRecovery = allowsExistingIdentityRecovery;
