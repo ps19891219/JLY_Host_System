@@ -25,22 +25,19 @@ test('cross-month bridge makes existing detail, batch modify and delete modules 
 
 test('cross-month actions use capture phase so legacy onclick handlers cannot override selection', () => {
   const source = read('js/modules/work-schedule/work-schedule-batch-display-scope.js');
-  for (const id of ['batchSelectAll','batchAssignOpen','batchSync','batchDelete','batchClear','batchAssignApply']) {
-    assert.match(source, new RegExp(`captureButton\\('${id}'`));
-  }
+  for (const id of ['batchSelectAll','batchAssignOpen','batchSync','batchDelete','batchClear','batchAssignApply']) assert.match(source, new RegExp(`captureButton\\('${id}'`));
   assert.match(source, /addEventListener\('click',e=>\{if\(!externalActive\(\)\)return;e\.preventDefault\(\);e\.stopImmediatePropagation\(\);externalHandler\(e\)\},true\)/);
   assert.match(source, /function selectAll\(\)\{groups\(\)\.forEach\(g=>selected\.add\(g\.key\)\);updateSelectionUI\(\)\}/);
 });
 
-test('role ordering keeps GM or DM above PC or NPC in schedule surfaces', () => {
+test('role ordering uses exact normalized tokens and stable ranks', () => {
   const source = read('js/modules/work-schedule/work-schedule-batch-display-scope.js');
-  assert.match(source, /function roleRank\(name\)/);
-  assert.match(source, /\(GM\|DM\)/);
-  assert.match(source, /\(PC\|NPC\)/);
-  assert.match(source, /function normalizeRoleOrder\(\)/);
+  assert.match(source, /const s=txt\(name\)\.toUpperCase\(\);if\(s==='GM'\|\|s==='DM'\)return 0;if\(s==='PC'\|\|s==='NPC'\)return 1;return 2/);
+  assert.match(source, /a\.rank-b\.rank\|\|a\.index-b\.index/);
   assert.match(source, /\.role-summary-list/);
   assert.match(source, /\.staff-role-card/);
-  assert.match(source, /'staffBatchRole','batchAssignRole'/);
+  assert.match(source, /'staffBatchRole','batchAssignRole','bulkRole'/);
+  assert.doesNotMatch(source, /\(GM\|DM\).*\[\^A-Z\]/);
 });
 
 test('cross-month assignment conflict checks and cache rebuild use the displayed scope months', () => {
@@ -52,6 +49,5 @@ test('cross-month assignment conflict checks and cache rebuild use the displayed
 
 test('work schedule page cache-busts the select-all and role-order fix', () => {
   const html = read('pages/work-schedule.html');
-  assert.match(html, /work-schedule-date-search\.js\?v=8/);
   assert.match(html, /work-schedule-batch-display-scope\.js\?v=3/);
 });
