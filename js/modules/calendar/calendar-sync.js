@@ -6,6 +6,12 @@
       .toISOString();
   }
 
+  function goneError(error) {
+    return /404|not found|resource has been deleted/i.test(
+      String(error?.message || error || "")
+    );
+  }
+
   async function syncCreatedCar(
     config
   ) {
@@ -152,28 +158,57 @@
           }
         );
 
-      const event =
-        await window
-          .JLYCalendarProviderGoogle
-          .updateEvent({
-            carId,
-            car,
+      const eventConfig = {
+        carId,
+        car,
 
-            eventId:
-              calendar.eventId,
+        eventId:
+          calendar.eventId,
 
-            calendarId:
-              calendar.calendarId ||
-              "primary",
+        calendarId:
+          calendar.calendarId ||
+          "primary",
 
-            durationMinutes:
-              calendar
-                .eventDurationMinutes ||
-              60,
+        durationMinutes:
+          calendar
+            .eventDurationMinutes ||
+          60,
 
-            carUrl:
-              config.carUrl
-          });
+        carUrl:
+          config.carUrl
+      };
+
+      let event;
+
+      try {
+        event =
+          await window
+            .JLYCalendarProviderGoogle
+            .updateEvent(
+              eventConfig
+            );
+      } catch (error) {
+        if (!goneError(error)) {
+          throw error;
+        }
+
+        event =
+          await window
+            .JLYCalendarProviderGoogle
+            .createEvent({
+              carId,
+              car,
+
+              calendarId:
+                eventConfig.calendarId,
+
+              durationMinutes:
+                eventConfig.durationMinutes,
+
+              carUrl:
+                eventConfig.carUrl
+            });
+      }
 
       const nextCalendar =
         await window
@@ -278,6 +313,14 @@
         skipped: false
       };
     } catch (error) {
+      if (goneError(error)) {
+        return {
+          ok: true,
+          skipped: false,
+          alreadyGone: true
+        };
+      }
+
       console.error(
         "Google Calendar 刪除失敗：",
         error
