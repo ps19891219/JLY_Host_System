@@ -205,6 +205,165 @@
     return verified;
   }
 
+  function eventTimeText(event) {
+    const start = String(
+      event?.start?.dateTime ||
+      event?.start?.date ||
+      ""
+    ).trim();
+    const end = String(
+      event?.end?.dateTime ||
+      event?.end?.date ||
+      ""
+    ).trim();
+
+    if (start && end) {
+      return `${start} → ${end}`;
+    }
+
+    return start || end || "Google 未回傳時間";
+  }
+
+  function carName(car) {
+    return String(
+      car?.activityName ||
+      car?.scriptName ||
+      car?.title ||
+      "未命名車團"
+    ).trim();
+  }
+
+  function showRepairDiagnostics(successItems, failedItems) {
+    const existing = document.getElementById(
+      "mycarGoogleRepairDiagnostics"
+    );
+
+    if (existing) {
+      existing.remove();
+    }
+
+    const panel = document.createElement("div");
+    panel.id = "mycarGoogleRepairDiagnostics";
+    panel.style.cssText = [
+      "position:fixed",
+      "inset:0",
+      "z-index:99999",
+      "background:rgba(0,0,0,.45)",
+      "display:flex",
+      "align-items:flex-end",
+      "justify-content:center",
+      "padding:16px"
+    ].join(";");
+
+    const card = document.createElement("div");
+    card.style.cssText = [
+      "width:min(680px,100%)",
+      "max-height:82vh",
+      "overflow:auto",
+      "background:#fff",
+      "border-radius:18px",
+      "padding:18px",
+      "box-sizing:border-box",
+      "box-shadow:0 14px 40px rgba(0,0,0,.22)"
+    ].join(";");
+
+    const title = document.createElement("h3");
+    title.textContent =
+      `Google 補登診斷｜成功 ${successItems.length} 台、失敗 ${failedItems.length} 台`;
+    title.style.margin = "0 0 14px";
+    card.appendChild(title);
+
+    successItems.forEach(function (item) {
+      const box = document.createElement("div");
+      box.style.cssText = [
+        "border:1px solid #ddd",
+        "border-radius:12px",
+        "padding:12px",
+        "margin:0 0 12px",
+        "word-break:break-word"
+      ].join(";");
+
+      const name = document.createElement("strong");
+      name.textContent = `✅ ${item.name}`;
+      box.appendChild(name);
+
+      const details = document.createElement("div");
+      details.style.cssText =
+        "margin-top:8px;font-size:13px;line-height:1.55;white-space:pre-wrap";
+      details.textContent =
+        `Car ID：${item.carId}\n` +
+        `Event ID：${item.eventId}\n` +
+        `Google 時間：${item.timeText}`;
+      box.appendChild(details);
+
+      if (item.eventUrl) {
+        const link = document.createElement("a");
+        link.href = item.eventUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "開啟 Google 事件";
+        link.style.cssText = [
+          "display:inline-block",
+          "margin-top:10px",
+          "padding:9px 12px",
+          "border-radius:10px",
+          "background:#f2f2f2",
+          "font-weight:700",
+          "text-decoration:none"
+        ].join(";");
+        box.appendChild(link);
+      } else {
+        const noLink = document.createElement("div");
+        noLink.textContent = "⚠️ Google 沒有回傳 eventUrl";
+        noLink.style.cssText =
+          "margin-top:10px;font-size:13px;font-weight:700";
+        box.appendChild(noLink);
+      }
+
+      card.appendChild(box);
+    });
+
+    if (failedItems.length) {
+      const failedTitle = document.createElement("h4");
+      failedTitle.textContent = "失敗明細";
+      failedTitle.style.margin = "16px 0 8px";
+      card.appendChild(failedTitle);
+
+      failedItems.forEach(function (item) {
+        const failed = document.createElement("div");
+        failed.textContent =
+          `❌ ${item.carId}：${item.message}`;
+        failed.style.cssText =
+          "font-size:13px;line-height:1.5;margin-bottom:8px;word-break:break-word";
+        card.appendChild(failed);
+      });
+    }
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "關閉";
+    close.style.cssText = [
+      "width:100%",
+      "margin-top:8px",
+      "padding:12px",
+      "border-radius:12px",
+      "font-weight:700"
+    ].join(";");
+    close.addEventListener("click", function () {
+      panel.remove();
+    });
+    card.appendChild(close);
+
+    panel.addEventListener("click", function (event) {
+      if (event.target === panel) {
+        panel.remove();
+      }
+    });
+
+    panel.appendChild(card);
+    document.body.appendChild(panel);
+  }
+
   async function repairOne(carId, car) {
     if (!car?.gameDate || !car?.gameTime) {
       throw new Error("車團尚未設定日期或時間");
@@ -328,7 +487,7 @@
     }
 
     const ids = Array.from(selectedCars);
-    let success = 0;
+    const succeeded = [];
     const failed = [];
 
     for (const carId of ids) {
@@ -348,8 +507,14 @@
           throw new Error("不是目前身分可修改的主揪車");
         }
 
-        await repairOne(carId, car);
-        success += 1;
+        const event = await repairOne(carId, car);
+        succeeded.push({
+          carId,
+          name: carName(car),
+          eventId: String(event?.id || "").trim(),
+          eventUrl: String(event?.htmlLink || "").trim(),
+          timeText: eventTimeText(event)
+        });
       } catch (error) {
         failed.push({
           carId,
@@ -364,19 +529,7 @@
       });
     }
 
-    const failedText = failed.length
-      ? `\n\n失敗 ${failed.length} 台：\n` +
-        failed
-          .map(
-            item =>
-              `• ${item.carId}：${item.message}`
-          )
-          .join("\n")
-      : "";
-
-    alert(
-      `Google 補登完成（已驗證）：成功 ${success} 台、失敗 ${failed.length} 台${failedText}`
-    );
+    showRepairDiagnostics(succeeded, failed);
   }
 
   function installBatchRepairButton() {
