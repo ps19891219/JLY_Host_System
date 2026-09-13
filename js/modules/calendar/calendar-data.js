@@ -47,24 +47,4 @@
     buildDefaultCalendarData,
     updateCarCalendar
   };
-
-  if (
-    typeof window !== "undefined" &&
-    /\/pages\/mycar\.html$/.test(window.location.pathname)
-  ) {
-    const persistGuard = document.createElement("script");
-    persistGuard.src = "/js/modules/calendar/mycar-calendar-persist-guard.js?v=2";
-    persistGuard.async = false;
-    document.head.appendChild(persistGuard);
-
-    const sourceGuard = document.createElement("script");
-    sourceGuard.src = "/js/modules/calendar/mycar-calendar-source-guard.js?v=2";
-    sourceGuard.async = false;
-    document.head.appendChild(sourceGuard);
-
-    const batchScope = document.createElement("script");
-    batchScope.src = "/js/mycar-batch-selection-scope.js?v=1";
-    batchScope.async = false;
-    document.head.appendChild(batchScope);
-  }
 })();
