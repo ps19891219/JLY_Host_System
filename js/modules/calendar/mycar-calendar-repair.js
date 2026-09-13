@@ -30,9 +30,15 @@
   }
 
   function goneError(error) {
-    return /404|not found|resource has been deleted/i.test(
+    return /404|410|not found|resource has been deleted/i.test(
       String(error?.message || error || "")
     );
+  }
+
+  function eventCarId(event) {
+    return String(
+      event?.extendedProperties?.private?.carId || ""
+    ).trim();
   }
 
   async function findExistingEvent(carId, car) {
@@ -46,11 +52,35 @@
 
     return (
       events.find(function (event) {
-        return String(
-          event?.extendedProperties?.private?.carId || ""
-        ) === String(carId);
+        return eventCarId(event) === String(carId);
       }) || null
     );
+  }
+
+  async function verifyRepairedEvent(carId, car, event) {
+    const provider = window.JLYCalendarProviderGoogle;
+    const expectedId = String(event?.id || "").trim();
+    const events = await provider.listEventsForDate(car.gameDate);
+
+    const verified =
+      events.find(function (candidate) {
+        const candidateId = String(candidate?.id || "").trim();
+        const sameCar = eventCarId(candidate) === String(carId);
+
+        if (expectedId) {
+          return candidateId === expectedId && sameCar;
+        }
+
+        return sameCar;
+      }) || null;
+
+    if (!verified?.id) {
+      throw new Error(
+        "Google 建立後驗證失敗：行事曆查不到這台車的活動"
+      );
+    }
+
+    return verified;
   }
 
   async function repairOne(carId, car) {
@@ -77,32 +107,42 @@
       lastError: ""
     });
 
-    let event = await findExistingEvent(carId, car);
+    try {
+      let event = await findExistingEvent(carId, car);
 
-    if (event?.id) {
-      event = await provider.updateEvent({
-        carId,
-        car,
-        eventId: event.id,
-        calendarId,
-        durationMinutes,
-        carUrl: carUrl(carId)
-      });
-    } else if (calendar.eventId) {
-      try {
+      if (event?.id) {
         event = await provider.updateEvent({
           carId,
           car,
-          eventId: calendar.eventId,
+          eventId: event.id,
           calendarId,
           durationMinutes,
           carUrl: carUrl(carId)
         });
-      } catch (error) {
-        if (!goneError(error)) {
-          throw error;
-        }
+      } else if (calendar.eventId) {
+        try {
+          event = await provider.updateEvent({
+            carId,
+            car,
+            eventId: calendar.eventId,
+            calendarId,
+            durationMinutes,
+            carUrl: carUrl(carId)
+          });
+        } catch (error) {
+          if (!goneError(error)) {
+            throw error;
+          }
 
+          event = await provider.createEvent({
+            carId,
+            car,
+            calendarId,
+            durationMinutes,
+            carUrl: carUrl(carId)
+          });
+        }
+      } else {
         event = await provider.createEvent({
           carId,
           car,
@@ -111,28 +151,32 @@
           carUrl: carUrl(carId)
         });
       }
-    } else {
-      event = await provider.createEvent({
-        carId,
-        car,
+
+      event = await verifyRepairedEvent(carId, car, event);
+
+      await data.updateCarCalendar(carId, {
+        syncEnabled: true,
         calendarId,
-        durationMinutes,
-        carUrl: carUrl(carId)
+        eventId: event.id,
+        eventUrl: event.htmlLink || calendar.eventUrl || "",
+        eventDurationMinutes: durationMinutes,
+        syncStatus: "synced",
+        lastSyncAt: new Date().toISOString(),
+        lastError: ""
       });
+
+      return event;
+    } catch (error) {
+      await data.updateCarCalendar(carId, {
+        syncEnabled: true,
+        calendarId,
+        syncStatus: "error",
+        lastSyncAt: new Date().toISOString(),
+        lastError: error?.message || "Google 補登驗證失敗"
+      });
+
+      throw error;
     }
-
-    await data.updateCarCalendar(carId, {
-      syncEnabled: true,
-      calendarId,
-      eventId: event?.id || calendar.eventId || "",
-      eventUrl: event?.htmlLink || calendar.eventUrl || "",
-      eventDurationMinutes: durationMinutes,
-      syncStatus: "synced",
-      lastSyncAt: new Date().toISOString(),
-      lastError: ""
-    });
-
-    return event;
   }
 
   async function repairSelectedCars() {
@@ -204,7 +248,7 @@
       : "";
 
     alert(
-      `Google 補登完成：成功 ${success} 台、失敗 ${failed.length} 台${failedText}`
+      `Google 補登完成（已驗證）：成功 ${success} 台、失敗 ${failed.length} 台${failedText}`
     );
   }
 
