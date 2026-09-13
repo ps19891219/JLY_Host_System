@@ -85,25 +85,125 @@
     return official;
   }
 
-  function buildConfirmation(official) {
-    const lines = [
-      "請核對 JLY 正式車團資料：",
-      "",
-      "以下日期／時間只讀取 cars/{carId}，不使用 Google 同名事件或 Work Schedule 推測。",
-      ""
-    ];
+  function showOfficialConfirmation(official, originalButton) {
+    const old = document.getElementById("mycarGoogleSourceGuardPanel");
+    if (old) {
+      old.remove();
+    }
+
+    const panel = document.createElement("div");
+    panel.id = "mycarGoogleSourceGuardPanel";
+    panel.style.cssText = [
+      "position:fixed",
+      "inset:0",
+      "z-index:100000",
+      "background:rgba(0,0,0,.45)",
+      "display:flex",
+      "align-items:flex-end",
+      "justify-content:center",
+      "padding:16px",
+      "box-sizing:border-box"
+    ].join(";");
+
+    const card = document.createElement("div");
+    card.style.cssText = [
+      "width:min(680px,100%)",
+      "max-height:82vh",
+      "overflow:auto",
+      "background:#fff",
+      "border-radius:18px",
+      "padding:18px",
+      "box-sizing:border-box",
+      "box-shadow:0 14px 40px rgba(0,0,0,.22)"
+    ].join(";");
+
+    const title = document.createElement("h3");
+    title.textContent = "請核對 JLY 正式車團資料";
+    title.style.margin = "0 0 8px";
+    card.appendChild(title);
+
+    const note = document.createElement("div");
+    note.textContent =
+      "以下日期／時間只讀取 Firestore cars/{carId}，不使用 Google 同名事件或 Work Schedule 推測。";
+    note.style.cssText =
+      "font-size:13px;line-height:1.55;margin-bottom:14px;color:#555";
+    card.appendChild(note);
 
     official.forEach(function (item) {
-      lines.push(
-        `🎭 ${item.name}`,
-        `${item.gameDate} ${item.gameTime}｜${item.durationMinutes} 分鐘`,
-        `Car ID：${item.carId}`,
-        ""
-      );
+      const box = document.createElement("div");
+      box.style.cssText = [
+        "border:1px solid #ddd",
+        "border-radius:12px",
+        "padding:12px",
+        "margin-bottom:10px",
+        "line-height:1.55",
+        "word-break:break-word"
+      ].join(";");
+
+      const name = document.createElement("strong");
+      name.textContent = `🎭 ${item.name}`;
+      box.appendChild(name);
+
+      const details = document.createElement("div");
+      details.textContent =
+        `${item.gameDate} ${item.gameTime}｜${item.durationMinutes} 分鐘\n` +
+        `Car ID：${item.carId}`;
+      details.style.cssText =
+        "margin-top:6px;font-size:13px;white-space:pre-wrap";
+      box.appendChild(details);
+      card.appendChild(box);
     });
 
-    lines.push("確認以上資料正確後，才會開始 Google 補登。");
-    return lines.join("\n");
+    const action = originalButton;
+    action.id = "batchGoogleRepairConfirmedButton";
+    action.disabled = false;
+    action.textContent = "確認資料正確，補登 Google";
+    action.style.cssText = [
+      "width:100%",
+      "margin-top:8px",
+      "padding:13px",
+      "border:0",
+      "border-radius:12px",
+      "font-weight:800",
+      "font-size:16px"
+    ].join(";");
+
+    action.addEventListener(
+      "click",
+      function closePanelAfterTrustedClick() {
+        setTimeout(function () {
+          if (panel.isConnected) {
+            panel.remove();
+          }
+        }, 0);
+      },
+      { once: true }
+    );
+    card.appendChild(action);
+
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "取消";
+    cancel.style.cssText = [
+      "width:100%",
+      "margin-top:10px",
+      "padding:12px",
+      "border-radius:12px",
+      "font-weight:700"
+    ].join(";");
+    cancel.addEventListener("click", function () {
+      panel.remove();
+    });
+    card.appendChild(cancel);
+
+    panel.addEventListener("click", function (event) {
+      if (event.target === panel) {
+        panel.remove();
+      }
+    });
+
+    panel.appendChild(card);
+    document.body.appendChild(panel);
   }
 
   function installGuard() {
@@ -133,15 +233,7 @@
         const ids = Array.from(selectedCars);
         const official = await readOfficialCars(ids);
 
-        const approved = window.confirm(
-          buildConfirmation(official)
-        );
-
-        if (!approved) {
-          return;
-        }
-
-        originalButton.click();
+        showOfficialConfirmation(official, originalButton);
       } catch (error) {
         console.error("Google 補登來源驗證失敗：", error);
         alert(
