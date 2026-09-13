@@ -56,5 +56,10 @@
     script.src = "/js/modules/calendar/mycar-calendar-source-guard.js?v=2";
     script.async = false;
     document.head.appendChild(script);
+
+    const selectionScript = document.createElement("script");
+    selectionScript.src = "/js/mycar-batch-selection-scope.js?v=1";
+    selectionScript.async = false;
+    document.head.appendChild(selectionScript);
   }
 })();
