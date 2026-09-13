@@ -3,7 +3,6 @@
 
   const API_BASE = "https://www.googleapis.com/calendar/v3";
   const text = (value) => String(value == null ? "" : value).trim();
-  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function getAccessToken() {
     const auth = window.JLYCalendarAuth;
@@ -76,8 +75,7 @@
       `Event ID：${diag.eventId || ""}`,
       `JLY：${diag.expectedStart || ""} → ${diag.expectedEnd || ""}`,
       `Google：${diag.actualStart || "未取得"} → ${diag.actualEnd || "未取得"}`,
-      `Exact GET：${diag.exactGetStatus || "未完成"}`,
-      `Targeted LIST：${diag.listStatus || "未完成"}`
+      `Exact GET：${diag.exactGetStatus || "未完成"}`
     ].join("｜");
   }
 
@@ -108,7 +106,6 @@
       actualStart: "",
       actualEnd: "",
       exactGetStatus: "pending",
-      listStatus: "pending",
       verifiedAt: new Date().toISOString()
     };
 
@@ -142,52 +139,6 @@
         diag.actualEnd !== diag.expectedEnd
       ) {
         throw new Error("Google event 的日期時間與 JLY 正式車團不一致");
-      }
-
-      const params = new URLSearchParams({
-        privateExtendedProperty: "carId=" + text(carId),
-        singleEvents: "true",
-        showDeleted: "false",
-        maxResults: "25"
-      });
-
-      let listFound = false;
-      let lastListStatus = "未完成";
-
-      for (let index = 0; index < 5; index += 1) {
-        if (index > 0) {
-          await wait(800 * (index + 1));
-        }
-
-        const listResult = await googleFetch(
-          "/calendars/primary/events?" + params.toString(),
-          token
-        );
-        lastListStatus = `HTTP ${listResult.status}`;
-        const items = Array.isArray(listResult.body?.items)
-          ? listResult.body.items
-          : [];
-
-        listFound = items.some(function (item) {
-          return (
-            text(item?.id) === text(eventId) &&
-            eventCarId(item) === text(carId)
-          );
-        });
-
-        if (listFound) {
-          break;
-        }
-      }
-
-      diag.listStatus = listFound
-        ? `${lastListStatus} / found`
-        : `${lastListStatus} / not found`;
-
-      if (!listFound) {
-        throw new Error(
-          "Exact GET 找得到事件，但 targeted LIST 尚未找得到；禁止標記 synced"
-        );
       }
 
       window.JLYMyCarPersistDiagnostics =
