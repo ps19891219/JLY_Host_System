@@ -88,6 +88,13 @@
 
     <button
       type="button"
+      onclick="startGoogleCalendarRepairMode()"
+    >
+      📅 補登 Google
+    </button>
+
+    <button
+      type="button"
     >
       📁 已取消車團
     </button>
@@ -332,6 +339,7 @@
 <script
   src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"
 ></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <script src="/firebase/firebase.js?v=39"></script>
 <script src="/js/carStatus.js?v=3"></script>
@@ -342,7 +350,13 @@
 <script src="../js/car/car-relations.js"></script>
 <script src="../js/recruit/recruit-share-data.js"></script>
 <script src="../js/recruit/recruit-share.js"></script>
+<script src="/js/modules/calendar/calendar-config.js?v=1"></script>
+<script src="/js/modules/calendar/calendar-auth.js?v=1"></script>
+<script src="/js/modules/calendar/calendar-provider-google.js?v=2"></script>
+<script src="/js/modules/calendar/calendar-data.js?v=1"></script>
+<script src="/js/modules/calendar/calendar-sync.js?v=3"></script>
 <script src="/js/mycar.js?v=48"></script>
+<script src="/js/modules/calendar/mycar-calendar-repair.js?v=1"></script>
 <script src="/js/data-view/mycar-view-existence-repair.js?v=2"></script>
 
 <script>
