@@ -1,6 +1,9 @@
 (function () {
   "use strict";
 
+  const GOOGLE_CALENDAR_API =
+    "https://www.googleapis.com/calendar/v3";
+
   function getActorId() {
     if (
       window.JLYIdentity &&
@@ -41,7 +44,13 @@
     ).trim();
   }
 
-  async function findExistingEvent(carId, car) {
+  function configuredCalendarId() {
+    return String(
+      window.JLYCalendarConfig?.calendarId || "primary"
+    ).trim() || "primary";
+  }
+
+  async function findExistingEvent(carId, car, calendarId) {
     const provider = window.JLYCalendarProviderGoogle;
 
     if (!provider || !car?.gameDate) {
@@ -57,26 +66,75 @@
     );
   }
 
-  async function verifyRepairedEvent(carId, car, event) {
-    const provider = window.JLYCalendarProviderGoogle;
-    const expectedId = String(event?.id || "").trim();
-    const events = await provider.listEventsForDate(car.gameDate);
+  async function getEventById(calendarId, eventId) {
+    const auth = window.JLYCalendarAuth;
+    const cleanEventId = String(eventId || "").trim();
 
-    const verified =
-      events.find(function (candidate) {
-        const candidateId = String(candidate?.id || "").trim();
-        const sameCar = eventCarId(candidate) === String(carId);
+    if (!auth || typeof auth.requestAccessToken !== "function") {
+      throw new Error("Google Calendar 授權模組尚未載入");
+    }
 
-        if (expectedId) {
-          return candidateId === expectedId && sameCar;
+    if (!cleanEventId) {
+      throw new Error("Google 建立後沒有回傳 eventId");
+    }
+
+    const token = await auth.requestAccessToken();
+    const url =
+      `${GOOGLE_CALENDAR_API}/calendars/` +
+      `${encodeURIComponent(calendarId)}/events/` +
+      encodeURIComponent(cleanEventId);
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: "Bearer " + token
+      }
+    });
+
+    if (!response.ok) {
+      let message =
+        `Google 建立後驗證失敗（${response.status}）`;
+
+      try {
+        const body = await response.json();
+        if (body?.error?.message) {
+          message += `：${body.error.message}`;
         }
+      } catch (error) {
+        // 保留狀態碼訊息
+      }
 
-        return sameCar;
-      }) || null;
+      throw new Error(message);
+    }
+
+    return response.json();
+  }
+
+  async function verifyRepairedEvent(
+    carId,
+    calendarId,
+    event
+  ) {
+    const expectedId = String(event?.id || "").trim();
+    const verified = await getEventById(
+      calendarId,
+      expectedId
+    );
 
     if (!verified?.id) {
       throw new Error(
-        "Google 建立後驗證失敗：行事曆查不到這台車的活動"
+        "Google 建立後驗證失敗：查不到建立後的活動"
+      );
+    }
+
+    if (String(verified.id) !== expectedId) {
+      throw new Error(
+        "Google 建立後驗證失敗：eventId 不一致"
+      );
+    }
+
+    if (eventCarId(verified) !== String(carId)) {
+      throw new Error(
+        "Google 建立後驗證失敗：活動與車團 ID 不一致"
       );
     }
 
@@ -96,19 +154,24 @@
     }
 
     const calendar = car.calendar || {};
-    const calendarId = calendar.calendarId || "primary";
+    const calendarId = configuredCalendarId();
     const durationMinutes = Number(
       calendar.eventDurationMinutes || 60
     );
 
     await data.updateCarCalendar(carId, {
       syncEnabled: true,
+      calendarId,
       syncStatus: "syncing",
       lastError: ""
     });
 
     try {
-      let event = await findExistingEvent(carId, car);
+      let event = await findExistingEvent(
+        carId,
+        car,
+        calendarId
+      );
 
       if (event?.id) {
         event = await provider.updateEvent({
@@ -152,7 +215,11 @@
         });
       }
 
-      event = await verifyRepairedEvent(carId, car, event);
+      event = await verifyRepairedEvent(
+        carId,
+        calendarId,
+        event
+      );
 
       await data.updateCarCalendar(carId, {
         syncEnabled: true,
