@@ -1,30 +1,40 @@
 (function () {
   "use strict";
 
-  const GOOGLE_CALENDAR_API =
-    "https://www.googleapis.com/calendar/v3";
+  const API_BASE = "https://www.googleapis.com/calendar/v3";
+  const CALENDAR_ID = "primary";
+
+  function text(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
+  function nowIso() {
+    return new Date().toISOString();
+  }
 
   function getActorId() {
     if (
       window.JLYIdentity &&
       typeof window.JLYIdentity.getCurrentPlayerId === "function"
     ) {
-      return String(
-        window.JLYIdentity.getCurrentPlayerId() || ""
-      ).trim();
+      return text(window.JLYIdentity.getCurrentPlayerId());
     }
 
-    return String(
-      localStorage.getItem("currentPlayerId") || ""
-    ).trim();
+    return text(localStorage.getItem("currentPlayerId"));
   }
 
   function isEditableCar(car, actorId) {
-    const ownerId = String(car?.ownerId || "").trim();
-    const legacyHost = !ownerId && car?.isHost === true;
+    const ownerId = text(car && car.ownerId);
     return Boolean(
       actorId &&
-      (ownerId === actorId || legacyHost)
+      (ownerId === actorId || (!ownerId && car && car.isHost === true))
+    );
+  }
+
+  function carName(car) {
+    return text(
+      (car && (car.activityName || car.scriptName || car.title)) ||
+      "未命名車團"
     );
   }
 
@@ -32,227 +42,285 @@
     return `${location.origin}/pages/car-detail.html?id=${encodeURIComponent(carId)}`;
   }
 
-  function goneError(error) {
-    return /404|410|not found|resource has been deleted/i.test(
-      String(error?.message || error || "")
-    );
-  }
-
   function eventCarId(event) {
-    return String(
-      event?.extendedProperties?.private?.carId || ""
-    ).trim();
+    return text(event?.extendedProperties?.private?.carId);
   }
 
-  function configuredCalendarId() {
-    return String(
-      window.JLYCalendarConfig?.calendarId || "primary"
-    ).trim() || "primary";
+  function eventSourceModule(event) {
+    return text(event?.extendedProperties?.private?.sourceModule);
   }
 
-  async function getPrimaryCalendarIdentity() {
-    const auth = window.JLYCalendarAuth;
-
-    if (!auth || typeof auth.requestAccessToken !== "function") {
-      throw new Error("Google Calendar 授權模組尚未載入");
-    }
-
-    const token = await auth.requestAccessToken();
-    const response = await fetch(
-      `${GOOGLE_CALENDAR_API}/calendars/primary`,
-      {
-        headers: {
-          Authorization: "Bearer " + token
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `無法確認目前 Google 行事曆帳號（${response.status}）`
-      );
-    }
-
-    return response.json();
-  }
-
-  async function confirmGoogleAccount() {
-    const auth = window.JLYCalendarAuth;
-    let info = await getPrimaryCalendarIdentity();
-    let accountLabel = String(
-      info?.id || info?.summary || "目前 Google 帳號"
-    ).trim();
-
-    const accepted = window.confirm(
-      `這次會補登到：\n${accountLabel}\n\n` +
-      "確認用這個 Google 帳號補登嗎？"
-    );
-
-    if (accepted) {
-      return info;
-    }
-
-    if (typeof auth.clearToken === "function") {
-      auth.clearToken();
-    }
-
-    await auth.requestAccessToken({ selectAccount: true });
-    info = await getPrimaryCalendarIdentity();
-    accountLabel = String(
-      info?.id || info?.summary || "目前 Google 帳號"
-    ).trim();
-
-    const acceptedAfterRetry = window.confirm(
-      `重新選擇後的 Google 行事曆：\n${accountLabel}\n\n` +
-      "確認用這個帳號補登嗎？"
-    );
-
-    if (!acceptedAfterRetry) {
-      throw new Error("已取消補登：Google 行事曆帳號未確認");
-    }
-
-    return info;
-  }
-
-  async function findExistingEvent(carId, car) {
-    const provider = window.JLYCalendarProviderGoogle;
-
-    if (!provider || !car?.gameDate) {
-      return null;
-    }
-
-    const events = await provider.listEventsForDate(car.gameDate);
-
-    return (
-      events.find(function (event) {
-        return eventCarId(event) === String(carId);
-      }) || null
+  function belongsToMyCar(event, carId) {
+    return Boolean(
+      event &&
+      event.id &&
+      event.status !== "cancelled" &&
+      eventCarId(event) === String(carId) &&
+      (!eventSourceModule(event) || eventSourceModule(event) === "host")
     );
   }
 
-  async function getEventById(calendarId, eventId) {
-    const auth = window.JLYCalendarAuth;
-    const cleanEventId = String(eventId || "").trim();
-
-    if (!auth || typeof auth.requestAccessToken !== "function") {
-      throw new Error("Google Calendar 授權模組尚未載入");
-    }
-
-    if (!cleanEventId) {
-      throw new Error("Google 建立後沒有回傳 eventId");
-    }
-
-    const token = await auth.requestAccessToken();
-    const url =
-      `${GOOGLE_CALENDAR_API}/calendars/` +
-      `${encodeURIComponent(calendarId)}/events/` +
-      encodeURIComponent(cleanEventId);
-
+  async function googleFetch(token, url) {
     const response = await fetch(url, {
       headers: {
         Authorization: "Bearer " + token
       }
     });
 
-    if (!response.ok) {
-      let message =
-        `Google 建立後驗證失敗（${response.status}）`;
+    let body = null;
+    try {
+      body = await response.json();
+    } catch (error) {
+      // 204 或沒有 JSON 時保留 null。
+    }
 
-      try {
-        const body = await response.json();
-        if (body?.error?.message) {
-          message += `：${body.error.message}`;
-        }
-      } catch (error) {
-        // 保留狀態碼訊息
-      }
+    return {
+      ok: response.ok,
+      status: response.status,
+      body
+    };
+  }
 
+  async function readPrimaryCalendar(token) {
+    const result = await googleFetch(
+      token,
+      `${API_BASE}/calendars/primary`
+    );
+
+    if (!result.ok) {
+      throw new Error(
+        `無法讀取 Google 主要行事曆（${result.status}）`
+      );
+    }
+
+    return result.body || {};
+  }
+
+  async function getExactEvent(token, eventId) {
+    const cleanId = text(eventId);
+    if (!cleanId) {
+      return {
+        found: false,
+        status: 0,
+        event: null
+      };
+    }
+
+    const result = await googleFetch(
+      token,
+      `${API_BASE}/calendars/${encodeURIComponent(CALENDAR_ID)}/events/${encodeURIComponent(cleanId)}`
+    );
+
+    if (result.status === 404 || result.status === 410) {
+      return {
+        found: false,
+        status: result.status,
+        event: result.body || null
+      };
+    }
+
+    if (!result.ok) {
+      const message = text(result.body?.error?.message) ||
+        `Google Calendar API 錯誤（${result.status}）`;
       throw new Error(message);
     }
 
-    return response.json();
+    return {
+      found: true,
+      status: result.status,
+      event: result.body || null
+    };
   }
 
-  async function verifyRepairedEvent(
-    carId,
-    calendarId,
-    event
-  ) {
-    const expectedId = String(event?.id || "").trim();
-    const verified = await getEventById(
-      calendarId,
-      expectedId
-    );
-
-    if (!verified?.id) {
-      throw new Error(
-        "Google 建立後驗證失敗：查不到建立後的活動"
-      );
+  async function readOfficialCars(ids) {
+    if (!window.db) {
+      throw new Error("Firebase 尚未載入");
     }
 
-    if (String(verified.id) !== expectedId) {
-      throw new Error(
-        "Google 建立後驗證失敗：eventId 不一致"
-      );
+    const actorId = getActorId();
+    if (!actorId) {
+      throw new Error("請先登入 JLY 身分");
     }
 
-    if (eventCarId(verified) !== String(carId)) {
-      throw new Error(
-        "Google 建立後驗證失敗：活動與車團 ID 不一致"
-      );
+    const items = [];
+
+    for (const carId of ids) {
+      const snapshot = await window.db
+        .collection("cars")
+        .doc(carId)
+        .get();
+
+      if (!snapshot.exists) {
+        throw new Error(`找不到正式車團資料：${carId}`);
+      }
+
+      const car = snapshot.data() || {};
+      if (!isEditableCar(car, actorId)) {
+        throw new Error(`這台不是目前身分可修改的主揪車：${carId}`);
+      }
+
+      const gameDate = text(car.gameDate);
+      const gameTime = text(car.gameTime);
+      if (!gameDate || !gameTime) {
+        throw new Error(
+          `正式車團缺少日期或時間，禁止同步：${carName(car)}｜${carId}`
+        );
+      }
+
+      items.push({
+        carId,
+        car,
+        name: carName(car),
+        gameDate,
+        gameTime,
+        durationMinutes: Number(
+          car.calendar?.eventDurationMinutes ||
+          car.eventDurationMinutes ||
+          60
+        ) || 60
+      });
     }
 
-    return verified;
+    return items;
   }
 
-  function eventTimeText(event) {
-    const start = String(
-      event?.start?.dateTime ||
-      event?.start?.date ||
-      ""
-    ).trim();
-    const end = String(
-      event?.end?.dateTime ||
-      event?.end?.date ||
-      ""
-    ).trim();
-
-    if (start && end) {
-      return `${start} → ${end}`;
+  async function updateCalendarState(carId, patch) {
+    if (
+      !window.JLYCalendarData ||
+      typeof window.JLYCalendarData.updateCarCalendar !== "function"
+    ) {
+      throw new Error("Calendar Data 模組尚未載入");
     }
 
-    return start || end || "Google 未回傳時間";
+    return window.JLYCalendarData.updateCarCalendar(carId, patch);
   }
 
-  function carName(car) {
-    return String(
-      car?.activityName ||
-      car?.scriptName ||
-      car?.title ||
-      "未命名車團"
-    ).trim();
+  async function findCurrentEvent(token, item) {
+    const storedId = text(item.car?.calendar?.eventId);
+
+    if (storedId) {
+      const exact = await getExactEvent(token, storedId);
+      if (
+        exact.found &&
+        belongsToMyCar(exact.event, item.carId)
+      ) {
+        return exact.event;
+      }
+    }
+
+    const provider = window.JLYCalendarProviderGoogle;
+    if (
+      !provider ||
+      typeof provider.listEventsForDate !== "function"
+    ) {
+      throw new Error("Google Calendar Provider 尚未載入");
+    }
+
+    const events = await provider.listEventsForDate(item.gameDate);
+    return events.find(function (event) {
+      return belongsToMyCar(event, item.carId);
+    }) || null;
   }
 
-  function showRepairDiagnostics(successItems, failedItems) {
-    const existing = document.getElementById(
-      "mycarGoogleRepairDiagnostics"
-    );
+  async function syncOne(token, item) {
+    const provider = window.JLYCalendarProviderGoogle;
+    if (!provider) {
+      throw new Error("Google Calendar Provider 尚未載入");
+    }
 
-    if (existing) {
-      existing.remove();
+    const currentCalendar = item.car.calendar || {};
+
+    await updateCalendarState(item.carId, {
+      syncEnabled: true,
+      calendarId: CALENDAR_ID,
+      syncStatus: "syncing",
+      lastError: ""
+    });
+
+    try {
+      const currentEvent = await findCurrentEvent(token, item);
+      let event;
+
+      const config = {
+        carId: item.carId,
+        car: item.car,
+        calendarId: CALENDAR_ID,
+        durationMinutes: item.durationMinutes,
+        carUrl: carUrl(item.carId)
+      };
+
+      if (currentEvent?.id) {
+        event = await provider.updateEvent({
+          ...config,
+          eventId: currentEvent.id
+        });
+      } else {
+        event = await provider.createEvent(config);
+      }
+
+      const returnedId = text(event?.id);
+      if (!returnedId) {
+        throw new Error("Google 沒有回傳 eventId");
+      }
+
+      const verification = await getExactEvent(token, returnedId);
+      if (!verification.found || !verification.event) {
+        throw new Error(
+          `Google 事件建立／更新後無法讀回（${verification.status || "unknown"}）`
+        );
+      }
+
+      const verified = verification.event;
+      if (!belongsToMyCar(verified, item.carId)) {
+        throw new Error("Google 事件驗證失敗：活動與 JLY 車團不一致");
+      }
+
+      await updateCalendarState(item.carId, {
+        syncEnabled: true,
+        calendarId: CALENDAR_ID,
+        eventId: verified.id,
+        eventUrl: text(verified.htmlLink),
+        eventDurationMinutes: item.durationMinutes,
+        syncStatus: "synced",
+        lastSyncAt: nowIso(),
+        lastVerifiedAt: nowIso(),
+        googleEventStatus: text(verified.status),
+        organizerEmail: text(verified.organizer?.email),
+        creatorEmail: text(verified.creator?.email),
+        lastError: ""
+      });
+
+      return verified;
+    } catch (error) {
+      await updateCalendarState(item.carId, {
+        syncEnabled: true,
+        calendarId: CALENDAR_ID,
+        syncStatus: "error",
+        lastSyncAt: nowIso(),
+        lastError: error?.message || "Google Calendar 同步失敗"
+      });
+      throw error;
+    }
+  }
+
+  function createOverlay() {
+    const old = document.getElementById("mycarGoogleUnifiedPanel");
+    if (old) {
+      old.remove();
     }
 
     const panel = document.createElement("div");
-    panel.id = "mycarGoogleRepairDiagnostics";
+    panel.id = "mycarGoogleUnifiedPanel";
     panel.style.cssText = [
       "position:fixed",
       "inset:0",
-      "z-index:99999",
+      "z-index:100000",
       "background:rgba(0,0,0,.45)",
       "display:flex",
       "align-items:flex-end",
       "justify-content:center",
-      "padding:16px"
+      "padding:16px",
+      "box-sizing:border-box"
     ].join(";");
 
     const card = document.createElement("div");
@@ -267,368 +335,240 @@
       "box-shadow:0 14px 40px rgba(0,0,0,.22)"
     ].join(";");
 
+    panel.appendChild(card);
+    document.body.appendChild(panel);
+    return { panel, card };
+  }
+
+  function showConfirmation(account, items, onConfirm) {
+    const ui = createOverlay();
+    const title = document.createElement("h3");
+    title.textContent = "確認同步到 Google Calendar";
+    title.style.margin = "0 0 8px";
+    ui.card.appendChild(title);
+
+    const note = document.createElement("div");
+    const accountLabel = text(account?.id || account?.summary) || "primary";
+    note.textContent =
+      `Google：${accountLabel}\n` +
+      "日期與時間只讀取 Firestore cars/{carId}，不使用 Google 同名活動、Work Schedule 或聊天內容推測。";
+    note.style.cssText =
+      "font-size:13px;line-height:1.55;white-space:pre-wrap;color:#555;margin-bottom:14px";
+    ui.card.appendChild(note);
+
+    items.forEach(function (item) {
+      const box = document.createElement("div");
+      box.style.cssText =
+        "border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:10px;white-space:pre-wrap;word-break:break-word";
+      box.textContent =
+        `🎭 ${item.name}\n${item.gameDate} ${item.gameTime}｜${item.durationMinutes} 分鐘\nCar ID：${item.carId}`;
+      ui.card.appendChild(box);
+    });
+
+    const confirmButton = document.createElement("button");
+    confirmButton.type = "button";
+    confirmButton.textContent = `確認同步 ${items.length} 台車`;
+    confirmButton.style.cssText =
+      "width:100%;padding:13px;border:0;border-radius:12px;font-weight:800;font-size:16px";
+    confirmButton.addEventListener("click", function () {
+      ui.panel.remove();
+      onConfirm();
+    });
+    ui.card.appendChild(confirmButton);
+
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "取消";
+    cancel.style.cssText =
+      "width:100%;margin-top:10px;padding:12px;border-radius:12px;font-weight:700";
+    cancel.addEventListener("click", function () {
+      ui.panel.remove();
+    });
+    ui.card.appendChild(cancel);
+  }
+
+  function eventTimeText(event) {
+    const start = text(event?.start?.dateTime || event?.start?.date);
+    const end = text(event?.end?.dateTime || event?.end?.date);
+    return start && end ? `${start} → ${end}` : (start || end || "Google 未回傳時間");
+  }
+
+  function showResults(successes, failures) {
+    const ui = createOverlay();
     const title = document.createElement("h3");
     title.textContent =
-      `Google 補登診斷｜成功 ${successItems.length} 台、失敗 ${failedItems.length} 台`;
+      `Google 同步結果｜成功 ${successes.length} 台、失敗 ${failures.length} 台`;
     title.style.margin = "0 0 14px";
-    card.appendChild(title);
+    ui.card.appendChild(title);
 
-    successItems.forEach(function (item) {
+    successes.forEach(function (item) {
       const box = document.createElement("div");
-      box.style.cssText = [
-        "border:1px solid #ddd",
-        "border-radius:12px",
-        "padding:12px",
-        "margin:0 0 12px",
-        "word-break:break-word"
-      ].join(";");
-
-      const name = document.createElement("strong");
-      name.textContent = `✅ ${item.name}`;
-      box.appendChild(name);
+      box.style.cssText =
+        "border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:10px;word-break:break-word";
 
       const details = document.createElement("div");
-      details.style.cssText =
-        "margin-top:8px;font-size:13px;line-height:1.55;white-space:pre-wrap";
+      details.style.cssText = "white-space:pre-wrap;font-size:13px;line-height:1.55";
       details.textContent =
-        `Car ID：${item.carId}\n` +
-        `Event ID：${item.eventId}\n` +
-        `Google 時間：${item.timeText}`;
+        `✅ ${item.name}\n` +
+        `Event ID：${item.event.id}\n` +
+        `Google 時間：${eventTimeText(item.event)}\n` +
+        `Organizer：${text(item.event.organizer?.email) || "未回傳"}`;
       box.appendChild(details);
 
-      if (item.eventUrl) {
+      if (item.event.htmlLink) {
         const link = document.createElement("a");
-        link.href = item.eventUrl;
+        link.href = item.event.htmlLink;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.textContent = "開啟 Google 事件";
-        link.style.cssText = [
-          "display:inline-block",
-          "margin-top:10px",
-          "padding:9px 12px",
-          "border-radius:10px",
-          "background:#f2f2f2",
-          "font-weight:700",
-          "text-decoration:none"
-        ].join(";");
+        link.style.cssText =
+          "display:inline-block;margin-top:9px;font-weight:800;text-decoration:none";
         box.appendChild(link);
-      } else {
-        const noLink = document.createElement("div");
-        noLink.textContent = "⚠️ Google 沒有回傳 eventUrl";
-        noLink.style.cssText =
-          "margin-top:10px;font-size:13px;font-weight:700";
-        box.appendChild(noLink);
       }
 
-      card.appendChild(box);
+      ui.card.appendChild(box);
     });
 
-    if (failedItems.length) {
-      const failedTitle = document.createElement("h4");
-      failedTitle.textContent = "失敗明細";
-      failedTitle.style.margin = "16px 0 8px";
-      card.appendChild(failedTitle);
-
-      failedItems.forEach(function (item) {
-        const failed = document.createElement("div");
-        failed.textContent =
-          `❌ ${item.carId}：${item.message}`;
-        failed.style.cssText =
-          "font-size:13px;line-height:1.5;margin-bottom:8px;word-break:break-word";
-        card.appendChild(failed);
-      });
-    }
+    failures.forEach(function (item) {
+      const box = document.createElement("div");
+      box.style.cssText =
+        "border:1px solid #efcaca;border-radius:12px;padding:12px;margin-bottom:10px;font-size:13px;line-height:1.5;word-break:break-word";
+      box.textContent = `❌ ${item.name || item.carId}：${item.message}`;
+      ui.card.appendChild(box);
+    });
 
     const close = document.createElement("button");
     close.type = "button";
     close.textContent = "關閉";
-    close.style.cssText = [
-      "width:100%",
-      "margin-top:8px",
-      "padding:12px",
-      "border-radius:12px",
-      "font-weight:700"
-    ].join(";");
+    close.style.cssText =
+      "width:100%;padding:12px;border-radius:12px;font-weight:700";
     close.addEventListener("click", function () {
-      panel.remove();
+      ui.panel.remove();
     });
-    card.appendChild(close);
-
-    panel.addEventListener("click", function (event) {
-      if (event.target === panel) {
-        panel.remove();
-      }
-    });
-
-    panel.appendChild(card);
-    document.body.appendChild(panel);
+    ui.card.appendChild(close);
   }
 
-  async function repairOne(carId, car) {
-    if (!car?.gameDate || !car?.gameTime) {
-      throw new Error("車團尚未設定日期或時間");
-    }
+  async function executeSync(token, items, button) {
+    const successes = [];
+    const failures = [];
 
-    const provider = window.JLYCalendarProviderGoogle;
-    const data = window.JLYCalendarData;
-
-    if (!provider || !data) {
-      throw new Error("Google Calendar 模組尚未載入");
-    }
-
-    const calendar = car.calendar || {};
-    const calendarId = configuredCalendarId();
-    const durationMinutes = Number(
-      calendar.eventDurationMinutes || 60
-    );
-
-    await data.updateCarCalendar(carId, {
-      syncEnabled: true,
-      calendarId,
-      syncStatus: "syncing",
-      lastError: ""
-    });
+    button.disabled = true;
+    button.textContent = "📅 同步中…";
 
     try {
-      let event = await findExistingEvent(carId, car);
-
-      if (event?.id) {
-        event = await provider.updateEvent({
-          carId,
-          car,
-          eventId: event.id,
-          calendarId,
-          durationMinutes,
-          carUrl: carUrl(carId)
-        });
-      } else if (calendar.eventId) {
+      for (const item of items) {
         try {
-          event = await provider.updateEvent({
-            carId,
-            car,
-            eventId: calendar.eventId,
-            calendarId,
-            durationMinutes,
-            carUrl: carUrl(carId)
+          const event = await syncOne(token, item);
+          successes.push({
+            ...item,
+            event
           });
         } catch (error) {
-          if (!goneError(error)) {
-            throw error;
-          }
-
-          event = await provider.createEvent({
-            carId,
-            car,
-            calendarId,
-            durationMinutes,
-            carUrl: carUrl(carId)
+          failures.push({
+            carId: item.carId,
+            name: item.name,
+            message: error?.message || "未知錯誤"
           });
         }
-      } else {
-        event = await provider.createEvent({
-          carId,
-          car,
-          calendarId,
-          durationMinutes,
-          carUrl: carUrl(carId)
-        });
       }
 
-      event = await verifyRepairedEvent(
-        carId,
-        calendarId,
-        event
-      );
+      if (typeof renderMyCars === "function") {
+        await renderMyCars({ restoreScroll: true });
+      }
 
-      await data.updateCarCalendar(carId, {
-        syncEnabled: true,
-        calendarId,
-        eventId: event.id,
-        eventUrl: event.htmlLink || calendar.eventUrl || "",
-        eventDurationMinutes: durationMinutes,
-        syncStatus: "synced",
-        lastSyncAt: new Date().toISOString(),
-        lastError: ""
-      });
-
-      return event;
-    } catch (error) {
-      await data.updateCarCalendar(carId, {
-        syncEnabled: true,
-        calendarId,
-        syncStatus: "error",
-        lastSyncAt: new Date().toISOString(),
-        lastError: error?.message || "Google 補登驗證失敗"
-      });
-
-      throw error;
+      showResults(successes, failures);
+    } finally {
+      button.disabled = false;
+      button.textContent = "📅 同步 Google";
     }
   }
 
-  async function repairSelectedCars() {
+  async function startUnifiedSync(button) {
     if (
       typeof selectedCars === "undefined" ||
       !selectedCars.size
     ) {
-      alert("請先勾選要補登 Google 行事曆的車團");
+      alert("請先勾選要同步 Google 的車團");
       return;
     }
 
-    if (!window.db) {
-      alert("Firebase 尚未載入");
-      return;
-    }
-
-    const actorId = getActorId();
-
-    if (!actorId) {
-      alert("請先登入 JLY 身分");
+    const auth = window.JLYCalendarAuth;
+    if (!auth || typeof auth.requestAccessToken !== "function") {
+      alert("Google Calendar 授權模組尚未載入");
       return;
     }
 
     const ids = Array.from(selectedCars);
-    const succeeded = [];
-    const failed = [];
 
-    for (const carId of ids) {
-      try {
-        const snapshot = await window.db
-          .collection("cars")
-          .doc(carId)
-          .get();
+    button.disabled = true;
+    button.textContent = "📅 選擇 Google 帳號…";
 
-        if (!snapshot.exists) {
-          throw new Error("找不到車團資料");
-        }
-
-        const car = snapshot.data() || {};
-
-        if (!isEditableCar(car, actorId)) {
-          throw new Error("不是目前身分可修改的主揪車");
-        }
-
-        const event = await repairOne(carId, car);
-        succeeded.push({
-          carId,
-          name: carName(car),
-          eventId: String(event?.id || "").trim(),
-          eventUrl: String(event?.htmlLink || "").trim(),
-          timeText: eventTimeText(event)
-        });
-      } catch (error) {
-        failed.push({
-          carId,
-          message: error?.message || "未知錯誤"
-        });
+    try {
+      // 必須在實際按鈕 tap handler 中立刻觸發 OAuth，避免 iPhone Safari 阻擋 popup。
+      if (typeof auth.clearToken === "function") {
+        auth.clearToken();
       }
-    }
+      const token = await auth.requestAccessToken({ selectAccount: true });
 
-    if (typeof renderMyCars === "function") {
-      await renderMyCars({
-        restoreScroll: true
+      button.textContent = "📅 讀取正式車團…";
+      const account = await readPrimaryCalendar(token);
+      const items = await readOfficialCars(ids);
+
+      button.disabled = false;
+      button.textContent = "📅 同步 Google";
+
+      showConfirmation(account, items, function () {
+        executeSync(token, items, button).catch(function (error) {
+          console.error("MyCar Google 同步失敗：", error);
+          alert("Google 同步未完成：" + (error?.message || "未知錯誤"));
+          button.disabled = false;
+          button.textContent = "📅 同步 Google";
+        });
       });
+    } catch (error) {
+      console.error("MyCar Google 授權／來源驗證失敗：", error);
+      alert("Google 同步未開始：" + (error?.message || "未知錯誤"));
+      button.disabled = false;
+      button.textContent = "📅 同步 Google";
     }
-
-    showRepairDiagnostics(succeeded, failed);
   }
 
-  function installBatchRepairButton() {
-    const toolbar = document.getElementById("batchToolbar");
+  function installButton() {
     const countBox = document.getElementById("selectedCarCount");
+    if (!countBox) {
+      return;
+    }
 
-    if (
-      !toolbar ||
-      !countBox ||
-      document.getElementById("batchGoogleRepairButton")
-    ) {
+    const old = document.getElementById("batchGoogleRepairButton");
+    if (old) {
+      old.remove();
+    }
+
+    if (document.getElementById("batchGoogleUnifiedButton")) {
       return;
     }
 
     const button = document.createElement("button");
-    button.id = "batchGoogleRepairButton";
+    button.id = "batchGoogleUnifiedButton";
     button.type = "button";
     button.className = "batch-convert-button";
-    button.textContent = "📅 補登 Google";
+    button.textContent = "📅 同步 Google";
+    button.addEventListener("click", function () {
+      startUnifiedSync(button);
+    });
 
-    button.addEventListener(
-      "click",
-      async function () {
-        const auth = window.JLYCalendarAuth;
-
-        if (
-          !auth ||
-          typeof auth.requestAccessToken !== "function"
-        ) {
-          alert("Google Calendar 授權模組尚未載入");
-          return;
-        }
-
-        button.disabled = true;
-        button.textContent = "📅 選擇 Google 帳號…";
-
-        try {
-          if (typeof auth.clearToken === "function") {
-            auth.clearToken();
-          }
-          await auth.requestAccessToken({ selectAccount: true });
-          await confirmGoogleAccount();
-          button.textContent = "📅 補登中…";
-          await repairSelectedCars();
-        } catch (error) {
-          console.error("Google 補登授權失敗：", error);
-          alert(
-            "Google 補登未完成：" +
-            (error?.message || "未知錯誤")
-          );
-        } finally {
-          button.disabled = false;
-          button.textContent = "📅 補登 Google";
-        }
-      }
-    );
-
-    countBox.insertAdjacentElement(
-      "afterend",
-      button
-    );
+    countBox.insertAdjacentElement("afterend", button);
   }
 
-  function removeStandaloneRepairEntry() {
-    const menu = document.getElementById("mycarMenu");
-
-    if (!menu) {
-      return;
-    }
-
-    menu
-      .querySelectorAll("button")
-      .forEach(function (button) {
-        const handler = String(
-          button.getAttribute("onclick") || ""
-        );
-
-        if (
-          handler.includes("startGoogleCalendarRepairMode")
-        ) {
-          button.remove();
-        }
-      });
-  }
-
-  window.repairSelectedCarsGoogleCalendar =
-    repairSelectedCars;
-
-  function install() {
-    removeStandaloneRepairEntry();
-    installBatchRepairButton();
-  }
+  window.JLYMyCarCalendar = {
+    readOfficialCars,
+    syncOne,
+    startUnifiedSync
+  };
 
   if (document.readyState === "loading") {
-    document.addEventListener(
-      "DOMContentLoaded",
-      install
-    );
+    document.addEventListener("DOMContentLoaded", installButton);
   } else {
-    install();
+    installButton();
   }
 })();
