@@ -85,7 +85,7 @@
 
     const accepted = window.confirm(
       `這次會補登到：\n${accountLabel}\n\n` +
-      "這是你現在正在看的 Google 行事曆帳號嗎？"
+      "確認用這個 Google 帳號補登嗎？"
     );
 
     if (accepted) {
@@ -96,14 +96,14 @@
       auth.clearToken();
     }
 
-    await auth.requestAccessToken({ force: true });
+    await auth.requestAccessToken({ selectAccount: true });
     info = await getPrimaryCalendarIdentity();
     accountLabel = String(
       info?.id || info?.summary || "目前 Google 帳號"
     ).trim();
 
     const acceptedAfterRetry = window.confirm(
-      `重新授權後的 Google 行事曆：\n${accountLabel}\n\n` +
+      `重新選擇後的 Google 行事曆：\n${accountLabel}\n\n` +
       "確認用這個帳號補登嗎？"
     );
 
@@ -411,10 +411,13 @@
         }
 
         button.disabled = true;
-        button.textContent = "📅 確認 Google 帳號…";
+        button.textContent = "📅 選擇 Google 帳號…";
 
         try {
-          await auth.requestAccessToken();
+          if (typeof auth.clearToken === "function") {
+            auth.clearToken();
+          }
+          await auth.requestAccessToken({ selectAccount: true });
           await confirmGoogleAccount();
           button.textContent = "📅 補登中…";
           await repairSelectedCars();

@@ -82,9 +82,20 @@
   function requestAccessToken(
     options = {}
   ) {
+    const explicitPrompt = String(
+      options.prompt || ""
+    ).trim();
+    const selectAccount =
+      options.selectAccount === true ||
+      explicitPrompt === "select_account";
+    const force = options.force === true;
+    const hasExplicitPrompt = Boolean(
+      explicitPrompt || selectAccount || force
+    );
+
     if (
       hasUsableToken() &&
-      options.force !== true
+      !hasExplicitPrompt
     ) {
       return Promise.resolve(
         accessToken
@@ -160,11 +171,15 @@
             );
           };
 
+        let prompt = explicitPrompt;
+        if (!prompt && selectAccount) {
+          prompt = "select_account";
+        } else if (!prompt && force) {
+          prompt = "consent";
+        }
+
         client.requestAccessToken({
-          prompt:
-            options.force === true
-              ? "consent"
-              : ""
+          prompt
         });
       }
     );
