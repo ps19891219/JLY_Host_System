@@ -66,7 +66,9 @@
         // 使用預設錯誤訊息
       }
 
-      throw new Error(message);
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
     }
 
     if (response.status === 204) {
@@ -240,10 +242,6 @@
       car.scriptName ||
       "未命名活動";
 
-    /*
-      標題不放時間。
-      Google Calendar 本身會顯示時間。
-    */
     const title =
       activityType +
       "－" +
@@ -269,42 +267,17 @@
       "",
       "名稱",
       activityName,
-
-      studioName
-        ? ""
-        : "",
-
-      studioName
-        ? "🏠 主辦"
-        : "",
-
-      studioName
-        ? studioName
-        : "",
-
-      locationText
-        ? ""
-        : "",
-
-      locationText
-        ? "📍 地點"
-        : "",
-
-      locationText
-        ? locationText
-        : "",
-
+      studioName ? "" : "",
+      studioName ? "🏠 主辦" : "",
+      studioName ? studioName : "",
+      locationText ? "" : "",
+      locationText ? "📍 地點" : "",
+      locationText ? locationText : "",
       "",
       "────────────",
       "",
-
-      carUrl
-        ? "🔗 JLY Host System"
-        : "",
-
-      carUrl
-        ? carUrl
-        : ""
+      carUrl ? "🔗 JLY Host System" : "",
+      carUrl ? carUrl : ""
     ].filter(function (line) {
       return line !== null &&
         line !== undefined;
@@ -312,49 +285,31 @@
 
     return {
       summary: title,
-
-      location:
-        locationText,
-
-      description:
-        descriptionLines.join("\n"),
-
+      location: locationText,
+      description: descriptionLines.join("\n"),
       start: {
-        dateTime:
-          range.startDateTime,
-
+        dateTime: range.startDateTime,
         timeZone:
           getConfig().timeZone ||
           "Asia/Taipei"
       },
-
       end: {
-        dateTime:
-          range.endDateTime,
-
+        dateTime: range.endDateTime,
         timeZone:
           getConfig().timeZone ||
           "Asia/Taipei"
       },
-
       extendedProperties: {
         private: {
           source: "JLY",
-
           village:
-            getConfig()
-              .sourceVillage ||
+            getConfig().sourceVillage ||
             "script",
-
           sourceModule:
-            getConfig()
-              .sourceModule ||
+            getConfig().sourceModule ||
             "host",
-
           carId:
-            String(
-              config.carId || ""
-            )
+            String(config.carId || "")
         }
       }
     };
@@ -374,23 +329,12 @@
 
     const params =
       new URLSearchParams({
-        timeMin:
-          range.timeMin,
-
-        timeMax:
-          range.timeMax,
-
-        singleEvents:
-          "true",
-
-        orderBy:
-          "startTime",
-
-        showDeleted:
-          "false",
-
-        maxResults:
-          "100"
+        timeMin: range.timeMin,
+        timeMax: range.timeMax,
+        singleEvents: "true",
+        orderBy: "startTime",
+        showDeleted: "false",
+        maxResults: "100"
       });
 
     const result =
@@ -400,11 +344,36 @@
         params.toString()
       );
 
-    return Array.isArray(
-      result.items
-    )
+    return Array.isArray(result.items)
       ? result.items
       : [];
+  }
+
+  async function getEventById(
+    calendarId,
+    eventId
+  ) {
+    const cleanEventId =
+      String(eventId || "").trim();
+
+    if (!cleanEventId) {
+      throw new Error(
+        "找不到 Google Calendar eventId"
+      );
+    }
+
+    const cleanCalendarId =
+      encodeURIComponent(
+        calendarId ||
+        getConfig().calendarId ||
+        "primary"
+      );
+
+    return authorizedFetch(
+      `${API_BASE}/calendars/` +
+      `${cleanCalendarId}/events/` +
+      encodeURIComponent(cleanEventId)
+    );
   }
 
   async function createEvent(
@@ -425,9 +394,7 @@
       `${calendarId}/events`,
       {
         method: "POST",
-
-        body:
-          JSON.stringify(resource)
+        body: JSON.stringify(resource)
       }
     );
   }
@@ -453,21 +420,16 @@
         "primary"
       );
 
-    const encodedEventId =
-      encodeURIComponent(eventId);
-
     const resource =
       buildEventResource(config);
 
     return authorizedFetch(
       `${API_BASE}/calendars/` +
       `${calendarId}/events/` +
-      encodedEventId,
+      encodeURIComponent(eventId),
       {
         method: "PATCH",
-
-        body:
-          JSON.stringify(resource)
+        body: JSON.stringify(resource)
       }
     );
   }
@@ -494,13 +456,10 @@
         "primary"
       );
 
-    const encodedEventId =
-      encodeURIComponent(eventId);
-
     await authorizedFetch(
       `${API_BASE}/calendars/` +
       `${calendarId}/events/` +
-      encodedEventId,
+      encodeURIComponent(eventId),
       {
         method: "DELETE"
       }
@@ -512,16 +471,16 @@
     };
   }
 
-  window
-    .JLYCalendarProviderGoogle = {
-      listEventsForDate,
-      createEvent,
-      updateEvent,
-      deleteEvent,
-      buildEventResource
-    };
+  window.JLYCalendarProviderGoogle = {
+    listEventsForDate,
+    getEventById,
+    createEvent,
+    updateEvent,
+    deleteEvent,
+    buildEventResource
+  };
 
   console.log(
-    "✅ Google Calendar Provider V2 已載入"
+    "✅ Google Calendar Provider V2.1 已載入"
   );
 })();
