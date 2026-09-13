@@ -1,29 +1,21 @@
 # Calendar module boundaries
 
-Calendar is split by responsibility so a repair in one area cannot silently change another area.
+MyCar Calendar is isolated under `js/modules/calendar/mycar/` so repairs do not change shared Calendar Core or Work Schedule.
 
-## Shared Calendar Core
+## Active MyCar files
 
-Files kept directly under `js/modules/calendar/` are shared infrastructure only: Google OAuth/config/provider, generic calendar data persistence, generic sync/controller helpers, and schedule checks. Shared Core must not contain MyCar-only branching or Work Schedule business rules.
+- `entry.js`: MyCar-only entry.
+- `sync.js`: the only active MyCar Google resync flow.
+- `persist-guard.js`, `source-guard.js`, `clean-sync.js`: compatibility or reserved files and are not part of the active success path.
 
-## MyCar Calendar
+## Active sync rule
 
-All MyCar-specific behavior lives under `js/modules/calendar/mycar/`:
+The active flow reads official `cars/{carId}` data, starts OAuth from the user's tap, confirms the primary Google Calendar, re-reads the car, finds an existing event only by a verified stored Event ID or `extendedProperties.private.carId`, then updates or creates it. The returned Event ID is exact-GET verified with the same OAuth token. Event ID, `private.carId`, start, and end must match JLY before `calendar.syncStatus` can become `synced`.
 
-- `entry.js`: MyCar-only module entry point.
-- `sync.js`: MyCar batch resync / repair flow.
-- `persist-guard.js`: MyCar persisted-event verification.
-- `source-guard.js`: backward-compatible source guard slot.
-- `clean-sync.js`: reserved MyCar clean-sync slot.
-
-Source of truth is always `cars/{carId}`. Google Calendar is an external sync target. MyCar verification must use the same OAuth token and primary calendar, validate exact event ID, `extendedProperties.private.carId`, and official JLY start/end before persisting `synced`.
+Google event titles and Work Schedule events are never used to infer MyCar events. A stale stored Event ID is never patched unless exact GET proves its `private.carId` belongs to the current car.
 
 ## Isolation rule
 
-MyCar Calendar changes must not modify Work Schedule, Studio, LINE, Accounting, Person/Identity, Script Master, or player signup behavior. Work Schedule events such as `工作－...` are a separate domain from MyCar events such as `劇本－...`.
+MyCar Calendar changes must not modify Work Schedule, Studio, LINE, Accounting, Person/Identity, Script Master, or player signup behavior. `工作－...` and `劇本－...` are separate domains.
 
-Legacy top-level `mycar-calendar-*.js` paths remain compatibility bridges only. New MyCar Calendar work must target the `mycar/` folder.
-
-## Next classification candidates
-
-The remaining shared files should only be moved into finer folders when their consumers are verified first. Do not relocate them just for cosmetics. Candidate groups are `core/` for auth/provider/data primitives and `activity/` for activity/detail scheduling behavior. Work Schedule stays in its own existing module tree and must not be folded into MyCar Calendar.
+Shared `auth/provider/data` files stay shared. Further folder moves are only allowed after consumers are verified first.
