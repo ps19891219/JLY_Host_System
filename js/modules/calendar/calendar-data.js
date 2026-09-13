@@ -52,6 +52,11 @@
     typeof window !== "undefined" &&
     /\/pages\/mycar\.html$/.test(window.location.pathname)
   ) {
+    const selectionScopeScript = document.createElement("script");
+    selectionScopeScript.src = "/js/mycar-batch-selection-scope.js?v=1";
+    selectionScopeScript.async = false;
+    document.head.appendChild(selectionScopeScript);
+
     const script = document.createElement("script");
     script.src = "/js/modules/calendar/mycar-calendar-clean-sync.js?v=1";
     script.async = false;
