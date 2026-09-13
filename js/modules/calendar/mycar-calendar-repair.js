@@ -225,9 +225,38 @@
     button.type = "button";
     button.className = "batch-convert-button";
     button.textContent = "📅 補登 Google";
+
     button.addEventListener(
       "click",
-      repairSelectedCars
+      async function () {
+        const auth = window.JLYCalendarAuth;
+
+        if (
+          !auth ||
+          typeof auth.requestAccessToken !== "function"
+        ) {
+          alert("Google Calendar 授權模組尚未載入");
+          return;
+        }
+
+        button.disabled = true;
+        button.textContent = "📅 Google 授權中…";
+
+        try {
+          await auth.requestAccessToken();
+          button.textContent = "📅 補登中…";
+          await repairSelectedCars();
+        } catch (error) {
+          console.error("Google 補登授權失敗：", error);
+          alert(
+            "Google 授權未完成：" +
+            (error?.message || "未知錯誤")
+          );
+        } finally {
+          button.disabled = false;
+          button.textContent = "📅 補登 Google";
+        }
+      }
     );
 
     countBox.insertAdjacentElement(
