@@ -236,36 +236,42 @@
     );
   }
 
-  function startGoogleCalendarRepairMode() {
+  function removeStandaloneRepairEntry() {
     const menu = document.getElementById("mycarMenu");
 
-    if (menu) {
-      menu.hidden = true;
+    if (!menu) {
+      return;
     }
 
-    if (typeof startBatchMode === "function") {
-      startBatchMode();
-    }
+    menu
+      .querySelectorAll("button")
+      .forEach(function (button) {
+        const handler = String(
+          button.getAttribute("onclick") || ""
+        );
 
-    installBatchRepairButton();
-
-    alert(
-      "請勾選要補登的車團，再按「📅 補登 Google」。已存在的 JLY 行事曆事件會更新；若你曾在 Google 手動刪除，系統會重新建立。"
-    );
+        if (
+          handler.includes("startGoogleCalendarRepairMode")
+        ) {
+          button.remove();
+        }
+      });
   }
-
-  window.startGoogleCalendarRepairMode =
-    startGoogleCalendarRepairMode;
 
   window.repairSelectedCarsGoogleCalendar =
     repairSelectedCars;
 
+  function install() {
+    removeStandaloneRepairEntry();
+    installBatchRepairButton();
+  }
+
   if (document.readyState === "loading") {
     document.addEventListener(
       "DOMContentLoaded",
-      installBatchRepairButton
+      install
     );
   } else {
-    installBatchRepairButton();
+    install();
   }
 })();
