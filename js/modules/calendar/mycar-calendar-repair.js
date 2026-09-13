@@ -1,10 +1,14 @@
 (function () {
   "use strict";
 
-  // Compatibility bridge only. MyCar Calendar now lives under
-  // /js/modules/calendar/mycar/ and must not leak back into shared Calendar Core.
-  const script = document.createElement("script");
-  script.src = "/js/modules/calendar/mycar/entry.js?v=1";
-  script.async = false;
-  document.head.appendChild(script);
+  const batch = document.createElement("script");
+  batch.src = "/js/mycar-batch-selection-scope.js?v=1";
+  batch.async = false;
+  batch.onload = function () {
+    const entry = document.createElement("script");
+    entry.src = "/js/modules/calendar/mycar/entry.js?v=2";
+    entry.async = false;
+    document.head.appendChild(entry);
+  };
+  document.head.appendChild(batch);
 })();
