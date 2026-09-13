@@ -52,14 +52,14 @@
     typeof window !== "undefined" &&
     /\/pages\/mycar\.html$/.test(window.location.pathname)
   ) {
-    const script = document.createElement("script");
-    script.src = "/js/modules/calendar/mycar-calendar-source-guard.js?v=2";
-    script.async = false;
-    document.head.appendChild(script);
+    const sourceGuard = document.createElement("script");
+    sourceGuard.src = "/js/modules/calendar/mycar-calendar-source-guard.js?v=2";
+    sourceGuard.async = false;
+    document.head.appendChild(sourceGuard);
 
-    const selectionScript = document.createElement("script");
-    selectionScript.src = "/js/mycar-batch-selection-scope.js?v=1";
-    selectionScript.async = false;
-    document.head.appendChild(selectionScript);
+    const batchScope = document.createElement("script");
+    batchScope.src = "/js/mycar-batch-selection-scope.js?v=1";
+    batchScope.async = false;
+    document.head.appendChild(batchScope);
   }
 })();
