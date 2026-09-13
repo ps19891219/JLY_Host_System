@@ -53,7 +53,7 @@
     /\/pages\/mycar\.html$/.test(window.location.pathname)
   ) {
     const script = document.createElement("script");
-    script.src = "/js/modules/calendar/mycar-calendar-source-guard.js?v=2";
+    script.src = "/js/modules/calendar/mycar-calendar-source-guard.js?v=3";
     script.async = false;
     document.head.appendChild(script);
   }
