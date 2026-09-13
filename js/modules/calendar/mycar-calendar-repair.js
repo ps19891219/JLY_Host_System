@@ -50,7 +50,71 @@
     ).trim() || "primary";
   }
 
-  async function findExistingEvent(carId, car, calendarId) {
+  async function getPrimaryCalendarIdentity() {
+    const auth = window.JLYCalendarAuth;
+
+    if (!auth || typeof auth.requestAccessToken !== "function") {
+      throw new Error("Google Calendar 授權模組尚未載入");
+    }
+
+    const token = await auth.requestAccessToken();
+    const response = await fetch(
+      `${GOOGLE_CALENDAR_API}/calendars/primary`,
+      {
+        headers: {
+          Authorization: "Bearer " + token
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `無法確認目前 Google 行事曆帳號（${response.status}）`
+      );
+    }
+
+    return response.json();
+  }
+
+  async function confirmGoogleAccount() {
+    const auth = window.JLYCalendarAuth;
+    let info = await getPrimaryCalendarIdentity();
+    let accountLabel = String(
+      info?.id || info?.summary || "目前 Google 帳號"
+    ).trim();
+
+    const accepted = window.confirm(
+      `這次會補登到：\n${accountLabel}\n\n` +
+      "這是你現在正在看的 Google 行事曆帳號嗎？"
+    );
+
+    if (accepted) {
+      return info;
+    }
+
+    if (typeof auth.clearToken === "function") {
+      auth.clearToken();
+    }
+
+    await auth.requestAccessToken({ force: true });
+    info = await getPrimaryCalendarIdentity();
+    accountLabel = String(
+      info?.id || info?.summary || "目前 Google 帳號"
+    ).trim();
+
+    const acceptedAfterRetry = window.confirm(
+      `重新授權後的 Google 行事曆：\n${accountLabel}\n\n` +
+      "確認用這個帳號補登嗎？"
+    );
+
+    if (!acceptedAfterRetry) {
+      throw new Error("已取消補登：Google 行事曆帳號未確認");
+    }
+
+    return info;
+  }
+
+  async function findExistingEvent(carId, car) {
     const provider = window.JLYCalendarProviderGoogle;
 
     if (!provider || !car?.gameDate) {
@@ -167,11 +231,7 @@
     });
 
     try {
-      let event = await findExistingEvent(
-        carId,
-        car,
-        calendarId
-      );
+      let event = await findExistingEvent(carId, car);
 
       if (event?.id) {
         event = await provider.updateEvent({
@@ -351,16 +411,17 @@
         }
 
         button.disabled = true;
-        button.textContent = "📅 Google 授權中…";
+        button.textContent = "📅 確認 Google 帳號…";
 
         try {
           await auth.requestAccessToken();
+          await confirmGoogleAccount();
           button.textContent = "📅 補登中…";
           await repairSelectedCars();
         } catch (error) {
           console.error("Google 補登授權失敗：", error);
           alert(
-            "Google 授權未完成：" +
+            "Google 補登未完成：" +
             (error?.message || "未知錯誤")
           );
         } finally {
