@@ -6,7 +6,7 @@
   batch.async = false;
   batch.onload = function () {
     const entry = document.createElement("script");
-    entry.src = "/js/modules/calendar/mycar/entry.js?v=3";
+    entry.src = "/js/modules/calendar/mycar/entry.js?v=4";
     entry.async = false;
     document.head.appendChild(entry);
   };
