@@ -1,266 +1,47 @@
-(function () {
-  "use strict";
-
-  const REVISION = 7;
-
-  function text(value) {
-    return String(value == null ? "" : value).trim();
-  }
-
-  function unique(values) {
-    return Array.from(new Set((Array.isArray(values) ? values : []).map(text).filter(Boolean)));
-  }
-
-  function addId(target, value) {
-    const id = text(value);
-    if (id) target.add(id);
-  }
-
-  function addIds(target, values) {
-    (Array.isArray(values) ? values : []).forEach(function (value) {
-      addId(target, value);
-    });
-  }
-
-  function intersects(left, right) {
-    for (const value of left) {
-      if (right.has(value)) return value;
-    }
-    return "";
-  }
-
-  function isCancelledPlayer(player) {
-    return [
-      "已取消",
-      "取消",
-      "cancelled",
-      "canceled"
-    ].includes(text(player && player.status).toLowerCase());
-  }
-
-  function getPlayerIdentityIds(player) {
-    const source = player && typeof player === "object" ? player : {};
-    const ids = new Set();
-
-    [
-      source.playerId,
-      source.id,
-      source.profileId,
-      source.personId,
-      source.identityId,
-      source.memberId,
-      source.canonicalPersonId,
-      source.canonicalProfileId,
-      source.canonicalMemberId,
-      source.mergedIntoPersonId,
-      source.mergedIntoProfileId,
-      source.mergedIntoMemberId,
-      source.applicationId
-    ].forEach(function (value) {
-      addId(ids, value);
-    });
-
-    addIds(ids, source.linkedPlayerIds);
-    return ids;
-  }
-
-  function getOwnerIdentityIds(car) {
-    const source = car && typeof car === "object" ? car : {};
-    const ids = new Set();
-
-    [
-      source.ownerId,
-      source.ownerPersonId,
-      source.ownerProfileId,
-      source.hostId,
-      source.hostPersonId,
-      source.hostProfileId,
-      source.createdByPersonId
-    ].forEach(function (value) {
-      addId(ids, value);
-    });
-
-    return ids;
-  }
-
-  async function getIdentityContext() {
-    const identity = window.JLYIdentity;
-    if (!identity) throw new Error("JLY Identity 尚未載入");
-
-    const profileId = typeof identity.getCurrentPlayerProfileId === "function"
-      ? text(identity.getCurrentPlayerProfileId())
-      : text(localStorage.getItem("currentPlayerProfileId"));
-
-    if (profileId && window.db && typeof identity.syncFromPlayerProfile === "function") {
-      await identity.syncFromPlayerProfile(window.db, profileId);
-    }
-
-    const viewerId = typeof identity.getCurrentPlayerId === "function"
-      ? text(identity.getCurrentPlayerId())
-      : text(localStorage.getItem("currentPlayerId"));
-
-    const identityIds = typeof identity.getAllPlayerIdentityIds === "function"
-      ? unique(identity.getAllPlayerIdentityIds())
-      : unique([viewerId, profileId]);
-
-    if (!viewerId) throw new Error("尚未取得 JLY 使用者身分");
-
-    return {
-      viewerId,
-      profileId,
-      identityIds: unique([viewerId, profileId, ...identityIds])
-    };
-  }
-
-  function normalizePlayerMembershipForView(player, identitySet) {
-    if (!player || isCancelledPlayer(player)) return player;
-
-    const matchedId = intersects(getPlayerIdentityIds(player), identitySet);
-    if (!matchedId) return player;
-
-    const source = { ...player };
-
-    // Prepared View V4 目前以 playerId / id / profileId 判定玩家。
-    // 舊 Membership 可能只有 personId / identityId / canonical*。
-    // 這裡只在 repair 的記憶體副本補上 playerId，不修改 Core car。
-    if (!text(source.playerId) && !text(source.id) && !text(source.profileId)) {
-      source.playerId = matchedId;
-    }
-
-    return source;
-  }
-
-  function normalizeCarForView(car, identitySet) {
-    const source = car && typeof car === "object" ? car : {};
-    const players = Array.isArray(source.players)
-      ? source.players.map(function (player) {
-          return normalizePlayerMembershipForView(player, identitySet);
-        })
-      : [];
-
-    const matchedOwnerId = intersects(getOwnerIdentityIds(source), identitySet);
-    const next = {
-      ...source,
-      players
-    };
-
-    // Prepared View V4 的 host 判定仍以 ownerId 為主。
-    // 歷史車可能把正式主揪身分留在 ownerPersonId / hostProfileId 等欄位。
-    // 只在 View 的記憶體副本補一個可辨識的 ownerId，不回寫 Core car。
-    if (matchedOwnerId && !identitySet.has(text(next.ownerId))) {
-      next.ownerId = matchedOwnerId;
-    }
-
-    return next;
-  }
-
-  function carMatchesViewerAsPlayer(car, identitySet) {
-    const players = Array.isArray(car && car.players) ? car.players : [];
-
-    return players.some(function (player) {
-      return (
-        player &&
-        !isCancelledPlayer(player) &&
-        Boolean(intersects(getPlayerIdentityIds(player), identitySet))
-      );
-    });
-  }
-
-  async function recoverCoreCars(context) {
-    const identitySet = new Set(context.identityIds);
-    const carMap = new Map();
-
-    for (const id of context.identityIds) {
-      const hostCars = await window.JLYCarData.getCarsByOwner(id);
-      hostCars.forEach(function (car) {
-        carMap.set(car.id, normalizeCarForView(car, identitySet));
-      });
-    }
-
-    const indexedPlayerCars = await window.JLYCarData.getCarsByPlayerId(
-      context.profileId || context.viewerId
-    );
-
-    indexedPlayerCars.forEach(function (car) {
-      carMap.set(car.id, normalizeCarForView(car, identitySet));
-    });
-
-    // 歷史相容 fallback：掃 Core cars 一次，讓 owner/player 任一正式身分欄位
-    // 能重新進入 Prepared View。只重建 View，不修改 Core ownership/membership。
-    const snapshot = await window.db.collection("cars").get();
-
-    snapshot.docs.forEach(function (doc) {
-      const car = { id: doc.id, ...(doc.data() || {}) };
-
-      const isHost = Boolean(intersects(getOwnerIdentityIds(car), identitySet));
-      const isPlayer = carMatchesViewerAsPlayer(car, identitySet);
-
-      if (!isHost && !isPlayer) return;
-
-      carMap.set(car.id, normalizeCarForView(car, identitySet));
-    });
-
-    return Array.from(carMap.values());
-  }
-
-  async function rebuild() {
-    if (!window.JLYCarData) throw new Error("Car Data 尚未載入");
-    if (typeof window.ensureMyCarViewModule !== "function") {
-      throw new Error("MyCar View Runtime 尚未載入");
-    }
-
-    const context = await getIdentityContext();
-    const viewModule = await window.ensureMyCarViewModule();
-    const cars = await recoverCoreCars(context);
-
-    const view = viewModule.buildView({
-      viewerId: context.viewerId,
-      identityIds: context.identityIds,
-      cars
-    });
-
-    view.identityResolutionRevision = REVISION;
-    view.identityResolvedAt = new Date().toISOString();
-    view.identityRepairSource = "core-membership-owner-recovery";
-
-    await viewModule.write(view);
-    return view;
-  }
-
-  async function run() {
-    try {
-      const view = await rebuild();
-      console.log("✅ MyCar 歷史 Membership/Owner Recovery 完成", {
-        host: view.counts && view.counts.host || 0,
-        player: view.counts && view.counts.player || 0,
-        all: view.counts && view.counts.all || 0
-      });
-
-      if (typeof window.resetMyCarPagination === "function") {
-        window.resetMyCarPagination();
-      }
-      if (typeof window.renderMyCars === "function") {
-        await window.renderMyCars({ restoreScroll: false });
-      }
-    } catch (error) {
-      console.error("MyCar 歷史 Membership/Owner Recovery 失敗：", error);
-    }
-  }
-
-  window.JLYMyCarLegacyIdentityRepair = {
-    REVISION,
-    getIdentityContext,
-    getPlayerIdentityIds,
-    getOwnerIdentityIds,
-    carMatchesViewerAsPlayer,
-    recoverCoreCars,
-    rebuild,
-    run
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { setTimeout(run, 0); });
-  } else {
-    setTimeout(run, 0);
-  }
+(function(){
+"use strict";
+const REVISION=8;
+const text=v=>String(v==null?"":v).trim();
+const unique=v=>Array.from(new Set((Array.isArray(v)?v:[]).map(text).filter(Boolean)));
+function add(set,v){v=text(v);if(v&&!v.toLowerCase().startsWith("line:"))set.add(v);}
+function addMany(set,v){(Array.isArray(v)?v:[]).forEach(x=>add(set,x));}
+function intersect(a,b){for(const v of a)if(b.has(v))return v;return "";}
+function cancelled(p){return ["已取消","取消","cancelled","canceled"].includes(text(p&&p.status).toLowerCase());}
+function formalIds(source){source=source&&typeof source==="object"?source:{};const ids=new Set();[
+source.id,source.playerId,source.profileId,source.personId,source.identityId,source.memberId,
+source.canonicalPersonId,source.canonicalProfileId,source.canonicalMemberId,
+source.mergedIntoPersonId,source.mergedIntoProfileId,source.mergedIntoMemberId
+].forEach(v=>add(ids,v));addMany(ids,source.linkedPlayerIds);return ids;}
+function getPlayerIdentityIds(player){const ids=formalIds(player);add(ids,player&&player.applicationId);return ids;}
+function getOwnerIdentityIds(car){car=car||{};const ids=new Set();[
+car.ownerId,car.ownerPersonId,car.ownerProfileId,car.hostId,car.hostPersonId,car.hostProfileId,car.createdByPersonId
+].forEach(v=>add(ids,v));return ids;}
+async function getIdentityContext(){
+ const identity=window.JLYIdentity;if(!identity)throw new Error("JLY Identity 尚未載入");
+ const profileId=typeof identity.getCurrentPlayerProfileId==="function"?text(identity.getCurrentPlayerProfileId()):text(localStorage.getItem("currentPlayerProfileId"));
+ let profile=null;
+ if(profileId&&window.db&&typeof identity.syncFromPlayerProfile==="function")profile=await identity.syncFromPlayerProfile(window.db,profileId);
+ const cloudIds=profile?Array.from(formalIds(profile)):[];
+ if(cloudIds.length&&typeof identity.mergeLinkedPlayerIds==="function")identity.mergeLinkedPlayerIds(cloudIds);
+ const viewerId=typeof identity.getCurrentPlayerId==="function"?text(identity.getCurrentPlayerId()):text(localStorage.getItem("currentPlayerId"));
+ const localIds=typeof identity.getAllPlayerIdentityIds==="function"?identity.getAllPlayerIdentityIds():[viewerId,profileId];
+ const identityIds=unique([viewerId,profileId,...localIds,...cloudIds]);
+ if(!viewerId&&!profileId)throw new Error("尚未取得 JLY 使用者身分");
+ return {viewerId:viewerId||profileId,profileId,identityIds};
+}
+function normalizePlayer(player,set){if(!player||cancelled(player))return player;const matched=intersect(getPlayerIdentityIds(player),set);if(!matched)return player;const next={...player};if(!text(next.playerId)&&!text(next.id)&&!text(next.profileId))next.playerId=matched;return next;}
+function normalizeCar(car,set){car=car||{};const next={...car,players:(Array.isArray(car.players)?car.players:[]).map(p=>normalizePlayer(p,set))};const owner=intersect(getOwnerIdentityIds(car),set);if(owner&&!set.has(text(next.ownerId)))next.ownerId=owner;return next;}
+function carMatchesViewerAsPlayer(car,set){return (Array.isArray(car&&car.players)?car.players:[]).some(p=>p&&!cancelled(p)&&Boolean(intersect(getPlayerIdentityIds(p),set)));}
+async function recoverCoreCars(context){
+ const set=new Set(context.identityIds),map=new Map();
+ for(const id of context.identityIds){const rows=await window.JLYCarData.getCarsByOwner(id);(rows||[]).forEach(car=>map.set(car.id,normalizeCar(car,set)));}
+ for(const id of context.identityIds){try{const rows=await window.JLYCarData.getCarsByPlayerId(id);(rows||[]).forEach(car=>map.set(car.id,normalizeCar(car,set)));}catch(_) {}}
+ const snapshot=await window.db.collection("cars").get();
+ snapshot.docs.forEach(doc=>{const car={id:doc.id,...(doc.data()||{})};const host=Boolean(intersect(getOwnerIdentityIds(car),set));const player=carMatchesViewerAsPlayer(car,set);if(host||player)map.set(car.id,normalizeCar(car,set));});
+ return Array.from(map.values());
+}
+async function rebuild(){if(!window.JLYCarData)throw new Error("Car Data 尚未載入");if(typeof window.ensureMyCarViewModule!=="function")throw new Error("MyCar View Runtime 尚未載入");const context=await getIdentityContext();const mod=await window.ensureMyCarViewModule();const cars=await recoverCoreCars(context);const view=mod.buildView({viewerId:context.viewerId,identityIds:context.identityIds,cars});view.identityResolutionRevision=REVISION;view.identityResolvedAt=new Date().toISOString();view.identityRepairSource="canonical-profile-core-membership-owner-recovery";await mod.write(view);return view;}
+async function run(){try{const view=await rebuild();console.log("✅ MyCar canonical identity recovery",{host:view.counts&&view.counts.host||0,player:view.counts&&view.counts.player||0,all:view.counts&&view.counts.all||0});if(typeof window.resetMyCarPagination==="function")window.resetMyCarPagination();if(typeof window.renderMyCars==="function")await window.renderMyCars({restoreScroll:false});}catch(error){console.error("MyCar canonical identity recovery failed",error);}}
+window.JLYMyCarLegacyIdentityRepair={REVISION,getIdentityContext,getPlayerIdentityIds,getOwnerIdentityIds,carMatchesViewerAsPlayer,recoverCoreCars,rebuild,run};
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(run,0));else setTimeout(run,0);
 })();
