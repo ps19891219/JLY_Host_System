@@ -1,7 +1,8 @@
 (function () {
   "use strict";
 
-  const REVISION = 1;
+  const REVISION = 2;
+  const START_DELAY_MS = 900;
 
   function text(value) {
     return String(value == null ? "" : value).trim();
@@ -23,18 +24,10 @@
     const identity = window.JLYIdentity;
 
     if (identity) {
-      if (typeof identity.getCurrentPlayerId === "function") {
-        addId(ids, identity.getCurrentPlayerId());
-      }
-      if (typeof identity.getCurrentPlayerProfileId === "function") {
-        addId(ids, identity.getCurrentPlayerProfileId());
-      }
-      if (typeof identity.getAllPlayerIdentityIds === "function") {
-        addArray(ids, identity.getAllPlayerIdentityIds());
-      }
-      if (typeof identity.getLinkedPlayerIds === "function") {
-        addArray(ids, identity.getLinkedPlayerIds());
-      }
+      if (typeof identity.getCurrentPlayerId === "function") addId(ids, identity.getCurrentPlayerId());
+      if (typeof identity.getCurrentPlayerProfileId === "function") addId(ids, identity.getCurrentPlayerProfileId());
+      if (typeof identity.getAllPlayerIdentityIds === "function") addArray(ids, identity.getAllPlayerIdentityIds());
+      if (typeof identity.getLinkedPlayerIds === "function") addArray(ids, identity.getLinkedPlayerIds());
     }
 
     try {
@@ -48,7 +41,6 @@
   function getCarOwnerIds(car) {
     const ids = new Set();
     const source = car && typeof car === "object" ? car : {};
-
     [
       source.ownerId,
       source.ownerPersonId,
@@ -57,17 +49,13 @@
       source.hostProfileId,
       source.ownerProfileId,
       source.hostId
-    ].forEach(function (value) {
-      addId(ids, value);
-    });
-
+    ].forEach(function (value) { addId(ids, value); });
     return ids;
   }
 
   function getPlayerIds(player) {
     const ids = new Set();
     const source = player && typeof player === "object" ? player : {};
-
     [
       source.id,
       source.playerId,
@@ -80,10 +68,7 @@
       source.mergedIntoPersonId,
       source.mergedIntoProfileId,
       source.mergedIntoMemberId
-    ].forEach(function (value) {
-      addId(ids, value);
-    });
-
+    ].forEach(function (value) { addId(ids, value); });
     addArray(ids, source.linkedPlayerIds);
     return ids;
   }
@@ -96,20 +81,12 @@
   }
 
   function isCancelled(player) {
-    return [
-      "已取消",
-      "取消",
-      "cancelled",
-      "canceled"
-    ].includes(text(player && player.status).toLowerCase());
+    return ["已取消", "取消", "cancelled", "canceled"].includes(text(player && player.status).toLowerCase());
   }
 
   function resolveRole(car, viewerIds) {
     const host = intersects(getCarOwnerIds(car), viewerIds);
-
-    if (host) {
-      return { isHost: true, isPlayer: false, role: "host", ownerType: "self" };
-    }
+    if (host) return { isHost: true, isPlayer: false, role: "host", ownerType: "self" };
 
     const players = Array.isArray(car && car.players) ? car.players : [];
     const player = players.some(function (member) {
@@ -128,9 +105,7 @@
     const map = new Map();
     for (const carId of carIds) {
       const snapshot = await window.db.collection("cars").doc(carId).get();
-      if (snapshot.exists) {
-        map.set(snapshot.id, { id: snapshot.id, ...(snapshot.data() || {}) });
-      }
+      if (snapshot.exists) map.set(snapshot.id, { id: snapshot.id, ...(snapshot.data() || {}) });
     }
     return map;
   }
@@ -146,7 +121,6 @@
       const viewerId = identity && typeof identity.getCurrentPlayerId === "function"
         ? text(identity.getCurrentPlayerId())
         : text(localStorage.getItem("currentPlayerId"));
-
       if (!viewerId) return;
 
       const module = await window.ensureMyCarViewModule();
@@ -171,9 +145,7 @@
           prepared.isPlayer !== role.isPlayer ||
           text(prepared.role) !== role.role ||
           text(prepared.ownerType) !== role.ownerType
-        ) {
-          changed = true;
-        }
+        ) changed = true;
 
         return {
           ...prepared,
@@ -200,14 +172,12 @@
         await module.write(nextView);
       }
 
-      if (typeof window.resetMyCarPagination === "function") {
-        window.resetMyCarPagination();
-      }
-      if (typeof window.renderMyCars === "function") {
+      if (changed && typeof window.renderMyCars === "function") {
+        if (typeof window.resetMyCarPagination === "function") window.resetMyCarPagination();
         await window.renderMyCars({ restoreScroll: false });
       }
 
-      console.log("✅ MyCar 主揪/玩家角色投影已修復", nextView.counts);
+      console.log("✅ MyCar 主揪/玩家角色投影已檢查", nextView.counts);
     } catch (error) {
       console.error("MyCar role projection repair 失敗：", error);
     }
@@ -224,9 +194,9 @@
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
-      setTimeout(run, 50);
+      setTimeout(run, START_DELAY_MS);
     });
   } else {
-    setTimeout(run, 50);
+    setTimeout(run, START_DELAY_MS);
   }
 })();
