@@ -2,7 +2,7 @@
 "use strict";
 if(window.__JLYMyCarLegacyIdentityRepairLoaded)return;
 window.__JLYMyCarLegacyIdentityRepairLoaded=true;
-const REVISION=13;
+const REVISION=14;
 const text=v=>String(v==null?"":v).trim();
 const unique=v=>Array.from(new Set((Array.isArray(v)?v:[]).map(text).filter(Boolean)));
 function add(set,v){v=text(v);if(v&&!v.toLowerCase().startsWith("line:"))set.add(v);}
@@ -59,7 +59,7 @@ async function getIdentityContext(){
  const localIds=typeof identity.getAllPlayerIdentityIds==="function"?identity.getAllPlayerIdentityIds():initialLocalIds;
  const identityIds=unique([viewerId,profileId,...localIds,...cloudIds]);
  if(!viewerId&&!profileId)throw new Error("尚未取得 JLY 使用者身分");
- console.log("🧩 MyCar resolved identity aliases V13",{viewerId,profileId,cloudProfileIds,identityIds});
+ console.log("🧩 MyCar resolved identity aliases V14",{viewerId,profileId,cloudProfileIds,identityIds});
  return {viewerId:viewerId||profileId,profileId:profileId||cloudProfileIds[0]||"",identityIds};
 }
 function normalizePlayer(player,set){if(!player||cancelled(player))return player;const matched=intersect(getPlayerIdentityIds(player),set);if(!matched)return player;const next={...player};const stable=text(next.playerId||next.id||next.profileId);if(!stable||!set.has(stable))next.playerId=matched;return next;}
@@ -70,12 +70,35 @@ async function collectHistoricalPreparedViews(context,mod){
  const identityIds=new Set(context.identityIds);
  const preparedCars=new Map();
  if(!window.db||!mod||typeof mod.read!=="function")return {viewerIds:[context.viewerId],identityIds:Array.from(identityIds),cars:[]};
+
+ // Forward alias lookup: known identity -> historical/current viewer.
  for(const aliasId of context.identityIds){
   try{
    const snap=await window.db.collection("myCarViewAliases").doc(aliasId).get();
-   if(snap.exists){const data=snap.data()||{};add(viewerIds,data.viewerId);}
+   if(snap.exists){const data=snap.data()||{};add(viewerIds,data.viewerId);add(identityIds,snap.id);add(identityIds,data.aliasId);}
   }catch(error){console.warn("MyCar alias route lookup skipped",aliasId,error);}
  }
+
+ // V2.83 registered every historical identity as aliasId -> viewerId.
+ // V13 only walked the map forward from identities we still knew, which cannot
+ // recover an alias that disappeared from local/profile state. Reverse-query the
+ // registered alias rows for each discovered viewer so those historical IDs are
+ // restored before player membership discovery.
+ const reverseScanned=new Set();
+ let pass=0;
+ while(pass<3){
+  const pending=Array.from(viewerIds).filter(id=>!reverseScanned.has(id));
+  if(!pending.length)break;
+  for(const viewerId of pending){
+   reverseScanned.add(viewerId);
+   try{
+    const snapshot=await window.db.collection("myCarViewAliases").where("viewerId","==",viewerId).limit(200).get();
+    snapshot.docs.forEach(doc=>{const data=doc.data()||{};add(identityIds,doc.id);add(identityIds,data.aliasId);add(viewerIds,data.viewerId);});
+   }catch(error){console.warn("MyCar reverse alias registry lookup skipped",viewerId,error);}
+  }
+  pass+=1;
+ }
+
  for(const viewerId of Array.from(viewerIds)){
   try{
    const view=await mod.read(viewerId);
@@ -84,7 +107,7 @@ async function collectHistoricalPreparedViews(context,mod){
    (Array.isArray(view.cars)?view.cars:[]).forEach(car=>{const id=text(car&&(car.id||car.carId));if(id)preparedCars.set(id,{...car});});
   }catch(error){console.warn("MyCar historical prepared view lookup skipped",viewerId,error);}
  }
- console.log("🧭 MyCar alias view consolidation",{viewerIds:Array.from(viewerIds),legacyIdentityCount:identityIds.size,preparedCars:preparedCars.size});
+ console.log("🧭 MyCar reverse alias view consolidation V14",{viewerIds:Array.from(viewerIds),legacyIdentityCount:identityIds.size,preparedCars:preparedCars.size});
  return {viewerIds:Array.from(viewerIds),identityIds:Array.from(identityIds),cars:Array.from(preparedCars.values())};
 }
 async function registerCanonicalAliases(context,aliasIds){
@@ -118,11 +141,11 @@ async function rebuild(){
  if(window.JLYIdentity&&typeof window.JLYIdentity.mergeLinkedPlayerIds==="function")window.JLYIdentity.mergeLinkedPlayerIds(context.identityIds);
  const cars=await recoverCoreCars(context,mod,historical.cars);
  const view=mod.buildView({viewerId:context.viewerId,identityIds:context.identityIds,cars});
- view.identityResolutionRevision=REVISION;view.identityResolvedAt=new Date().toISOString();view.identityRepairSource="historical-alias-view-consolidation";
+ view.identityResolutionRevision=REVISION;view.identityResolvedAt=new Date().toISOString();view.identityRepairSource="reverse-registered-alias-view-consolidation";
  await mod.write(view);await registerCanonicalAliases(context,historical.viewerIds);return view;
 }
 let runPromise=null;
-async function run(){if(runPromise)return runPromise;runPromise=(async()=>{try{const view=await rebuild();console.log("✅ MyCar canonical identity recovery V13",{host:view.counts&&view.counts.host||0,player:view.counts&&view.counts.player||0,all:view.counts&&view.counts.all||0});if(typeof window.resetMyCarPagination==="function")window.resetMyCarPagination();if(typeof window.renderMyCars==="function")await window.renderMyCars({restoreScroll:false});return view;}catch(error){console.error("MyCar canonical identity recovery failed",error);return null;}finally{runPromise=null;}})();return runPromise;}
+async function run(){if(runPromise)return runPromise;runPromise=(async()=>{try{const view=await rebuild();console.log("✅ MyCar canonical identity recovery V14",{host:view.counts&&view.counts.host||0,player:view.counts&&view.counts.player||0,all:view.counts&&view.counts.all||0});if(typeof window.resetMyCarPagination==="function")window.resetMyCarPagination();if(typeof window.renderMyCars==="function")await window.renderMyCars({restoreScroll:false});return view;}catch(error){console.error("MyCar canonical identity recovery failed",error);return null;}finally{runPromise=null;}})();return runPromise;}
 window.JLYMyCarLegacyIdentityRepair={REVISION,getIdentityContext,collectCloudProfileAliases,collectHistoricalPreparedViews,getPlayerIdentityIds,getOwnerIdentityIds,carMatchesViewerAsPlayer,recoverCoreCars,rebuild,run};
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(run,0));else setTimeout(run,0);
 })();
