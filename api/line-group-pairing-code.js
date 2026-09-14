@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
 
     // Keep Vercel Function count unchanged: host-only membership health actions
     // share this existing LINE POST function. Pairing requests have no `action`.
-    if (["verify", "initialize", "catchup"].includes(String(input.action || "").trim())) {
+    if (["verify", "initialize", "catchup", "refresh"].includes(String(input.action || "").trim())) {
       return handleMembershipHealth(req, res, input);
     }
 
