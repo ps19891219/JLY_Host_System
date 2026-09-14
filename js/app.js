@@ -1,6 +1,6 @@
 "use strict";
 
-console.log("app.js V26 已成功載入！");
+console.log("app.js V27 已成功載入！");
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
@@ -33,7 +33,7 @@ function normalizeId(value) {
   return String(value == null ? "" : value).trim();
 }
 
-function getCurrentOwnerIds() {
+function getCurrentIdentityIds() {
   const ids = new Set();
   const identity = window.JLYIdentity;
 
@@ -69,8 +69,8 @@ function getCurrentOwnerIds() {
   return Array.from(ids);
 }
 
-async function getDashboardHostCars(ownerIds) {
-  const ids = Array.isArray(ownerIds) ? ownerIds.filter(Boolean) : [];
+async function getDashboardHostCars(identityIds) {
+  const ids = Array.isArray(identityIds) ? identityIds.filter(Boolean) : [];
   const map = new Map();
 
   if (
@@ -84,13 +84,40 @@ async function getDashboardHostCars(ownerIds) {
         if (car && car.id) map.set(car.id, car);
       });
     }
-    return Array.from(map.values());
   }
 
-  const snapshot = await window.db.collection("cars").get();
-  return snapshot.docs.map(function (doc) {
-    return { id: doc.id, ...doc.data() };
+  return Array.from(map.values());
+}
+
+async function getDashboardPlayerCars(identityIds) {
+  const ids = Array.isArray(identityIds) ? identityIds.filter(Boolean) : [];
+
+  if (
+    ids.length === 0 ||
+    !window.JLYCarData ||
+    typeof window.JLYCarData.getCarsByPlayerId !== "function"
+  ) {
+    return [];
+  }
+
+  try {
+    return await window.JLYCarData.getCarsByPlayerId(ids[0]);
+  } catch (error) {
+    console.warn("首頁玩家車讀取失敗：", error);
+    return [];
+  }
+}
+
+function mergeCars(groups) {
+  const map = new Map();
+
+  (Array.isArray(groups) ? groups : []).forEach(function (cars) {
+    (Array.isArray(cars) ? cars : []).forEach(function (car) {
+      if (car && car.id) map.set(car.id, car);
+    });
   });
+
+  return Array.from(map.values());
 }
 
 function renderRegistrationPending(cars) {
@@ -119,8 +146,10 @@ async function renderDashboard() {
   }
 
   try {
-    const ownerIds = getCurrentOwnerIds();
-    const cars = await getDashboardHostCars(ownerIds);
+    const identityIds = getCurrentIdentityIds();
+    const hostCars = await getDashboardHostCars(identityIds);
+    const playerCars = await getDashboardPlayerCars(identityIds);
+    const cars = mergeCars([hostCars, playerCars]);
 
     const active = cars.filter(function (car) {
       const status = getAutoStatus(car);
@@ -149,11 +178,14 @@ async function renderDashboard() {
     if (fullCount) fullCount.innerText = fullCars.length;
     if (todayCount) todayCount.innerText = todayCars.length;
 
-    renderRegistrationPending(ownerIds.length ? cars : []);
+    // 報名審核仍只屬於我主揪的車；首頁車團統計則是主揪＋玩家的總和。
+    renderRegistrationPending(hostCars);
 
     console.log("首頁統計", {
-      ownerIds,
-      全部: cars.length,
+      identityIds,
+      主揪車: hostCars.length,
+      玩家車: playerCars.length,
+      總和: cars.length,
       開團中: active.length,
       還缺人: needCars.length,
       已滿車: fullCars.length,
