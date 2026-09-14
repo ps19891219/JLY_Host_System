@@ -1,6 +1,8 @@
 (function(){
 "use strict";
-const REVISION=9;
+if(window.__JLYMyCarLegacyIdentityRepairLoaded)return;
+window.__JLYMyCarLegacyIdentityRepairLoaded=true;
+const REVISION=10;
 const text=v=>String(v==null?"":v).trim();
 const unique=v=>Array.from(new Set((Array.isArray(v)?v:[]).map(text).filter(Boolean)));
 function add(set,v){v=text(v);if(v&&!v.toLowerCase().startsWith("line:"))set.add(v);}
@@ -29,7 +31,15 @@ async function getIdentityContext(){
  if(!viewerId&&!profileId)throw new Error("尚未取得 JLY 使用者身分");
  return {viewerId:viewerId||profileId,profileId,identityIds};
 }
-function normalizePlayer(player,set){if(!player||cancelled(player))return player;const matched=intersect(getPlayerIdentityIds(player),set);if(!matched)return player;const next={...player};if(!text(next.playerId)&&!text(next.id)&&!text(next.profileId))next.playerId=matched;return next;}
+function normalizePlayer(player,set){
+ if(!player||cancelled(player))return player;
+ const matched=intersect(getPlayerIdentityIds(player),set);
+ if(!matched)return player;
+ const next={...player};
+ const stable=text(next.playerId||next.id||next.profileId);
+ if(!stable||!set.has(stable))next.playerId=matched;
+ return next;
+}
 function normalizeCar(car,set){car=car||{};const next={...car,players:(Array.isArray(car.players)?car.players:[]).map(p=>normalizePlayer(p,set))};const owner=intersect(getOwnerIdentityIds(car),set);if(owner&&!set.has(text(next.ownerId)))next.ownerId=owner;return next;}
 function carMatchesViewerAsPlayer(car,set){return (Array.isArray(car&&car.players)?car.players:[]).some(p=>p&&!cancelled(p)&&Boolean(intersect(getPlayerIdentityIds(p),set)));}
 async function mergeExistingPreparedCars(context,map,set,mod){
@@ -54,8 +64,13 @@ async function recoverCoreCars(context,mod){
  }catch(error){console.warn("MyCar full Core fallback scan unavailable; keeping indexed recovery results",error);}
  return Array.from(map.values());
 }
-async function rebuild(){if(!window.JLYCarData)throw new Error("Car Data 尚未載入");if(typeof window.ensureMyCarViewModule!=="function")throw new Error("MyCar View Runtime 尚未載入");const context=await getIdentityContext();const mod=await window.ensureMyCarViewModule();const cars=await recoverCoreCars(context,mod);const view=mod.buildView({viewerId:context.viewerId,identityIds:context.identityIds,cars});view.identityResolutionRevision=REVISION;view.identityResolvedAt=new Date().toISOString();view.identityRepairSource="canonical-profile-indexed-and-prepared-recovery";await mod.write(view);return view;}
-async function run(){try{const view=await rebuild();console.log("✅ MyCar canonical identity recovery V9",{host:view.counts&&view.counts.host||0,player:view.counts&&view.counts.player||0,all:view.counts&&view.counts.all||0});if(typeof window.resetMyCarPagination==="function")window.resetMyCarPagination();if(typeof window.renderMyCars==="function")await window.renderMyCars({restoreScroll:false});}catch(error){console.error("MyCar canonical identity recovery failed",error);}}
+async function rebuild(){if(!window.JLYCarData)throw new Error("Car Data 尚未載入");if(typeof window.ensureMyCarViewModule!=="function")throw new Error("MyCar View Runtime 尚未載入");const context=await getIdentityContext();const mod=await window.ensureMyCarViewModule();const cars=await recoverCoreCars(context,mod);const view=mod.buildView({viewerId:context.viewerId,identityIds:context.identityIds,cars});view.identityResolutionRevision=REVISION;view.identityResolvedAt=new Date().toISOString();view.identityRepairSource="canonical-profile-stable-id-override-recovery";await mod.write(view);return view;}
+let runPromise=null;
+async function run(){
+ if(runPromise)return runPromise;
+ runPromise=(async()=>{try{const view=await rebuild();console.log("✅ MyCar canonical identity recovery V10",{host:view.counts&&view.counts.host||0,player:view.counts&&view.counts.player||0,all:view.counts&&view.counts.all||0});if(typeof window.resetMyCarPagination==="function")window.resetMyCarPagination();if(typeof window.renderMyCars==="function")await window.renderMyCars({restoreScroll:false});return view;}catch(error){console.error("MyCar canonical identity recovery failed",error);return null;}finally{runPromise=null;}})();
+ return runPromise;
+}
 window.JLYMyCarLegacyIdentityRepair={REVISION,getIdentityContext,getPlayerIdentityIds,getOwnerIdentityIds,carMatchesViewerAsPlayer,recoverCoreCars,rebuild,run};
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(run,0));else setTimeout(run,0);
 })();
