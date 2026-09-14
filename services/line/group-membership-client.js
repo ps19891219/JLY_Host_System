@@ -55,4 +55,35 @@ async function listGroupMemberIds(groupId, dependencies = {}) {
   return Array.from(new Set(ids));
 }
 
-module.exports = { getGroupSummary, getGroupMemberCount, listGroupMemberIds };
+async function getGroupMemberProfile(groupId, userId, dependencies = {}) {
+  const group = encodeURIComponent(text(groupId));
+  const user = encodeURIComponent(text(userId));
+  if (!group || !user) throw new Error("line_group_member_required");
+  const result = await lineGet(`${group}/member/${user}`, dependencies);
+  return {
+    userId: text(result && result.userId) || text(userId),
+    displayName: text(result && result.displayName),
+    pictureUrl: text(result && result.pictureUrl)
+  };
+}
+
+async function listGroupMemberProfiles(groupId, memberIds, dependencies = {}) {
+  const ids = Array.from(new Set((Array.isArray(memberIds) ? memberIds : []).map(text).filter(Boolean)));
+  const profiles = [];
+  for (const userId of ids) {
+    try {
+      profiles.push(await getGroupMemberProfile(groupId, userId, dependencies));
+    } catch (error) {
+      profiles.push({ userId, displayName: "", pictureUrl: "", profileError: text(error && error.message) });
+    }
+  }
+  return profiles;
+}
+
+module.exports = {
+  getGroupSummary,
+  getGroupMemberCount,
+  listGroupMemberIds,
+  getGroupMemberProfile,
+  listGroupMemberProfiles
+};
