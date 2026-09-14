@@ -14,5 +14,10 @@
   // 使用既有 Car Data 對 current/profile/linked identities 做正式查找，
   // 只重建 Prepared View，不在進頁時改寫 Core car.ownerId。
   load("/js/modules/car/identity/mycar-legacy-identity-repair.js?v=1");
+
+  // Prepared View 建好後，再用 Core car 的完整 owner/player identity fields
+  // 修正主揪/玩家角色投影，讓篩選與綠/藍燈使用同一份判定。
+  load("/js/modules/car/identity/mycar-role-projection-repair.js?v=1");
+
   load("/js/modules/calendar/mycar/lifecycle-sync.js?v=1");
 })();
