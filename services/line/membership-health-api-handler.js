@@ -5,7 +5,12 @@ const {
   listPlayersForIdentityResolution
 } = require("../firebase/line-accounting-authorization-repository");
 const { readCookie, verifyMemberSession } = require("./member-session");
-const { initializeMembershipSnapshot, verifyMembershipSnapshot, isCarExpired } = require("./group-membership-health-service");
+const {
+  initializeMembershipSnapshot,
+  refreshMembershipSnapshot,
+  verifyMembershipSnapshot,
+  isCarExpired
+} = require("./group-membership-health-service");
 const { getSnapshot } = require("../firebase/line-group-membership-repository");
 const { getGroupSummary } = require("./group-membership-client");
 const {
@@ -48,7 +53,6 @@ async function authorizedIdentityIds(session) {
   const data = session && session.data ? session.data : {};
   const lineUserId = text(data.lineUserId);
   if (!lineUserId) return ids;
-
   try {
     const players = await listPlayersForIdentityResolution();
     const component = buildIdentityComponent(players, lineUserId);
@@ -81,6 +85,35 @@ async function pushDiagnosticSample(samples, binding, carId, groupId, reason, ex
   const sample = await enrichDiagnosticSample({ ...diagnosticSample(binding, carId, groupId, reason), ...extra });
   samples.push(sample);
 }
+async function listOwnedBindings(db, ids, limit) {
+  const bindings = await db.collection("lineGroupBindings").where("status", "==", "active").limit(50).get();
+  const rows = [];
+  for (const doc of bindings.docs) {
+    if (rows.length >= limit) break;
+    const binding = { id: doc.id, ...doc.data() };
+    const carId = text(binding.carId), groupId = text(binding.groupId || doc.id);
+    if (!carId || !groupId) {
+      rows.push({ binding, carId, groupId, error: "missing_binding_ids" });
+      continue;
+    }
+    const carDoc = await db.collection("cars").doc(carId).get();
+    if (!carDoc.exists) {
+      rows.push({ binding, carId, groupId, error: "car_not_found" });
+      continue;
+    }
+    const car = { id: carDoc.id, ...carDoc.data() };
+    if (!owns(car, ids)) {
+      rows.push({ binding, carId, groupId, car, error: "owner_identity_mismatch" });
+      continue;
+    }
+    if (isCarExpired(car)) {
+      rows.push({ binding, carId, groupId, car, error: "car_expired" });
+      continue;
+    }
+    rows.push({ binding, carId, groupId, car, error: "" });
+  }
+  return { scanned: bindings.size, rows };
+}
 
 async function handleMembershipHealth(req, res, suppliedPayload) {
   try {
@@ -104,7 +137,6 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
       if (!carDoc.exists) return send(res, 404, { success: false, error: "car_not_found" });
       const car = { id: carDoc.id, ...carDoc.data() };
       if (!owns(car, ids)) return send(res, 403, { success: false, error: "owner_required" });
-
       let previous;
       try {
         previous = await getSnapshot(groupId);
@@ -115,7 +147,6 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
       if (!previous || text(previous.carId) !== carId) {
         return send(res, 409, { success: false, error: "snapshot_not_found", stage: "snapshot_read" });
       }
-
       let result;
       try {
         result = await verifyMembershipSnapshot({ groupId, carId, verifiedBy: text(session.data.profileId || session.data.identityId), playerCount: activePlayerCount(car) });
@@ -138,6 +169,47 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
       if (isCarExpired(car)) return send(res, 200, { success: true, result: { initialized: false, reason: "car_expired" } });
       const result = await initializeMembershipSnapshot({ groupId, carId, car });
       return send(res, 200, { success: true, result });
+    }
+
+    if (action === "refresh") {
+      const requested = Math.max(1, Math.min(20, Number(payload.limit) || 10));
+      const owned = await listOwnedBindings(db, ids, requested);
+      const diagnostics = {
+        activeBindingsScanned: owned.scanned,
+        refreshed: 0,
+        changed: 0,
+        unchanged: 0,
+        failed: 0,
+        missingBindingIds: 0,
+        missingCars: 0,
+        notOwnedByCurrentIdentity: 0,
+        expiredCars: 0
+      };
+      const results = [];
+      const samples = [];
+      for (const row of owned.rows) {
+        const { binding, carId, groupId, car, error } = row;
+        if (error) {
+          if (error === "missing_binding_ids") diagnostics.missingBindingIds += 1;
+          else if (error === "car_not_found") diagnostics.missingCars += 1;
+          else if (error === "owner_identity_mismatch") diagnostics.notOwnedByCurrentIdentity += 1;
+          else if (error === "car_expired") diagnostics.expiredCars += 1;
+          await pushDiagnosticSample(samples, binding, carId, groupId, error);
+          continue;
+        }
+        try {
+          const result = await refreshMembershipSnapshot({ groupId, carId, car, playerCount: activePlayerCount(car) });
+          if (result.refreshed) diagnostics.refreshed += 1;
+          if (result.changed) diagnostics.changed += 1;
+          else diagnostics.unchanged += 1;
+          results.push({ carId, groupId, refreshed: result.refreshed, changed: result.changed, reason: result.reason, joined: result.joined || [], left: result.left || [] });
+        } catch (error2) {
+          diagnostics.failed += 1;
+          await pushDiagnosticSample(samples, binding, carId, groupId, "refresh_failed", { message: text(error2 && error2.message).slice(0, 120) });
+          results.push({ carId, groupId, refreshed: false, changed: false, reason: "refresh_failed" });
+        }
+      }
+      return send(res, 200, { success: true, processed: results.length, results, diagnostics, samples });
     }
 
     if (action === "catchup") {
@@ -195,4 +267,4 @@ async function handleMembershipHealth(req, res, suppliedPayload) {
   }
 }
 
-module.exports = { handleMembershipHealth, activePlayerCount, identityIds, authorizedIdentityIds, owns, safeErrorCode };
+module.exports = { handleMembershipHealth, activePlayerCount, identityIds, authorizedIdentityIds, owns, safeErrorCode, listOwnedBindings };
