@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const REVISION = 2;
+  const REVISION = 3;
 
   function text(value) {
     return String(value == null ? "" : value).trim();
@@ -48,6 +48,7 @@
     return {
       viewerId,
       profileId,
+      canonicalOwnerId: profileId || viewerId,
       identityIds: unique([viewerId, profileId, ...identityIds])
     };
   }
@@ -100,6 +101,36 @@
     return map;
   }
 
+  async function migrateHostOwnerIds(hostMap, identity) {
+    const canonicalOwnerId = text(identity?.canonicalOwnerId);
+    const identitySet = new Set(unique(identity?.identityIds));
+
+    if (!canonicalOwnerId || !hostMap || typeof hostMap.forEach !== "function") {
+      return 0;
+    }
+
+    const updates = [];
+
+    hostMap.forEach(function (car, carId) {
+      const ownerId = text(car?.ownerId);
+      if (!ownerId || ownerId === canonicalOwnerId || !identitySet.has(ownerId)) {
+        return;
+      }
+
+      updates.push(
+        window.db.collection("cars").doc(carId).update({
+          ownerId: canonicalOwnerId,
+          updatedAt: new Date().toISOString()
+        }).then(function () {
+          car.ownerId = canonicalOwnerId;
+        })
+      );
+    });
+
+    await Promise.all(updates);
+    return updates.length;
+  }
+
   async function loadAliasModule() {
     if (window.JLYMyCarViewAlias) return window.JLYMyCarViewAlias;
 
@@ -131,6 +162,8 @@
       fetchExistingPreparedCars(existingView)
     ]);
 
+    const migratedOwnerCount = await migrateHostOwnerIds(hostMap, identity);
+
     const carMap = new Map();
     [preparedMap, hostMap, playerMap].forEach(function (source) {
       source.forEach(function (car, carId) {
@@ -140,20 +173,28 @@
 
     const nextView = module.buildView({
       viewerId: identity.viewerId,
-      identityIds: identity.identityIds,
+      identityIds: unique([
+        ...identity.identityIds,
+        identity.canonicalOwnerId
+      ]),
       cars: Array.from(carMap.values())
     });
 
     nextView.identityResolutionRevision = REVISION;
     nextView.identityResolvedAt = new Date().toISOString();
     nextView.currentProfileId = identity.profileId || "";
+    nextView.canonicalOwnerId = identity.canonicalOwnerId || "";
+    nextView.migratedOwnerCount = migratedOwnerCount;
 
     await module.write(nextView);
 
     try {
       const alias = await loadAliasModule();
       if (alias && typeof alias.registerAliases === "function") {
-        await alias.registerAliases(identity.viewerId, identity.identityIds);
+        await alias.registerAliases(identity.viewerId, unique([
+          ...identity.identityIds,
+          identity.canonicalOwnerId
+        ]));
       }
     } catch (error) {
       console.warn("MyCar Identity Alias 更新失敗：", error);
@@ -169,6 +210,8 @@
       console.log("✅ MyCar Identity Resolution 完成", {
         viewerId: nextView.viewerId,
         identityIds: nextView.identityIds,
+        canonicalOwnerId: nextView.canonicalOwnerId,
+        migratedOwnerCount: nextView.migratedOwnerCount,
         hostCount: nextView.counts?.host || 0,
         playerCount: nextView.counts?.player || 0
       });
