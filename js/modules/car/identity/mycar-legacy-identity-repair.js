@@ -2,7 +2,7 @@
 "use strict";
 if(window.__JLYMyCarLegacyIdentityRepairLoaded)return;
 window.__JLYMyCarLegacyIdentityRepairLoaded=true;
-const REVISION=11;
+const REVISION=12;
 const text=v=>String(v==null?"":v).trim();
 const unique=v=>Array.from(new Set((Array.isArray(v)?v:[]).map(text).filter(Boolean)));
 function add(set,v){v=text(v);if(v&&!v.toLowerCase().startsWith("line:"))set.add(v);}
@@ -21,29 +21,45 @@ car.ownerId,car.ownerPersonId,car.ownerProfileId,car.hostId,car.hostPersonId,car
 async function collectCloudProfileAliases(db,candidateIds){
  const aliases=new Set();
  const profileDocIds=new Set();
- const candidates=unique(candidateIds);
+ const checkedDirect=new Set();
+ const checkedReverse=new Set();
+ const queue=unique(candidateIds);
+ const scalarFields=[
+  "identityId","personId","profileId","playerId","memberId",
+  "canonicalPersonId","canonicalProfileId","canonicalMemberId",
+  "mergedIntoPersonId","mergedIntoProfileId","mergedIntoMemberId"
+ ];
+ function remember(value){const before=aliases.size;add(aliases,value);if(aliases.size>before)queue.push(text(value));}
  async function consumeDoc(doc){
   if(!doc||!doc.exists)return false;
   profileDocIds.add(text(doc.id));
-  add(aliases,doc.id);
-  Array.from(formalIds(doc.data()||{})).forEach(id=>add(aliases,id));
+  remember(doc.id);
+  Array.from(formalIds(doc.data()||{})).forEach(remember);
   return true;
  }
- for(const id of candidates){
-  try{await consumeDoc(await db.collection("players").doc(id).get());}
-  catch(error){console.warn("MyCar profile direct lookup skipped",id,error);}
- }
- if(aliases.size===0){
-  const lookupIds=unique(candidates).slice(0,4);
-  const fields=["identityId","personId","canonicalPersonId","canonicalProfileId","mergedIntoPersonId"];
-  for(const id of lookupIds){
-   for(const field of fields){
+ let rounds=0;
+ while(queue.length&&rounds<120){
+  const id=text(queue.shift());
+  if(!id){rounds+=1;continue;}
+  if(!checkedDirect.has(id)){
+   checkedDirect.add(id);
+   try{await consumeDoc(await db.collection("players").doc(id).get());}
+   catch(error){console.warn("MyCar profile direct lookup skipped",id,error);}
+  }
+  if(!checkedReverse.has(id)){
+   checkedReverse.add(id);
+   for(const field of scalarFields){
     try{
-     const snapshot=await db.collection("players").where(field,"==",id).limit(5).get();
+     const snapshot=await db.collection("players").where(field,"==",id).limit(10).get();
      for(const doc of snapshot.docs)await consumeDoc(doc);
     }catch(error){console.warn("MyCar profile alias lookup skipped",field,id,error);}
    }
+   try{
+    const linkedSnapshot=await db.collection("players").where("linkedPlayerIds","array-contains",id).limit(10).get();
+    for(const doc of linkedSnapshot.docs)await consumeDoc(doc);
+   }catch(error){console.warn("MyCar reverse linkedPlayerIds lookup skipped",id,error);}
   }
+  rounds+=1;
  }
  return {aliases:Array.from(aliases),profileDocIds:Array.from(profileDocIds)};
 }
@@ -69,7 +85,7 @@ async function getIdentityContext(){
  const localIds=typeof identity.getAllPlayerIdentityIds==="function"?identity.getAllPlayerIdentityIds():initialLocalIds;
  const identityIds=unique([viewerId,profileId,...localIds,...cloudIds]);
  if(!viewerId&&!profileId)throw new Error("尚未取得 JLY 使用者身分");
- console.log("🧩 MyCar resolved identity aliases",{viewerId,profileId,cloudProfileIds,identityIds});
+ console.log("🧩 MyCar resolved identity aliases V12",{viewerId,profileId,cloudProfileIds,identityIds});
  return {viewerId:viewerId||profileId,profileId:profileId||cloudProfileIds[0]||"",identityIds};
 }
 function normalizePlayer(player,set){
@@ -105,11 +121,11 @@ async function recoverCoreCars(context,mod){
  }catch(error){console.warn("MyCar full Core fallback scan unavailable; keeping indexed recovery results",error);}
  return Array.from(map.values());
 }
-async function rebuild(){if(!window.JLYCarData)throw new Error("Car Data 尚未載入");if(typeof window.ensureMyCarViewModule!=="function")throw new Error("MyCar View Runtime 尚未載入");const context=await getIdentityContext();const mod=await window.ensureMyCarViewModule();const cars=await recoverCoreCars(context,mod);const view=mod.buildView({viewerId:context.viewerId,identityIds:context.identityIds,cars});view.identityResolutionRevision=REVISION;view.identityResolvedAt=new Date().toISOString();view.identityRepairSource="cloud-linked-profile-alias-recovery";await mod.write(view);return view;}
+async function rebuild(){if(!window.JLYCarData)throw new Error("Car Data 尚未載入");if(typeof window.ensureMyCarViewModule!=="function")throw new Error("MyCar View Runtime 尚未載入");const context=await getIdentityContext();const mod=await window.ensureMyCarViewModule();const cars=await recoverCoreCars(context,mod);const view=mod.buildView({viewerId:context.viewerId,identityIds:context.identityIds,cars});view.identityResolutionRevision=REVISION;view.identityResolvedAt=new Date().toISOString();view.identityRepairSource="recursive-reverse-profile-alias-recovery";await mod.write(view);return view;}
 let runPromise=null;
 async function run(){
  if(runPromise)return runPromise;
- runPromise=(async()=>{try{const view=await rebuild();console.log("✅ MyCar canonical identity recovery V11",{host:view.counts&&view.counts.host||0,player:view.counts&&view.counts.player||0,all:view.counts&&view.counts.all||0});if(typeof window.resetMyCarPagination==="function")window.resetMyCarPagination();if(typeof window.renderMyCars==="function")await window.renderMyCars({restoreScroll:false});return view;}catch(error){console.error("MyCar canonical identity recovery failed",error);return null;}finally{runPromise=null;}})();
+ runPromise=(async()=>{try{const view=await rebuild();console.log("✅ MyCar canonical identity recovery V12",{host:view.counts&&view.counts.host||0,player:view.counts&&view.counts.player||0,all:view.counts&&view.counts.all||0});if(typeof window.resetMyCarPagination==="function")window.resetMyCarPagination();if(typeof window.renderMyCars==="function")await window.renderMyCars({restoreScroll:false});return view;}catch(error){console.error("MyCar canonical identity recovery failed",error);return null;}finally{runPromise=null;}})();
  return runPromise;
 }
 window.JLYMyCarLegacyIdentityRepair={REVISION,getIdentityContext,collectCloudProfileAliases,getPlayerIdentityIds,getOwnerIdentityIds,carMatchesViewerAsPlayer,recoverCoreCars,rebuild,run};
