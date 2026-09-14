@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const REVISION = 6;
+  const REVISION = 7;
 
   function text(value) {
     return String(value == null ? "" : value).trim();
@@ -138,10 +138,20 @@
         })
       : [];
 
-    return {
+    const matchedOwnerId = intersects(getOwnerIdentityIds(source), identitySet);
+    const next = {
       ...source,
       players
     };
+
+    // Prepared View V4 的 host 判定仍以 ownerId 為主。
+    // 歷史車可能把正式主揪身分留在 ownerPersonId / hostProfileId 等欄位。
+    // 只在 View 的記憶體副本補一個可辨識的 ownerId，不回寫 Core car。
+    if (matchedOwnerId && !identitySet.has(text(next.ownerId))) {
+      next.ownerId = matchedOwnerId;
+    }
+
+    return next;
   }
 
   function carMatchesViewerAsPlayer(car, identitySet) {
@@ -160,7 +170,6 @@
     const identitySet = new Set(context.identityIds);
     const carMap = new Map();
 
-    // 保留既有已驗證查詢路徑。
     for (const id of context.identityIds) {
       const hostCars = await window.JLYCarData.getCarsByOwner(id);
       hostCars.forEach(function (car) {
@@ -176,10 +185,8 @@
       carMap.set(car.id, normalizeCarForView(car, identitySet));
     });
 
-    // 歷史相容 fallback：最近大改後 Prepared View 只讀，
-    // playerIds index 或舊 Membership 欄位若沒有覆蓋完整身分，
-    // 「我是玩家」會整批消失。Repair 時掃 Core cars 一次，
-    // 只把正式 Membership 確認屬於目前使用者的車補回 View。
+    // 歷史相容 fallback：掃 Core cars 一次，讓 owner/player 任一正式身分欄位
+    // 能重新進入 Prepared View。只重建 View，不修改 Core ownership/membership。
     const snapshot = await window.db.collection("cars").get();
 
     snapshot.docs.forEach(function (doc) {
@@ -214,7 +221,7 @@
 
     view.identityResolutionRevision = REVISION;
     view.identityResolvedAt = new Date().toISOString();
-    view.identityRepairSource = "core-membership-recovery";
+    view.identityRepairSource = "core-membership-owner-recovery";
 
     await viewModule.write(view);
     return view;
@@ -223,7 +230,7 @@
   async function run() {
     try {
       const view = await rebuild();
-      console.log("✅ MyCar 歷史 Membership Recovery 完成", {
+      console.log("✅ MyCar 歷史 Membership/Owner Recovery 完成", {
         host: view.counts && view.counts.host || 0,
         player: view.counts && view.counts.player || 0,
         all: view.counts && view.counts.all || 0
@@ -236,7 +243,7 @@
         await window.renderMyCars({ restoreScroll: false });
       }
     } catch (error) {
-      console.error("MyCar 歷史 Membership Recovery 失敗：", error);
+      console.error("MyCar 歷史 Membership/Owner Recovery 失敗：", error);
     }
   }
 
@@ -244,6 +251,7 @@
     REVISION,
     getIdentityContext,
     getPlayerIdentityIds,
+    getOwnerIdentityIds,
     carMatchesViewerAsPlayer,
     recoverCoreCars,
     rebuild,
