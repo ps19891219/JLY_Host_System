@@ -76,6 +76,58 @@ function getSessionIds(session) {
 }
 
 
+async function getAuthorizedActorIds(
+  db,
+  session
+) {
+  const actorIds =
+    getSessionIds(session);
+
+  const profileId =
+    text(session.profileId);
+
+  if (!db || !profileId) {
+    return actorIds;
+  }
+
+  try {
+    const profileSnapshot =
+      await db
+        .collection("players")
+        .doc(profileId)
+        .get();
+
+    if (!profileSnapshot.exists) {
+      return actorIds;
+    }
+
+    const profile =
+      profileSnapshot.data() || {};
+
+    const linkedPlayerIds =
+      Array.isArray(
+        profile.linkedPlayerIds
+      )
+        ? profile.linkedPlayerIds
+        : [];
+
+    linkedPlayerIds
+      .map(text)
+      .filter(Boolean)
+      .forEach(function (id) {
+        actorIds.add(id);
+      });
+  } catch (error) {
+    console.warn(
+      "讀取正式 Player Profile linkedPlayerIds 失敗：",
+      error
+    );
+  }
+
+  return actorIds;
+}
+
+
 // ============================================================
 // Delete one subcollection
 // ============================================================
@@ -304,7 +356,8 @@ module.exports =
         snapshot.data() || {};
 
       const actorIds =
-        getSessionIds(
+        await getAuthorizedActorIds(
+          db,
           session.data
         );
 
@@ -316,6 +369,11 @@ module.exports =
 
       /*
        * Permanent test deletion is owner-only.
+       *
+       * ownerId may point at the current Player Profile ID or one of
+       * that profile's formally linked historical Player Identity IDs.
+       * Resolve those links from Firestore rather than trusting client
+       * localStorage, so server-side authorization matches JLY Identity.
        */
       if (
         !ownerId ||
