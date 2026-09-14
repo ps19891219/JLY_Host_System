@@ -29,6 +29,35 @@ function buildPendingAction(input) {
     title: "LINE 群組名單待核對", updatedAt: timestamp, createdAt: text(input.createdAt) || timestamp
   };
 }
+function diffMemberIds(beforeIds, currentIds) {
+  const before = new Set(unique(beforeIds));
+  const current = new Set(unique(currentIds));
+  return {
+    joined: [...current].filter(id => !before.has(id)),
+    left: [...before].filter(id => !current.has(id))
+  };
+}
+async function readCurrentRoster(groupId, dependencies = {}) {
+  const countMembers = dependencies.getGroupMemberCount || getGroupMemberCount;
+  const listIds = dependencies.listGroupMemberIds || listGroupMemberIds;
+  let count = null, countStatus = "available", countError = "";
+  try {
+    const value = await countMembers(groupId);
+    count = Number.isFinite(Number(value)) ? Number(value) : null;
+    if (count == null) throw new Error("line_group_member_count_invalid");
+  } catch (error) {
+    countStatus = "unavailable";
+    countError = text(error && error.message).slice(0, 160);
+  }
+  let ids = [], memberIdsStatus = "available", memberIdsError = "";
+  try {
+    ids = unique(await listIds(groupId));
+  } catch (error) {
+    memberIdsStatus = "unavailable";
+    memberIdsError = text(error && error.message).slice(0, 160);
+  }
+  return { count, countStatus, countError, ids, memberIdsStatus, memberIdsError };
+}
 async function markMembershipChanged(input, dependencies = {}) {
   const groupId = text(input.groupId), carId = text(input.carId), car = input.car;
   if (!groupId || !carId || !car) return { changed: false, reason: "context_missing" };
@@ -58,45 +87,76 @@ async function initializeMembershipSnapshot(input, dependencies = {}) {
   if (isCarExpired(car, dependencies.currentDate ? dependencies.currentDate() : new Date())) return { initialized: false, reason: "car_expired" };
   const read = dependencies.getSnapshot || getSnapshot, previous = await read(groupId);
   if (previous && ["verified", "needs_review"].includes(text(previous.status))) return { initialized: false, reason: "snapshot_exists", snapshot: previous };
-  const countMembers = dependencies.getGroupMemberCount || getGroupMemberCount;
-  const listIds = dependencies.listGroupMemberIds || listGroupMemberIds;
   const save = dependencies.saveSnapshot || saveSnapshot, saveAction = dependencies.savePendingAction || savePendingAction;
   const timestamp = nowIso(dependencies);
-
-  let count = null;
-  let countStatus = "available";
-  let countError = "";
-  try {
-    const value = await countMembers(groupId);
-    count = Number.isFinite(Number(value)) ? Number(value) : null;
-    if (count == null) throw new Error("line_group_member_count_invalid");
-  } catch (error) {
-    countStatus = "unavailable";
-    countError = text(error && error.message).slice(0, 160);
-  }
-
-  let ids = [];
-  let memberIdsStatus = "available";
-  let memberIdsError = "";
-  try {
-    ids = await listIds(groupId);
-  } catch (error) {
-    memberIdsStatus = "unavailable";
-    memberIdsError = text(error && error.message).slice(0, 160);
-  }
-
+  const roster = await readCurrentRoster(groupId, dependencies);
   const stored = await save(groupId, {
-    carId, ownerId: text(car.ownerId), status: "needs_review", lineMemberCount: count,
-    lineMemberCountStatus: countStatus, lineMemberCountError: countError,
-    lineUserIds: unique(ids), lineMemberIdsStatus: memberIdsStatus, lineMemberIdsError: memberIdsError,
+    carId, ownerId: text(car.ownerId), status: "needs_review", lineMemberCount: roster.count,
+    lineMemberCountStatus: roster.countStatus, lineMemberCountError: roster.countError,
+    lineUserIds: roster.ids, lineMemberIdsStatus: roster.memberIdsStatus, lineMemberIdsError: roster.memberIdsError,
     membershipRevision: 1, pendingJoinedUserIds: [], pendingLeftUserIds: [], initializedAt: timestamp, updatedAt: timestamp,
     createdAt: text(previous && previous.createdAt) || timestamp
   });
   await saveAction(carId, buildPendingAction({ carId, groupId, ownerId: car.ownerId, timestamp }));
   let reason = "snapshot_initialized";
-  if (countStatus === "unavailable") reason = "snapshot_initialized_without_count";
-  else if (memberIdsStatus === "unavailable") reason = "snapshot_initialized_count_only";
+  if (roster.countStatus === "unavailable") reason = "snapshot_initialized_without_count";
+  else if (roster.memberIdsStatus === "unavailable") reason = "snapshot_initialized_count_only";
   return { initialized: true, reason, snapshot: stored };
+}
+async function refreshMembershipSnapshot(input, dependencies = {}) {
+  const groupId = text(input.groupId), carId = text(input.carId), car = input.car;
+  if (!groupId || !carId || !car) return { refreshed: false, changed: false, reason: "context_missing" };
+  if (isCarExpired(car, dependencies.currentDate ? dependencies.currentDate() : new Date())) return { refreshed: false, changed: false, reason: "car_expired" };
+  const read = dependencies.getSnapshot || getSnapshot;
+  const save = dependencies.saveSnapshot || saveSnapshot;
+  const saveAction = dependencies.savePendingAction || savePendingAction;
+  const previous = await read(groupId);
+  if (!previous) {
+    const initialized = await initializeMembershipSnapshot(input, dependencies);
+    return { refreshed: true, changed: true, reason: initialized.reason, snapshot: initialized.snapshot };
+  }
+  const roster = await readCurrentRoster(groupId, dependencies);
+  if (roster.countStatus === "unavailable" && roster.memberIdsStatus === "unavailable") {
+    return { refreshed: false, changed: false, reason: "line_roster_unavailable", snapshot: previous };
+  }
+  let joined = [], left = [], changed = false;
+  if (roster.memberIdsStatus === "available") {
+    const delta = diffMemberIds(previous.lineUserIds || [], roster.ids);
+    joined = delta.joined;
+    left = delta.left;
+    changed = joined.length > 0 || left.length > 0;
+  } else if (roster.countStatus === "available") {
+    const baselineCount = previous.verifiedLineMemberCount != null
+      ? Number(previous.verifiedLineMemberCount)
+      : (previous.lineMemberCount != null ? Number(previous.lineMemberCount) : null);
+    changed = baselineCount != null && Number(roster.count) !== baselineCount;
+  }
+  const timestamp = nowIso(dependencies);
+  const alreadyPending = text(previous.status) === "needs_review";
+  const nextStatus = changed || alreadyPending ? "needs_review" : "verified";
+  const nextRevision = changed
+    ? Math.max(0, Number(previous.membershipRevision) || 0) + 1
+    : Math.max(0, Number(previous.membershipRevision) || 0);
+  const stored = await save(groupId, {
+    carId,
+    ownerId: text(car.ownerId),
+    status: nextStatus,
+    lineMemberCount: roster.count,
+    lineMemberCountStatus: roster.countStatus,
+    lineMemberCountError: roster.countError,
+    observedLineUserIds: roster.memberIdsStatus === "available" ? roster.ids : (previous.observedLineUserIds || []),
+    lineMemberIdsStatus: roster.memberIdsStatus,
+    lineMemberIdsError: roster.memberIdsError,
+    membershipRevision: nextRevision,
+    pendingJoinedUserIds: unique([...(previous.pendingJoinedUserIds || []), ...joined]),
+    pendingLeftUserIds: unique([...(previous.pendingLeftUserIds || []), ...left]),
+    lastRosterRefreshAt: timestamp,
+    updatedAt: timestamp
+  });
+  if (nextStatus === "needs_review") {
+    await saveAction(carId, buildPendingAction({ carId, groupId, ownerId: car.ownerId, timestamp, createdAt: previous.reviewCreatedAt || previous.createdAt }));
+  }
+  return { refreshed: true, changed, reason: changed ? "membership_changed_on_refresh" : "roster_refreshed", joined, left, snapshot: stored };
 }
 async function verifyMembershipSnapshot(input, dependencies = {}) {
   const groupId = text(input.groupId), carId = text(input.carId);
@@ -104,30 +164,38 @@ async function verifyMembershipSnapshot(input, dependencies = {}) {
   const complete = dependencies.completePendingAction || completePendingAction, previous = await read(groupId);
   if (!previous || text(previous.carId) !== carId) return { verified: false, reason: "snapshot_not_found" };
   const timestamp = nowIso(dependencies);
+  const roster = await readCurrentRoster(groupId, dependencies);
+  const currentIds = roster.memberIdsStatus === "available"
+    ? roster.ids
+    : unique(previous.observedLineUserIds || previous.lineUserIds || []);
+  const currentCount = roster.countStatus === "available"
+    ? roster.count
+    : (previous.lineMemberCount == null ? null : Number(previous.lineMemberCount));
   const stored = await save(groupId, {
     status: "verified",
     verifiedAt: timestamp,
     verifiedBy: text(input.verifiedBy),
     verifiedMembershipRevision: Number(previous.membershipRevision) || 0,
-    verifiedLineMemberCount: previous.lineMemberCount == null ? null : Number(previous.lineMemberCount) || 0,
+    verifiedLineMemberCount: currentCount,
     verifiedPlayerCount: Math.max(0, Number(input.playerCount) || 0),
+    lineMemberCount: currentCount,
+    lineMemberCountStatus: roster.countStatus,
+    lineMemberCountError: roster.countError,
+    lineUserIds: currentIds,
+    observedLineUserIds: currentIds,
+    lineMemberIdsStatus: roster.memberIdsStatus,
+    lineMemberIdsError: roster.memberIdsError,
     pendingJoinedUserIds: [], pendingLeftUserIds: [], updatedAt: timestamp
   });
-
   let pendingActionCompleted = true;
   let pendingActionError = "";
   try {
     await complete(carId, ACTION_ID, timestamp);
   } catch (error) {
-    // The verified snapshot is the source of truth for roster review. A stale
-    // dashboard pending-action marker must not turn a successful verification
-    // into a user-visible failure. Keep the cleanup best-effort and expose the
-    // condition for diagnostics so it can be repaired separately.
     pendingActionCompleted = false;
     pendingActionError = text(error && error.message).slice(0, 160);
     console.error("LINE membership pending-action completion failed.", error);
   }
-
   return {
     verified: true,
     reason: pendingActionCompleted ? "snapshot_verified" : "snapshot_verified_pending_action_cleanup_failed",
@@ -136,4 +204,4 @@ async function verifyMembershipSnapshot(input, dependencies = {}) {
     pendingActionError
   };
 }
-module.exports = { ACTION_ID, isCarExpired, buildPendingAction, markMembershipChanged, initializeMembershipSnapshot, verifyMembershipSnapshot };
+module.exports = { ACTION_ID, isCarExpired, buildPendingAction, diffMemberIds, readCurrentRoster, markMembershipChanged, initializeMembershipSnapshot, refreshMembershipSnapshot, verifyMembershipSnapshot };
