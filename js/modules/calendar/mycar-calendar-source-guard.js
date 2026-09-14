@@ -1,7 +1,8 @@
 (function () {
   "use strict";
 
-  // MyCar Google Calendar guard logic is consolidated into
-  // mycar-calendar-repair.js (single-flow). This file intentionally
-  // remains inert for backward-compatible script loading.
+  const script = document.createElement("script");
+  script.src = "/js/modules/calendar/mycar/source-guard.js?v=1";
+  script.async = false;
+  document.head.appendChild(script);
 })();
