@@ -1,0 +1,2 @@
+Scope: Work Schedule DM/NPC presentation + role-scoped batch field guard only.
+Excluded: MyCar #147, Matching, Calendar Core, Accounting, LINE, Person Identity, Production Firestore recovery.
