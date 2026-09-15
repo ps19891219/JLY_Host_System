@@ -1,0 +1,1 @@
+const fs=require('fs');const assert=require('assert');const s=fs.readFileSync('docs/WORK_SCHEDULE_DM_NPC_BRANCH_HEAD_20260915.txt','utf8');assert(s.includes('Preview validation before merge'));console.log('work-schedule DM/NPC PR state: ok');
