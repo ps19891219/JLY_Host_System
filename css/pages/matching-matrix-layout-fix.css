@@ -1,0 +1,73 @@
+/* Matching Matrix mobile layout guard.
+   Participant names must never change the Matrix column geometry. */
+.matching-matrix-layout-v2 {
+  align-items: stretch;
+}
+
+.matching-matrix-fixed-left,
+.matching-matrix-scroll-middle,
+.matching-matrix-fixed-right {
+  align-self: stretch;
+}
+
+.matching-matrix-scroll-middle {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.matching-matrix-center-table {
+  width: max-content;
+  table-layout: fixed;
+}
+
+.matching-matrix-center-table th,
+.matching-matrix-center-table td,
+.matching-matrix-person-header,
+.matching-matrix-person-cell {
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+  box-sizing: border-box;
+}
+
+.matching-matrix-person-header {
+  overflow: hidden;
+}
+
+.matching-matrix-player-name {
+  display: block;
+  width: 58px;
+  max-width: 58px;
+  margin: 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Keep the three independently-rendered tables on identical row geometry. */
+.matching-matrix-table tbody tr,
+.matching-matrix-table tbody th,
+.matching-matrix-table tbody td {
+  height: 66px;
+  min-height: 66px;
+  max-height: 66px;
+}
+
+@media (max-width: 420px) {
+  .matching-matrix-center-table th,
+  .matching-matrix-center-table td,
+  .matching-matrix-person-header,
+  .matching-matrix-person-cell {
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
+  }
+
+  .matching-matrix-table tbody tr,
+  .matching-matrix-table tbody th,
+  .matching-matrix-table tbody td {
+    height: 64px;
+    min-height: 64px;
+    max-height: 64px;
+  }
+}
