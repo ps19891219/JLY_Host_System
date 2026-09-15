@@ -4,6 +4,9 @@
  * fragments inside the horizontal scroller can stop painting while the DOM rows
  * still exist. Keep the existing Matrix data/render contract, but render the
  * generated table sections as block/flex rows so every candidate row paints.
+ *
+ * IMPORTANT: tbody row heights are owned exclusively by
+ * matching-matrix-row-sync.js. This file controls structure and column widths only.
  */
 (function () {
   "use strict";
@@ -11,7 +14,6 @@
   const COLUMN_WIDTH = 72;
   const HEADER_GROUP_HEIGHT = 30;
   const HEADER_NAME_HEIGHT = 48;
-  const ROW_HEIGHT = window.matchMedia("(max-width: 420px)").matches ? 64 : 66;
 
   function px(value) {
     return value + "px";
@@ -57,9 +59,6 @@
     table.querySelectorAll("tbody tr").forEach(function (row) {
       row.style.display = "flex";
       row.style.width = "100%";
-      row.style.height = px(ROW_HEIGHT);
-      row.style.minHeight = px(ROW_HEIGHT);
-      row.style.maxHeight = px(ROW_HEIGHT);
     });
   }
 
@@ -76,9 +75,6 @@
 
     table.querySelectorAll("tbody th, tbody td").forEach(function (cell) {
       setBox(cell, width);
-      cell.style.height = px(ROW_HEIGHT);
-      cell.style.minHeight = px(ROW_HEIGHT);
-      cell.style.maxHeight = px(ROW_HEIGHT);
     });
   }
 
@@ -90,8 +86,6 @@
     const count = headers.length;
     if (!count) return 0;
 
-    /* Remove the previous colgroup workaround. Native table column layout is no
-       longer used by the long-list renderer. */
     table.querySelectorAll("colgroup[data-matching-fixed-columns]").forEach(function (node) {
       node.remove();
     });
@@ -110,8 +104,6 @@
       header.style.overflow = "hidden";
     });
 
-    /* Group headers retain their colspan meaning visually by using the number of
-       participant columns represented by the DOM colSpan. */
     table.querySelectorAll("thead .matching-matrix-group-row > th").forEach(function (header) {
       const span = Math.max(1, Number(header.colSpan) || 1);
       setBox(header, span * COLUMN_WIDTH);
@@ -120,9 +112,6 @@
 
     table.querySelectorAll("tbody td").forEach(function (cell) {
       setBox(cell, COLUMN_WIDTH);
-      cell.style.height = px(ROW_HEIGHT);
-      cell.style.minHeight = px(ROW_HEIGHT);
-      cell.style.maxHeight = px(ROW_HEIGHT);
     });
 
     return exactWidth;
@@ -153,8 +142,6 @@
     middle.style.maxHeight = "none";
     if (centerWidth) centerTable.style.width = px(centerWidth);
 
-    /* No synthetic wrapper height. Grid stretches naturally from the complete
-       block rows, so left, middle and right share the same full document height. */
     [layout, leftWrap, middle, rightWrap].forEach(function (node) {
       node.style.height = "auto";
       node.style.minHeight = "0";
