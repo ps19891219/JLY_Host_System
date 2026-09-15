@@ -1,6 +1,6 @@
 /* JLY Matching Matrix row synchronizer.
- * Left / center / right are separate tables, but every candidate-slot row uses
- * exactly the same fixed height. This avoids cumulative drift on mobile Safari.
+ * Left is the canonical row track. Center and right mirror each candidate slot
+ * by data-slot-id so participant cells cannot drift from the date/total columns.
  */
 (function () {
   "use strict";
@@ -28,21 +28,33 @@
     });
   }
 
-  function lockRow(row) {
+  function lockRow(row, heightValue) {
     if (!row) return;
-    const height = px(SLOT_ROW_HEIGHT);
+    const height = px(heightValue || SLOT_ROW_HEIGHT);
     row.style.setProperty("height", height, "important");
     row.style.setProperty("min-height", height, "important");
     row.style.setProperty("max-height", height, "important");
-    row.style.boxSizing = "border-box";
+    row.style.setProperty("box-sizing", "border-box", "important");
+    row.style.setProperty("margin", "0", "important");
+    row.style.setProperty("padding", "0", "important");
 
     Array.from(row.children).forEach(function (cell) {
       cell.style.setProperty("height", height, "important");
       cell.style.setProperty("min-height", height, "important");
       cell.style.setProperty("max-height", height, "important");
-      cell.style.boxSizing = "border-box";
-      cell.style.overflow = "hidden";
+      cell.style.setProperty("box-sizing", "border-box", "important");
+      cell.style.setProperty("overflow", "hidden", "important");
+      cell.style.setProperty("margin", "0", "important");
     });
+  }
+
+  function rowsBySlot(table) {
+    const map = new Map();
+    if (!table) return map;
+    table.querySelectorAll("tbody tr[data-slot-id]").forEach(function (row) {
+      map.set(String(row.dataset.slotId || ""), row);
+    });
+    return map;
   }
 
   function syncRows() {
@@ -53,8 +65,27 @@
 
     compactLeftSlotRows(left);
 
+    const centerRows = rowsBySlot(center);
+    const rightRows = rowsBySlot(right);
+
+    left.querySelectorAll("tbody tr[data-slot-id]").forEach(function (leftRow) {
+      const slotId = String(leftRow.dataset.slotId || "");
+      if (!slotId) return;
+
+      /* One canonical height for the same logical slot. The center player row and
+         right total row are locked from the left slot row, never by row index. */
+      lockRow(leftRow, SLOT_ROW_HEIGHT);
+      lockRow(centerRows.get(slotId), SLOT_ROW_HEIGHT);
+      lockRow(rightRows.get(slotId), SLOT_ROW_HEIGHT);
+    });
+
+    /* Keep all three tbody tracks free of browser table spacing differences. */
     [left, center, right].forEach(function (table) {
-      table.querySelectorAll("tbody tr[data-slot-id]").forEach(lockRow);
+      const body = table.tBodies && table.tBodies[0];
+      if (!body) return;
+      body.style.setProperty("margin", "0", "important");
+      body.style.setProperty("padding", "0", "important");
+      body.style.setProperty("border-spacing", "0", "important");
     });
   }
 
@@ -93,9 +124,6 @@
     tryStart();
     if (started) return;
 
-    /* matchingMatrixContainer is created asynchronously by matching-render.js
-       after Firestore data loads. Watch until that real container exists instead
-       of returning permanently during DOMContentLoaded. */
     bootObserver = new MutationObserver(tryStart);
     bootObserver.observe(document.documentElement, { childList: true, subtree: true });
   }
