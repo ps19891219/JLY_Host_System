@@ -1,0 +1,1 @@
+const fs=require('fs');const assert=require('assert');const s=fs.readFileSync('docs/WORK_SCHEDULE_DM_NPC_STATUS_20260915.txt','utf8');assert(s.includes('main/Production unchanged'));console.log('work-schedule DM/NPC status: ok');
