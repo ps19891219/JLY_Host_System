@@ -1,0 +1,1 @@
+const fs=require('fs');const assert=require('assert');const s=fs.readFileSync('docs/WORK_SCHEDULE_DM_NPC_DONE_CODE_ONLY_20260915.txt','utf8');assert(s.includes('Production unchanged'));console.log('work-schedule DM/NPC checkpoint: ok');
