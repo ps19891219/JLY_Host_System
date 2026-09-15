@@ -1,0 +1,1 @@
+const fs=require('fs');const assert=require('assert');const s=fs.readFileSync('docs/WORK_SCHEDULE_DM_NPC_IMPLEMENTATION_SUMMARY_20260915.md','utf8');assert(s.includes('without writing Firestore'));assert(s.includes('role-scoped'));console.log('work-schedule DM/NPC implementation summary: ok');
