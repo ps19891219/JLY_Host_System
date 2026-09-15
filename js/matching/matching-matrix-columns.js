@@ -1,19 +1,13 @@
 /* JLY Matching Matrix structural renderer guard.
- * Matrix V2 intentionally keeps left / participant / total as three synchronized
- * views over the same candidateSlots. On iOS Safari, very long native table
- * fragments inside the horizontal scroller can stop painting while the DOM rows
- * still exist. Keep the existing Matrix data/render contract, but render the
- * generated table sections as block/flex rows so every candidate row paints.
- *
- * IMPORTANT: tbody row heights are owned exclusively by
- * matching-matrix-row-sync.js. This file controls structure and column widths only.
+ * Matrix V2 keeps left / participant / total as three synchronized views.
+ * tbody row heights are owned by matching-matrix-row-sync.js.
+ * This file owns structure, widths and the shared visible header track.
  */
 (function () {
   "use strict";
 
   const COLUMN_WIDTH = 72;
-  const HEADER_GROUP_HEIGHT = 30;
-  const HEADER_NAME_HEIGHT = 48;
+  const HEADER_HEIGHT = 78;
 
   function px(value) {
     return value + "px";
@@ -21,32 +15,50 @@
 
   function setBox(node, width) {
     if (!node) return;
-    node.style.boxSizing = "border-box";
+    node.style.setProperty("box-sizing", "border-box", "important");
     if (width != null) {
-      node.style.width = px(width);
-      node.style.minWidth = px(width);
-      node.style.maxWidth = px(width);
-      node.style.flex = "0 0 " + px(width);
+      node.style.setProperty("width", px(width), "important");
+      node.style.setProperty("min-width", px(width), "important");
+      node.style.setProperty("max-width", px(width), "important");
+      node.style.setProperty("flex", "0 0 " + px(width), "important");
     }
   }
 
-  function lockHeaderRow(row, height) {
+  function hideGroupRow(table) {
+    const row = table && table.querySelector("thead .matching-matrix-group-row");
     if (!row) return;
-    row.style.setProperty("height", px(height), "important");
-    row.style.setProperty("min-height", px(height), "important");
-    row.style.setProperty("max-height", px(height), "important");
+    row.style.setProperty("display", "none", "important");
+    row.style.setProperty("height", "0", "important");
+    row.style.setProperty("min-height", "0", "important");
+    row.style.setProperty("max-height", "0", "important");
+    row.style.setProperty("overflow", "hidden", "important");
+  }
+
+  function lockVisibleHeader(row) {
+    if (!row) return;
+    row.style.setProperty("display", "flex", "important");
+    row.style.setProperty("width", "100%", "important");
+    row.style.setProperty("height", px(HEADER_HEIGHT), "important");
+    row.style.setProperty("min-height", px(HEADER_HEIGHT), "important");
+    row.style.setProperty("max-height", px(HEADER_HEIGHT), "important");
     row.style.setProperty("box-sizing", "border-box", "important");
+    row.style.setProperty("margin", "0", "important");
+    row.style.setProperty("padding", "0", "important");
+
     Array.from(row.children).forEach(function (cell) {
-      cell.style.setProperty("height", px(height), "important");
-      cell.style.setProperty("min-height", px(height), "important");
-      cell.style.setProperty("max-height", px(height), "important");
+      cell.style.setProperty("height", px(HEADER_HEIGHT), "important");
+      cell.style.setProperty("min-height", px(HEADER_HEIGHT), "important");
+      cell.style.setProperty("max-height", px(HEADER_HEIGHT), "important");
       cell.style.setProperty("box-sizing", "border-box", "important");
+      cell.style.setProperty("margin", "0", "important");
+      cell.style.setProperty("display", "flex", "important");
+      cell.style.setProperty("align-items", "center", "important");
+      cell.style.setProperty("justify-content", "center", "important");
     });
   }
 
   function makeSectionRows(table, rowWidth) {
     if (!table) return;
-
     table.style.display = "block";
     table.style.tableLayout = "auto";
     table.style.borderCollapse = "separate";
@@ -57,18 +69,19 @@
 
     const thead = table.tHead;
     const tbody = table.tBodies && table.tBodies[0];
-    if (thead) thead.style.display = "block";
+    if (thead) {
+      thead.style.setProperty("display", "block", "important");
+      thead.style.setProperty("height", px(HEADER_HEIGHT), "important");
+      thead.style.setProperty("min-height", px(HEADER_HEIGHT), "important");
+      thead.style.setProperty("max-height", px(HEADER_HEIGHT), "important");
+      thead.style.setProperty("overflow", "hidden", "important");
+    }
     if (tbody) {
       tbody.style.display = "block";
       tbody.style.height = "auto";
       tbody.style.maxHeight = "none";
       tbody.style.overflow = "visible";
     }
-
-    table.querySelectorAll("thead tr").forEach(function (row) {
-      row.style.display = "flex";
-      row.style.width = "100%";
-    });
 
     table.querySelectorAll("tbody tr").forEach(function (row) {
       row.style.display = "flex";
@@ -79,15 +92,16 @@
   function lockSideTable(table, width) {
     if (!table) return;
     makeSectionRows(table, width);
+    hideGroupRow(table);
 
-    const groupRow = table.querySelector("thead .matching-matrix-group-row");
     const nameRow = table.querySelector("thead .matching-matrix-name-row");
-    const groupCell = groupRow && groupRow.querySelector(":scope > th");
     const nameCell = nameRow && nameRow.querySelector(":scope > th");
-    setBox(groupCell, width);
+    lockVisibleHeader(nameRow);
     setBox(nameCell, width);
-    lockHeaderRow(groupRow, HEADER_GROUP_HEIGHT);
-    lockHeaderRow(nameRow, HEADER_NAME_HEIGHT);
+    if (nameCell) {
+      nameCell.style.setProperty("white-space", "nowrap", "important");
+      nameCell.style.setProperty("overflow", "hidden", "important");
+    }
 
     table.querySelectorAll("tbody th, tbody td").forEach(function (cell) {
       setBox(cell, width);
@@ -96,9 +110,7 @@
 
   function lockCenterTable(table) {
     if (!table) return 0;
-    const headers = Array.from(
-      table.querySelectorAll("thead .matching-matrix-name-row > th")
-    );
+    const headers = Array.from(table.querySelectorAll("thead .matching-matrix-name-row > th"));
     const count = headers.length;
     if (!count) return 0;
 
@@ -108,26 +120,19 @@
 
     const exactWidth = count * COLUMN_WIDTH;
     makeSectionRows(table, exactWidth);
+    hideGroupRow(table);
 
-    const groupRow = table.querySelector("thead .matching-matrix-group-row");
     const nameRow = table.querySelector("thead .matching-matrix-name-row");
-    lockHeaderRow(groupRow, HEADER_GROUP_HEIGHT);
-    lockHeaderRow(nameRow, HEADER_NAME_HEIGHT);
+    lockVisibleHeader(nameRow);
 
     headers.forEach(function (header) {
       setBox(header, COLUMN_WIDTH);
       header.style.setProperty("overflow", "hidden", "important");
       header.style.setProperty("white-space", "nowrap", "important");
       header.style.setProperty("text-overflow", "ellipsis", "important");
-      header.style.setProperty("word-break", "normal", "important");
+      header.style.setProperty("word-break", "keep-all", "important");
       header.style.setProperty("overflow-wrap", "normal", "important");
-    });
-
-    table.querySelectorAll("thead .matching-matrix-group-row > th").forEach(function (header) {
-      const span = Math.max(1, Number(header.colSpan) || 1);
-      setBox(header, span * COLUMN_WIDTH);
-      header.style.setProperty("white-space", "nowrap", "important");
-      header.style.setProperty("overflow", "hidden", "important");
+      header.style.setProperty("line-height", "1.2", "important");
     });
 
     table.querySelectorAll("tbody td").forEach(function (cell) {
