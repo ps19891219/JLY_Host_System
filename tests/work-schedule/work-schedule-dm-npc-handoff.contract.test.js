@@ -1,0 +1,1 @@
+const fs=require('fs');const assert=require('assert');const s=fs.readFileSync('docs/WORK_SCHEDULE_DM_NPC_HANDOFF_20260915.md','utf8');assert(s.includes('isolated from MyCar #147'));assert(s.includes('Production data was not modified'));console.log('work-schedule DM/NPC handoff: ok');
