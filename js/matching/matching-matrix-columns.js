@@ -30,6 +30,20 @@
     }
   }
 
+  function lockHeaderRow(row, height) {
+    if (!row) return;
+    row.style.setProperty("height", px(height), "important");
+    row.style.setProperty("min-height", px(height), "important");
+    row.style.setProperty("max-height", px(height), "important");
+    row.style.setProperty("box-sizing", "border-box", "important");
+    Array.from(row.children).forEach(function (cell) {
+      cell.style.setProperty("height", px(height), "important");
+      cell.style.setProperty("min-height", px(height), "important");
+      cell.style.setProperty("max-height", px(height), "important");
+      cell.style.setProperty("box-sizing", "border-box", "important");
+    });
+  }
+
   function makeSectionRows(table, rowWidth) {
     if (!table) return;
 
@@ -66,12 +80,14 @@
     if (!table) return;
     makeSectionRows(table, width);
 
-    const groupCell = table.querySelector("thead .matching-matrix-group-row > th");
-    const nameCell = table.querySelector("thead .matching-matrix-name-row > th");
+    const groupRow = table.querySelector("thead .matching-matrix-group-row");
+    const nameRow = table.querySelector("thead .matching-matrix-name-row");
+    const groupCell = groupRow && groupRow.querySelector(":scope > th");
+    const nameCell = nameRow && nameRow.querySelector(":scope > th");
     setBox(groupCell, width);
     setBox(nameCell, width);
-    if (groupCell) groupCell.style.height = px(HEADER_GROUP_HEIGHT);
-    if (nameCell) nameCell.style.height = px(HEADER_NAME_HEIGHT);
+    lockHeaderRow(groupRow, HEADER_GROUP_HEIGHT);
+    lockHeaderRow(nameRow, HEADER_NAME_HEIGHT);
 
     table.querySelectorAll("tbody th, tbody td").forEach(function (cell) {
       setBox(cell, width);
@@ -95,19 +111,23 @@
 
     const groupRow = table.querySelector("thead .matching-matrix-group-row");
     const nameRow = table.querySelector("thead .matching-matrix-name-row");
-    if (groupRow) groupRow.style.height = px(HEADER_GROUP_HEIGHT);
-    if (nameRow) nameRow.style.height = px(HEADER_NAME_HEIGHT);
+    lockHeaderRow(groupRow, HEADER_GROUP_HEIGHT);
+    lockHeaderRow(nameRow, HEADER_NAME_HEIGHT);
 
     headers.forEach(function (header) {
       setBox(header, COLUMN_WIDTH);
-      header.style.height = px(HEADER_NAME_HEIGHT);
-      header.style.overflow = "hidden";
+      header.style.setProperty("overflow", "hidden", "important");
+      header.style.setProperty("white-space", "nowrap", "important");
+      header.style.setProperty("text-overflow", "ellipsis", "important");
+      header.style.setProperty("word-break", "normal", "important");
+      header.style.setProperty("overflow-wrap", "normal", "important");
     });
 
     table.querySelectorAll("thead .matching-matrix-group-row > th").forEach(function (header) {
       const span = Math.max(1, Number(header.colSpan) || 1);
       setBox(header, span * COLUMN_WIDTH);
-      header.style.height = px(HEADER_GROUP_HEIGHT);
+      header.style.setProperty("white-space", "nowrap", "important");
+      header.style.setProperty("overflow", "hidden", "important");
     });
 
     table.querySelectorAll("tbody td").forEach(function (cell) {
