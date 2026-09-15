@@ -1,0 +1,11 @@
+const fs=require('fs');
+const assert=require('assert');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');
+const mod=fs.readFileSync('js/modules/work-schedule/work-schedule-dm-npc-sections.js','utf8');
+assert(page.includes('work-schedule-dm-npc-sections.js?v=1'),'Work Schedule must load DM/NPC section guard');
+assert(page.includes('work-schedule-dm-npc-sections.css?v=1'),'Work Schedule must load DM/NPC section styles');
+assert(mod.includes("return'dm'"),'DM role classification must exist');
+assert(mod.includes("return'npc'"),'NPC role classification must exist');
+assert(mod.includes("if(!labelEnabled&&!personEnabled)"),'batch field apply must reject empty DM/NPC mutation');
+assert(mod.includes("e.stopImmediatePropagation()"),'guard must stop unsafe batch apply before write handler');
+console.log('work-schedule DM/NPC section contract: ok');
