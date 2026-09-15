@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>員工專區｜JLY 工作室後台</title><link rel="stylesheet" href="../css/style.css"></head>
+<body><main class="container">
+<div class="hero"><div class="jelly">👥</div><h1>員工專區</h1><p>LINE 身分、工作室成員與排班入口</p></div>
+<div class="card"><h2>員工入口</h2><p>員工第一次以 LINE 完成身分認領並核准後，之後沿用同一個 JLY Person 與工作室成員關係，不需要每次重新審核。</p><button id="copyStaffLink" type="button" style="width:100%;">複製員工 LINE 班表連結</button><button id="openStaffLink" type="button" class="gray" style="width:100%;margin-top:10px;">開啟員工班表</button></div>
+<div class="card"><h2>員工管理</h2><p>正式人員仍以 JLY Person 為唯一身分；工作室只保存 Studio Membership。DM／NPC／PC 是工作室角色，不建立第二份人員資料庫。</p><div id="staffMembers"><p>正在讀取工作室成員…</p></div></div>
+<button type="button" class="gray" onclick="history.back()">← 返回工作室</button>
+</main>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script><script src="../firebase/firebase.js"></script><script src="../js/modules/work-schedule/work-schedule-studio-staff.js?v=1"></script>
+</body></html>
