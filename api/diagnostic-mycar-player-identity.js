@@ -29,9 +29,14 @@ module.exports = async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "private, no-store");
   if (!req || req.method !== "GET") return res.status(405).json({ success:false, error:"method_not_allowed" });
-  if (text(req.query && req.query.key) !== text(process.env.MYCAR_DIAGNOSTIC_KEY)) {
+
+  // Fail closed. Never expose diagnostic data when the server secret is absent.
+  const expectedKey = text(process.env.MYCAR_DIAGNOSTIC_KEY);
+  const suppliedKey = text(req.query && req.query.key);
+  if (!expectedKey || !suppliedKey || suppliedKey !== expectedKey) {
     return res.status(404).json({ success:false, error:"not_found" });
   }
+
   try {
     const db = getFirestore();
     const profileSnap = await db.collection("players").doc(PROFILE_ID).get();
