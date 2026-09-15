@@ -7,11 +7,7 @@
   let hasLoadedCars = false;
 
   function normalizeText(value) {
-    return String(
-      value == null
-        ? ""
-        : value
-    ).trim();
+    return String(value == null ? "" : value).trim();
   }
 
   function timeToMinutes(value) {
@@ -43,10 +39,7 @@
   async function loadConflictCars(forceReload = false) {
     if (hasLoadedCars && !forceReload) return cachedCars;
 
-    if (
-      !window.JLYMatchingData ||
-      typeof window.JLYMatchingData.getConflictCars !== "function"
-    ) {
+    if (!window.JLYMatchingData || typeof window.JLYMatchingData.getConflictCars !== "function") {
       throw new Error("Matching Data 尚未提供車團行程資料");
     }
 
@@ -67,14 +60,13 @@
         if (String(car.id) === String(currentCarId)) return false;
         if (isIgnoredCar(car)) return false;
         if (!car.gameDate) return false;
-        return car.gameDate === candidateSlot.date;
+        return String(car.gameDate).trim() === String(candidateSlot.date).trim();
       })
       .map(function (car) {
         const carMinutes = timeToMinutes(car.gameTime);
-        if (carMinutes === null) return null;
-
-        const difference = Math.abs(candidateMinutes - carMinutes);
-        if (difference > BUFFER_MINUTES) return null;
+        const difference = carMinutes === null
+          ? null
+          : Math.abs(candidateMinutes - carMinutes);
 
         return {
           source: "car",
@@ -82,31 +74,27 @@
           carId: car.id,
           title: getCarTitle(car),
           date: car.gameDate,
-          time: car.gameTime,
-          differenceMinutes: difference
+          time: car.gameTime || "",
+          differenceMinutes: difference,
+          isWithinBuffer: difference !== null && difference <= BUFFER_MINUTES
         };
       })
-      .filter(Boolean)
       .sort(function (a, b) {
-        if (a.differenceMinutes !== b.differenceMinutes) {
-          return a.differenceMinutes - b.differenceMinutes;
+        if (a.isWithinBuffer !== b.isWithinBuffer) {
+          return a.isWithinBuffer ? -1 : 1;
         }
+        const aDifference = a.differenceMinutes == null ? Number.MAX_SAFE_INTEGER : a.differenceMinutes;
+        const bDifference = b.differenceMinutes == null ? Number.MAX_SAFE_INTEGER : b.differenceMinutes;
+        if (aDifference !== bDifference) return aDifference - bDifference;
         return String(a.time || "").localeCompare(String(b.time || ""));
       });
   }
 
   async function applyConflicts(candidateSlots, currentCarId, options = {}) {
-    /*
-      Conflict data is a live view of the host's current cars. Matching can be
-      opened for A car and then B/C car in the same browser session, so a
-      module-level cache must never decide which existing cars are displayed.
-      Reload by default on every candidate conflict pass. Callers may opt out
-      only when they explicitly know the same snapshot is still desired.
-    */
+    /* Conflict data is a live view. Reload by default for each matching pass. */
     await loadConflictCars(options.forceReload !== false);
 
     const slots = Array.isArray(candidateSlots) ? candidateSlots : [];
-
     return slots.map(function (slot) {
       return {
         ...slot,
