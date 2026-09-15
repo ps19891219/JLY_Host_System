@@ -6,6 +6,9 @@
   "use strict";
 
   const SLOT_ROW_HEIGHT = 72;
+  let containerObserver = null;
+  let bootObserver = null;
+  let started = false;
 
   function px(value) {
     return value + "px";
@@ -17,25 +20,26 @@
       const time = row.querySelector(".matching-matrix-slot-time");
       if (!label || !time) return;
 
-      label.style.display = "inline";
-      time.style.display = "inline";
-      time.style.marginLeft = "6px";
-      time.style.whiteSpace = "nowrap";
+      label.style.setProperty("display", "inline", "important");
+      time.style.setProperty("display", "inline", "important");
+      time.style.setProperty("margin-left", "6px", "important");
+      time.style.setProperty("margin-top", "0", "important");
+      time.style.setProperty("white-space", "nowrap", "important");
     });
   }
 
   function lockRow(row) {
     if (!row) return;
     const height = px(SLOT_ROW_HEIGHT);
-    row.style.height = height;
-    row.style.minHeight = height;
-    row.style.maxHeight = height;
+    row.style.setProperty("height", height, "important");
+    row.style.setProperty("min-height", height, "important");
+    row.style.setProperty("max-height", height, "important");
     row.style.boxSizing = "border-box";
 
     Array.from(row.children).forEach(function (cell) {
-      cell.style.height = height;
-      cell.style.minHeight = height;
-      cell.style.maxHeight = height;
+      cell.style.setProperty("height", height, "important");
+      cell.style.setProperty("min-height", height, "important");
+      cell.style.setProperty("max-height", height, "important");
       cell.style.boxSizing = "border-box";
       cell.style.overflow = "hidden";
     });
@@ -66,13 +70,34 @@
     });
   }
 
-  function start() {
-    const container = document.getElementById("matchingMatrixContainer");
-    if (!container) return;
-    new MutationObserver(schedule).observe(container, { childList: true, subtree: true });
+  function attachToContainer(container) {
+    if (!container || started) return false;
+    started = true;
+    containerObserver = new MutationObserver(schedule);
+    containerObserver.observe(container, { childList: true, subtree: true });
     window.addEventListener("resize", schedule, { passive: true });
     window.addEventListener("orientationchange", schedule, { passive: true });
     schedule();
+    return true;
+  }
+
+  function tryStart() {
+    const container = document.getElementById("matchingMatrixContainer");
+    if (attachToContainer(container) && bootObserver) {
+      bootObserver.disconnect();
+      bootObserver = null;
+    }
+  }
+
+  function start() {
+    tryStart();
+    if (started) return;
+
+    /* matchingMatrixContainer is created asynchronously by matching-render.js
+       after Firestore data loads. Watch until that real container exists instead
+       of returning permanently during DOMContentLoaded. */
+    bootObserver = new MutationObserver(tryStart);
+    bootObserver.observe(document.documentElement, { childList: true, subtree: true });
   }
 
   if (document.readyState === "loading") {
