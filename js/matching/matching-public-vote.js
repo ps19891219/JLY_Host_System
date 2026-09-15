@@ -26,23 +26,23 @@
     const all=slots(); if(!all.length) return error("目前沒有可填寫的候選時段。");
     const existing=state.response||null; mode=existing?.availabilityMode==="exclude"?"exclude":"available";
     const selected=new Set(existing?.slotIds||[]); const groups={}; all.forEach(s=>(groups[s.date]||(groups[s.date]=[])).push(s));
-    const checked = s => mode==="exclude" ? !selected.has(s.id) : selected.has(s.id);
-    app().innerHTML=`<section class="matching-vote-card"><div class="matching-vote-status">${existing?"修改回覆":"填寫時間"}</div><div class="matching-vote-player-summary"><div><small>LINE 身分</small><strong>${esc(state.viewer?.displayName||"LINE 使用者")}</strong></div></div><div class="matching-vote-mode-section"><div class="matching-vote-mode-label">你想怎麼填時間？</div><div class="matching-vote-mode-buttons"><button type="button" class="matching-vote-mode-button ${mode==="available"?"is-active":""}" data-mode="available"><strong>🟢 標記我可以</strong><small>我只有少數時間可以</small></button><button type="button" class="matching-vote-mode-button ${mode==="exclude"?"is-active":""}" data-mode="exclude"><strong>🔴 排除我不行</strong><small>我大部分時間都可以</small></button></div></div><h2 id="matchingVoteModeTitle" class="matching-vote-title">${mode==="exclude"?"請勾選你不行的時間":"請勾選你可以的時間"}</h2><p id="matchingVoteModeDescription" class="matching-vote-description">${mode==="exclude"?"沒有勾選的時段，系統會視為你可以配合。":"勾選你可以配合的時段即可。"}</p><div class="matching-vote-days">${Object.keys(groups).sort().map(date=>`<section class="matching-vote-day"><div class="matching-vote-day-title">📅 ${formatDate(date)}</div><div class="matching-vote-slots">${groups[date].map(s=>`<label class="matching-vote-slot"><input type="checkbox" class="matching-vote-slot-checkbox" value="${esc(s.id)}" ${checked(s)?"checked":""}><span class="matching-vote-slot-icon">${esc(s.icon||"🕒")}</span><span class="matching-vote-slot-info"><span class="matching-vote-slot-main">${esc(s.label||"時段")}</span><span class="matching-vote-slot-time">${esc(s.time)}</span></span></label>`).join("")}</div></section>`).join("")}</div><button type="button" id="matchingVoteSubmitButton" class="matching-vote-submit">${existing?"更新我的回覆":"送出我的時間"}</button></section>`;
+    const checked = s => selected.has(s.id);
+    app().innerHTML=`<section class="matching-vote-card"><div class="matching-vote-status">${existing?"修改回覆":"填寫時間"}</div><div class="matching-vote-player-summary"><div><small>LINE 身分</small><strong>${esc(state.viewer?.displayName||"LINE 使用者")}</strong></div></div><div class="matching-vote-mode-section"><div class="matching-vote-mode-label">你想怎麼填時間？</div><div class="matching-vote-mode-buttons"><button type="button" class="matching-vote-mode-button ${mode==="available"?"is-active":""}" data-mode="available"><strong>🟢 標記我可以</strong><small>我只有少數時間可以</small></button><button type="button" class="matching-vote-mode-button ${mode==="exclude"?"is-active":""}" data-mode="exclude"><strong>🔴 排除我不行</strong><small>我大部分時間都可以</small></button></div></div><h2 id="matchingVoteModeTitle" class="matching-vote-title">${mode==="exclude"?"請勾選你不行的時間":"請勾選你可以的時間"}</h2><p id="matchingVoteModeDescription" class="matching-vote-description">${mode==="exclude"?"勾選的時段代表你不行；沒有勾選的時段視為可以配合。":"勾選你可以配合的時段即可。"}</p><div class="matching-vote-days">${Object.keys(groups).sort().map(date=>`<section class="matching-vote-day"><div class="matching-vote-day-title">📅 ${formatDate(date)}</div><div class="matching-vote-slots">${groups[date].map(s=>`<label class="matching-vote-slot"><input type="checkbox" class="matching-vote-slot-checkbox" value="${esc(s.id)}" ${checked(s)?"checked":""}><span class="matching-vote-slot-icon">${esc(s.icon||"🕒")}</span><span class="matching-vote-slot-info"><span class="matching-vote-slot-main">${esc(s.label||"時段")}</span><span class="matching-vote-slot-time">${esc(s.time)}</span></span></label>`).join("")}</div></section>`).join("")}</div><button type="button" id="matchingVoteSubmitButton" class="matching-vote-submit">${existing?"更新我的回覆":"送出我的時間"}</button></section>`;
     document.querySelectorAll(".matching-vote-mode-button").forEach(b=>b.addEventListener("click",()=>switchMode(b.dataset.mode)));
     document.getElementById("matchingVoteSubmitButton").addEventListener("click",submit);
   }
   function switchMode(next){
     if(next===mode) return;
-    document.querySelectorAll(".matching-vote-slot-checkbox").forEach(c=>c.checked=!c.checked);
+    document.querySelectorAll(".matching-vote-slot-checkbox").forEach(c=>c.checked=false);
     mode=next;
     document.querySelectorAll(".matching-vote-mode-button").forEach(b=>b.classList.toggle("is-active",b.dataset.mode===mode));
     document.getElementById("matchingVoteModeTitle").textContent=mode==="exclude"?"請勾選你不行的時間":"請勾選你可以的時間";
-    document.getElementById("matchingVoteModeDescription").textContent=mode==="exclude"?"沒有勾選的時段，系統會視為你可以配合。":"勾選你可以配合的時段即可。";
+    document.getElementById("matchingVoteModeDescription").textContent=mode==="exclude"?"勾選的時段代表你不行；沒有勾選的時段視為可以配合。":"勾選你可以配合的時段即可。";
   }
   async function submit(){
     const button=document.getElementById("matchingVoteSubmitButton"); button.disabled=true; button.textContent="送出中…";
-    const checked=[...document.querySelectorAll(".matching-vote-slot-checkbox:checked")].map(c=>c.value); const all=slots().map(s=>s.id);
-    const slotIds=mode==="exclude"?all.filter(id=>!checked.includes(id)):checked;
+    const checked=[...document.querySelectorAll(".matching-vote-slot-checkbox:checked")].map(c=>c.value);
+    const slotIds=checked;
     try{
       const r=await fetch("/api/matching-vote-context",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({carId,slotIds,availabilityMode:mode})}); const data=await r.json();
       if(r.status===401){ await login(); return; } if(!r.ok||!data.success) throw new Error(data.error||"送出失敗"); state.response=data.response;
