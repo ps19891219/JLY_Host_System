@@ -1,0 +1,2 @@
+Branch: fix/work-schedule-dm-npc-fields-20260915
+State: code ready for Preview validation before merge.
