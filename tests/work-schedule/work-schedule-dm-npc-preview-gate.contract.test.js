@@ -1,0 +1,1 @@
+const fs=require('fs');const assert=require('assert');const s=fs.readFileSync('docs/WORK_SCHEDULE_DM_NPC_PREVIEW_GATE_20260915.md','utf8');assert(s.includes('editing NPC leaves DM unchanged'));assert(s.includes('editing DM leaves NPC unchanged'));console.log('work-schedule DM/NPC preview gate: ok');
