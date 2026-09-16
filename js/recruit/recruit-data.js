@@ -110,64 +110,120 @@ console.log(
     }
 
     const db = getDb();
-    const ids = new Set([normalizedOwnerId]);
+    const ids = new Set();
+    const queue = [];
+    const checked = new Set();
+    const reverseFields = [
+      "identityId",
+      "personId",
+      "profileId",
+      "playerId",
+      "memberId",
+      "canonicalPersonId",
+      "canonicalProfileId",
+      "canonicalMemberId",
+      "mergedIntoPersonId",
+      "mergedIntoProfileId",
+      "mergedIntoMemberId"
+    ];
 
-    /*
-      recruitPages 可能保存歷史 Identity。
-      myCarViewAliases 是既有 alias -> canonical viewerId 對照，
-      因此只做單筆 bounded read，不掃描 cars。
-    */
-    try {
-      const aliasSnapshot =
-        await db
-          .collection("myCarViewAliases")
-          .doc(normalizedOwnerId)
-          .get();
-
-      if (aliasSnapshot.exists) {
-        const alias = aliasSnapshot.data() || {};
-        const viewerId = normalizeText(alias.viewerId);
-        if (viewerId) {
-          ids.add(viewerId);
-        }
+    function remember(value) {
+      const normalized = normalizeText(value);
+      if (
+        !normalized ||
+        normalized.toLowerCase().startsWith("line:") ||
+        ids.has(normalized)
+      ) {
+        return;
       }
-    } catch (error) {
-      console.warn(
-        "Recruit owner alias lookup skipped:",
-        error
-      );
+      ids.add(normalized);
+      queue.push(normalized);
     }
 
-    /*
-      canonical player/profile 若可讀，補上既有正式歷史 aliases。
-      只讀目前已知 ID 對應的文件，不做 collection scan。
-    */
-    const knownIds = Array.from(ids);
+    function rememberProfile(snapshot) {
+      if (!snapshot || !snapshot.exists) {
+        return;
+      }
+      const profile = {
+        id: snapshot.id,
+        ...(snapshot.data() || {})
+      };
+      getProfileIdentityIds(profile).forEach(remember);
+    }
 
-    for (const id of knownIds) {
+    remember(normalizedOwnerId);
+
+    /*
+      舊 recruit token、舊 cars.ownerId 與現在 canonical identity
+      可能落在不同世代。這裡沿用既有 MyCar 歷史 identity 欄位，
+      只對已知 ID 做 alias/direct/reverse bounded lookup，不掃描 cars。
+    */
+    while (queue.length && checked.size < 80) {
+      const id = queue.shift();
+      if (!id || checked.has(id)) {
+        continue;
+      }
+      checked.add(id);
+
       try {
-        const profileSnapshot =
+        const aliasSnapshot = await db
+          .collection("myCarViewAliases")
+          .doc(id)
+          .get();
+        if (aliasSnapshot.exists) {
+          remember((aliasSnapshot.data() || {}).viewerId);
+        }
+      } catch (error) {
+        console.warn(
+          "Recruit owner alias lookup skipped:",
+          id,
+          error
+        );
+      }
+
+      try {
+        rememberProfile(
           await db
             .collection("players")
             .doc(id)
-            .get();
-
-        if (!profileSnapshot.exists) {
-          continue;
-        }
-
-        const profile = {
-          id: profileSnapshot.id,
-          ...(profileSnapshot.data() || {})
-        };
-
-        getProfileIdentityIds(profile)
-          .forEach(function (identityId) {
-            ids.add(identityId);
-          });
+            .get()
+        );
       } catch (error) {
         console.warn(
-          "Recruit owner profile alias lookup skipped:",
+          "Recruit owner direct profile lookup skipped:",
+          id,
+          error
+        );
+      }
+
+      for (const field of reverseFields) {
+        try {
+          const snapshot = await db
+            .collection("players")
+            .where(field, "==", id)
+            .limit(10)
+            .get();
+          snapshot.docs.forEach(rememberProfile);
+        } catch (error) {
+          console.warn(
+            "Recruit owner reverse profile lookup skipped:",
+            field,
+            id,
+            error
+          );
+        }
+      }
+
+      try {
+        const linkedSnapshot = await db
+          .collection("players")
+          .where("linkedPlayerIds", "array-contains", id)
+          .limit(10)
+          .get();
+        linkedSnapshot.docs.forEach(rememberProfile);
+      } catch (error) {
+        console.warn(
+          "Recruit owner linkedPlayerIds lookup skipped:",
           id,
           error
         );
