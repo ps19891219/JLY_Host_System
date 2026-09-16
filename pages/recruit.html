@@ -1,13 +1,20 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    content="
+      width=device-width,
+      initial-scale=1.0
+    "
   >
 
-  <title>我的揪團｜JLY Host System</title>
+  <title>
+    我的揪團
+  </title>
 
   <link
     rel="stylesheet"
@@ -17,57 +24,85 @@
 
 <body>
 
-<main class="recruit-page">
-  <header class="recruit-header">
-    <div class="recruit-brand">
-      JLY Host System
-    </div>
+  <main class="recruit-page">
 
-    <h1>
-      我的揪團
-    </h1>
-
-    <button
-      id="recruitBatchShareButton"
-      class="recruit-batch-share-button"
-      type="button"
+    <header
+      class="recruit-header"
     >
-      📋 批次 LINE 揪團文案
-    </button>
+      <div
+        class="recruit-eyebrow"
+      >
+        JLY Host System
+      </div>
 
-    <p>
-      目前正在招募中的車團
-    </p>
-  </header>
+      <h1>
+        我的揪團
+      </h1>
 
-  <section
-    id="recruitTabs"
-    class="recruit-tabs"
-    aria-label="揪團分類"
-  ></section>
+      <button
+  type="button"
+  onclick="
+    JLYRecruitBatchShare
+      .open()
+  "
+>
+  📋 批次 LINE 揪團文案
+</button>
 
-  <section
-    id="recruitCarList"
-    class="recruit-car-list"
-    aria-live="polite"
-  >
-    <div class="recruit-loading">
-      載入中…
-    </div>
-  </section>
-</main>
+      <p>
+        目前正在招募中的車團
+      </p>
+    </header>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <section
+      id="recruitCarList"
+      class="recruit-car-list"
+      aria-live="polite"
+    >
+    </section>
 
-<script src="../js/firebase.js"></script>
-<script src="../js/car/car-data.js"></script>
-<script src="../js/car/car-relations.js"></script>
-<script src="../js/recruit/recruit-data.js"></script>
-<script src="../js/recruit/recruit-render.js"></script>
-<script src="../js/recruit/recruit-tabs.js"></script>
-<script src="../js/recruit/recruit-batch-share.js"></script>
-<script src="../js/recruit/recruit-controller.js?v=5"></script>
+  </main>
+
+  <!-- Firebase -->
+  <script
+    src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"
+  ></script>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"
+  ></script>
+
+  <script src="/firebase/firebase.js?v=38"></script>
+
+  <!-- Shared Car Data -->
+  <script
+    src="../js/car/car-data.js"
+  ></script>
+
+  <script
+  src="../js/car/car-relations.js"
+></script>
+
+  <!-- Recruit -->
+<script
+  src="../js/recruit/recruit-data.js?v=5"
+></script>
+
+<script
+  src="../js/recruit/recruit-render.js"
+></script>
+
+<script
+  src="../js/recruit/recruit-tabs.js"
+></script>
+
+<script
+  src="../js/recruit/recruit-batch-share.js"
+></script>
+
+<script
+  src="../js/recruit/recruit-controller.js?v=5"
+></script>
 
 </body>
 </html>
