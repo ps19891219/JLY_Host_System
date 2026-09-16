@@ -1,40 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>員工專區｜JLY 工作室後台</title>
-  <link rel="stylesheet" href="../css/style.css">
-</head>
-<body>
-  <main class="container">
-    <div class="hero">
-      <div class="jelly">👥</div>
-      <h1>員工專區</h1>
-      <p>工作室既有排班人員入口</p>
-    </div>
-    <div class="card">
-      <h2>員工班表</h2>
-      <p>目前先沿用既有 Work Schedule 人員資料，不建立第二套員工資料庫，也不啟用核准流程。</p>
-      <button id="openStaffSchedule" type="button" style="width:100%;">📅 開啟員工班表</button>
-      <button id="copyStaffSchedule" type="button" class="gray" style="width:100%;margin-top:10px;">🔗 複製員工班表連結</button>
-      <p style="margin-top:12px;">員工從此連結 LINE 登入後，可查看班表、只看自己的班，並把自己的班批次匯入 Google Calendar。</p>
-    </div>
-    <div class="card">
-      <h2>目前人員來源</h2>
-      <p>員工身分暫時由既有排班工作／班次中的人員關係判斷。永久工作室 Membership 與核准流程保留到下一階段再設計。</p>
-    </div>
-    <button id="backStudio" type="button" class="gray">← 返回工作室</button>
-  </main>
-<script>
-(function(){
-  const params=new URLSearchParams(location.search);
-  const studio=String(params.get('studio')||'kaiwei-private').trim();
-  const staffUrl=()=>`${location.origin}/pages/work-schedule-staff.html?studio=${encodeURIComponent(studio)}`;
-  document.getElementById('openStaffSchedule').onclick=()=>location.href=staffUrl();
-  document.getElementById('copyStaffSchedule').onclick=async()=>{try{await navigator.clipboard.writeText(staffUrl());alert('已複製員工班表連結。')}catch(_){prompt('複製員工班表連結：',staffUrl())}};
-  document.getElementById('backStudio').onclick=()=>location.href=`studio-detail.html?studio=${encodeURIComponent(studio)}`;
-})();
-</script>
-</body>
-</html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>員工專區｜JLY 工作室後台</title><link rel="stylesheet" href="../css/style.css"></head>
+<body><main class="container">
+<div class="hero"><div class="jelly">👥</div><h1>員工專區</h1><p>工作室負責人管理人員與員工入口</p></div>
+<div class="card"><h2>員工名單</h2><p>從既有 Person 加入這間工作室。Person 本身不會變成「員工帳號」，這裡只建立他與此工作室的 Membership。</p><input id="studioStaffSearch" type="search" placeholder="搜尋姓名／別名／會員資料" style="width:100%;"><div id="studioStaffResults"></div><div id="studioStaffList"><p>正在讀取員工名單…</p></div></div>
+<div class="card"><h2>員工班表入口</h2><p>這是提供給 DM／NPC／其他工作人員的獨立入口，不是本管理頁。</p><button id="openStaffSchedule" type="button" style="width:100%;">📅 開啟員工班表</button><button id="copyStaffSchedule" type="button" class="gray" style="width:100%;margin-top:10px;">🔗 複製員工班表連結</button></div>
+<div class="card"><h2>角色與權限</h2><p>目前新增人員先給 staff 基礎角色。資料結構保留 roles 與 permissions，後續可依各工作室增加負責人、管理者、合作 DM、外聘人員或其他自訂關係，不把角色寫死在 Person。</p></div>
+<button id="backStudio" type="button" class="gray">← 返回工作室</button>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script><script src="/firebase/firebase.js?v=27"></script><script src="/js/modules/member/picker/picker-data.js?v=2"></script><script src="/js/modules/studio/studio-staff-admin.js?v=1"></script>
+<script>(function(){const p=new URLSearchParams(location.search),studio=String(p.get('studio')||'kaiwei-private').trim(),staffUrl=()=>`${location.origin}/pages/work-schedule-staff.html?studio=${encodeURIComponent(studio)}`;document.getElementById('openStaffSchedule').onclick=()=>location.href=staffUrl();document.getElementById('copyStaffSchedule').onclick=async()=>{try{await navigator.clipboard.writeText(staffUrl());alert('已複製員工班表連結。')}catch(_){prompt('複製員工班表連結：',staffUrl())}};document.getElementById('backStudio').onclick=()=>location.href=`studio-detail.html?studio=${encodeURIComponent(studio)}`})();</script>
+</body></html>
