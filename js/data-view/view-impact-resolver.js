@@ -14,6 +14,8 @@ console.log("view-impact-resolver.js 已成功載入！");
   const MYCAR_FIELDS = new Set([
     "scriptName", "gameDate", "gameTime", "status",
     "studioName", "location", "address", "ownerId",
+    "ownerPersonId", "ownerProfileId", "hostId",
+    "hostPersonId", "hostProfileId", "createdByPersonId",
     "players", "playerIds", "slots", "maleSlots",
     "femaleSlots", "flexibleSlots", "totalPeople",
     "updatedAt"
@@ -38,42 +40,29 @@ console.log("view-impact-resolver.js 已成功載入！");
     const fields = normalizeChangedFields(changedFields);
     const result = new Set();
 
+    /*
+     * Empty changedFields means the caller did not provide a safe impact list.
+     * Prefer a bounded MyCar refresh for the supplied before/after car over a
+     * stale Prepared View. This never scans the Cars collection.
+     */
     if (fields.length === 0) {
       result.add("car_detail");
+      result.add("mycar");
       return Array.from(result);
     }
 
-    if (intersects(fields, CAR_DETAIL_FIELDS)) {
-      result.add("car_detail");
-    }
-
-    if (intersects(fields, MYCAR_FIELDS)) {
-      result.add("mycar");
-    }
-
-    if (intersects(fields, HOME_FIELDS)) {
-      result.add("home");
-    }
+    if (intersects(fields, CAR_DETAIL_FIELDS)) result.add("car_detail");
+    if (intersects(fields, MYCAR_FIELDS)) result.add("mycar");
+    if (intersects(fields, HOME_FIELDS)) result.add("home");
 
     return Array.from(result);
   }
 
   function resolveAccountingViews(eventType) {
     const type = String(eventType || "").trim();
-
-    if (!type) {
-      return [];
-    }
-
-    return [
-      "activity_accounting",
-      "pending_action",
-      "home"
-    ];
+    if (!type) return [];
+    return ["activity_accounting", "pending_action", "home"];
   }
 
-  window.JLYViewImpactResolver = {
-    resolveCarViews,
-    resolveAccountingViews
-  };
+  window.JLYViewImpactResolver = { resolveCarViews, resolveAccountingViews };
 })();
