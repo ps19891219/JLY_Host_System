@@ -169,24 +169,6 @@ function mergeCars(
         return;
       }
 
-      const ownerIdentityIds =
-        typeof data.resolveOwnerIdentityIds ===
-          "function"
-          ? await data
-              .resolveOwnerIdentityIds(
-                recruitPage.ownerId
-              )
-          : [recruitPage.ownerId];
-
-      const ownerIdentitySet =
-        new Set(
-          ownerIdentityIds.map(
-            function (id) {
-              return String(id || "").trim();
-            }
-          )
-        );
-
       const ownerCars =
         await data
           .getRecruitCarsByOwner(
@@ -194,84 +176,29 @@ function mergeCars(
           );
 
 /*
-  MyCar Prepared View 負責提供歷史相關車團的 carId，
-  但「我主揪的」仍必須由 cars Core 的正式 owner 關係判定。
-  不使用 Prepared View 的 isHost 投影直接當頁籤分類，
-  避免歷史角色投影把非主揪車誤放進主揪頁籤。
+  getRecruitCarsByOwner() uses MyCar Prepared View as the historical car index.
+  Preserve that complete result here. Do not re-filter historical cars by raw
+  Core owner fields, because older cars can use identity relations that differ
+  from today's ownerId while still being correctly classified by MyCar View.
 */
 const hostCars =
-  (Array.isArray(ownerCars)
+  Array.isArray(ownerCars)
     ? ownerCars
-    : [])
-    .filter(function (car) {
-      const ownerIds = [
-        car && car.ownerId,
-        car && car.ownerPersonId,
-        car && car.ownerProfileId,
-        car && car.hostId,
-        car && car.hostPersonId,
-        car && car.hostProfileId,
-        car && car.createdByPersonId
-      ]
-        .map(function (id) {
-          return String(id || "").trim();
-        })
-        .filter(Boolean);
+    : [];
 
-      return ownerIds.some(
-        function (id) {
-          return ownerIdentitySet.has(id);
-        }
-      );
-    });
-
-/*
-  「我協助的」沿用既有 carRelations.assistRecruiting=true。
-  歷史 Identity aliases 都做 bounded relation read，
-  不把一般玩家／DM 車自動視為協助揪團。
-*/
-const assistCarIdGroups =
+const assistCarIds =
   window.JLYCarRelations &&
   typeof window
     .JLYCarRelations
     .getAssistRecruitingCarIds ===
       "function"
-    ? await Promise.all(
-        ownerIdentityIds.map(
-          function (identityId) {
-            return window
-              .JLYCarRelations
-              .getAssistRecruitingCarIds(
-                identityId
-              )
-              .catch(function () {
-                return [];
-              });
-          }
+    ? await window
+        .JLYCarRelations
+        .getAssistRecruitingCarIds(
+          recruitPage.ownerId
         )
-      )
     : [];
 
-const assistCarIds =
-  Array.from(
-    new Set(
-      assistCarIdGroups.reduce(
-        function (all, ids) {
-          return all.concat(
-            Array.isArray(ids)
-              ? ids
-              : []
-          );
-        },
-        []
-      )
-    )
-  );
-
-/*
-  協助揪團的車可能不是頁主擁有，
-  所以要依 Car ID 另外取得。
-*/
 const assistCars =
   window.JLYCarData &&
   typeof window
@@ -285,10 +212,6 @@ const assistCars =
         )
     : [];
 
-/*
-  三個分類都只留下
-  目前真正「招募中」且公開的車。
-*/
 const filteredHostCars =
   sortRecruitCars(
     filterRecruitCars(
@@ -296,26 +219,10 @@ const filteredHostCars =
     )
   );
 
-const hostCarIds =
-  new Set(
-    filteredHostCars.map(
-      function (car) {
-        return car.id;
-      }
-    )
-  );
-
 const filteredAssistCars =
   sortRecruitCars(
     filterRecruitCars(
       assistCars
-    ).filter(
-      function (car) {
-        return (
-          car &&
-          !hostCarIds.has(car.id)
-        );
-      }
     )
   );
 
