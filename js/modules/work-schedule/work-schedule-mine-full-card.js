@@ -1,11 +1,13 @@
 (function(){
 'use strict';
-if(window.__JLYWorkScheduleMineFullCardInitialized)return;
-window.__JLYWorkScheduleMineFullCardInitialized=true;
+if(window.__JLYWorkScheduleMineFullCardV2Initialized)return;
+window.__JLYWorkScheduleMineFullCardV2Initialized=true;
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const txt=v=>String(v??'').trim();
 let identityIds=new Set();
+let lastDetail=null;
+let patchToken=0;
 
 function idsOf(row){return(row?.assignedPersonIds||row?.personIds||[]).map(String)}
 function groupKey(row){return[row.date,row.workId||row.workName,row.startTime,row.endTime,row.studioName||''].join('|')}
@@ -27,20 +29,20 @@ function snapshotName(id,row){
 
 function renderName(id,row){
   const name=esc(snapshotName(id,row));
-  return identityIds.has(String(id))?`<b class="mine-person-name">${name}</b>`:name;
+  return identityIds.has(String(id))?`<strong class="mine-person-name" style="color:#111;font-weight:800">${name}</strong>`:name;
 }
 
 function patch(detail){
   if(!isMineView())return;
   const allRows=Array.isArray(detail?.rows)?detail.rows:[];
   const visibleRows=Array.isArray(detail?.visibleRows)?detail.visibleRows:[];
-  const visibleKeys=new Set(visibleRows.map(groupKey));
-  if(!visibleKeys.size)return;
+  const mineGroupKeys=new Set(visibleRows.map(groupKey));
+  if(!mineGroupKeys.size)return;
 
   const grouped=new Map();
   allRows.forEach(row=>{
     const key=groupKey(row);
-    if(!visibleKeys.has(key))return;
+    if(!mineGroupKeys.has(key))return;
     if(!grouped.has(key))grouped.set(key,[]);
     grouped.get(key).push(row);
   });
@@ -58,8 +60,21 @@ function patch(detail){
   });
 }
 
+function schedulePatch(){
+  const token=++patchToken;
+  [0,40,120].forEach(delay=>setTimeout(()=>{
+    if(token!==patchToken||!lastDetail)return;
+    patch(lastDetail);
+  },delay));
+}
+
 window.addEventListener('jly:work-schedule:rows',async event=>{
+  lastDetail=event.detail||{};
   await resolveMe();
-  patch(event.detail||{});
+  schedulePatch();
 });
+
+document.addEventListener('click',event=>{
+  if(event.target.closest?.('[data-dashboard-view="mine"]'))schedulePatch();
+},true);
 })();
