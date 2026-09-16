@@ -169,6 +169,24 @@ function mergeCars(
         return;
       }
 
+      const ownerIdentityIds =
+        typeof data.resolveOwnerIdentityIds ===
+          "function"
+          ? await data
+              .resolveOwnerIdentityIds(
+                recruitPage.ownerId
+              )
+          : [recruitPage.ownerId];
+
+      const ownerIdentitySet =
+        new Set(
+          ownerIdentityIds.map(
+            function (id) {
+              return String(id || "").trim();
+            }
+          )
+        );
+
       const ownerCars =
         await data
           .getRecruitCarsByOwner(
@@ -176,38 +194,79 @@ function mergeCars(
           );
 
 /*
-  getRecruitCarsByOwner() 已由正式 Car Data
-  使用 ownerId 查出頁主正式擁有的車。
-
-  這裡不可再要求 raw Car 帶 isHost / myRole，
-  因為這兩個是 MyCar Prepared View 的投影欄位，
-  並不是 cars Core 的必要欄位。
-
-  舊邏輯在這裡再次用 isHost / myRole 過濾，
-  會把正式 owner 車全部濾成 0 台，連帶讓
-  「批次 LINE 揪團文案」沒有任何車可選。
+  MyCar Prepared View 負責提供歷史相關車團的 carId，
+  但「我主揪的」仍必須由 cars Core 的正式 owner 關係判定。
+  不使用 Prepared View 的 isHost 投影直接當頁籤分類，
+  避免歷史角色投影把非主揪車誤放進主揪頁籤。
 */
 const hostCars =
-  Array.isArray(ownerCars)
+  (Array.isArray(ownerCars)
     ? ownerCars
-    : [];
+    : [])
+    .filter(function (car) {
+      const ownerIds = [
+        car && car.ownerId,
+        car && car.ownerPersonId,
+        car && car.ownerProfileId,
+        car && car.hostId,
+        car && car.hostPersonId,
+        car && car.hostProfileId,
+        car && car.createdByPersonId
+      ]
+        .map(function (id) {
+          return String(id || "").trim();
+        })
+        .filter(Boolean);
+
+      return ownerIds.some(
+        function (id) {
+          return ownerIdentitySet.has(id);
+        }
+      );
+    });
 
 /*
-  取得頁主個人設定中，
-  有勾「協助揪團」的 Car ID。
+  「我協助的」沿用既有 carRelations.assistRecruiting=true。
+  歷史 Identity aliases 都做 bounded relation read，
+  不把一般玩家／DM 車自動視為協助揪團。
 */
-const assistCarIds =
+const assistCarIdGroups =
   window.JLYCarRelations &&
   typeof window
     .JLYCarRelations
     .getAssistRecruitingCarIds ===
       "function"
-    ? await window
-        .JLYCarRelations
-        .getAssistRecruitingCarIds(
-          recruitPage.ownerId
+    ? await Promise.all(
+        ownerIdentityIds.map(
+          function (identityId) {
+            return window
+              .JLYCarRelations
+              .getAssistRecruitingCarIds(
+                identityId
+              )
+              .catch(function () {
+                return [];
+              });
+          }
         )
+      )
     : [];
+
+const assistCarIds =
+  Array.from(
+    new Set(
+      assistCarIdGroups.reduce(
+        function (all, ids) {
+          return all.concat(
+            Array.isArray(ids)
+              ? ids
+              : []
+          );
+        },
+        []
+      )
+    )
+  );
 
 /*
   協助揪團的車可能不是頁主擁有，
@@ -237,10 +296,26 @@ const filteredHostCars =
     )
   );
 
+const hostCarIds =
+  new Set(
+    filteredHostCars.map(
+      function (car) {
+        return car.id;
+      }
+    )
+  );
+
 const filteredAssistCars =
   sortRecruitCars(
     filterRecruitCars(
       assistCars
+    ).filter(
+      function (car) {
+        return (
+          car &&
+          !hostCarIds.has(car.id)
+        );
+      }
     )
   );
 
