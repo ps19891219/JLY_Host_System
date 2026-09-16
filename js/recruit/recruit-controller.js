@@ -47,16 +47,6 @@ console.log(
     );
   }
 
-  function isHostCar(car) {
-  return Boolean(
-    car &&
-    (
-      car.isHost === true ||
-      car.myRole === "host"
-    )
-  );
-}
-
 function filterRecruitCars(
   cars
 ) {
@@ -180,20 +170,27 @@ function mergeCars(
       }
 
       const ownerCars =
-  await data
-    .getRecruitCarsByOwner(
-      recruitPage.ownerId
-    );
+        await data
+          .getRecruitCarsByOwner(
+            recruitPage.ownerId
+          );
 
 /*
-  ownerId 代表資料屬於這個人，
-  但個人揪團頁只自動顯示
-  他實際是主揪的車。
+  getRecruitCarsByOwner() 已由正式 Car Data
+  使用 ownerId 查出頁主正式擁有的車。
+
+  這裡不可再要求 raw Car 帶 isHost / myRole，
+  因為這兩個是 MyCar Prepared View 的投影欄位，
+  並不是 cars Core 的必要欄位。
+
+  舊邏輯在這裡再次用 isHost / myRole 過濾，
+  會把正式 owner 車全部濾成 0 台，連帶讓
+  「批次 LINE 揪團文案」沒有任何車可選。
 */
 const hostCars =
-  ownerCars.filter(
-    isHostCar
-  );
+  Array.isArray(ownerCars)
+    ? ownerCars
+    : [];
 
 /*
   取得頁主個人設定中，
@@ -230,15 +227,8 @@ const assistCars =
     : [];
 
 /*
-  合併：
-  1. 我主揪的車
-  2. 我協助揪團的車
-
-  同一台如果重複，只保留一份。
-*/
-/*
   三個分類都只留下
-  目前真正「招募中」的車。
+  目前真正「招募中」且公開的車。
 */
 const filteredHostCars =
   sortRecruitCars(
@@ -279,10 +269,6 @@ const allCars =
     );
 }
 
-/*
-  如果 Tabs 模組存在，
-  將三組資料交給它管理。
-*/
 if (
   window.JLYRecruitTabs &&
   typeof window
@@ -311,21 +297,12 @@ if (
         filteredAssistCars
     });
 
-  /*
-    第一次進入頁面，
-    預設顯示「全部」。
-  */
   window.JLYRecruitTabs
     .setTab("all");
 
   return;
 }
 
-/*
-  Tabs 如果沒有成功載入，
-  至少仍然顯示全部車團，
-  不讓整頁壞掉。
-*/
 render.renderPage(
   container,
   allCars
