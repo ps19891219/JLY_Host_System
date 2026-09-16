@@ -1,0 +1,19 @@
+name: Recruit hotfix contract
+
+on:
+  pull_request:
+    paths:
+      - 'js/recruit/recruit-controller.js'
+      - 'pages/recruit.html'
+      - 'tests/recruit/recruit-host-core-contract.test.js'
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node tests/recruit/recruit-host-core-contract.test.js
