@@ -23,7 +23,7 @@
         <button id="staffSelectAll" type="button">全選</button>
         <button id="staffClear" type="button" class="gray">清除</button>
         <button id="staffSync" type="button">匯入 Google Calendar</button>
-        <small>只能匯入自己的班。重複匯入會更新同一筆事件。</small>
+        <small>班表讀取正式 Work Schedule；只能匯入自己的班，匯入前會檢查 Google Calendar 衝突。</small>
       </div>
       <div id="staffSchedule"></div>
     </main>
@@ -33,6 +33,8 @@
   <script src="/js/line.js?v=3"></script>
   <script src="/js/modules/calendar/calendar-config.js?v=1"></script>
   <script src="/js/modules/calendar/calendar-auth.js?v=1"></script>
-  <script src="/js/modules/work-schedule/work-schedule-staff-page.js?v=1"></script>
+  <script src="/js/modules/calendar/calendar-provider-google.js?v=1"></script>
+  <script src="/js/modules/calendar/calendar-schedule-check.js?v=1"></script>
+  <script src="/js/modules/work-schedule/work-schedule-staff-page.js?v=3"></script>
 </body>
 </html>
