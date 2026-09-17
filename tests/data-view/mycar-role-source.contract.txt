@@ -1,0 +1,7 @@
+MyCar role source contract
+
+- explicit creator myRole=host => host
+- explicit creator myRole=player => player even when ownerId matches
+- active players[] membership => player
+- legacy owner without explicit role fields => host compatibility fallback
+- ownerId remains ownership/management metadata and is not an explicit participant-role override
