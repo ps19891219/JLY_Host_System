@@ -11,20 +11,28 @@ console.log("recruit-role-split.js 已成功載入！");
 
   const setCarGroups = tabs.setCarGroups.bind(tabs);
 
+  function isPlayerRole(car) {
+    return String(car && car.myRole || "").trim().toLowerCase() === "player";
+  }
+
   tabs.setCarGroups = function (groups) {
     const source = groups && typeof groups === "object" ? groups : {};
-    const assist = Array.isArray(source.assist) ? source.assist : [];
-    const assistIds = new Set(
-      assist.map(function (car) {
-        return car && car.id;
-      }).filter(Boolean)
-    );
+    const originalHost = Array.isArray(source.host) ? source.host : [];
+    const explicitPlayerCars = originalHost.filter(isPlayerRole);
+    const originalAssist = Array.isArray(source.assist) ? source.assist : [];
 
-    const host = (Array.isArray(source.host) ? source.host : []).filter(
-      function (car) {
-        return car && !assistIds.has(car.id);
-      }
-    );
+    const assistById = new Map();
+    [originalAssist, explicitPlayerCars].forEach(function (cars) {
+      cars.forEach(function (car) {
+        if (car && car.id) assistById.set(car.id, car);
+      });
+    });
+
+    const assist = Array.from(assistById.values());
+    const assistIds = new Set(assistById.keys());
+    const host = originalHost.filter(function (car) {
+      return car && !assistIds.has(car.id) && !isPlayerRole(car);
+    });
 
     return setCarGroups({
       ...source,
