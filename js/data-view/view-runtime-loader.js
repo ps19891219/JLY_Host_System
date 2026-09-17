@@ -5,9 +5,15 @@ console.log("view-runtime-loader.js 已成功載入！");
 
   let loadingPromise = null;
 
-  function loadScript(src, marker) {
+  function loadScript(
+    src,
+    marker
+  ) {
     return new Promise(
-      function (resolve, reject) {
+      function (
+        resolve,
+        reject
+      ) {
         const existing =
           document.querySelector(
             `script[data-jly-view-module="${marker}"]`
@@ -110,7 +116,7 @@ console.log("view-runtime-loader.js 已成功載入！");
         );
 
         await loadScript(
-          "/js/data-view/view-impact-resolver.js?v=2",
+          "/js/data-view/view-impact-resolver.js?v=3",
           "view-impact-resolver"
         );
 
@@ -120,7 +126,7 @@ console.log("view-runtime-loader.js 已成功載入！");
         );
 
         await loadScript(
-          "/js/data-view/mycar-view.js?v=6",
+          "/js/data-view/mycar-view.js?v=7",
           "mycar-view"
         );
 

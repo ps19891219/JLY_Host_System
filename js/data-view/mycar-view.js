@@ -1,10 +1,10 @@
-console.log("mycar-view.js V5 已成功載入！");
+console.log("mycar-view.js V6 已成功載入！");
 
 (function () {
   "use strict";
 
   const COLLECTION = "myCarViews";
-  const SCHEMA_VERSION = 5;
+  const SCHEMA_VERSION = 6;
   const CANCELLED = new Set(["已取消", "取消", "cancelled", "canceled"]);
 
   function getDb() {
@@ -151,11 +151,15 @@ console.log("mycar-view.js V5 已成功載入！");
       gameTime: text(source.gameTime || source.time),
       status: text(source.status),
       planningStatus: text(source.planningStatus),
+      visibility: text(source.visibility),
       studioName: text(source.studioName || source.studio),
       organizerName: text(source.organizerName || source.groupName),
       locationName: text(source.locationName),
       location: text(source.location || source.address || source.placeName),
       dmName: text(source.dmName),
+      coverImageUrl: text(source.coverImageUrl),
+      scriptCoverUrl: text(source.scriptCoverUrl),
+      scriptImageUrl: text(source.scriptImageUrl),
       price: Number(source.price || source.amount || 0),
       totalPeople: Number(source.totalPeople || 0),
       maleSlots: Number(source.maleSlots || 0),
@@ -166,6 +170,7 @@ console.log("mycar-view.js V5 已成功載入！");
       tags: Array.isArray(source.tags) ? source.tags : [],
       scriptTags: Array.isArray(source.scriptTags) ? source.scriptTags : [],
       ownerId: role.ownerId,
+      myRole: text(source.myRole).toLowerCase(),
       isHost: role.isHost,
       isPlayer: role.isPlayer,
       role: role.isHost ? "host" : (role.isPlayer ? "player" : ""),
