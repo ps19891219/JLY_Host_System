@@ -1,0 +1,12 @@
+(function(){
+'use strict';
+const txt=v=>String(v??'').trim();
+function studio(){return txt(new URLSearchParams(location.search).get('studio'))}
+function groupKey(r){return[r.date,r.workId||r.workName,r.startTime,r.endTime,r.studioName].join('|')}
+async function eventId(stableId){const bytes=new TextEncoder().encode(`jly-work-staff-group:${stableId}`),digest=await crypto.subtle.digest('SHA-256',bytes);return[...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,'0')).join('').slice(0,48)}
+async function googleDelete(token,id){const response=await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(id)}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});if(!response.ok&&response.status!==404)throw new Error(`Google Calendar ${response.status}`)}
+function sameEvent(e,stableId){const p=e?.extendedProperties?.private||{};return p.source==='JLY'&&p.sourceModule==='work-schedule-staff'&&String(p.workScheduleGroupId||'')===String(stableId)}
+async function removeSelected(){const keys=new Set([...document.querySelectorAll('#staffSchedule [data-group]:checked')].map(x=>x.dataset.group));if(!keys.size)return alert('請先在「只看我的」勾選要移除的班。');const response=await fetch(`/api/work-schedule-staff-context?studio=${encodeURIComponent(studio())}`,{credentials:'same-origin'}),data=await response.json();if(!response.ok||!data.success)throw new Error(data.error||`讀取班表失敗 ${response.status}`);const map=new Map();for(const row of(data.rows||[])){if(!row.isMine)continue;const key=groupKey(row);if(!keys.has(key))continue;if(!map.has(key))map.set(key,[]);map.get(key).push(row)}if(!map.size)return alert('已選班次目前沒有可移除的本人排班。');if(!confirm(`確定從你的 Google Calendar 移除已選的 ${map.size} 場班嗎？\n\n正式 Work Schedule 不會被修改。`))return;const token=await window.JLYCalendarAuth.requestAccessToken();let removed=0;for(const rows of map.values()){rows.sort((a,b)=>String(a.id).localeCompare(String(b.id)));const stableId=rows[0].id,id=await eventId(stableId);await googleDelete(token,id);const provider=window.JLYCalendarProviderGoogle;if(provider){const events=await provider.listEventsForDate(rows[0].date);for(const e of events.filter(x=>sameEvent(x,stableId)))if(e.id&&e.id!==id)await googleDelete(token,e.id)}removed++}alert(`已從 Google Calendar 移除 ${removed} 場自己的班。正式排班沒有變更。`)}
+function bind(){const b=document.getElementById('staffRemoveCalendar');if(b)b.onclick=()=>removeSelected().catch(e=>alert(`移除失敗：${e.message||e}`))}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+})();
