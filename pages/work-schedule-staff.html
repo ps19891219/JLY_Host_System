@@ -3,28 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>工作室班表</title>
+  <title>我的工作班表</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .staff-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.staff-toolbar button.active{font-weight:700}.staff-shift-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.staff-shift-card h3{margin:.55rem 0}.staff-shift-card p{line-height:1.65}.staff-actions{position:sticky;bottom:0;padding:10px 0;background:rgba(255,255,255,.96)}
+    .staff-shift-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.staff-shift-card h3{margin:.55rem 0}.staff-shift-card p{line-height:1.65}.staff-actions{position:sticky;bottom:0;padding:10px 0;background:rgba(255,255,255,.96);display:flex;gap:8px;flex-wrap:wrap}.staff-actions small{width:100%}
   </style>
 </head>
 <body>
   <div class="container">
     <div id="staffGate"><div class="card">正在確認 LINE 與工作室身分…</div></div>
     <main id="staffApp" hidden>
-      <h1 id="staffStudioTitle">工作室班表</h1>
+      <h1 id="staffStudioTitle">我的班表</h1>
       <p id="staffIdentity"></p>
-      <div class="staff-toolbar">
-        <button type="button" data-staff-view="all" class="active">全部班表</button>
-        <button type="button" data-staff-view="mine">只看我的</button>
-      </div>
       <div id="staffMineActions" class="staff-actions" hidden>
         <button id="staffSelectAll" type="button">全選</button>
         <button id="staffClear" type="button" class="gray">清除</button>
         <button id="staffSync" type="button">匯入／更新 Google Calendar</button>
         <button id="staffRemoveCalendar" type="button" class="gray">從 Google Calendar 移除</button>
-        <small>班表讀取正式 Work Schedule；Calendar 操作只處理自己的班，不會修改或取消正式排班。</small>
+        <small>這裡只顯示屬於你的正式 Work Schedule 排班。Calendar 操作只處理你的行事曆副本，不會修改或取消正式排班。</small>
       </div>
       <div id="staffSchedule"></div>
     </main>
@@ -36,7 +32,7 @@
   <script src="/js/modules/calendar/calendar-auth.js?v=1"></script>
   <script src="/js/modules/calendar/calendar-provider-google.js?v=1"></script>
   <script src="/js/modules/calendar/calendar-schedule-check.js?v=1"></script>
-  <script src="/js/modules/work-schedule/work-schedule-staff-page.js?v=3"></script>
+  <script src="/js/modules/work-schedule/work-schedule-staff-page.js?v=4"></script>
   <script src="/js/modules/work-schedule/work-schedule-staff-calendar-remove.js?v=1"></script>
 </body>
 </html>
