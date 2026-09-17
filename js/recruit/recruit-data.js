@@ -10,6 +10,7 @@ console.log(
   const preparedCarCache = new Map();
   const aliasCache = new Map();
   const migrationCache = new Map();
+  const legacyAliasRepairCache = new Map();
 
   function getDb() {
     if (!window.db) throw new Error("Firebase 尚未初始化");
@@ -30,6 +31,18 @@ console.log(
     ));
   }
 
+  function getProfileIdentityIds(profile) {
+    const source = profile && typeof profile === "object" ? profile : {};
+    return uniqueIds([
+      source.id, source.playerId, source.profileId, source.personId,
+      source.identityId, source.memberId, source.canonicalPersonId,
+      source.canonicalProfileId, source.canonicalMemberId,
+      source.mergedIntoPersonId, source.mergedIntoProfileId,
+      source.mergedIntoMemberId,
+      ...(Array.isArray(source.linkedPlayerIds) ? source.linkedPlayerIds : [])
+    ]);
+  }
+
   function getShareToken() {
     return normalizeText(new URLSearchParams(location.search).get("t"));
   }
@@ -40,25 +53,6 @@ console.log(
     const snapshot = await getDb().collection("recruitPages").doc(normalizedToken).get();
     if (!snapshot.exists) return null;
     return { token: snapshot.id, ...snapshot.data() };
-  }
-
-  async function resolveViewerId(aliasId) {
-    const normalizedAliasId = normalizeText(aliasId);
-    if (!normalizedAliasId) return "";
-    if (aliasCache.has(normalizedAliasId)) return aliasCache.get(normalizedAliasId);
-
-    let viewerId = normalizedAliasId;
-    try {
-      const snapshot = await getDb().collection("myCarViewAliases").doc(normalizedAliasId).get();
-      if (snapshot.exists) {
-        viewerId = normalizeText((snapshot.data() || {}).viewerId) || normalizedAliasId;
-      }
-    } catch (error) {
-      console.warn("Recruit prepared alias lookup skipped:", normalizedAliasId, error);
-    }
-
-    aliasCache.set(normalizedAliasId, viewerId);
-    return viewerId;
   }
 
   async function readPreparedView(viewerId, options) {
@@ -80,6 +74,136 @@ console.log(
 
     preparedViewCache.set(id, view);
     return view;
+  }
+
+  async function discoverLegacyIdentityIds(seedId) {
+    const seed = normalizeText(seedId);
+    if (!seed) return [];
+    const db = getDb();
+    const ids = new Set();
+    const queue = [];
+    const checked = new Set();
+    const reverseFields = [
+      "identityId", "personId", "profileId", "playerId", "memberId",
+      "canonicalPersonId", "canonicalProfileId", "canonicalMemberId",
+      "mergedIntoPersonId", "mergedIntoProfileId", "mergedIntoMemberId"
+    ];
+
+    function remember(value) {
+      const id = normalizeText(value);
+      if (!id || id.toLowerCase().startsWith("line:") || ids.has(id)) return;
+      ids.add(id);
+      queue.push(id);
+    }
+
+    function rememberProfile(snapshot) {
+      if (!snapshot || !snapshot.exists) return;
+      getProfileIdentityIds({ id: snapshot.id, ...(snapshot.data() || {}) }).forEach(remember);
+    }
+
+    remember(seed);
+    while (queue.length && checked.size < 80) {
+      const id = queue.shift();
+      if (!id || checked.has(id)) continue;
+      checked.add(id);
+
+      try {
+        const aliasSnapshot = await db.collection("myCarViewAliases").doc(id).get();
+        if (aliasSnapshot.exists) remember((aliasSnapshot.data() || {}).viewerId);
+      } catch (error) {
+        console.warn("Recruit legacy alias repair lookup skipped:", id, error);
+      }
+
+      try {
+        rememberProfile(await db.collection("players").doc(id).get());
+      } catch (error) {
+        console.warn("Recruit legacy direct profile repair skipped:", id, error);
+      }
+
+      for (const field of reverseFields) {
+        try {
+          const snapshot = await db.collection("players").where(field, "==", id).limit(10).get();
+          snapshot.docs.forEach(rememberProfile);
+        } catch (error) {
+          console.warn("Recruit legacy reverse profile repair skipped:", field, id, error);
+        }
+      }
+
+      try {
+        const linkedSnapshot = await db.collection("players")
+          .where("linkedPlayerIds", "array-contains", id).limit(10).get();
+        linkedSnapshot.docs.forEach(rememberProfile);
+      } catch (error) {
+        console.warn("Recruit legacy linked profile repair skipped:", id, error);
+      }
+    }
+    return uniqueIds(Array.from(ids));
+  }
+
+  async function repairLegacyViewerAlias(aliasId) {
+    const seed = normalizeText(aliasId);
+    if (!seed) return "";
+    if (legacyAliasRepairCache.has(seed)) return legacyAliasRepairCache.get(seed);
+
+    const task = (async function () {
+      const identityIds = await discoverLegacyIdentityIds(seed);
+      if (!identityIds.length) return seed;
+
+      let canonicalViewerId = "";
+      for (const candidateId of identityIds) {
+        const view = await readPreparedView(candidateId);
+        if (view && Array.isArray(view.cars)) {
+          canonicalViewerId = normalizeText(view.viewerId) || candidateId;
+          break;
+        }
+      }
+      if (!canonicalViewerId) return seed;
+
+      const now = new Date().toISOString();
+      await Promise.all(identityIds.map(function (id) {
+        aliasCache.set(id, canonicalViewerId);
+        return getDb().collection("myCarViewAliases").doc(id).set({
+          schemaVersion: 1,
+          aliasId: id,
+          viewerId: canonicalViewerId,
+          updatedAt: now,
+          repairSource: "recruit-legacy-alias-bootstrap"
+        }, { merge: false });
+      }));
+      console.log("✅ Recruit legacy viewer alias repaired", seed, canonicalViewerId, identityIds.length);
+      return canonicalViewerId;
+    })();
+
+    legacyAliasRepairCache.set(seed, task);
+    return task;
+  }
+
+  async function resolveViewerId(aliasId) {
+    const normalizedAliasId = normalizeText(aliasId);
+    if (!normalizedAliasId) return "";
+    if (aliasCache.has(normalizedAliasId)) return aliasCache.get(normalizedAliasId);
+
+    let viewerId = normalizedAliasId;
+    try {
+      const snapshot = await getDb().collection("myCarViewAliases").doc(normalizedAliasId).get();
+      if (snapshot.exists) {
+        viewerId = normalizeText((snapshot.data() || {}).viewerId) || normalizedAliasId;
+      }
+    } catch (error) {
+      console.warn("Recruit prepared alias lookup skipped:", normalizedAliasId, error);
+    }
+
+    // Old recruitPages can point at a historical identity that predates alias docs.
+    // Only when neither the alias nor a direct Prepared View resolves do we run
+    // the expensive legacy identity discovery once, then persist aliases so all
+    // later page loads return to the fixed-cost Prepared View path.
+    if (viewerId === normalizedAliasId) {
+      const directView = await readPreparedView(normalizedAliasId);
+      if (!directView) viewerId = await repairLegacyViewerAlias(normalizedAliasId);
+    }
+
+    aliasCache.set(normalizedAliasId, viewerId);
+    return viewerId;
   }
 
   function needsSchemaUpgrade(view) {
@@ -127,8 +251,6 @@ console.log(
       myRole: normalizeText(core.myRole || oldCar.myRole).toLowerCase(),
       updatedAt: core.updatedAt || oldCar.updatedAt || null,
       createdAt: core.createdAt || oldCar.createdAt || null,
-      // Participant classification is already canonical in the existing view.
-      // A schema migration must enrich the snapshot, never reclassify it.
       isHost: oldCar.isHost === true,
       isPlayer: oldCar.isPlayer === true,
       role: oldCar.isHost === true ? "host" : (oldCar.isPlayer === true ? "player" : normalizeText(oldCar.role)),
@@ -146,7 +268,6 @@ console.log(
       const ids = uniqueIds(cars.map(function (car) { return car && (car.id || car.carId); }));
       if (!ids.length) return view;
 
-      // Explicit one-time migration only. Normal Recruit reads remain Prepared-View-only.
       const coreCars = await Promise.all(ids.map(async function (carId) {
         const snapshot = await getDb().collection("cars").doc(carId).get();
         return snapshot.exists ? { id: snapshot.id, ...snapshot.data() } : null;
