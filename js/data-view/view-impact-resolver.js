@@ -12,10 +12,12 @@ console.log("view-impact-resolver.js 已成功載入！");
   ]);
 
   const MYCAR_FIELDS = new Set([
-    "scriptName", "gameDate", "gameTime", "status",
-    "studioName", "location", "address", "ownerId",
-    "players", "playerIds", "slots", "maleSlots",
-    "femaleSlots", "flexibleSlots", "totalPeople",
+    "scriptName", "gameDate", "gameTime", "status", "planningStatus",
+    "visibility", "studioName", "organizerName", "groupName",
+    "location", "locationName", "address", "dmName", "ownerId",
+    "myRole", "isHost", "isPlayer", "players", "playerIds", "slots",
+    "maleSlots", "femaleSlots", "flexibleSlots", "flexSlots", "totalPeople",
+    "coverImageUrl", "scriptCoverUrl", "scriptImageUrl", "tags", "scriptTags",
     "updatedAt"
   ]);
 
