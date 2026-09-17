@@ -13,28 +13,44 @@ console.log(
     return window.JLYIdentity || null;
   }
 
+  function normalizeId(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
   function getCurrentPlayerId() {
-    const identity =
-      getIdentity();
+    const identity = getIdentity();
 
     if (
       identity &&
-      typeof identity
-        .getCurrentPlayerId ===
-        "function"
+      typeof identity.getCurrentPlayerId === "function"
     ) {
-      return String(
-        identity
-          .getCurrentPlayerId() ||
-        ""
-      ).trim();
+      return normalizeId(identity.getCurrentPlayerId());
     }
 
-    return String(
-      localStorage.getItem(
-        "currentPlayerId"
-      ) || ""
-    ).trim();
+    return normalizeId(
+      localStorage.getItem("currentPlayerId")
+    );
+  }
+
+  function getCurrentIdentityIds() {
+    const identity = getIdentity();
+
+    if (
+      identity &&
+      typeof identity.getAllPlayerIdentityIds === "function"
+    ) {
+      return Array.from(
+        new Set(
+          identity
+            .getAllPlayerIdentityIds()
+            .map(normalizeId)
+            .filter(Boolean)
+        )
+      );
+    }
+
+    const currentPlayerId = getCurrentPlayerId();
+    return currentPlayerId ? [currentPlayerId] : [];
   }
 
   // ============================================================
@@ -42,16 +58,12 @@ console.log(
   // ============================================================
 
   function isSystemAdminMode() {
-    const identity =
-      getIdentity();
+    const identity = getIdentity();
 
     return Boolean(
       identity &&
-      typeof identity
-        .isSystemAdminMode ===
-        "function" &&
-      identity
-        .isSystemAdminMode()
+      typeof identity.isSystemAdminMode === "function" &&
+      identity.isSystemAdminMode()
     );
   }
 
@@ -61,40 +73,25 @@ console.log(
 
   // ============================================================
   // Car Ownership
+  //
+  // ownerId is ownership / management authority, not participant role.
+  // A creator can therefore edit a car even when their car role is player.
+  // Historical confirmed identity aliases are the same owner for permission
+  // purposes. Names are never used to infer ownership.
   // ============================================================
 
   function getCarOwnerId(car) {
-    if (!car) {
-      return "";
-    }
-
-    return String(
-      car.ownerId || ""
-    ).trim();
+    if (!car) return "";
+    return normalizeId(car.ownerId);
   }
 
   function isCarOwner(car) {
-    if (!car) {
-      return false;
-    }
+    if (!car) return false;
 
-    const currentPlayerId =
-      getCurrentPlayerId();
+    const ownerId = getCarOwnerId(car);
+    if (!ownerId) return false;
 
-    const ownerId =
-      getCarOwnerId(car);
-
-    if (
-      !currentPlayerId ||
-      !ownerId
-    ) {
-      return false;
-    }
-
-    return (
-      currentPlayerId ===
-      ownerId
-    );
+    return getCurrentIdentityIds().includes(ownerId);
   }
 
   // ============================================================
@@ -102,19 +99,12 @@ console.log(
   // ============================================================
 
   function canEditCar(car) {
-    if (!car) {
-      return false;
-    }
+    if (!car) return false;
 
-    // System Admin Override
-    if (canOverride()) {
-      return true;
-    }
+    if (canOverride()) return true;
 
-    // 正式 owner
-    if (isCarOwner(car)) {
-      return true;
-    }
+    // Ownership is independent from host/player role.
+    if (isCarOwner(car)) return true;
 
     return false;
   }
@@ -127,9 +117,7 @@ console.log(
   // Debug / 說明用途
   // ============================================================
 
-  function explainCarPermission(
-    car
-  ) {
+  function explainCarPermission(car) {
     if (!car) {
       return {
         allowed: false,
@@ -140,8 +128,7 @@ console.log(
     if (canOverride()) {
       return {
         allowed: true,
-        reason:
-          "system_admin_override"
+        reason: "system_admin_override"
       };
     }
 
@@ -164,6 +151,7 @@ console.log(
 
   window.JLYPermissions = {
     getCurrentPlayerId,
+    getCurrentIdentityIds,
     isSystemAdminMode,
     canOverride,
     getCarOwnerId,
