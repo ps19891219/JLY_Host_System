@@ -12,7 +12,11 @@ console.log("recruit-role-split.js 已成功載入！");
   const setCarGroups = tabs.setCarGroups.bind(tabs);
 
   function isPlayerRole(car) {
-    return String(car && car.myRole || "").trim().toLowerCase() === "player";
+    if (!car) return false;
+
+    const role = String(car.myRole || "").trim().toLowerCase();
+
+    return role === "player" || car.isPlayer === true;
   }
 
   tabs.setCarGroups = function (groups) {
