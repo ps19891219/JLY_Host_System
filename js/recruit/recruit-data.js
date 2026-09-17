@@ -6,6 +6,7 @@ console.log(
   "use strict";
 
   const preparedViewCache = new Map();
+  const preparedCarCache = new Map();
   const aliasCache = new Map();
 
   function getDb() {
@@ -88,6 +89,33 @@ console.log(
     return view;
   }
 
+  async function readPreparedCar(carId) {
+    const id = normalizeText(carId);
+    if (!id) return null;
+    if (preparedCarCache.has(id)) return preparedCarCache.get(id);
+
+    let car = null;
+    try {
+      const snapshot = await getDb().collection("carDetailViews").doc(id).get();
+      if (snapshot.exists) {
+        const data = snapshot.data() || {};
+        if (data.car && typeof data.car === "object") {
+          car = { ...data.car, id, preparedRead: true };
+        }
+      }
+    } catch (error) {
+      console.warn("Recruit prepared car-detail lookup skipped:", id, error);
+    }
+
+    preparedCarCache.set(id, car);
+    return car;
+  }
+
+  async function getPreparedCarsByIds(carIds) {
+    const cars = await Promise.all(uniqueIds(carIds).map(readPreparedCar));
+    return cars.filter(Boolean);
+  }
+
   async function resolveOwnerIdentityIds(ownerId) {
     const normalizedOwnerId = normalizeText(ownerId);
     if (!normalizedOwnerId) return [];
@@ -151,6 +179,8 @@ console.log(
     getRecruitPageByToken,
     resolveViewerId,
     readPreparedView,
+    readPreparedCar,
+    getPreparedCarsByIds,
     resolveOwnerIdentityIds,
     getHostCarsFromMyCarViews,
     getHostCarIdsFromMyCarViews,
