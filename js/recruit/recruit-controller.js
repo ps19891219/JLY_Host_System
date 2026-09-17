@@ -4,6 +4,8 @@ console.log("recruit-controller.js 已成功載入！");
   "use strict";
 
   let initPromise = null;
+  let moduleRetryCount = 0;
+  const MAX_MODULE_RETRIES = 20;
 
   function getContainer() {
     return document.getElementById("recruitCarList");
@@ -37,6 +39,21 @@ console.log("recruit-controller.js 已成功載入！");
     return Array.from(map.values());
   }
 
+  function retryWhenModulesReady(container) {
+    if (moduleRetryCount >= MAX_MODULE_RETRIES) {
+      container.innerHTML = '<div class="recruit-error"><h2>揪團頁載入未完成</h2><p>資料模組沒有完成載入，請重新整理頁面。</p></div>';
+      console.error("Recruit 模組載入逾時", {
+        data: !!window.JLYRecruitData,
+        render: !!window.JLYRecruitRender
+      });
+      return;
+    }
+
+    moduleRetryCount += 1;
+    initPromise = null;
+    window.setTimeout(initRecruitPage, 150);
+  }
+
   async function runRecruitPage() {
     const container = getContainer();
     const data = window.JLYRecruitData;
@@ -44,11 +61,12 @@ console.log("recruit-controller.js 已成功載入！");
 
     if (!container) return;
     if (!data || !render) {
-      container.innerHTML = '<div class="recruit-error"><h2>揪團頁載入未完成</h2><p>請重新整理頁面。</p></div>';
-      console.error("Recruit 模組尚未完整載入", { data: !!data, render: !!render });
+      container.innerHTML = '<div class="recruit-loading">正在載入揪團資料…</div>';
+      retryWhenModulesReady(container);
       return;
     }
 
+    moduleRetryCount = 0;
     render.renderLoading(container);
 
     try {
@@ -111,8 +129,6 @@ console.log("recruit-controller.js 已成功載入！");
 
   window.JLYRecruitController = { init: initRecruitPage };
 
-  // The page is normally parsed synchronously, but mobile/webview cache restores can
-  // execute this bundle after DOMContentLoaded. Cover both lifecycle states.
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initRecruitPage, { once: true });
   } else {
