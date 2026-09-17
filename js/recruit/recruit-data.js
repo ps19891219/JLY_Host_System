@@ -5,6 +5,9 @@ console.log(
 (function () {
   "use strict";
 
+  const preparedViewCache = new Map();
+  const aliasCache = new Map();
+
   function getDb() {
     if (!window.db) {
       throw new Error("Firebase 尚未初始化");
@@ -26,25 +29,6 @@ console.log(
     ));
   }
 
-  function getProfileIdentityIds(profile) {
-    const source = profile && typeof profile === "object" ? profile : {};
-    return uniqueIds([
-      source.id,
-      source.playerId,
-      source.profileId,
-      source.personId,
-      source.identityId,
-      source.memberId,
-      source.canonicalPersonId,
-      source.canonicalProfileId,
-      source.canonicalMemberId,
-      source.mergedIntoPersonId,
-      source.mergedIntoProfileId,
-      source.mergedIntoMemberId,
-      ...(Array.isArray(source.linkedPlayerIds) ? source.linkedPlayerIds : [])
-    ]);
-  }
-
   function getShareToken() {
     return normalizeText(new URLSearchParams(location.search).get("t"));
   }
@@ -62,95 +46,83 @@ console.log(
     return { token: snapshot.id, ...snapshot.data() };
   }
 
+  async function resolveViewerId(aliasId) {
+    const normalizedAliasId = normalizeText(aliasId);
+    if (!normalizedAliasId) return "";
+    if (aliasCache.has(normalizedAliasId)) return aliasCache.get(normalizedAliasId);
+
+    let viewerId = normalizedAliasId;
+    try {
+      const snapshot = await getDb()
+        .collection("myCarViewAliases")
+        .doc(normalizedAliasId)
+        .get();
+      if (snapshot.exists) {
+        viewerId = normalizeText((snapshot.data() || {}).viewerId) || normalizedAliasId;
+      }
+    } catch (error) {
+      console.warn("Recruit prepared alias lookup skipped:", normalizedAliasId, error);
+    }
+
+    aliasCache.set(normalizedAliasId, viewerId);
+    return viewerId;
+  }
+
+  async function readPreparedView(viewerId) {
+    const id = normalizeText(viewerId);
+    if (!id) return null;
+    if (preparedViewCache.has(id)) return preparedViewCache.get(id);
+
+    let view = null;
+    try {
+      const snapshot = await getDb().collection("myCarViews").doc(id).get();
+      if (snapshot.exists) {
+        const data = snapshot.data() || {};
+        if (data.viewType === "mycar_index" && Array.isArray(data.cars)) view = data;
+      }
+    } catch (error) {
+      console.warn("Recruit MyCar prepared-view lookup skipped:", id, error);
+    }
+
+    preparedViewCache.set(id, view);
+    return view;
+  }
+
   async function resolveOwnerIdentityIds(ownerId) {
     const normalizedOwnerId = normalizeText(ownerId);
     if (!normalizedOwnerId) return [];
 
-    const db = getDb();
-    const ids = new Set();
-    const queue = [];
-    const checked = new Set();
-    const reverseFields = [
-      "identityId", "personId", "profileId", "playerId", "memberId",
-      "canonicalPersonId", "canonicalProfileId", "canonicalMemberId",
-      "mergedIntoPersonId", "mergedIntoProfileId", "mergedIntoMemberId"
-    ];
-
-    function remember(value) {
-      const normalized = normalizeText(value);
-      if (!normalized || normalized.toLowerCase().startsWith("line:") || ids.has(normalized)) return;
-      ids.add(normalized);
-      queue.push(normalized);
-    }
-
-    function rememberProfile(snapshot) {
-      if (!snapshot || !snapshot.exists) return;
-      getProfileIdentityIds({ id: snapshot.id, ...(snapshot.data() || {}) }).forEach(remember);
-    }
-
-    remember(normalizedOwnerId);
-
-    while (queue.length && checked.size < 80) {
-      const id = queue.shift();
-      if (!id || checked.has(id)) continue;
-      checked.add(id);
-
-      try {
-        const aliasSnapshot = await db.collection("myCarViewAliases").doc(id).get();
-        if (aliasSnapshot.exists) remember((aliasSnapshot.data() || {}).viewerId);
-      } catch (error) {
-        console.warn("Recruit owner alias lookup skipped:", id, error);
-      }
-
-      try {
-        rememberProfile(await db.collection("players").doc(id).get());
-      } catch (error) {
-        console.warn("Recruit owner direct profile lookup skipped:", id, error);
-      }
-
-      for (const field of reverseFields) {
-        try {
-          const snapshot = await db.collection("players").where(field, "==", id).limit(10).get();
-          snapshot.docs.forEach(rememberProfile);
-        } catch (error) {
-          console.warn("Recruit owner reverse profile lookup skipped:", field, id, error);
-        }
-      }
-
-      try {
-        const linkedSnapshot = await db.collection("players")
-          .where("linkedPlayerIds", "array-contains", id).limit(10).get();
-        linkedSnapshot.docs.forEach(rememberProfile);
-      } catch (error) {
-        console.warn("Recruit owner linkedPlayerIds lookup skipped:", id, error);
-      }
-    }
-
-    return uniqueIds(Array.from(ids));
+    /*
+      Identity aliases are already projected into myCarViewAliases and the
+      Prepared View's identityIds. Recruit must not rediscover the same person
+      by repeatedly querying every players identity field on page load.
+    */
+    const viewerId = await resolveViewerId(normalizedOwnerId);
+    const view = await readPreparedView(viewerId);
+    return uniqueIds([
+      normalizedOwnerId,
+      viewerId,
+      ...(view && Array.isArray(view.identityIds) ? view.identityIds : [])
+    ]);
   }
 
   async function getHostCarsFromMyCarViews(viewerIds) {
-    const db = getDb();
-    const ids = uniqueIds(viewerIds);
+    const requestedIds = uniqueIds(viewerIds);
+    const viewerIds = uniqueIds(await Promise.all(
+      requestedIds.map(function (id) { return resolveViewerId(id); })
+    ));
     const carsById = new Map();
 
-    await Promise.all(ids.map(async function (viewerId) {
-      try {
-        const snapshot = await db.collection("myCarViews").doc(viewerId).get();
-        if (!snapshot.exists) return;
+    await Promise.all(viewerIds.map(async function (viewerId) {
+      const view = await readPreparedView(viewerId);
+      if (!view) return;
 
-        const view = snapshot.data() || {};
-        if (view.viewType !== "mycar_index" || !Array.isArray(view.cars)) return;
-
-        view.cars.forEach(function (car) {
-          if (!car || car.isHost !== true) return;
-          const carId = normalizeText(car.id || car.carId);
-          if (!carId) return;
-          carsById.set(carId, { ...car, id: carId, preparedRead: true });
-        });
-      } catch (error) {
-        console.warn("Recruit MyCar prepared-view lookup skipped:", viewerId, error);
-      }
+      view.cars.forEach(function (car) {
+        if (!car || car.isHost !== true) return;
+        const carId = normalizeText(car.id || car.carId);
+        if (!carId) return;
+        carsById.set(carId, { ...car, id: carId, preparedRead: true });
+      });
     }));
 
     return Array.from(carsById.values());
@@ -167,11 +139,9 @@ console.log(
     if (ownerIdentityIds.length === 0) return [];
 
     /*
-      Recruit list is a read model. The MyCar Prepared View already contains
-      the compact card snapshots and canonical host/player projection, so the
-      normal list path must return those snapshots directly. Never hydrate the
-      IDs back from cars Core here. Core reads belong to detail/edit/mutation
-      paths or an explicit repair/bootstrap operation only.
+      Normal Recruit list rendering returns compact Prepared View snapshots
+      directly. It never hydrates car IDs back from cars Core. Core reads are
+      reserved for detail/edit/mutation or explicit repair/bootstrap flows.
     */
     return getHostCarsFromMyCarViews(ownerIdentityIds);
   }
@@ -179,6 +149,8 @@ console.log(
   window.JLYRecruitData = {
     getShareToken,
     getRecruitPageByToken,
+    resolveViewerId,
+    readPreparedView,
     resolveOwnerIdentityIds,
     getHostCarsFromMyCarViews,
     getHostCarIdsFromMyCarViews,
