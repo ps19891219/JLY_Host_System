@@ -4,7 +4,7 @@
   const BUFFER_MINUTES = 120;
 
   let cachedCars = [];
-  let hasLoadedCars = false;
+  let cachedDateKey = "";
 
   function normalizeText(value) {
     return String(value == null ? "" : value).trim();
@@ -36,15 +36,52 @@
     return car.scriptName || car.activityName || car.name || "未命名車團";
   }
 
-  async function loadConflictCars(forceReload = false) {
-    if (hasLoadedCars && !forceReload) return cachedCars;
+  function getCandidateDates(candidateSlots) {
+    return Array.from(new Set(
+      (Array.isArray(candidateSlots) ? candidateSlots : [])
+        .map(function (slot) { return normalizeText(slot && slot.date); })
+        .filter(Boolean)
+    )).sort();
+  }
 
-    if (!window.JLYMatchingData || typeof window.JLYMatchingData.getConflictCars !== "function") {
-      throw new Error("Matching Data 尚未提供車團行程資料");
+  async function loadConflictCars(forceReload = false, candidateSlots = []) {
+    const dates = getCandidateDates(candidateSlots);
+    const dateKey = dates.join("|");
+
+    if (!forceReload && dateKey && cachedDateKey === dateKey) {
+      return cachedCars;
     }
 
-    cachedCars = await window.JLYMatchingData.getConflictCars();
-    hasLoadedCars = true;
+    if (dates.length === 0) {
+      cachedCars = [];
+      cachedDateKey = "";
+      return cachedCars;
+    }
+
+    if (!window.db) {
+      throw new Error("Firebase 尚未載入");
+    }
+
+    const carsById = new Map();
+
+    /*
+      Conflict only needs cars on candidate dates. Never scan the whole cars
+      collection. Chunk the Firestore `in` query conservatively for compat.
+    */
+    for (let index = 0; index < dates.length; index += 10) {
+      const dateChunk = dates.slice(index, index + 10);
+      const snapshot = await window.db
+        .collection("cars")
+        .where("gameDate", "in", dateChunk)
+        .get();
+
+      snapshot.docs.forEach(function (doc) {
+        carsById.set(doc.id, { id: doc.id, ...doc.data() });
+      });
+    }
+
+    cachedCars = Array.from(carsById.values());
+    cachedDateKey = dateKey;
     return cachedCars;
   }
 
@@ -91,10 +128,9 @@
   }
 
   async function applyConflicts(candidateSlots, currentCarId, options = {}) {
-    /* Conflict data is a live view. Reload by default for each matching pass. */
-    await loadConflictCars(options.forceReload !== false);
-
     const slots = Array.isArray(candidateSlots) ? candidateSlots : [];
+    await loadConflictCars(options.forceReload !== false, slots);
+
     return slots.map(function (slot) {
       return {
         ...slot,
@@ -105,7 +141,7 @@
 
   function clearCache() {
     cachedCars = [];
-    hasLoadedCars = false;
+    cachedDateKey = "";
   }
 
   window.JLYMatchingConflict = {
@@ -116,5 +152,5 @@
     clearCache
   };
 
-  console.log("✅ Matching Conflict V2 已載入");
+  console.log("✅ Matching Conflict V3 已載入");
 })();
