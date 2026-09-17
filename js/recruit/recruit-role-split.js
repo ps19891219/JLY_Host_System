@@ -16,7 +16,16 @@ console.log("recruit-role-split.js 已成功載入！");
 
     const role = String(car.myRole || "").trim().toLowerCase();
 
-    return role === "player" || car.isPlayer === true;
+    /*
+      Keep the same precedence as the canonical Car Role contract:
+      explicit myRole wins over persisted compatibility flags.
+      A historical/stale isPlayer=true must not turn myRole=host into player.
+    */
+    if (role === "host") return false;
+    if (role === "player") return true;
+    if (role === "favorite") return false;
+
+    return car.isPlayer === true && car.isHost !== true;
   }
 
   tabs.setCarGroups = function (groups) {
