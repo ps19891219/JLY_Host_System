@@ -5,6 +5,8 @@ console.log(
 (function () {
   "use strict";
 
+  const ownerIdentityCache = new Map();
+
   function getDb() {
     if (!window.db) {
       throw new Error("Firebase 尚未初始化");
@@ -66,6 +68,16 @@ console.log(
     const normalizedOwnerId = normalizeText(ownerId);
     if (!normalizedOwnerId) return [];
 
+    /*
+      Recruit page initialization asks for the same identity component more than
+      once: host-car lookup first, then assistRecruiting alias lookup. Identity
+      expansion is stable for the lifetime of this page, so reuse the completed
+      result instead of repeating every players/myCarViewAliases reverse query.
+    */
+    if (ownerIdentityCache.has(normalizedOwnerId)) {
+      return ownerIdentityCache.get(normalizedOwnerId).slice();
+    }
+
     const db = getDb();
     const ids = new Set();
     const queue = [];
@@ -126,7 +138,9 @@ console.log(
       }
     }
 
-    return uniqueIds(Array.from(ids));
+    const resolvedIds = uniqueIds(Array.from(ids));
+    ownerIdentityCache.set(normalizedOwnerId, resolvedIds);
+    return resolvedIds.slice();
   }
 
   async function getHostCarIdsFromMyCarViews(viewerIds) {
