@@ -105,11 +105,23 @@ function plusOneHour(date,time){
   const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));
   return {date:`${p.year}-${p.month}-${p.day}`,time:`${p.hour}:${p.minute}`};
 }
+function nextDate(date){
+  const d=new Date(`${date}T12:00:00+08:00`);
+  if(Number.isNaN(d.getTime()))return date;
+  d.setTime(d.getTime()+86400000);
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);
+  const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
 function resource(group,eventId){
   const row=group.first;
   const fallback=plusOneHour(row.date,row.startTime);
-  const endDate=row.endTime?(row.endDate||row.date):fallback.date;
+  let endDate=row.endTime?(row.endDate||row.date):fallback.date;
   const endTime=row.endTime||fallback.time;
+  // Legacy overnight shifts may store 19:00–02:00 without advancing endDate.
+  // Calendar requires end > start, so treat an equal-date end time that is not
+  // later than start time as the following day.
+  if(row.endTime&&endDate===row.date&&endTime<=row.startTime)endDate=nextDate(row.date);
   const start=`${row.date}T${row.startTime}:00+08:00`;
   const end=`${endDate}T${endTime}:00+08:00`;
   const ownRoles=formatOwnRoles(group);
