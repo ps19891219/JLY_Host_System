@@ -93,7 +93,9 @@ async function eventIdForGroup(stableId){
   const bytes=new TextEncoder().encode(`jly-work-staff-group:${stableId}`);
   const digest=await crypto.subtle.digest('SHA-256',bytes);
   const hex=[...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,'0')).join('');
-  return `jlystaff${hex.slice(0,40)}`;
+  // Google Calendar event IDs only accept base32hex characters (a-v, 0-9).
+  // A SHA-256 hex digest is deterministic and already fully inside that alphabet.
+  return hex.slice(0,48);
 }
 function plusOneHour(date,time){
   const d=new Date(`${date}T${time||'00:00'}:00+08:00`);
