@@ -1693,6 +1693,22 @@ const updatedData = {
 
   slots,
 
+  // Keep the explicit participant role in sync with the edit controls.
+  // MyCar Prepared View intentionally treats myRole as the canonical role,
+  // while ownerId remains ownership/management only.
+  myRole:
+    document.getElementById(
+      "isHost"
+    ).checked
+      ? "host"
+      : (
+          document.getElementById(
+            "isPlayer"
+          ).checked
+            ? "player"
+            : "favorite"
+        ),
+
   isHost:
     document.getElementById(
       "isHost"
