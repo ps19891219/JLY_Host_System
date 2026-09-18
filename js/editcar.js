@@ -498,7 +498,6 @@ function renderEditForm(car) {
     <hr>
 
         <hr>
-
     <label>
       車團公開設定
     </label>
@@ -997,8 +996,7 @@ async function reschedulePreTripReminderAfterCarEdit(
   if (!snapshot.exists) {
     return {
       checked: true,
-      rescheduled: false,
-      reason:
+      rescheduled: false,      reason:
         "reminder_not_found"
     };
   }
@@ -1497,8 +1495,7 @@ const isPlanning =
   if (peopleMode === "gender") {
     maleSlots = Math.max(
       0,
-      Number(
-        document.getElementById(
+      Number(        document.getElementById(
           "maleSlots"
         ).value || 0
       )
@@ -1692,6 +1689,22 @@ const updatedData = {
     totalPeople,
 
   slots,
+
+  // Keep the explicit participant role in sync with the edit controls.
+  // MyCar Prepared View intentionally treats myRole as the canonical role,
+  // while ownerId remains ownership/management only.
+  myRole:
+    document.getElementById(
+      "isHost"
+    ).checked
+      ? "host"
+      : (
+          document.getElementById(
+            "isPlayer"
+          ).checked
+            ? "player"
+            : "favorite"
+        ),
 
   isHost:
     document.getElementById(
@@ -1997,8 +2010,7 @@ await audit
           });
     }
   } else if (
-    googleCalendarAuthorized &&
-    needsCalendarUpdate &&
+    googleCalendarAuthorized &&    needsCalendarUpdate &&
     window.JLYCalendarSync &&
     typeof window
       .JLYCalendarSync
