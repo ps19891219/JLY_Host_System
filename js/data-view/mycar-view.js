@@ -333,15 +333,53 @@ console.log("mycar-view.js V6 已成功載入！");
     return { ok: true, viewerId: normalizedViewerId };
   }
 
+  async function resolvePreparedViewerIds(identityIds) {
+    const db = getDb();
+    const viewerIds = new Set();
+    const ids = Array.from(new Set(
+      (Array.isArray(identityIds) ? identityIds : [])
+        .map(text)
+        .filter(Boolean)
+    ));
+
+    for (const identityId of ids) {
+      // A legacy owner id may itself still own a Prepared View.
+      const direct = await read(identityId);
+      if (direct) viewerIds.add(identityId);
+
+      // Canonical alias routing is the authoritative bridge from historical
+      // identity ids to the current Prepared View document.
+      try {
+        const alias = await db
+          .collection("myCarViewAliases")
+          .doc(identityId)
+          .get();
+
+        if (alias.exists) {
+          const routedViewerId = text((alias.data() || {}).viewerId);
+          if (routedViewerId) viewerIds.add(routedViewerId);
+        }
+      } catch (error) {
+        console.warn("MyCar alias route lookup skipped", identityId, error);
+      }
+    }
+
+    return Array.from(viewerIds);
+  }
+
   async function applyCarMutation(beforeCar, afterCar) {
     const ownerIds = Array.from(new Set([
       text(beforeCar && beforeCar.ownerId),
       text(afterCar && afterCar.ownerId)
     ].filter(Boolean)));
+
+    const viewerIds = await resolvePreparedViewerIds(ownerIds);
     const results = [];
-    for (const viewerId of ownerIds) {
+
+    for (const viewerId of viewerIds) {
       results.push(await applyViewerMutation(viewerId, beforeCar, afterCar));
     }
+
     return results;
   }
 

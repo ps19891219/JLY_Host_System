@@ -126,7 +126,7 @@ console.log("view-runtime-loader.js 已成功載入！");
         );
 
         await loadScript(
-          "/js/data-view/mycar-view.js?v=7",
+          "/js/data-view/mycar-view.js?v=8",
           "mycar-view"
         );
 
