@@ -1,0 +1,10 @@
+const fs=require('fs'),assert=require('assert');
+const page=fs.readFileSync('pages/studio-matching-vote.html','utf8'),vote=fs.readFileSync('js/modules/work-schedule/studio-matching-vote.js','utf8'),admin=fs.readFileSync('js/modules/work-schedule/studio-matching-workspace.js','utf8');
+assert(page.includes('尚未送出的人保持未回覆'));
+assert(vote.includes("participantType:'studio_staff_response'"));
+assert(vote.includes("status:'submitted'"));
+assert(admin.includes("responseMatrix"));
+assert(admin.includes("'可以':'不行'"));
+assert(admin.includes("studio-matching-vote.html?id="));
+assert(!vote.includes("collection('workShifts')"));
+console.log('studio matching response matrix contract ok');
