@@ -498,6 +498,7 @@ function renderEditForm(car) {
     <hr>
 
         <hr>
+
     <label>
       車團公開設定
     </label>
@@ -996,7 +997,8 @@ async function reschedulePreTripReminderAfterCarEdit(
   if (!snapshot.exists) {
     return {
       checked: true,
-      rescheduled: false,      reason:
+      rescheduled: false,
+      reason:
         "reminder_not_found"
     };
   }
@@ -1495,7 +1497,8 @@ const isPlanning =
   if (peopleMode === "gender") {
     maleSlots = Math.max(
       0,
-      Number(        document.getElementById(
+      Number(
+        document.getElementById(
           "maleSlots"
         ).value || 0
       )
@@ -2010,7 +2013,8 @@ await audit
           });
     }
   } else if (
-    googleCalendarAuthorized &&    needsCalendarUpdate &&
+    googleCalendarAuthorized &&
+    needsCalendarUpdate &&
     window.JLYCalendarSync &&
     typeof window
       .JLYCalendarSync
