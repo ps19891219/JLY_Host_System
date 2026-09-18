@@ -1,0 +1,10 @@
+const fs=require('fs'),assert=require('assert');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');
+const entry=fs.readFileSync('js/modules/work-schedule/work-schedule-matching-entry.js','utf8');
+assert(page.includes('id="dashboardMatching"'));
+assert(page.includes('🗓 配合時間'));
+assert(page.includes('work-schedule-matching-entry.js?v=1'));
+assert(entry.includes("/pages/matching.html?work="));
+assert(entry.includes("source=work-schedule"));
+assert(entry.includes("請先選擇要安排的工作／劇本"));
+console.log('work schedule matching visible entry contract ok');
