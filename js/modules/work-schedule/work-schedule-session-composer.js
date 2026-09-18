@@ -247,6 +247,31 @@ async function save(e){
     alert(`完成：已建立／更新 ${changes.length} 筆角色排班。`);
   }catch(err){alert(`建立排班失敗：${err.message||err}`)}
 }
+
+async function openMatchingDraft(draft){
+  if(!draft?.date||!draft?.startTime)return alert('媒合時段資料不完整。');
+  if(draft.workId&&String(draft.workId)!==String(activeWorkId)){activeWorkId=String(draft.workId);activeWork=null}
+  await Promise.all([loadWork(),ensurePeople()]);
+  if(!activeWork)return alert('找不到這次媒合對應的工作／劇本。');
+  ensureDialog();
+  selectedDates=new Set([draft.date]);
+  timeSlots=[{start:draft.startTime,end:txt(draft.endTime||'')}];
+  assignments={};sessionHosts={};
+  const allowed=new Set((draft.availablePersonIds||[]).map(String));
+  const roles=(activeWork.roles||[]).filter(r=>txt(r.name));
+  for(let ri=0;ri<roles.length;ri++){
+    const role=roles[ri],rk=roleKey(role,ri),incoming=(draft.roles||[]).find(x=>String(x.roleId)===String(role.id||role.name)||norm(x.roleName)===norm(role.name));
+    const selected=(incoming?.selectedPersonIds||[]).map(String).filter(id=>allowed.has(id)&&roleIds(role).includes(id));
+    assignments[assignmentKey(draft.date,0,rk)]=selected;
+  }
+  calendarCursor=new Date(draft.date+'T00:00:00');
+  $('workSessionComposerTitle').textContent=(activeWork.name||activeWork.workName||'新增排班')+' · 媒合確認';
+  $('workSessionNote').value='由配合時間媒合帶入；只有按下「建立全部排班」後才成為正式排班。';
+  renderCalendar();renderTimes();renderSessions();
+  const dlg=$('workSessionComposerDialog');if(dlg&&!dlg.open)dlg.showModal();
+}
+
 window.addEventListener('jly:work-schedule:work-opened',e=>{activeWorkId=String(e.detail?.workId||'');activeWork=null;people=null});
 document.addEventListener('click',e=>{const b=e.target.closest?.('#workWorkspaceSchedule,#dashboardCreate');if(!b||!activeWorkId)return;const ws=$('workWorkspace');if(!ws||ws.hidden)return;e.preventDefault();e.stopImmediatePropagation();open().catch(err=>alert(`開啟排班失敗：${err.message||err}`))},true);
+window.JLYWorkScheduleSessionComposer={open,openMatchingDraft};
 })();
