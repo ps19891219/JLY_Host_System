@@ -1,0 +1,13 @@
+const fs=require('fs'),assert=require('assert');
+const bridge=fs.readFileSync('js/modules/work-schedule/work-schedule-matching-bridge.js','utf8');
+const dashboard=fs.readFileSync('js/modules/work-schedule/work-schedule-dashboard.js','utf8');
+const page=fs.readFileSync('pages/work-schedule.html','utf8');
+assert(bridge.includes("source:'matching'"));
+assert(bridge.includes('availablePersonIds'));
+assert(bridge.includes('selectedPersonIds:[]'));
+assert(bridge.includes("error:'person_not_available'"));
+assert(!bridge.includes("collection('workShifts')"),'bridge must not create official shifts by itself');
+assert(dashboard.includes("shifts=db.collection('workShifts')"),'formal Work Schedule remains the writer');
+assert(dashboard.includes('applyAssignments'),'formal assignment pipeline remains available');
+assert(page.includes('work-schedule-matching-bridge.js?v=1'));
+console.log('work-schedule matching bridge contract ok');
