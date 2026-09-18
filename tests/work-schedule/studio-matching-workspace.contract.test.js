@@ -1,0 +1,10 @@
+const fs=require('fs'),assert=require('assert');
+const studio=fs.readFileSync('pages/studio-detail.html','utf8'),page=fs.readFileSync('pages/studio-matching.html','utf8'),js=fs.readFileSync('js/modules/work-schedule/studio-matching-workspace.js','utf8');
+assert(studio.includes('studio-matching.html?studio=kaiwei-private'));
+assert(page.includes('先收集可配合時間，媒合成功後才進正式排班'));
+assert(page.includes('這裡不先綁劇本'));
+assert(js.includes("collection('studioMatchings')"));
+assert(js.includes("status:'collecting'"));
+assert(js.includes("selectedWorkId:''"));
+assert(!js.includes("collection('workShifts')"));
+console.log('studio matching workspace contract ok');
