@@ -39,19 +39,21 @@ function rowSearchText(row){return[
   row.workName,row.studioName,row.hostName,row.roleName,row.note,row.date,row.startTime,row.endTime,
   ...(row.people||[]).map(p=>p?.name),...(row.assignedPersonNames||[])
 ].map(v=>String(v||'').toLowerCase()).join(' ')}
-async function allActiveRows(){const keys=await V.loadMonthIndex(),monthRows=await Promise.all(keys.map(k=>V.loadMonth(k)));return monthRows.flat().filter(r=>r.status!=='cancelled')}
+function activeWorkId(){return String(new URL(location.href).searchParams.get('workId')||'').trim()}
+async function rowsForMonth(mk){const id=activeWorkId();return(id&&V.loadWorkMonth?V.loadWorkMonth(id,mk):rowsForMonth(mk))}
+async function allActiveRows(){const id=activeWorkId();if(id&&V.loadWorkMonth){const keys=await V.loadMonthIndex(),monthRows=await Promise.all(keys.map(k=>V.loadWorkMonth(id,k)));return monthRows.flat().filter(r=>r.status!=='cancelled')}const keys=await V.loadMonthIndex(),monthRows=await Promise.all(keys.map(k=>V.loadMonth(k)));return monthRows.flat().filter(r=>r.status!=='cancelled')}
 async function search(filter){
   currentFilter=filter;host.innerHTML='<div class="empty">搜尋班表中…</div>';let rows=[];
   if(filter.type==='date'){
-    if(filter.explicitYear){const mk=`${filter.year}-${filter.monthText}`,date=`${mk}-${filter.dayText}`;rows=(await V.loadMonth(mk)).filter(r=>r.status!=='cancelled'&&r.date===date)}
-    else{const keys=await V.loadMonthIndex(),months=keys.filter(k=>String(k).endsWith(`-${filter.monthText}`));const monthRows=await Promise.all(months.map(k=>V.loadMonth(k)));rows=monthRows.flat().filter(r=>r.status!=='cancelled'&&String(r.date||'').slice(5)===`${filter.monthText}-${filter.dayText}`)}
+    if(filter.explicitYear){const mk=`${filter.year}-${filter.monthText}`,date=`${mk}-${filter.dayText}`;rows=(await rowsForMonth(mk)).filter(r=>r.status!=='cancelled'&&r.date===date)}
+    else{const keys=await V.loadMonthIndex(),months=keys.filter(k=>String(k).endsWith(`-${filter.monthText}`));const monthRows=await Promise.all(months.map(k=>rowsForMonth(k)));rows=monthRows.flat().filter(r=>r.status!=='cancelled'&&String(r.date||'').slice(5)===`${filter.monthText}-${filter.dayText}`)}
     rows=await applyView(rows);
     if(title)title.textContent=filter.explicitYear?`🔍 ${filter.label} 班表`:`🔍 所有年份 ${filter.label} 班表`;
     renderRows(rows,`找不到 ${filter.label} 的班表。`,'search');return;
   }
   if(filter.type==='month'){
-    if(filter.explicitYear)rows=(await V.loadMonth(`${filter.year}-${filter.monthText}`)).filter(r=>r.status!=='cancelled');
-    else{const keys=await V.loadMonthIndex(),months=keys.filter(k=>String(k).endsWith(`-${filter.monthText}`));const monthRows=await Promise.all(months.map(k=>V.loadMonth(k)));rows=monthRows.flat().filter(r=>r.status!=='cancelled')}
+    if(filter.explicitYear)rows=(await rowsForMonth(`${filter.year}-${filter.monthText}`)).filter(r=>r.status!=='cancelled');
+    else{const keys=await V.loadMonthIndex(),months=keys.filter(k=>String(k).endsWith(`-${filter.monthText}`));const monthRows=await Promise.all(months.map(k=>rowsForMonth(k)));rows=monthRows.flat().filter(r=>r.status!=='cancelled')}
     rows=await applyView(rows);
     if(title)title.textContent=filter.explicitYear?`🔍 ${filter.label} 班表`:`🔍 所有年份 ${filter.label}班表`;
     renderRows(rows,`找不到 ${filter.label}的班表。`,'search');return;
