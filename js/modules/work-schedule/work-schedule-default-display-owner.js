@@ -6,6 +6,10 @@ window.__JLYWorkScheduleDefaultDisplayOwnerInitialized=true;
 const $=id=>document.getElementById(id);
 
 function shouldRestoreDefaultHistory(){
+  // Studio/Joey work-first mode owns the dashboard whenever a formal workId is selected.
+  // Do not let the legacy all-history renderer replace that single-work surface after refresh.
+  const activeWorkId=new URL(location.href).searchParams.get('workId');
+  if(activeWorkId)return false;
   const input=$('scheduleDateQuery');
   if(!input||String(input.value||'').trim())return false;
   const mine=document.querySelector('[data-dashboard-view="mine"]');
