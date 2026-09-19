@@ -376,6 +376,20 @@ console.log("mycar-view.js V6 已成功載入！");
     const viewerIds = await resolvePreparedViewerIds(ownerIds);
     const results = [];
 
+    // First car for a canonical identity: create the Prepared View at the
+    // mutation boundary. Normal MyCar page load must never bootstrap by
+    // scanning Core cars.
+    if (!beforeCar && afterCar && viewerIds.length === 0 && ownerIds.length === 1) {
+      const viewerId = ownerIds[0];
+      const initial = buildView({
+        viewerId,
+        identityIds: [viewerId],
+        cars: [afterCar]
+      });
+      await write(initial);
+      return [{ ok: true, viewerId, bootstrapped: true }];
+    }
+
     for (const viewerId of viewerIds) {
       results.push(await applyViewerMutation(viewerId, beforeCar, afterCar));
     }
