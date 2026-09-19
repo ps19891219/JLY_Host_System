@@ -77,54 +77,11 @@
 <script src="/js/modules/calendar/calendar-data.js?v=3"></script>
 <script src="/js/modules/calendar/calendar-sync.js?v=3"></script>
 <script src="/js/mycar.js?v=49"></script>
-<script src="/js/modules/car/identity/mycar-prepared-view-upgrade.js?v=1"></script>
-<script>
-  (function () {
-    "use strict";
-
-    function loadLegacyRecovery() {
-      return new Promise(function (resolve, reject) {
-        const script = document.createElement("script");
-        script.src = "/js/modules/car/identity/mycar-legacy-identity-repair.js?v=13";
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-    }
-
-    async function maintainPreparedView() {
-      try {
-        const result = window.JLYMyCarPreparedViewUpgrade
-          ? await window.JLYMyCarPreparedViewUpgrade.run()
-          : { ok: false, skipped: "upgrade_module_missing" };
-
-        if (result && result.ok) {
-          if (result.upgraded && typeof window.resetMyCarPagination === "function") {
-            window.resetMyCarPagination();
-          }
-          if (result.upgraded && typeof window.renderMyCars === "function") {
-            await window.renderMyCars({ restoreScroll: false });
-          }
-          return;
-        }
-
-        console.warn("MyCar Prepared View needs legacy recovery", result);
-        await loadLegacyRecovery();
-        if (window.JLYMyCarLegacyIdentityRepair && typeof window.JLYMyCarLegacyIdentityRepair.run === "function") {
-          await window.JLYMyCarLegacyIdentityRepair.run();
-        }
-      } catch (error) {
-        console.error("MyCar Prepared View maintenance failed", error);
-      }
-    }
-
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", maintainPreparedView, { once: true });
-    } else {
-      maintainPreparedView();
-    }
-  })();
-</script>
+<!--
+  Normal MyCar runtime is intentionally read-only against myCarViews/{viewerId}.
+  Schema/identity repair is an explicit maintenance operation only and must not
+  run on every page load, otherwise list reads can fan out into Core car reads.
+-->
 <script src="/js/modules/calendar/mycar-calendar-repair.js?v=9"></script>
 <script>
   function toggleMyCarMenu() {
