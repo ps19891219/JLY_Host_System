@@ -846,15 +846,30 @@ planningStatus:
     const carId =
       await persistCar(car);
 
-    await window
-      .syncCarViewsFromKnownMutation(
-        null,
-        {
-          id: carId,
-          ...car
-        },
-        Object.keys(car)
-      );
+    const viewRuntime =
+      window.JLYViewRuntimeLoader &&
+      typeof window.JLYViewRuntimeLoader.ensure === "function"
+        ? await window.JLYViewRuntimeLoader.ensure()
+        : null;
+
+    const viewCoordinator =
+      viewRuntime && viewRuntime.coordinator;
+
+    if (
+      !viewCoordinator ||
+      typeof viewCoordinator.updateCarViews !== "function"
+    ) {
+      throw new Error("建立車團後無法同步 MyCar Prepared View");
+    }
+
+    await viewCoordinator.updateCarViews({
+      beforeCar: null,
+      afterCar: {
+        id: carId,
+        ...car
+      },
+      changedFields: Object.keys(car)
+    });
 
     let calendarResult = null;
 
