@@ -116,7 +116,7 @@ console.log("view-runtime-loader.js 已成功載入！");
         );
 
         await loadScript(
-          "/js/data-view/view-impact-resolver.js?v=3",
+          "/js/data-view/view-impact-resolver.js?v=4",
           "view-impact-resolver"
         );
 
