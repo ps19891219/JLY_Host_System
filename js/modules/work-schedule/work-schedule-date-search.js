@@ -41,7 +41,7 @@ function rowSearchText(row){return[
 ].map(v=>String(v||'').toLowerCase()).join(' ')}
 function activeWorkId(){return String(new URL(location.href).searchParams.get('workId')||'').trim()}
 async function rowsForMonth(mk){const id=activeWorkId();return(id&&V.loadWorkMonth?V.loadWorkMonth(id,mk):V.loadMonth(mk))}
-async function allActiveRows(){const id=activeWorkId();if(id&&V.loadWorkMonth){const keys=await V.loadMonthIndex(),monthRows=await Promise.all(keys.map(k=>V.loadWorkMonth(id,k)));return monthRows.flat().filter(r=>r.status!=='cancelled')}const keys=await V.loadMonthIndex(),monthRows=await Promise.all(keys.map(k=>V.loadMonth(k)));return monthRows.flat().filter(r=>r.status!=='cancelled')}
+async function allActiveRows(){const id=activeWorkId();if(id&&V.loadWorkRows)return (await V.loadWorkRows(id)).filter(r=>r.status!=='cancelled');return[]}
 async function search(filter){
   currentFilter=filter;host.innerHTML='<div class="empty">搜尋班表中…</div>';let rows=[];
   if(filter.type==='date'){
