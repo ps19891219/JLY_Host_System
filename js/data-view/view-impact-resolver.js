@@ -4,9 +4,12 @@ console.log("view-impact-resolver.js 已成功載入！");
   "use strict";
 
   const CAR_DETAIL_FIELDS = new Set([
-    "scriptName", "gameDate", "gameTime", "status",
-    "studioName", "location", "address", "price",
-    "players", "staffSlots", "slots", "applications",
+    "scriptName", "activityName", "gameDate", "gameTime", "status", "planningStatus",
+    "visibility", "studioName", "organizerName", "groupName",
+    "location", "locationName", "address", "dmName", "price",
+    "peopleMode", "capacity", "totalPeople", "maleSlots", "femaleSlots",
+    "flexibleSlots", "flexSlots", "myRole", "isHost", "isPlayer",
+    "players", "playerIds", "staffSlots", "slots", "applications",
     "history", "matching", "reminder", "notes", "note",
     "updatedAt"
   ]);
@@ -16,6 +19,7 @@ console.log("view-impact-resolver.js 已成功載入！");
     "visibility", "studioName", "organizerName", "groupName",
     "location", "locationName", "address", "dmName", "ownerId",
     "myRole", "isHost", "isPlayer", "players", "playerIds", "slots",
+    "peopleMode", "capacity", "price", "note",
     "maleSlots", "femaleSlots", "flexibleSlots", "flexSlots", "totalPeople",
     "coverImageUrl", "scriptCoverUrl", "scriptImageUrl", "tags", "scriptTags",
     "updatedAt"
