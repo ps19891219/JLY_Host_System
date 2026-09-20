@@ -245,7 +245,7 @@ async function save(e){
       }
       await batch.commit();
     }
-    for(const mk of months)await V.rebuildMonth(mk);
+    for(const change of changes)await V.applyRowChange?.(change.exists?change.before:null,change.after);
     $('workSessionComposerDialog').close();
     await window.JLYWorkScheduleDashboard?.reloadMonth?.(months[0]);
     alert(`完成：已建立／更新 ${changes.length} 筆角色排班。`);
