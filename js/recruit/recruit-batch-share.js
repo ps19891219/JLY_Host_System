@@ -184,6 +184,45 @@ console.log(
         : "已滿團";
     }
 
+    const seatSummary =
+      car &&
+      car.seatSummary &&
+      typeof car.seatSummary === "object"
+        ? car.seatSummary
+        : null;
+
+    if (seatSummary) {
+      const maleTotal = Math.max(0, Number(seatSummary.maleTotal || 0));
+      const maleOccupied = Math.max(0, Number(seatSummary.maleOccupied || 0));
+      const femaleTotal = Math.max(0, Number(seatSummary.femaleTotal || 0));
+      const femaleOccupied = Math.max(0, Number(seatSummary.femaleOccupied || 0));
+      const flexibleTotal = Math.max(0, Number(seatSummary.flexibleTotal || 0));
+      const flexibleOccupied = Math.max(0, Number(seatSummary.flexibleOccupied || 0));
+
+      if (maleTotal > 0 || femaleTotal > 0) {
+        const parts = [];
+        const maleNeed = Math.max(maleTotal - maleOccupied, 0);
+        const femaleNeed = Math.max(femaleTotal - femaleOccupied, 0);
+        const flexibleNeed = Math.max(flexibleTotal - flexibleOccupied, 0);
+
+        if (maleNeed > 0) parts.push(maleNeed + "男");
+        if (femaleNeed > 0) parts.push(femaleNeed + "女");
+        if (flexibleNeed > 0) parts.push(flexibleNeed + "不限");
+
+        return parts.length ? "缺 " + parts.join(" ") : "已滿團";
+      }
+
+      const totalNeed = Math.max(
+        Number(seatSummary.totalSeatCount || 0) -
+          Number(seatSummary.occupiedSeatCount || 0),
+        0
+      );
+
+      if (Number(seatSummary.totalSeatCount || 0) > 0) {
+        return totalNeed > 0 ? "缺 " + totalNeed + "人" : "已滿團";
+      }
+    }
+
     const total =
       Number(
         car.totalPeople ||
