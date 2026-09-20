@@ -22,6 +22,7 @@ let assignments={};
 let sessionHosts={};
 let calendarCursor=new Date();
 let matchingAllowedPersonIds=null;
+let matchingSource=null;
 
 function roleIds(r){return(r?.eligiblePersonIds||r?.personIds||[]).map(String)}
 function roleKey(r,i=0){return String(r?.id||r?.name||`role-${i+1}`)}
@@ -189,7 +190,9 @@ function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){
     calendar:{syncEnabled:false,autoUpdate:false,provider:'google',calendarId:'primary'},
     schemaVersion:7,
     status:'scheduled',
-    source:'work_schedule_session_composer',
+    source:matchingSource?'matching':'work_schedule_session_composer',
+    sourceMatchingId:matchingSource?.matchingId||'',
+    sourceSlotId:matchingSource?.slotId||'',
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()
   };
 }
@@ -254,10 +257,12 @@ async function openMatchingDraft(draft){
   if(draft.workId&&String(draft.workId)!==String(activeWorkId)){activeWorkId=String(draft.workId);activeWork=null}
   await Promise.all([loadWork(),ensurePeople()]);
   if(!activeWork)return alert('找不到這次媒合對應的工作／劇本。');
+  if(!draft.workId||String(activeWork.id)!==String(draft.workId))return alert('媒合劇本資料不一致，已停止建立排班。');
   ensureDialog();
   selectedDates=new Set([draft.date]);
   timeSlots=[{start:draft.startTime,end:txt(draft.endTime||'')}];
   assignments={};sessionHosts={};
+  matchingSource={matchingId:txt(draft.sourceMatchingId),slotId:txt(draft.sourceSlotId)};
   const allowed=new Set((draft.availablePersonIds||[]).map(String));matchingAllowedPersonIds=allowed;sessionHosts[hostKey(draft.date,0)]=txt(draft.hostName||'');
   const roles=(activeWork.roles||[]).filter(r=>txt(r.name));
   for(let ri=0;ri<roles.length;ri++){
@@ -272,7 +277,7 @@ async function openMatchingDraft(draft){
   const dlg=$('workSessionComposerDialog');if(dlg&&!dlg.open)dlg.showModal();
 }
 
-window.addEventListener('jly:work-schedule:work-opened',e=>{activeWorkId=String(e.detail?.workId||'');activeWork=null;people=null});
+window.addEventListener('jly:work-schedule:work-opened',e=>{activeWorkId=String(e.detail?.workId||'');activeWork=null;people=null;matchingSource=null;matchingAllowedPersonIds=null});
 document.addEventListener('click',e=>{const b=e.target.closest?.('#workWorkspaceSchedule,#dashboardCreate');if(!b||!activeWorkId)return;const ws=$('workWorkspace');if(!ws||ws.hidden)return;e.preventDefault();e.stopImmediatePropagation();open().catch(err=>alert(`開啟排班失敗：${err.message||err}`))},true);
 window.JLYWorkScheduleSessionComposer={open,openMatchingDraft};
 })();
