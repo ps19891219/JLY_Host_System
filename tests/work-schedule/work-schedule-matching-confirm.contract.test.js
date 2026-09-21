@@ -46,3 +46,6 @@ assert(lifecycle.includes('Array.isArray(after?.staffSlots)?after.staffSlots'),'
 
 assert(composer.includes('sessionHosts={};matchingSource=null;matchingAllowedPersonIds=null;'),'normal composer open must clear stale matching state');
 assert(composer.includes("assignmentConfirmationByPerson:matchingSource?Object.fromEntries(ids.map(id=>[String(id),'tentative'])):{}"),'matching draft must initialize per-person tentative confirmation state');
+
+assert(confirmApi.includes('db.collection("players").doc(session.profileId).get()'),'confirmation auth should prefer deterministic session profile lookup');
+assert(confirmApi.includes('if(!ids.size&&session.lineUserId)'),'LINE user query must be fallback-only when session has no usable profile identity');
