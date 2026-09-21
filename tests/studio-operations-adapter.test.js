@@ -1,0 +1,3 @@
+const assert=require('assert'),A=require('../js/modules/studio/studio-operations-adapter.js');
+const v=A.combine({studioId:'s1',bookingInbox:{bookings:[{id:'b1',studioId:'s1',status:'pending',scriptName:'孤注',date:'2027-10-04',time:'19:00'}]},pendingActions:[{id:'p1',type:'staff_assignment_confirmation',status:'pending'},{id:'p2',type:'host_reschedule_request',status:'pending'}]});
+assert.equal(v.items.length,3);assert.equal(v.items[0].type,'booking');assert.equal(v.items[1].type,'staff_confirmation');assert.equal(v.items[2].type,'host_request');console.log('studio operations adapter ok');
