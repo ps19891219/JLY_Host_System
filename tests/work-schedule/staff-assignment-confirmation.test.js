@@ -45,11 +45,11 @@ assert.deepEqual(pending, {
   status: "pending"
 });
 
-console.log("staff-assignment-confirmation tests passed");
-
 const changedShift={...shift,startTime:"20:00"};
 const invalidated=domain.invalidateIfChanged(confirmed,changedShift);
 assert.equal(invalidated.status,domain.STATUS.INVALIDATED);
 const reconfirmed=domain.confirm(invalidated,changedShift);
 assert.equal(reconfirmed.status,domain.STATUS.CONFIRMED);
 assert.equal(reconfirmed.shiftFingerprint,domain.fingerprint(changedShift));
+
+console.log("staff-assignment-confirmation tests passed");
