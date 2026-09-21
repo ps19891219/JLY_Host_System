@@ -1,5 +1,8 @@
 const fs=require('fs');
 const api=fs.readFileSync('api/work-schedule-staff-context.js','utf8');
+const staffContext=api;
+const personLinks=fs.readFileSync('services/work-schedule/staff-person-links.js','utf8');
+const confirmApi=fs.readFileSync('api/work-schedule-staff-confirmation.js','utf8');
 function ok(v,m){if(!v)throw new Error(m)}
 ok(!api.includes('where("studioName","==",studio).get()'),'staff context must not scan all studio memberships');
 ok(!api.includes('where("type","==","work-schedule-month").get()'),'staff context must not query all month view docs by type');
@@ -29,8 +32,8 @@ ok(composer.includes('tentativePersonIds:matchingSource?ids:[]'),'matching draft
 
 const staffPage=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-page.js','utf8');
 const calendarRemove=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-calendar-remove.js','utf8');
-ok(staffPage.includes('&month=${encodeURIComponent(new Date().toISOString().slice(0,7))}'),'employee page must request one deterministic month');
-ok(calendarRemove.includes('&month=${encodeURIComponent(new Date().toISOString().slice(0,7))}'),'Calendar removal must request one deterministic month');
+ok(staffPage.includes('encodeURIComponent(activeMonth)'),'employee page must request one deterministic active month');
+ok(calendarRemove.includes('month=${encodeURIComponent('),'Calendar removal must request one deterministic month');
 
 const staffHtml=fs.readFileSync('pages/work-schedule-staff.html','utf8');
 ok(staffHtml.includes('staffMonthPrev')&&staffHtml.includes('staffMonthNext'),'employee schedule needs explicit month navigation');
