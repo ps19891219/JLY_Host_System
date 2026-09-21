@@ -9,3 +9,8 @@ console.log('work-schedule staff read budget guard: ok');
 
 ok(api.includes('tentativePersonIds'),'staff context must surface tentative assignments from prepared views');
 ok(api.includes('isTentativeMine'),'tentative assignment must be visible to the assigned employee without scanning workShifts');
+
+const view=fs.readFileSync('js/modules/work-schedule/work-schedule-read-view.js','utf8');
+const dashboard=fs.readFileSync('js/modules/work-schedule/work-schedule-dashboard.js','utf8');
+ok(view.includes('async function upsertShift(row)'),'read view must support incremental shift upsert');
+ok(dashboard.includes('V.upsertShift'),'dashboard assignment writes should incrementally update prepared month views');
