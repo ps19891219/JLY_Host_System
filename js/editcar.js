@@ -218,6 +218,8 @@ function toggleEditPeopleMode() {
   }
 }
 
+function loadEditScript(src,globalName){if(window[globalName])return Promise.resolve(window[globalName]);return new Promise(function(resolve,reject){const x=document.createElement("script");x.src=src;x.async=true;x.onload=function(){window[globalName]?resolve(window[globalName]):reject(new Error(globalName+" 未初始化"));};x.onerror=reject;document.head.appendChild(x);});}
+
 function renderEditForm(car) {
   const editBox =
     document.getElementById(
@@ -1633,6 +1635,11 @@ const nextStatus =
             )
       );
 
+const selectedVisibility = getEditRadioValue(
+  "visibility",
+  currentEditingCar.visibility === "public" ? "public" : "private"
+);
+
 const updatedData = {
   scriptName,
 
@@ -1674,13 +1681,10 @@ const updatedData = {
 
   note,
 
-  visibility:
-    getEditRadioValue(
-      "visibility",
-      currentEditingCar.visibility === "public"
-        ? "public"
-        : "private"
-    ),
+  visibility: selectedVisibility,
+
+  // This is the Host intent, independent from temporary full-capacity hiding.
+  publicRecruitmentPreference: selectedVisibility === "public",
 
   peopleMode,
 
@@ -1898,6 +1902,21 @@ await audit
     updateData:
       updatedData
   });
+
+  if (currentEditingCar.studioId || currentEditingCar.organizationId) {
+    try {
+      const studioId=String(currentEditingCar.studioId||currentEditingCar.organizationId||"").trim();
+      if (!window.JLYStudioBookingDomain || !window.JLYStudioBookingViews) {
+        await Promise.all([
+          loadEditScript("/js/modules/studio/studio-booking-activity.js?v=1","JLYStudioBookingDomain"),
+          loadEditScript("/js/data-view/studio-booking-views.js?v=1","JLYStudioBookingViews")
+        ]);
+      }
+      const ref=window.db.collection("studioRecruitmentViews").doc(studioId),snap=await ref.get();
+      const view=snap.exists?snap.data():{schemaVersion:1,viewType:"studio_recruitment",studioId,activities:[],count:0};
+      await ref.set(window.JLYStudioBookingViews.applyRecruitmentMutation(view,{id:carId,...currentEditingCar,...updatedData},window.JLYStudioBookingDomain),{merge:false});
+    } catch(error){console.warn("同步 Studio Recruitment View 失敗：",error);}
+  }
 
   let reminderSyncResult =
     null;

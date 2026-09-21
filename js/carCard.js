@@ -122,7 +122,7 @@ async function setSelectedCarsPublic() {
 
       editable.push({
         ref: refs[index],
-        car
+        car: { id: snapshot.id, ...car }
       });
     });
 
@@ -141,6 +141,7 @@ async function setSelectedCarsPublic() {
     editable.forEach(item => {
       const updateData = {
         visibility: "public",
+        publicRecruitmentPreference: true,
         updatedAt: now
       };
 
@@ -156,6 +157,23 @@ async function setSelectedCarsPublic() {
     });
 
     await batch.commit();
+
+    for (const item of editable) {
+      if (!(item.car.studioId || item.car.organizationId)) continue;
+      try {
+        const studioId=String(item.car.studioId||item.car.organizationId||"").trim();
+        const [domainModule,viewModule]=await Promise.all([
+          import("/js/modules/studio/studio-booking-activity.js?v=1"),
+          import("/js/data-view/studio-booking-views.js?v=1")
+        ]).catch(()=>[null,null]);
+        const domain=window.JLYStudioBookingDomain||(domainModule&&domainModule.default);
+        const views=window.JLYStudioBookingViews||(viewModule&&viewModule.default);
+        if (!domain || !views) continue;
+        const ref=window.db.collection("studioRecruitmentViews").doc(studioId),snap=await ref.get();
+        const current=snap.exists?snap.data():{schemaVersion:1,viewType:"studio_recruitment",studioId,activities:[],count:0};
+        await ref.set(views.applyRecruitmentMutation(current,{...item.car,visibility:"public",publicRecruitmentPreference:true,updatedAt:now},domain),{merge:false});
+      } catch(error) { console.warn("同步 Studio Recruitment View 失敗：",error); }
+    }
 
     selectedCars.clear();
 

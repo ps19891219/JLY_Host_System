@@ -1,0 +1,1 @@
+const fs=require('fs'),assert=require('assert');const s=fs.readFileSync('services/car/car-entry-service.js','utf8');assert.match(s,/recruitmentView/);assert.match(s,/result\.status !== "pending"/);assert.match(s,/Applications do not change vacancy yet/);console.log('pending applications do not mutate recruitment visibility');

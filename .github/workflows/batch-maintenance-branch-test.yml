@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'batch/**'
+      - 'feature/**'
 
 jobs:
   test:
@@ -14,4 +15,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: npm test
+      - name: Studio Booking focused regression
+        run: node --test tests/studio-booking-*.test.js tests/studio-recruitment-*.test.js tests/studio-pending-action-read-budget.test.js tests/studio-permissions.test.js tests/studio-dm-membership-role-boundary.test.js
+      - name: Full repository regression
+        run: npm test

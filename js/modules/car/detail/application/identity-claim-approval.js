@@ -10,6 +10,36 @@
     return text(params.get("id") || params.get("carId"));
   }
 
+  function compactDirectoryPerson(person, id) {
+    const row = { ...(person || {}), id: text(id || (person && person.id)) };
+    return {
+      id: row.id,
+      canonicalPersonId: text(row.canonicalPersonId || row.mergedIntoPersonId || row.personId || row.id),
+      displayName: text(row.displayName || row.nickname || row.playerName || row.lineDisplayName),
+      nickname: text(row.nickname), playerName: text(row.playerName), lineDisplayName: text(row.lineDisplayName),
+      aliases: list(row.aliases).map(text).filter(Boolean),
+      linkedPlayerIds: list(row.linkedPlayerIds).map(text).filter(Boolean),
+      lineUserId: text(row.lineUserId), lineIdentityId: text(row.lineIdentityId), identityId: text(row.identityId),
+      profileId: text(row.profileId), personId: text(row.personId), mergedIntoPersonId: text(row.mergedIntoPersonId),
+      identityStatus: text(row.identityStatus), memberType: text(row.memberType), type: text(row.type),
+      status: text(row.status), note: text(row.note || row.hostNote), playCount: Number(row.playCount || 0),
+      updatedAt: row.updatedAt || null
+    };
+  }
+
+  function applyDirectoryIdentityMerge(view, canonicalPerson, duplicateIds) {
+    const base = view && typeof view === "object" ? view : {};
+    const next = compactDirectoryPerson(canonicalPerson.data || canonicalPerson, canonicalPerson.id);
+    const removeIds = new Set([next.id, next.canonicalPersonId, ...next.linkedPlayerIds, ...list(duplicateIds)].map(text).filter(Boolean));
+    const people = list(base.people).filter(row => {
+      const rowIds = [row && row.id, row && row.canonicalPersonId, ...list(row && row.linkedPlayerIds)].map(text).filter(Boolean);
+      return !rowIds.some(id => removeIds.has(id));
+    });
+    people.push(next);
+    people.sort((a, b) => text(a.displayName).localeCompare(text(b.displayName), "zh-Hant"));
+    return { ...base, schemaVersion: 1, people, count: people.length, updatedAt: nowIso() };
+  }
+
   function claimantName(app) {
     return text(app && (app.lineDisplayName || app.claimantDisplayName || app.displayName));
   }
@@ -256,8 +286,11 @@
       const personPayload = resolved.createPerson
         ? mergePersonPatch(latestPerson, null, freshTarget, current, "player", freshDuplicates)
         : mergePersonPatch(latestPerson, null, freshTarget, current, "player", freshDuplicates);
+      const directoryRef = db.collection("personDirectoryViews").doc("canonical");
+      const directorySnap = await transaction.get(directoryRef);
       transaction.set(personRef, { ...latestPerson.data, ...personPayload }, { merge: !resolved.createPerson });
       freshDuplicates.forEach((item, index) => transaction.set(duplicateRefs[index], duplicateLineRepairPatch(latestPerson.id), { merge: true }));
+      transaction.set(directoryRef, applyDirectoryIdentityMerge(directorySnap.exists ? directorySnap.data() : {}, { id: latestPerson.id, data: { ...latestPerson.data, ...personPayload } }, freshDuplicates.map(item => item.id)), { merge: false });
       transaction.update(carRef, { players, applications, updatedAt: nowIso() });
     });
     alert(`✅ 已核准：LINE「${claimantName(app)}」已認領既有玩家「${text(app.targetPlayerName) || text(target.playerName || target.displayName || target.name)}」`);
@@ -339,8 +372,11 @@
       freshTarget.source = "dm_application_identity_claimed";
       applications[appIndex] = { ...current, status: "approved", approvedAt: nowIso(), updatedAt: nowIso(), resolvedPersonId: latestPerson.id };
       const personPayload = mergePersonPatch(latestPerson, null, freshTarget, current, "dm", freshDuplicates);
+      const directoryRef = db.collection("personDirectoryViews").doc("canonical");
+      const directorySnap = await transaction.get(directoryRef);
       transaction.set(personRef, { ...latestPerson.data, ...personPayload }, { merge: !resolved.createPerson });
       freshDuplicates.forEach((item, index) => transaction.set(duplicateRefs[index], duplicateLineRepairPatch(latestPerson.id), { merge: true }));
+      transaction.set(directoryRef, applyDirectoryIdentityMerge(directorySnap.exists ? directorySnap.data() : {}, { id: latestPerson.id, data: { ...latestPerson.data, ...personPayload } }, freshDuplicates.map(item => item.id)), { merge: false });
       transaction.update(carRef, { staffSlots, dmApplications: applications, updatedAt: nowIso() });
     });
     alert(`✅ 已核准：LINE「${claimantName(app)}」已認領既有 DM「${text(app.targetStaffName) || text(target.displayName || target.name)}」`);
