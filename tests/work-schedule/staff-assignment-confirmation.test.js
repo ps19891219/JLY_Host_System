@@ -51,5 +51,9 @@ assert.equal(invalidated.status,domain.STATUS.INVALIDATED);
 const reconfirmed=domain.confirm(invalidated,changedShift);
 assert.equal(reconfirmed.status,domain.STATUS.CONFIRMED);
 assert.equal(reconfirmed.shiftFingerprint,domain.fingerprint(changedShift));
+const reopened=domain.reopen(invalidated,changedShift);
+assert.equal(reopened.status,domain.STATUS.TENTATIVE);
+assert.equal(domain.decline(reopened).status,domain.STATUS.DECLINED);
+assert.equal(reopened.invalidatedReason,"");
 
 console.log("staff-assignment-confirmation tests passed");
