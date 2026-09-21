@@ -9,5 +9,5 @@ ok(html.includes('staffDetailDialog'),'employee cards must have readonly detail 
 ok(!html.includes('批次修改')&&!html.includes('＋ 排班'),'employee page must not expose schedule writes');
 ok(!html.includes('studio-detail.html'),'employee page must not navigate to Studio admin');
 ok(js.includes('data-open-group')&&js.includes('openDetail'),'employee cards must open details');
-ok(!js.includes('.update(')&&!js.includes('.set(')&&!js.includes('workShifts'),'employee UI must not write official Work Schedule');
+ok(!js.includes('.update(')&&!js.includes('.set(')&&!js.includes('workShifts'),'employee UI must not write official Work Schedule');\nok(html.includes('staffConfirmActions'),'employee detail must expose assignment confirmation surface');\nok(js.includes('/api/work-schedule-staff-confirmation'),'employee confirmation must go through authenticated server boundary');
 console.log('work-schedule staff original UI readonly guard: ok');
