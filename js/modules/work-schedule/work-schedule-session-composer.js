@@ -183,6 +183,7 @@ function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){\n 
     staffSlots:slots,
     assignedPersonIds:formalIds,
     personIds:formalIds,
+    tentativePersonIds:matchingSource?ids:[],
     people:persons,
     missingCount:slots.filter(s=>!s.personId).length,
     staffingStatus:slots.some(s=>!s.personId)?'pending':'complete',\n    assignmentConfirmationRequired:!!matchingSource,\n    assignmentConfirmationStatus:matchingSource?'pending':'not_required',
