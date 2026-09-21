@@ -62,6 +62,27 @@
     return { ...current, status: STATUS.INVALIDATED, invalidatedReason: "shift_changed" };
   }
 
+  function canPromoteToFormal(record, shift) {
+    const current = record && typeof record === "object" ? record : {};
+    return text(current.status) === STATUS.CONFIRMED &&
+      !!text(current.shiftId) &&
+      !!text(current.personId) &&
+      text(current.shiftFingerprint) === fingerprint(shift);
+  }
+
+  function projectFormalAssignment(record, shift) {
+    if (!canPromoteToFormal(record, shift)) throw new Error("assignment_not_confirmed");
+    return {
+      shiftId: text(record.shiftId),
+      personId: text(record.personId),
+      studioId: text(record.studioId),
+      sourceMatchingId: text(record.sourceMatchingId),
+      sourceSlotId: text(record.sourceSlotId),
+      confirmationStatus: STATUS.CONFIRMED,
+      shiftFingerprint: text(record.shiftFingerprint)
+    };
+  }
+
   function buildPendingAction(record) {
     const current = record && typeof record === "object" ? record : {};
     return {
@@ -75,5 +96,5 @@
     };
   }
 
-  return { STATUS, fingerprint, createTentative, confirm, decline, invalidateIfChanged, buildPendingAction };
+  return { STATUS, fingerprint, createTentative, confirm, decline, invalidateIfChanged, canPromoteToFormal, projectFormalAssignment, buildPendingAction };
 });
