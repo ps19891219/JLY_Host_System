@@ -12,3 +12,7 @@ assert(composer.includes("L.findConflicts"));
 assert(composer.includes("batch.set(c.ref,data)"));
 assert(composer.includes("JLYWorkScheduleSessionComposer={open,openMatchingDraft}"));
 console.log('matching confirm to formal schedule contract ok');
+
+const policy=fs.readFileSync('js/modules/work-schedule/work-schedule-change-policy.js','utf8'),lifecycle=fs.readFileSync('js/modules/work-schedule/work-schedule-lifecycle.js','utf8');
+assert(policy.includes('confirmationInvalidated'));
+assert(lifecycle.includes("assignmentConfirmationStatus:'invalidated'"));
