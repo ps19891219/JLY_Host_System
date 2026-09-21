@@ -23,3 +23,8 @@ ok(composer.includes('V.upsertShift'),'session composer should incrementally upd
 ok(slots.includes('changed.map(V.upsertShift)'),'staff slot writes should incrementally update prepared views');
 ok(composer.includes('assignedPersonIds:formalIds'),'matching draft must not place tentative staff in formal assignment ids');
 ok(composer.includes('tentativePersonIds:matchingSource?ids:[]'),'matching draft must preserve tentative assignees separately');
+
+const staffPage=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-page.js','utf8');
+const calendarRemove=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-calendar-remove.js','utf8');
+ok(staffPage.includes('&month=${encodeURIComponent(new Date().toISOString().slice(0,7))}'),'employee page must request one deterministic month');
+ok(calendarRemove.includes('&month=${encodeURIComponent(new Date().toISOString().slice(0,7))}'),'Calendar removal must request one deterministic month');
