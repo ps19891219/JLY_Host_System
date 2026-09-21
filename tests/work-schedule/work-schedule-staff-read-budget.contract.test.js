@@ -28,3 +28,8 @@ const staffPage=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-pa
 const calendarRemove=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-calendar-remove.js','utf8');
 ok(staffPage.includes('&month=${encodeURIComponent(new Date().toISOString().slice(0,7))}'),'employee page must request one deterministic month');
 ok(calendarRemove.includes('&month=${encodeURIComponent(new Date().toISOString().slice(0,7))}'),'Calendar removal must request one deterministic month');
+
+const staffHtml=fs.readFileSync('pages/work-schedule-staff.html','utf8');
+ok(staffHtml.includes('staffMonthPrev')&&staffHtml.includes('staffMonthNext'),'employee schedule needs explicit month navigation');
+ok(staffPage.includes('encodeURIComponent(activeMonth)'),'month navigation must keep reads to one deterministic snapshot');
+ok(staffPage.includes('function moveMonth(delta)'),'employee schedule must switch month without broad reads');
