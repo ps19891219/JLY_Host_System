@@ -91,29 +91,17 @@ function buildPlayerCard(player) {
 }
 
 async function renderPlayers() {
-  const db = window.db;
   const box = getPlayerListBox();
   const input = document.getElementById("playerSearchInput");
 
   if (!box) return;
-  if (!db) {
-    box.innerHTML = `<div class="card"><h3>Firebase 尚未載入</h3></div>`;
-    return;
-  }
-
   box.innerHTML = `<div class="card">載入中...</div>`;
 
   const keyword = (input && input.value ? input.value : "").trim().toLowerCase();
 
   try {
-    const snapshot = await db.collection("players").orderBy("createdAt", "desc").get();
-
-    let players = snapshot.docs.map(function (doc) {
-      return {
-        id: doc.id,
-        ...doc.data()
-      };
-    });
+    if (!window.JLYMemberPickerData || typeof window.JLYMemberPickerData.loadPersonDirectory !== "function") throw new Error("Person Directory Prepared View 尚未載入");
+    let players = await window.JLYMemberPickerData.loadPersonDirectory();
 
     if (keyword) {
       players = players.filter(function (player) {
@@ -152,6 +140,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const input = document.getElementById("playerSearchInput");
   if (input) {
-    input.addEventListener("input", renderPlayers);
+    input.addEventListener("input", function () {
+      const keyword = input.value.trim().toLowerCase();
+      const cards = getPlayerListBox()?.querySelectorAll(".card") || [];
+      cards.forEach(function(card){ card.hidden = keyword ? !card.textContent.toLowerCase().includes(keyword) : false; });
+    });
   }
 });
