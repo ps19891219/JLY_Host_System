@@ -23,7 +23,9 @@
       text(row.endDate || row.date),
       text(row.endTime),
       text(row.rolePoolId || row.roleId),
-      text(row.roleName)
+      text(row.roleName),
+      text(row.sourceMatchingId),
+      text(row.sourceSlotId)
     ].join("|");
   }
 
@@ -45,7 +47,7 @@
   function reopen(record, shift) {
     const current = record && typeof record === "object" ? record : {};
     if (![STATUS.INVALIDATED, STATUS.DECLINED].includes(text(current.status))) throw new Error("assignment_not_reopenable");
-    return { ...current, status: STATUS.TENTATIVE, shiftFingerprint: fingerprint(shift), invalidatedReason: "" };
+    return { ...current, status: STATUS.TENTATIVE, shiftFingerprint: fingerprint(shift), sourceMatchingId: text(shift&&shift.sourceMatchingId), sourceSlotId: text(shift&&shift.sourceSlotId), invalidatedReason: "" };
   }
 
   function confirm(record, shift) {
