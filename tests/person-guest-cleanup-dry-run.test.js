@@ -14,3 +14,13 @@ test("dry-run never mutates and reports decisions only",()=>{
  const r=A.buildDryRun([{id:"g1",memberType:"guest"}],[]);
  assert.equal(r.mode,"dry-run");assert.equal(r.counts.SAFE_TO_REMOVE_GUEST,1);
 });
+
+test("cleanup plan contains only dry-run safe guests and preserves history",()=>{
+ const report=A.buildDryRun([{id:"safe",memberType:"guest"},{id:"member",lineUserId:"U1"}],[]);
+ const plan=A.removalPlan(report);
+ assert.deepEqual(plan.map(x=>x.personId),["safe"]);assert.equal(plan[0].preserveActivityHistory,true);
+});
+test("prepared directory removal does not touch unrelated People",()=>{
+ const view=A.applyDirectoryRemoval({people:[{id:"safe"},{id:"keep"}]},["safe"]);
+ assert.deepEqual(view.people.map(x=>x.id),["keep"]);assert.equal(view.count,1);
+});
