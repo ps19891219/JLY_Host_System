@@ -21,7 +21,6 @@ module.exports=async function handler(req,res){
  if(!shift.assignmentConfirmationRequired)return send(res,409,{success:false,error:"confirmation_not_required"});const action=text(body.action);let current=a.doc.exists?a.doc.data():domain.createTentative({shiftId,personId,studioId:studio,sourceMatchingId:shift.sourceMatchingId,sourceSlotId:shift.sourceSlotId,shift});if(action==="confirm")current=domain.confirm(current,shift);else if(action==="decline")current=domain.decline(current);else return send(res,400,{success:false,error:"invalid_action"});
  const batch=db.batch(),now=new Date().toISOString();batch.set(a.ref,{...current,updatedAt:now},{merge:true});
  const statusMap={confirmed:"confirmed",declined:"declined"};batch.set(shiftDoc.ref,{assignmentConfirmationStatus:statusMap[current.status]||current.status,assignmentConfirmationUpdatedAt:now},{merge:true});
- const pendingId=crypto.createHash("sha256").update(`staff_assignment_confirmation:${shiftId}:${personId}`).digest("hex").slice(0,40),pendingRef=db.collection("pendingActions").doc(pendingId),pending=domain.buildPendingAction(current);batch.set(pendingRef,{...pending,id:pendingId,resolvedAt:pending.status==="resolved"?now:"",updatedAt:now},{merge:true});
  await batch.commit();return send(res,200,{success:true,status:current.status,shiftId,personId});
  }catch(e){console.error("staff confirmation failed",e);return send(res,500,{success:false,error:e.message||"staff_confirmation_failed"})}
 };
