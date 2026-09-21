@@ -38,3 +38,8 @@ assert(lifecycle.includes('assignedPersonIds:nextAssigned'));
 
 const confirmationApi=fs.readFileSync('api/work-schedule-staff-confirmation.js','utf8');
 assert(confirmationApi.includes('domain.invalidateIfChanged(a.doc.data(),shift)'),'POST must invalidate stale persisted confirmation before reconfirming');
+
+assert(confirmationApi.includes('current.status===domain.STATUS.INVALIDATED'),'decline must handle invalidated assignments');
+assert(confirmationApi.includes('domain.reopen(current,shift)'),'invalidated assignment must reopen against current shift before action');
+assert(lifecycle.includes('after?.assignedPersonIds??after?.personIds??before?.assignedPersonIds'),'partial lifecycle payload must preserve formal assignments');
+assert(lifecycle.includes('Array.isArray(after?.staffSlots)?after.staffSlots'),'partial lifecycle payload must preserve staff slots');
