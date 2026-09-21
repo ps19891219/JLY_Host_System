@@ -1,0 +1,1 @@
+const fs=require('fs'),assert=require('assert');const src=fs.readFileSync('js/modules/studio/studio-operations-adapter.js','utf8');assert.doesNotMatch(src,/firebase|collection\s*\(|\.get\s*\(|onSnapshot|where\s*\(/);assert.match(src,/bookingInbox/);assert.match(src,/pendingActions/);console.log('studio operations adapter read boundary ok');
