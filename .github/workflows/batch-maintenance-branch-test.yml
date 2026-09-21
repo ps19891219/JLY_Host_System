@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'batch/**'
+      - 'feature/**'
 
 jobs:
   test:
