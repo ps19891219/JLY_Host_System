@@ -43,3 +43,6 @@ ok(view.includes('await rememberMonths(remembered)'),'syncShifts must not reread
 ok(!staffPage.includes('fetch(`/api/work-schedule-staff-confirmation?'),'opening employee shift detail must not issue per-shift confirmation GET reads');
 ok(staffPage.includes('assignmentConfirmationByPerson'),'employee confirmation state should render from prepared month view');
 ok(staffPage.includes('(r.assignedPersonIds||r.personIds||[]).some'),'formal employee rows must be detected from formal assignment ids, not tentative flags');
+
+ok(personLinks.includes('{maxReads=8}={}'),'formal person alias expansion must have a hard read budget');
+ok(personLinks.includes('reads<maxReads')&&personLinks.includes('if(reads>=maxReads)break'),'alias traversal must stop at the configured Firestore read budget');
