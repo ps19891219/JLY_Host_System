@@ -1,0 +1,7 @@
+"use strict";
+const {getFirestore}=require("./admin");const txt=v=>String(v==null?"":v).trim();const COLLECTION="pendingActions";
+function ref(id){const v=txt(id);if(!v)throw new Error("pending_action_id_required");return getFirestore().collection(COLLECTION).doc(v)}
+async function create(data={}){const db=getFirestore(),r=db.collection(COLLECTION).doc(),now=new Date().toISOString();const row={type:txt(data.type),responsiblePersonId:txt(data.responsiblePersonId)||null,responsibleStudioId:txt(data.responsibleStudioId)||null,status:"pending",source:data.source||null,target:data.target||null,payload:data.payload||null,createdAt:txt(data.createdAt)||now,resolvedAt:null};if(!row.type)throw new Error("pending_action_type_required");if(!row.responsiblePersonId&&!row.responsibleStudioId)throw new Error("pending_action_responsible_scope_required");await r.set(row);return{id:r.id,...row}}
+async function get(id){const s=await ref(id).get();return s.exists?{id:s.id,...s.data()}:null}
+async function resolve(id,{status,resolvedBy}={}){const v=txt(status);if(!["accepted","rejected","cancelled"].includes(v))throw new Error("pending_action_resolution_invalid");const now=new Date().toISOString();await ref(id).set({status:v,resolvedBy:txt(resolvedBy)||null,resolvedAt:now,updatedAt:now},{merge:true});return{id,status:v,resolvedAt:now}}
+module.exports={COLLECTION,create,get,resolve};
