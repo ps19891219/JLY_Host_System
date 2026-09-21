@@ -16,3 +16,10 @@ console.log('matching tentative assignment boundary contract ok');
 const policy=fs.readFileSync('js/modules/work-schedule/work-schedule-change-policy.js','utf8'),lifecycle=fs.readFileSync('js/modules/work-schedule/work-schedule-lifecycle.js','utf8');
 assert(policy.includes('confirmationInvalidated'));
 assert(lifecycle.includes("assignmentConfirmationStatus:'invalidated'"));
+
+const confirmApi=fs.readFileSync('api/work-schedule-staff-confirmation.js','utf8');
+assert(confirmApi.includes('tentativePersonIds'));
+assert(confirmApi.includes('nextAssigned.add(personId)'));
+assert(confirmApi.includes('nextTentative.delete(personId)'));
+assert(confirmApi.includes('assignmentConfirmationByPerson'));
+assert(confirmApi.includes('formal:current.status==="confirmed"'));
