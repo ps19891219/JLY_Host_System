@@ -42,8 +42,15 @@
     };
   }
 
+  function reopen(record, shift) {
+    const current = record && typeof record === "object" ? record : {};
+    if (![STATUS.INVALIDATED, STATUS.DECLINED].includes(text(current.status))) throw new Error("assignment_not_reopenable");
+    return { ...current, status: STATUS.TENTATIVE, shiftFingerprint: fingerprint(shift), invalidatedReason: "" };
+  }
+
   function confirm(record, shift) {
     const current = record && typeof record === "object" ? record : {};
+    if (text(current.status) === STATUS.INVALIDATED) return confirm(reopen(current, shift), shift);
     if (text(current.status) !== STATUS.TENTATIVE) throw new Error("assignment_not_tentative");
     if (text(current.shiftFingerprint) !== fingerprint(shift)) throw new Error("shift_changed");
     return { ...current, status: STATUS.CONFIRMED };
