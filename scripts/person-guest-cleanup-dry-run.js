@@ -27,7 +27,17 @@ function buildDryRun(people,activities){
  const counts=rows.reduce((m,r)=>(m[r.decision]=(m[r.decision]||0)+1,m),{});
  return {mode:"dry-run",peopleChecked:rows.length,counts,rows};
 }
-module.exports={hasIdentity,isGuest,activityReferencesPerson,assessGuest,buildDryRun};
+function removalPlan(report){
+ const safe=list(report&&report.rows).filter(r=>r.decision==="SAFE_TO_REMOVE_GUEST");
+ return {mode:"plan-only",deletePersonIds:safe.map(r=>r.personId),preparedViewRemoveIds:safe.map(r=>r.personId),count:safe.length};
+}
+function applyPreparedViewRemovals(view,ids){
+ const remove=new Set(list(ids).map(text).filter(Boolean));
+ const base=view&&typeof view==="object"?view:{};
+ const people=list(base.people).filter(row=>!remove.has(text(row&&row.id))&&!remove.has(text(row&&row.canonicalPersonId)));
+ return {...base,schemaVersion:1,people,count:people.length,updatedAt:new Date().toISOString()};
+}
+module.exports={hasIdentity,isGuest,activityReferencesPerson,assessGuest,buildDryRun,removalPlan,applyPreparedViewRemovals};
 
 function removalPlan(report){
  if(!report||report.mode!=="dry-run")throw new Error("dry_run_report_required");
