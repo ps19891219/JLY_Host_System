@@ -96,5 +96,5 @@
     };
   }
 
-  return { STATUS, fingerprint, createTentative, confirm, decline, invalidateIfChanged, canPromoteToFormal, projectFormalAssignment, buildPendingAction };
+  return { STATUS, fingerprint, createTentative, reopen, confirm, decline, invalidateIfChanged, canPromoteToFormal, projectFormalAssignment, buildPendingAction };
 });
