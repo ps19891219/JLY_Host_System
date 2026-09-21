@@ -33,7 +33,8 @@ ok(composer.includes('tentativePersonIds:matchingSource?ids:[]'),'matching draft
 const staffPage=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-page.js','utf8');
 const calendarRemove=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-calendar-remove.js','utf8');
 ok(staffPage.includes('encodeURIComponent(activeMonth)'),'employee page must request one deterministic active month');
-ok(calendarRemove.includes('month=${encodeURIComponent('),'Calendar removal must request one deterministic month');
+ok(calendarRemove.includes('month=${encodeURIComponent(localMonthKey())}'),'Calendar removal must request the deterministic local month');
+ok(calendarRemove.includes('const formal=(row.assignedPersonIds||row.personIds||[]).some'),'Calendar removal must use formal assignment ids instead of tentative flags');
 
 const staffHtml=fs.readFileSync('pages/work-schedule-staff.html','utf8');
 ok(staffHtml.includes('staffMonthPrev')&&staffHtml.includes('staffMonthNext'),'employee schedule needs explicit month navigation');
