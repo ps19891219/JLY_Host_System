@@ -245,7 +245,7 @@ async function save(e){
       }
       await batch.commit();
     }
-    for(const mk of months)await V.rebuildMonth(mk);
+    if(V.upsertShift)await Promise.all(changes.map(c=>V.upsertShift(c.after)));else for(const mk of months)await V.rebuildMonth(mk);
     $('workSessionComposerDialog').close();
     await window.JLYWorkScheduleDashboard?.reloadMonth?.(months[0]);
     alert(matchingSource?`完成：已建立 ${changes.length} 筆暫定指派，等待員工確認。`:`完成：已建立／更新 ${changes.length} 筆角色排班。`);
