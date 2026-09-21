@@ -28,3 +28,16 @@ function buildDryRun(people,activities){
  return {mode:"dry-run",peopleChecked:rows.length,counts,rows};
 }
 module.exports={hasIdentity,isGuest,activityReferencesPerson,assessGuest,buildDryRun};
+
+function removalPlan(report){
+ if(!report||report.mode!=="dry-run")throw new Error("dry_run_report_required");
+ return list(report.rows).filter(r=>r.decision==="SAFE_TO_REMOVE_GUEST").map(r=>({personId:r.personId,displayName:r.displayName,action:"remove_guest_person_and_directory_row",preserveActivityHistory:true}));
+}
+function applyDirectoryRemoval(view,personIds){
+ const remove=new Set(list(personIds).map(text).filter(Boolean));
+ const base=view&&typeof view==="object"?view:{};
+ const people=list(base.people).filter(row=>!remove.has(text(row&&row.id))&&!remove.has(text(row&&row.canonicalPersonId)));
+ return {...base,schemaVersion:1,people,count:people.length,updatedAt:new Date().toISOString()};
+}
+module.exports.removalPlan=removalPlan;
+module.exports.applyDirectoryRemoval=applyDirectoryRemoval;
