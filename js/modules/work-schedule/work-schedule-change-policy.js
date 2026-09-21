@@ -3,7 +3,7 @@
 if(window.JLYWorkScheduleChangePolicy)return;
 const ids=v=>[...new Set((v||[]).map(String).filter(Boolean))];
 const assigned=row=>ids(row?.assignedPersonIds||row?.personIds||[]);
-const TIME_FIELDS=['date','startTime','endTime','endDate','location','studioId','organizationId'];
+const TIME_FIELDS=['date','startTime','endTime','endDate','location','studioId','organizationId'];\nconst CONFIRMATION_FIELDS=['date','startTime','endTime','endDate','location','studioId','organizationId','workId','rolePoolId','roleName'];
 const ASSIGNMENT_FIELDS=['assignedPersonIds','personIds','people'];
 const DUTY_FIELDS=['staffSlots','duty','dutyLabel','slotLabel'];
 function stable(v){return JSON.stringify(v??null)}
@@ -14,7 +14,7 @@ function classify(before,after){
  const duty=changed(before,after,DUTY_FIELDS);
  return {shift,assignment,duty,calendarRequired:shift||assignment,calendarForbidden:!shift&&!assignment&&duty};
 }
-function assignmentDelta(before,after){
+function confirmationInvalidated(before,after){return changed(before,after,CONFIRMATION_FIELDS)}\nfunction assignmentDelta(before,after){
  const oldSet=new Set(assigned(before)),newSet=new Set(assigned(after));
  return {added:[...newSet].filter(x=>!oldSet.has(x)),removed:[...oldSet].filter(x=>!newSet.has(x)),retained:[...newSet].filter(x=>oldSet.has(x))};
 }
@@ -51,5 +51,5 @@ function notificationPlan(before,after){
  if(c.duty&&!c.shift&&!c.assignment)affected(before,after).forEach(personId=>out.push({personId,type:'duty_changed',calendar:false}));
  return out;
 }
-window.JLYWorkScheduleChangePolicy={classify,assignmentDelta,affected,calendarPlan,conflictDisclosure,notificationPlan};
+window.JLYWorkScheduleChangePolicy={classify,confirmationInvalidated,assignmentDelta,affected,calendarPlan,conflictDisclosure,notificationPlan};
 })();
