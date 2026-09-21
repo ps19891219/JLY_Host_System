@@ -36,3 +36,6 @@ const staffHtml=fs.readFileSync('pages/work-schedule-staff.html','utf8');
 ok(staffHtml.includes('staffMonthPrev')&&staffHtml.includes('staffMonthNext'),'employee schedule needs explicit month navigation');
 ok(staffPage.includes('encodeURIComponent(activeMonth)'),'month navigation must keep reads to one deterministic snapshot');
 ok(staffPage.includes('function moveMonth(delta)'),'employee schedule must switch month without broad reads');
+
+ok(view.includes('async function rememberMonths(monthKeys)'),'prepared view batch must update month index in one grouped operation');
+ok(view.includes('await rememberMonths(remembered)'),'syncShifts must not reread month-index once per affected month');
