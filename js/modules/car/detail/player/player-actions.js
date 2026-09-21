@@ -39,6 +39,8 @@ console.log(
   let membershipViewSyncLoadPromise =
     null;
 
+  let studioRecruitmentSyncLoadPromise = null;
+
   function buildActivePlayerIds(
     players
   ) {
@@ -189,6 +191,29 @@ console.log(
   }
 
 
+
+  function loadStudioRecruitmentScript(src, globalName) {
+    if (window[globalName]) return Promise.resolve(window[globalName]);
+    return new Promise(function(resolve,reject){const script=document.createElement("script");script.src=src;script.async=true;script.onload=function(){window[globalName]?resolve(window[globalName]):reject(new Error(globalName+" 未初始化"));};script.onerror=reject;document.head.appendChild(script);});
+  }
+
+  async function syncStudioRecruitmentMutation(afterCar) {
+    if (!afterCar || !(afterCar.studioId || afterCar.organizationId)) return null;
+    try {
+      if (!window.JLYStudioBookingDomain || !window.JLYStudioBookingViews) {
+        if (!studioRecruitmentSyncLoadPromise) studioRecruitmentSyncLoadPromise=Promise.all([
+          loadStudioRecruitmentScript("/js/modules/studio/studio-booking-activity.js?v=1","JLYStudioBookingDomain"),
+          loadStudioRecruitmentScript("/js/data-view/studio-booking-views.js?v=1","JLYStudioBookingViews")
+        ]);
+        await studioRecruitmentSyncLoadPromise;
+      }
+      const studioId=String(afterCar.studioId||afterCar.organizationId||"").trim();
+      const ref=window.db.collection("studioRecruitmentViews").doc(studioId),snap=await ref.get();
+      const view=snap.exists?snap.data():{schemaVersion:1,viewType:"studio_recruitment",studioId,activities:[],count:0};
+      const next=window.JLYStudioBookingViews.applyRecruitmentMutation(view,afterCar,window.JLYStudioBookingDomain);
+      await ref.set(next,{merge:false});return next;
+    } catch(error){console.warn("同步 Studio Recruitment View 失敗：",error);return null;}
+  }
 
   // ------------------------------------------------------------
   // 共用工具
@@ -692,6 +717,12 @@ console.log(
           "history"
         ]
       );
+
+      await syncStudioRecruitmentMutation({
+        id: carId,
+        ...carData,
+        ...updateData
+      });
 
       closeEditor();
 
