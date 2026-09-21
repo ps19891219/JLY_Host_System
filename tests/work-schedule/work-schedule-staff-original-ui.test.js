@@ -11,3 +11,5 @@ ok(!html.includes('studio-detail.html'),'employee page must not navigate to Stud
 ok(js.includes('data-open-group')&&js.includes('openDetail'),'employee cards must open details');
 ok(!js.includes('.update(')&&!js.includes('.set(')&&!js.includes('workShifts'),'employee UI must not write official Work Schedule');\nok(html.includes('staffConfirmActions'),'employee detail must expose assignment confirmation surface');\nok(js.includes('/api/work-schedule-staff-confirmation'),'employee confirmation must go through authenticated server boundary');
 console.log('work-schedule staff original UI readonly guard: ok');
+ok(js.includes('g.mineRows.filter(r=>r.assignmentConfirmationRequired===true)'),'employee confirmation must handle every own role shift requiring confirmation');
+ok(js.includes('Promise.all(targetRows.map'),'employee detail must load confirmation state per role shift');
