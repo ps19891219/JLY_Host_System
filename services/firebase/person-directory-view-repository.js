@@ -19,6 +19,9 @@ function applyPersonMutation(view,person,id){
  const rows=list(base.people).filter(Boolean);
  const next=compact(person,id);
  const removeIds=new Set([next.id,next.canonicalPersonId,...next.linkedPlayerIds].map(text).filter(Boolean));
+ const prior=rows.find(row=>text(row.id)===next.id||text(row.canonicalPersonId)===next.id)||{};
+ next.aliases=Array.from(new Set([...list(prior.aliases),prior.displayName,prior.nickname,prior.playerName,prior.lineDisplayName,...next.aliases,next.displayName,next.nickname,next.playerName,next.lineDisplayName].map(text).filter(Boolean)));
+ next.linkedPlayerIds=Array.from(new Set([...list(prior.linkedPlayerIds),...next.linkedPlayerIds].map(text).filter(Boolean)));
  const kept=rows.filter(row=>{
   const rid=text(row.id),rc=text(row.canonicalPersonId);
   return !removeIds.has(rid)&&!removeIds.has(rc)&&!list(row.linkedPlayerIds).some(x=>removeIds.has(text(x)));
