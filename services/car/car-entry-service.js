@@ -2,6 +2,7 @@
 
 const { getFirestore } = require("../firebase/admin");
 const { identityIds } = require("./car-view-access");
+const recruitmentView = require("../studio/studio-recruitment-view-service");
 
 function text(value) { return String(value == null ? "" : value).trim(); }
 function lower(value) { return text(value).toLowerCase(); }
@@ -186,6 +187,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
   const db = dependencies.db || getFirestore();
   const carRef = db.collection("cars").doc(carId);
   let result = null;
+  let afterCarForRecruitment = null;
 
   await db.runTransaction(async function (transaction) {
     const snap = await transaction.get(carRef);
@@ -225,6 +227,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
         updatedAt: timestamp
       });
       transaction.update(carRef, { applications, updatedAt: timestamp });
+      afterCarForRecruitment = { ...car, applications, updatedAt: timestamp };
       result = { id, status: "pending", type: "player", claimType: target ? "existing_person" : "new_person" };
       return;
     }
@@ -254,9 +257,15 @@ async function submitCarEntry(input, session, dependencies = {}) {
       updatedAt: timestamp
     });
     transaction.update(carRef, { dmApplications: applications, updatedAt: timestamp });
+    afterCarForRecruitment = { ...car, dmApplications: applications, updatedAt: timestamp };
     result = { id, status: "pending", type: "dm", claimType: target ? "existing_slot" : "new_person" };
   });
 
+  /* Applications do not change vacancy yet. Keep the hook explicit so
+     recruitment is only projected from formal roster mutations. */
+  if (afterCarForRecruitment && result && result.status !== "pending") {
+    await recruitmentView.syncActivity(afterCarForRecruitment);
+  }
   return result;
 }
 
