@@ -6,3 +6,4 @@ const a={id:'a1',studioId:'s1',status:'open',totalPeople:3,players:[{id:'p1'}],p
 recruit=V.applyRecruitmentMutation(recruit,{...a,players:[{id:'p1'},{id:'p2'},{id:'p3'}]},D);assert.equal(recruit.count,0);
 recruit=V.applyRecruitmentMutation(recruit,{...a,publicRecruitmentPreference:false},D);assert.equal(recruit.count,0);
 console.log('studio booking prepared views ok');
+test('recruitment prepared row stores vacancy',()=>{const D=require('../js/modules/studio/studio-booking-activity.js');const v=V.buildRecruitmentView('s1',[{id:'a1',studioId:'s1',status:'招募中',publicRecruitmentPreference:true,totalPeople:3,players:[{id:'p1'}]}],D);assert.equal(v.activities[0].vacancy,2);});
