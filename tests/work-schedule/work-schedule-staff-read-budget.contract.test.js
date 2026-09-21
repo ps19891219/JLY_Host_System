@@ -39,3 +39,7 @@ ok(staffPage.includes('function moveMonth(delta)'),'employee schedule must switc
 
 ok(view.includes('async function rememberMonths(monthKeys)'),'prepared view batch must update month index in one grouped operation');
 ok(view.includes('await rememberMonths(remembered)'),'syncShifts must not reread month-index once per affected month');
+
+ok(!staffPage.includes('fetch(`/api/work-schedule-staff-confirmation?'),'opening employee shift detail must not issue per-shift confirmation GET reads');
+ok(staffPage.includes('assignmentConfirmationByPerson'),'employee confirmation state should render from prepared month view');
+ok(staffPage.includes('(r.assignedPersonIds||r.personIds||[]).some'),'formal employee rows must be detected from formal assignment ids, not tentative flags');
