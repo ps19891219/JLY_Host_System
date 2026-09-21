@@ -35,3 +35,6 @@ assert(lifecycle.includes("states[id]==='confirmed'"));
 assert(lifecycle.includes("nextStates[id]='invalidated'"));
 assert(lifecycle.includes('tentativePersonIds:nextTentative'));
 assert(lifecycle.includes('assignedPersonIds:nextAssigned'));
+
+const confirmationApi=fs.readFileSync('api/work-schedule-staff-confirmation.js','utf8');
+assert(confirmationApi.includes('domain.invalidateIfChanged(a.doc.data(),shift)'),'POST must invalidate stale persisted confirmation before reconfirming');
