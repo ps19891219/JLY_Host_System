@@ -1,0 +1,16 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict");
+const A=require("../scripts/person-guest-cleanup-dry-run.js");
+test("formal LINE identity is never removable",()=>assert.equal(A.assessGuest({id:"p1",memberType:"guest",lineUserId:"U1"},[]).decision,"KEEP_MEMBER"));
+test("guest with self-contained historical snapshot can be removed",()=>{
+ const r=A.assessGuest({id:"g1",memberType:"guest"},[{id:"a1",players:[{personId:"g1",playerName:"RN",roleChoice:"A"}]}]);
+ assert.equal(r.decision,"SAFE_TO_REMOVE_GUEST");assert.equal(r.activityReferences.length,1);
+});
+test("guest remains when historical activity only has Person pointer",()=>{
+ const r=A.assessGuest({id:"g1",memberType:"guest"},[{id:"a1",players:[{personId:"g1",roleChoice:"A"}]}]);
+ assert.equal(r.decision,"KEEP_HISTORY_DEPENDENCY");
+});
+test("dry-run never mutates and reports decisions only",()=>{
+ const r=A.buildDryRun([{id:"g1",memberType:"guest"}],[]);
+ assert.equal(r.mode,"dry-run");assert.equal(r.counts.SAFE_TO_REMOVE_GUEST,1);
+});
