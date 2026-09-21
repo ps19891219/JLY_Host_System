@@ -20,3 +20,10 @@ test("Legacy player typing does not trigger Firestore render reload",()=>{
  assert.doesNotMatch(source,/collection\("players"\)\.orderBy[\s\S]*\.get\(\)/);
  assert.match(source,/loadPersonDirectory/);
 });
+
+test("Person Directory create and edit write through the prepared view",()=>{
+ const source=read("js/modules/member/person-directory.js");
+ assert.match(source,/collection\("personDirectoryViews"\)\.doc\("canonical"\)/);
+ assert.match(source,/runTransaction/);
+ assert.match(source,/aliases/);
+});
