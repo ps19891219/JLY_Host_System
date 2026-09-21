@@ -22,8 +22,13 @@ const tentative = domain.createTentative({
 });
 
 assert.equal(tentative.status, "tentative");
-assert.equal(domain.confirm(tentative, shift).status, "confirmed");
+const confirmed = domain.confirm(tentative, shift);
+assert.equal(confirmed.status, "confirmed");
 assert.equal(domain.decline(tentative).status, "declined");
+assert.equal(domain.canPromoteToFormal(tentative, shift), false);
+assert.equal(domain.canPromoteToFormal(confirmed, shift), true);
+assert.equal(domain.projectFormalAssignment(confirmed, shift).confirmationStatus, "confirmed");
+assert.throws(() => domain.projectFormalAssignment(tentative, shift), /assignment_not_confirmed/);
 
 const changed = { ...shift, startTime: "20:00" };
 assert.equal(domain.invalidateIfChanged(tentative, changed).status, "invalidated");
