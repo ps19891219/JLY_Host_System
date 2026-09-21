@@ -24,3 +24,12 @@ test("prepared directory removal does not touch unrelated People",()=>{
  const view=A.applyDirectoryRemoval({people:[{id:"safe"},{id:"keep"}]},["safe"]);
  assert.deepEqual(view.people.map(x=>x.id),["keep"]);assert.equal(view.count,1);
 });
+
+test("cleanup plan contains only guests proven safe to remove",()=>{
+ const report={rows:[{personId:"safe",decision:"SAFE_TO_REMOVE_GUEST"},{personId:"member",decision:"KEEP_MEMBER"},{personId:"history",decision:"KEEP_HISTORY_DEPENDENCY"}]};
+ const plan=A.removalPlan(report);assert.deepEqual(plan.deletePersonIds,["safe"]);assert.equal(plan.mode,"plan-only");
+});
+test("prepared directory removes only approved guest ids",()=>{
+ const view=A.applyPreparedViewRemovals({people:[{id:"safe"},{id:"keep"}]},["safe"]);
+ assert.deepEqual(view.people.map(x=>x.id),["keep"]);assert.equal(view.count,1);
+});
