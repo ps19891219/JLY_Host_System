@@ -1,0 +1,14 @@
+"use strict";
+const fs=require("fs"),path=require("path"),assert=require("assert");
+const src=fs.readFileSync(path.join(__dirname,"..","scripts","read-view-initializer.js"),"utf8");
+assert(src.includes('const APPLY = args.has("--apply")'),"initializer must default to dry-run");
+assert(src.includes('Math.min(100, Number(value("page-size") || 25))'),"page size must be bounded");
+assert(src.includes('Math.min(1000, Number(value("max-docs") || 100))'),"max docs must be bounded");
+assert(src.includes('orderBy("__name__").limit(PAGE_SIZE)'),"source reads must be paged");
+assert(src.includes('startAfter(lastId).limit(PAGE_SIZE)'),"initializer must support bounded resume");
+assert(!/\.delete\s*\(/.test(src),"initializer must not delete Firestore data");
+assert(!/collection\(["']cars["']\)/.test(src),"initializer must not scan Activities");
+assert(!/collection\(["']workShifts["']\)/.test(src),"initializer must not scan Work Schedule");
+assert(!/collection\(["']studioMatchings["']\)/.test(src),"initializer must not scan Studio Matching");
+assert(src.includes('SCOPE !== "person-directory"'),"unverified scopes must fail closed");
+console.log("read-view-initializer-safety.test.js passed");
