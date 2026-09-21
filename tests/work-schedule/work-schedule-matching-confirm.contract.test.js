@@ -23,3 +23,10 @@ assert(confirmApi.includes('nextAssigned.add(personId)'));
 assert(confirmApi.includes('nextTentative.delete(personId)'));
 assert(confirmApi.includes('assignmentConfirmationByPerson'));
 assert(confirmApi.includes('formal:current.status==="confirmed"'));
+
+const dashboard=fs.readFileSync('js/modules/work-schedule/work-schedule-dashboard.js','utf8');
+assert(dashboard.includes('assignmentConfirmationByPerson'));
+assert(dashboard.includes('待確認 '));
+assert(dashboard.includes('已確認 '));
+assert(dashboard.includes('已婉拒 '));
+assert(dashboard.includes('需重確認 '));
