@@ -43,3 +43,6 @@ assert(confirmationApi.includes('current.status===domain.STATUS.INVALIDATED'),'d
 assert(confirmationApi.includes('domain.reopen(current,shift)'),'invalidated assignment must reopen against current shift before action');
 assert(lifecycle.includes('after?.assignedPersonIds??after?.personIds??before?.assignedPersonIds'),'partial lifecycle payload must preserve formal assignments');
 assert(lifecycle.includes('Array.isArray(after?.staffSlots)?after.staffSlots'),'partial lifecycle payload must preserve staff slots');
+
+assert(composer.includes('sessionHosts={};matchingSource=null;matchingAllowedPersonIds=null;'),'normal composer open must clear stale matching state');
+assert(composer.includes("assignmentConfirmationByPerson:matchingSource?Object.fromEntries(ids.map(id=>[String(id),'tentative'])):{}"),'matching draft must initialize per-person tentative confirmation state');
