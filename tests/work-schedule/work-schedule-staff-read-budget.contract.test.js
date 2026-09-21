@@ -14,13 +14,16 @@ ok(api.includes('isTentativeMine'),'tentative assignment must be visible to the 
 
 const view=fs.readFileSync('js/modules/work-schedule/work-schedule-read-view.js','utf8');
 const dashboard=fs.readFileSync('js/modules/work-schedule/work-schedule-dashboard.js','utf8');
-ok(view.includes('async function upsertShift(row)'),'read view must support incremental shift upsert');
-ok(dashboard.includes('V.upsertShift'),'dashboard assignment writes should incrementally update prepared month views');
+ok(view.includes('async function syncShifts(changes)'),'read view must group prepared-view changes by month');
+ok(view.includes('new Set([oldMk,newMk].filter(Boolean))'),'prepared view sync must handle month moves');
+ok(dashboard.includes('V.syncShifts'),'dashboard assignment writes should batch prepared month view updates');
 
 const composer=fs.readFileSync('js/modules/work-schedule/work-schedule-session-composer.js','utf8');
 const slots=fs.readFileSync('js/modules/work-schedule/work-schedule-staff-slots.js','utf8');
-ok(composer.includes('V.upsertShift'),'session composer should incrementally update prepared views');
-ok(slots.includes('changed.map(V.upsertShift)'),'staff slot writes should incrementally update prepared views');
+ok(composer.includes('V.syncShifts'),'session composer should batch prepared view updates');
+ok(slots.includes('V.syncShifts'),'staff slot writes should batch prepared view updates');
+ok(!dashboard.includes('Promise.all(changes.map(c=>V.upsertShift'),'dashboard must not race same-month view writes');
+ok(!composer.includes('Promise.all(changes.map(c=>V.upsertShift'),'composer must not race same-month view writes');
 ok(composer.includes('assignedPersonIds:formalIds'),'matching draft must not place tentative staff in formal assignment ids');
 ok(composer.includes('tentativePersonIds:matchingSource?ids:[]'),'matching draft must preserve tentative assignees separately');
 
