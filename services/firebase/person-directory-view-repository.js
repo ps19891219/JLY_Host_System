@@ -9,7 +9,7 @@ function compact(p,id){
   nickname:text(row.nickname),playerName:text(row.playerName),lineDisplayName:text(row.lineDisplayName),
   aliases:list(row.aliases).map(text).filter(Boolean),linkedPlayerIds:list(row.linkedPlayerIds).map(text).filter(Boolean),
   lineUserId:text(row.lineUserId),lineIdentityId:text(row.lineIdentityId),identityId:text(row.identityId),
-  profileId:text(row.profileId),personId:text(row.personId),identityStatus:text(row.identityStatus),
+  profileId:text(row.profileId),personId:text(row.personId),mergedIntoPersonId:text(row.mergedIntoPersonId),identityStatus:text(row.identityStatus),
   memberType:text(row.memberType),type:text(row.type),status:text(row.status),note:text(row.note||row.hostNote),
   playCount:Number(row.playCount||0),updatedAt:row.updatedAt||null
  };
