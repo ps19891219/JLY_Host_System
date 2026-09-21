@@ -24,3 +24,13 @@ test("merged legacy row is removed instead of becoming a second visible Person",
  assert.equal(view.people.some(x=>x.id==="legacy"),false);
  assert.equal(view.people.some(x=>x.id==="canonical"),true);
 });
+
+test("LINE rename preserves the previous LINE display name as searchable alias",()=>{
+ let view={people:[{id:"p1",displayName:"RN",lineDisplayName:"東",aliases:["RN","東"],lineUserId:"U1"}]};
+ view=V.applyPersonMutation(view,{id:"p1",displayName:"RN",lineDisplayName:"阿東",aliases:["RN"],lineUserId:"U1",status:"active"},"p1");
+ const row=view.people.find(x=>x.id==="p1");
+ assert.equal(row.lineDisplayName,"阿東");
+ assert.ok(row.aliases.includes("東"));
+ assert.ok(row.aliases.includes("阿東"));
+ assert.ok(row.aliases.includes("RN"));
+});
