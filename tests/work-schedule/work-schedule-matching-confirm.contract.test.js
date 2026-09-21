@@ -30,3 +30,8 @@ assert(dashboard.includes('待確認 '));
 assert(dashboard.includes('已確認 '));
 assert(dashboard.includes('已婉拒 '));
 assert(dashboard.includes('需重確認 '));
+
+assert(lifecycle.includes("states[id]==='confirmed'"));
+assert(lifecycle.includes("nextStates[id]='invalidated'"));
+assert(lifecycle.includes('tentativePersonIds:nextTentative'));
+assert(lifecycle.includes('assignedPersonIds:nextAssigned'));
