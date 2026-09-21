@@ -146,7 +146,7 @@ async function open(){
   selectedDates=new Set();
   timeSlots=[{start:'11:00',end:''}];
   assignments={};
-  sessionHosts={};matchingAllowedPersonIds=null;
+  sessionHosts={};matchingSource=null;matchingAllowedPersonIds=null;
   const now=new Date();
   calendarCursor=new Date(now.getFullYear(),now.getMonth(),1);
   $('workSessionComposerTitle').textContent=activeWork.name||activeWork.workName||'新增排班';
@@ -181,11 +181,12 @@ function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){\n 
     durationSource:endWasExplicit?'explicit':'default_1h',
     requiredCount:count,
     staffSlots:slots,
-    assignedPersonIds:ids,
-    personIds:ids,
+    assignedPersonIds:formalIds,
+    personIds:formalIds,
     people:persons,
     missingCount:slots.filter(s=>!s.personId).length,
     staffingStatus:slots.some(s=>!s.personId)?'pending':'complete',\n    assignmentConfirmationRequired:!!matchingSource,\n    assignmentConfirmationStatus:matchingSource?'pending':'not_required',
+    assignmentConfirmationByPerson:matchingSource?Object.fromEntries(ids.map(id=>[String(id),'tentative'])):{},
     note,
     calendar:{syncEnabled:false,autoUpdate:false,provider:'google',calendarId:'primary'},
     schemaVersion:7,
