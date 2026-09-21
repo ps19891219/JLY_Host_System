@@ -6,3 +6,6 @@ ok(!api.includes('where("type","==","work-schedule-month").get()'),'staff contex
 ok(api.includes('.doc("month-index").get()'),'staff context must use prepared month index');
 ok(api.includes('doc(`month-${mk}`).get()'),'staff context must fetch prepared month snapshots by deterministic id');
 console.log('work-schedule staff read budget guard: ok');
+
+ok(api.includes('tentativePersonIds'),'staff context must surface tentative assignments from prepared views');
+ok(api.includes('isTentativeMine'),'tentative assignment must be visible to the assigned employee without scanning workShifts');
