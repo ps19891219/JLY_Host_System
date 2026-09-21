@@ -1,0 +1,13 @@
+const assert=require('assert');
+const O=require('../js/modules/studio/studio-operations.js');
+const I=require('../js/data-view/studio-operations-inbox.js');
+const member={studioId:'s1',personId:'p1',status:'active',roles:['scheduler'],permissions:['booking.view','booking.manage','staff_assignment.manage']};
+assert.equal(O.can(member,O.ACTION.MANAGE_BOOKINGS),true);
+assert.equal(O.can(member,O.ACTION.EDIT_PLAYER_ACTIVITY_LABEL),false);
+assert.equal(O.lineProactiveAllowed({enabledFeatures:['notification.line.proactive']},member),false);
+assert.equal(O.lineProactiveAllowed({enabledFeatures:['notification.line.proactive']},{...member,permissions:['studio.manage']}),true);
+let v=I.build('s1',{bookings:[{id:'b1',status:'pending'}],staffConfirmations:[{id:'c1',status:'pending'}],staffIssues:[{id:'i1',status:'resolved'}]});
+assert.equal(v.count,2);
+v=I.apply(v,{id:'b1',status:'resolved'});assert.equal(v.count,1);
+v=I.apply(v,{id:'i2',status:'needs_action'});assert.equal(v.count,2);
+console.log('studio operations control contract ok');
