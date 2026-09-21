@@ -50,11 +50,11 @@ function summarize(before,after){
 }
 function appendToBatch(batch,shiftRef,before,after,context={}){
  if(!P)throw new Error('Work Schedule Change Policy 尚未載入');
- const summary=summarize(before,after),shiftId=String(shiftRef?.id||after?.id||before?.id||''),studioId=studioIdOf(after)||studioIdOf(before),workId=String(after?.workId||before?.workId||'');
+ const summary=summarize(before,after),confirmationInvalidated=!!(before?.assignmentConfirmationRequired&&P.confirmationInvalidated?.(before,after)),shiftId=String(shiftRef?.id||after?.id||before?.id||''),studioId=studioIdOf(after)||studioIdOf(before),workId=String(after?.workId||before?.workId||'');
  const hasCalendar=summary.calendarPlan.create.length||summary.calendarPlan.update.length||summary.calendarPlan.remove.length;
  const eventRef=changeEvents.doc();
- batch.set(eventRef,{shiftId,workId,studioId,workName:after?.workName||before?.workName||'',roleName:after?.roleName||before?.roleName||'',date:after?.date||before?.date||'',startTime:after?.startTime||before?.startTime||'',endTime:after?.endTime||before?.endTime||'',classification:summary.classification,affectedPersonIds:summary.affectedPersonIds,assignmentDelta:summary.assignmentDelta,calendarPlan:summary.calendarPlan,notificationPlan:summary.notificationPlan,notificationStatus:summary.notificationPlan.length?'pending':'none',personalCalendarStatus:hasCalendar?'waiting_person_calendar':'none',source:context.source||'work_schedule',actorPersonId:String(context.actorPersonId||''),conflictAcknowledged:Boolean(context.conflictAcknowledged),conflictCount:Number(context.conflictCount||0),createdAt:ts(),lastError:''});
- return {...summary,changeEventId:eventRef.id};
+ if(confirmationInvalidated&&shiftRef)batch.set(shiftRef,{assignmentConfirmationStatus:'invalidated',assignmentConfirmationUpdatedAt:ts()},{merge:true});\n batch.set(eventRef,{shiftId,workId,studioId,workName:after?.workName||before?.workName||'',roleName:after?.roleName||before?.roleName||'',date:after?.date||before?.date||'',startTime:after?.startTime||before?.startTime||'',endTime:after?.endTime||before?.endTime||'',classification:summary.classification,affectedPersonIds:summary.affectedPersonIds,assignmentDelta:summary.assignmentDelta,calendarPlan:summary.calendarPlan,notificationPlan:summary.notificationPlan,notificationStatus:summary.notificationPlan.length?'pending':'none',personalCalendarStatus:hasCalendar?'waiting_person_calendar':'none',source:context.source||'work_schedule',actorPersonId:String(context.actorPersonId||''),conflictAcknowledged:Boolean(context.conflictAcknowledged),conflictCount:Number(context.conflictCount||0),createdAt:ts(),lastError:''});
+ return {...summary,confirmationInvalidated,changeEventId:eventRef.id};
 }
 function buildAfter(row,payload){return {...row,...payload,updatedAt:undefined}}
 window.JLYWorkScheduleLifecycle={studioIdOf,rangeOf,overlaps,findConflicts,conflictMessage,summarize,appendToBatch,buildAfter};
