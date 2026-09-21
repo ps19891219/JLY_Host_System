@@ -23,6 +23,9 @@ test("batch operation writes canonical car visibility to public", () => {
 
   assert.match(source, /async function setSelectedCarsPublic/);
   assert.match(source, /visibility: "public"/);
+  assert.match(source, /publicRecruitmentPreference: true/);
+  assert.match(source, /studioRecruitmentViews/);
+  assert.match(source, /applyRecruitmentMutation/);
   assert.match(source, /collection\("cars"\)/);
   assert.match(source, /非主揪車已略過/);
 });
