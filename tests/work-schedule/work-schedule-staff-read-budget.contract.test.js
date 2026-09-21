@@ -46,3 +46,7 @@ ok(staffPage.includes('(r.assignedPersonIds||r.personIds||[]).some'),'formal emp
 
 ok(personLinks.includes('{maxReads=8}={}'),'formal person alias expansion must have a hard read budget');
 ok(personLinks.includes('reads<maxReads')&&personLinks.includes('if(reads>=maxReads)break'),'alias traversal must stop at the configured Firestore read budget');
+
+ok(staffContext.includes('findMembership(db,studio,candidateIds,{maxReads=8}={})'),'staff context membership lookup must have a hard read budget');
+ok(staffContext.includes('if(reads>=maxReads)break'),'staff context membership lookup must stop at its read budget');
+ok(confirmApi.includes('member(db,studio,ids,{maxReads=8}={})'),'staff confirmation membership lookup must have a hard read budget');
