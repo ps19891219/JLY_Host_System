@@ -185,7 +185,7 @@ function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){
     personIds:ids,
     people:persons,
     missingCount:slots.filter(s=>!s.personId).length,
-    staffingStatus:slots.some(s=>!s.personId)?'pending':'complete',
+    staffingStatus:slots.some(s=>!s.personId)?'pending':'complete',\n    assignmentConfirmationRequired:!!matchingSource,\n    assignmentConfirmationStatus:matchingSource?'pending':'not_required',
     note,
     calendar:{syncEnabled:false,autoUpdate:false,provider:'google',calendarId:'primary'},
     schemaVersion:7,
@@ -248,7 +248,7 @@ async function save(e){
     for(const mk of months)await V.rebuildMonth(mk);
     $('workSessionComposerDialog').close();
     await window.JLYWorkScheduleDashboard?.reloadMonth?.(months[0]);
-    alert(`完成：已建立／更新 ${changes.length} 筆角色排班。`);
+    alert(matchingSource?`完成：已建立 ${changes.length} 筆暫定指派，等待員工確認。`:`完成：已建立／更新 ${changes.length} 筆角色排班。`);
   }catch(err){alert(`建立排班失敗：${err.message||err}`)}
 }
 
