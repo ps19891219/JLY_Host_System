@@ -9,7 +9,9 @@ const shift = {
   startTime: "19:00",
   endTime: "23:00",
   rolePoolId: "dm",
-  roleName: "DM"
+  roleName: "DM",
+  sourceMatchingId: "matching-1",
+  sourceSlotId: "slot-1"
 };
 
 const tentative = domain.createTentative({
@@ -55,5 +57,13 @@ const reopened=domain.reopen(invalidated,changedShift);
 assert.equal(reopened.status,domain.STATUS.TENTATIVE);
 assert.equal(domain.decline(reopened).status,domain.STATUS.DECLINED);
 assert.equal(reopened.invalidatedReason,"");
+
+const newCycle={...shift,sourceMatchingId:"matching-2",sourceSlotId:"slot-2"};
+const staleCycle=domain.invalidateIfChanged(confirmed,newCycle);
+assert.equal(staleCycle.status,domain.STATUS.INVALIDATED);
+const reconfirmedCycle=domain.confirm(staleCycle,newCycle);
+assert.equal(reconfirmedCycle.status,domain.STATUS.CONFIRMED);
+assert.equal(reconfirmedCycle.sourceMatchingId,"matching-2");
+assert.equal(reconfirmedCycle.sourceSlotId,"slot-2");
 
 console.log("staff-assignment-confirmation tests passed");
