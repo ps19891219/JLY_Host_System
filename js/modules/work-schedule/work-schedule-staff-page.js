@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const $=id=>document.getElementById(id),txt=v=>String(v??'').trim();let context=null,selected=new Set(),view='all',query='',activeMonth=new Date().toISOString().slice(0,7);
+const $=id=>document.getElementById(id),txt=v=>String(v??'').trim();let context=null,selected=new Set(),view='all',query='';function localMonthKey(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}let activeMonth=localMonthKey();
 const R=()=>window.JLYWorkScheduleReadRenderer;
 function studio(){return txt(new URLSearchParams(location.search).get('studio'))}
 function groupFromRows(list){return R().groups(list).map(g=>{g.first=g.rows[0];g.stableId=g.rows[0]?.id||g.key;g.mineRows=g.rows.filter(r=>r.isMine);g.isMine=!!g.mineRows.length;return g})}
