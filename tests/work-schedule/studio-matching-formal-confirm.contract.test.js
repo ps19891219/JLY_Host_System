@@ -7,5 +7,7 @@ assert(studio.includes("formalPersonId"));
 assert(!studio.includes("collection('workShifts')"));
 assert(handoff.includes("openMatchingDraft"));
 assert(composer.includes("L.findConflicts"));
-assert(composer.includes("建立全部排班"));\nassert(composer.includes("assignmentConfirmationRequired:!!matchingSource"));\nassert(composer.includes("assignmentConfirmationStatus:matchingSource?'pending':'not_required'"));
+assert(composer.includes("建立全部排班"));
+assert(composer.includes("assignmentConfirmationRequired:!!matchingSource"));
+assert(composer.includes("assignmentConfirmationStatus:matchingSource?'pending':'not_required'"));
 console.log('formal matching promotion boundary ok');
