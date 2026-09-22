@@ -8,7 +8,10 @@ assert(src.includes('collection("personDirectoryViewBuilds")'),"apply must use s
 assert(src.includes('canonicalWrites:0'),"staging apply must not write canonical");
 assert(src.includes('collection("personDirectoryViewSnapshots")'),"promotion must snapshot canonical");
 assert(src.includes('build_not_completed'),"partial build must not promote");
-assert(src.includes('resume_after_mismatch'),"resume cursor must be guarded");\nassert(src.includes('MAX_VIEW_BYTES=900000'),"prepared view document size must be bounded");\nassert(src.includes('staging_view_too_large'),"oversized staging view must fail closed");\nassert(src.includes('canonical_snapshot_too_large'),"oversized canonical snapshot must fail closed");
+assert(src.includes('resume_after_mismatch'),"resume cursor must be guarded");
+assert(src.includes('MAX_VIEW_BYTES=900000'),"prepared view document size must be bounded");
+assert(src.includes('staging_view_too_large'),"oversized staging view must fail closed");
+assert(src.includes('canonical_snapshot_too_large'),"oversized canonical snapshot must fail closed");
 assert(!/\.delete\s*\(/.test(src),"initializer must not delete");
 assert(!/collection\(["']cars["']\)/.test(src),"must not scan Activities");
 assert(!/collection\(["']workShifts["']\)/.test(src),"must not scan Work Schedule");
