@@ -9,8 +9,6 @@ console.log(
   const preparedViewCache = new Map();
   const preparedCarCache = new Map();
   const aliasCache = new Map();
-  const migrationCache = new Map();
-  const legacyAliasRepairCache = new Map();
 
   function getDb() {
     if (!window.db) throw new Error("Firebase 尚未初始化");
@@ -76,108 +74,6 @@ console.log(
     return view;
   }
 
-  async function discoverLegacyIdentityIds(seedId) {
-    const seed = normalizeText(seedId);
-    if (!seed) return [];
-    const db = getDb();
-    const ids = new Set();
-    const queue = [];
-    const checked = new Set();
-    const reverseFields = [
-      "identityId", "personId", "profileId", "playerId", "memberId",
-      "canonicalPersonId", "canonicalProfileId", "canonicalMemberId",
-      "mergedIntoPersonId", "mergedIntoProfileId", "mergedIntoMemberId"
-    ];
-
-    function remember(value) {
-      const id = normalizeText(value);
-      if (!id || id.toLowerCase().startsWith("line:") || ids.has(id)) return;
-      ids.add(id);
-      queue.push(id);
-    }
-
-    function rememberProfile(snapshot) {
-      if (!snapshot || !snapshot.exists) return;
-      getProfileIdentityIds({ id: snapshot.id, ...(snapshot.data() || {}) }).forEach(remember);
-    }
-
-    remember(seed);
-    while (queue.length && checked.size < 80) {
-      const id = queue.shift();
-      if (!id || checked.has(id)) continue;
-      checked.add(id);
-
-      try {
-        const aliasSnapshot = await db.collection("myCarViewAliases").doc(id).get();
-        if (aliasSnapshot.exists) remember((aliasSnapshot.data() || {}).viewerId);
-      } catch (error) {
-        console.warn("Recruit legacy alias repair lookup skipped:", id, error);
-      }
-
-      try {
-        rememberProfile(await db.collection("players").doc(id).get());
-      } catch (error) {
-        console.warn("Recruit legacy direct profile repair skipped:", id, error);
-      }
-
-      for (const field of reverseFields) {
-        try {
-          const snapshot = await db.collection("players").where(field, "==", id).limit(10).get();
-          snapshot.docs.forEach(rememberProfile);
-        } catch (error) {
-          console.warn("Recruit legacy reverse profile repair skipped:", field, id, error);
-        }
-      }
-
-      try {
-        const linkedSnapshot = await db.collection("players")
-          .where("linkedPlayerIds", "array-contains", id).limit(10).get();
-        linkedSnapshot.docs.forEach(rememberProfile);
-      } catch (error) {
-        console.warn("Recruit legacy linked profile repair skipped:", id, error);
-      }
-    }
-    return uniqueIds(Array.from(ids));
-  }
-
-  async function repairLegacyViewerAlias(aliasId) {
-    const seed = normalizeText(aliasId);
-    if (!seed) return "";
-    if (legacyAliasRepairCache.has(seed)) return legacyAliasRepairCache.get(seed);
-
-    const task = (async function () {
-      const identityIds = await discoverLegacyIdentityIds(seed);
-      if (!identityIds.length) return seed;
-
-      let canonicalViewerId = "";
-      for (const candidateId of identityIds) {
-        const view = await readPreparedView(candidateId);
-        if (view && Array.isArray(view.cars)) {
-          canonicalViewerId = normalizeText(view.viewerId) || candidateId;
-          break;
-        }
-      }
-      if (!canonicalViewerId) return seed;
-
-      const now = new Date().toISOString();
-      await Promise.all(identityIds.map(function (id) {
-        aliasCache.set(id, canonicalViewerId);
-        return getDb().collection("myCarViewAliases").doc(id).set({
-          schemaVersion: 1,
-          aliasId: id,
-          viewerId: canonicalViewerId,
-          updatedAt: now,
-          repairSource: "recruit-legacy-alias-bootstrap"
-        }, { merge: false });
-      }));
-      console.log("✅ Recruit legacy viewer alias repaired", seed, canonicalViewerId, identityIds.length);
-      return canonicalViewerId;
-    })();
-
-    legacyAliasRepairCache.set(seed, task);
-    return task;
-  }
-
   async function resolveViewerId(aliasId) {
     const normalizedAliasId = normalizeText(aliasId);
     if (!normalizedAliasId) return "";
@@ -186,20 +82,9 @@ console.log(
     let viewerId = normalizedAliasId;
     try {
       const snapshot = await getDb().collection("myCarViewAliases").doc(normalizedAliasId).get();
-      if (snapshot.exists) {
-        viewerId = normalizeText((snapshot.data() || {}).viewerId) || normalizedAliasId;
-      }
+      if (snapshot.exists) viewerId = normalizeText((snapshot.data() || {}).viewerId) || normalizedAliasId;
     } catch (error) {
       console.warn("Recruit prepared alias lookup skipped:", normalizedAliasId, error);
-    }
-
-    // Old recruitPages can point at a historical identity that predates alias docs.
-    // Only when neither the alias nor a direct Prepared View resolves do we run
-    // the expensive legacy identity discovery once, then persist aliases so all
-    // later page loads return to the fixed-cost Prepared View path.
-    if (viewerId === normalizedAliasId) {
-      const directView = await readPreparedView(normalizedAliasId);
-      if (!directView) viewerId = await repairLegacyViewerAlias(normalizedAliasId);
     }
 
     aliasCache.set(normalizedAliasId, viewerId);
@@ -212,101 +97,6 @@ console.log(
     return (Array.isArray(view.cars) ? view.cars : []).some(function (car) {
       return car && car.isHost === true && !normalizeText(car.visibility);
     });
-  }
-
-  function mergeCoreIntoPrepared(preparedCar, coreCar) {
-    const oldCar = preparedCar && typeof preparedCar === "object" ? preparedCar : {};
-    const core = coreCar && typeof coreCar === "object" ? coreCar : {};
-    return {
-      ...oldCar,
-      id: normalizeText(oldCar.id || oldCar.carId || core.id),
-      scriptName: normalizeText(core.scriptName || core.title || core.name || oldCar.scriptName),
-      gameDate: normalizeText(core.gameDate || core.date || oldCar.gameDate),
-      gameTime: normalizeText(core.gameTime || core.time || oldCar.gameTime),
-      status: normalizeText(core.status || oldCar.status),
-      planningStatus: normalizeText(core.planningStatus || oldCar.planningStatus),
-      visibility: normalizeText(core.visibility || oldCar.visibility),
-      studioName: normalizeText(core.studioName || core.studio || oldCar.studioName),
-      organizerName: normalizeText(core.organizerName || core.groupName || oldCar.organizerName),
-      locationName: normalizeText(core.locationName || oldCar.locationName),
-      location: normalizeText(core.location || core.address || core.placeName || oldCar.location),
-      dmName: normalizeText(core.dmName || oldCar.dmName),
-      coverImageUrl: normalizeText(core.coverImageUrl || oldCar.coverImageUrl),
-      scriptCoverUrl: normalizeText(core.scriptCoverUrl || oldCar.scriptCoverUrl),
-      scriptImageUrl: normalizeText(core.scriptImageUrl || oldCar.scriptImageUrl),
-      price: Number(core.price || core.amount || oldCar.price || 0),
-      totalPeople: Number(core.totalPeople || oldCar.totalPeople || 0),
-      maleSlots: Number(core.maleSlots || oldCar.maleSlots || 0),
-      femaleSlots: Number(core.femaleSlots || oldCar.femaleSlots || 0),
-      flexibleSlots: Number(core.flexibleSlots || core.flexSlots || oldCar.flexibleSlots || 0),
-      players: Array.isArray(core.players) ? core.players.map(function (player) {
-        return {
-          playerId: normalizeText(player && (player.playerId || player.id || player.profileId)),
-          position: normalizeText(player && player.position),
-          status: normalizeText(player && player.status)
-        };
-      }) : (Array.isArray(oldCar.players) ? oldCar.players : []),
-      tags: Array.isArray(core.tags) ? core.tags : (Array.isArray(oldCar.tags) ? oldCar.tags : []),
-      scriptTags: Array.isArray(core.scriptTags) ? core.scriptTags : (Array.isArray(oldCar.scriptTags) ? oldCar.scriptTags : []),
-      myRole: normalizeText(core.myRole || oldCar.myRole).toLowerCase(),
-      updatedAt: core.updatedAt || oldCar.updatedAt || null,
-      createdAt: core.createdAt || oldCar.createdAt || null,
-      isHost: oldCar.isHost === true,
-      isPlayer: oldCar.isPlayer === true,
-      role: oldCar.isHost === true ? "host" : (oldCar.isPlayer === true ? "player" : normalizeText(oldCar.role)),
-      ownerType: oldCar.ownerType || (oldCar.isHost === true ? "self" : "")
-    };
-  }
-
-  async function upgradePreparedView(viewerId, view) {
-    const id = normalizeText(viewerId);
-    if (!id || !view || !needsSchemaUpgrade(view)) return view;
-    if (migrationCache.has(id)) return migrationCache.get(id);
-
-    const task = (async function () {
-      const cars = Array.isArray(view.cars) ? view.cars : [];
-      const ids = uniqueIds(cars.map(function (car) { return car && (car.id || car.carId); }));
-      if (!ids.length) return view;
-
-      const coreCars = await Promise.all(ids.map(async function (carId) {
-        const snapshot = await getDb().collection("cars").doc(carId).get();
-        return snapshot.exists ? { id: snapshot.id, ...snapshot.data() } : null;
-      }));
-      const coreById = new Map(coreCars.filter(Boolean).map(function (car) { return [car.id, car]; }));
-      const missingIds = ids.filter(function (carId) { return !coreById.has(carId); });
-      if (missingIds.length) {
-        console.warn("Recruit schema migration aborted: Core rows missing", missingIds);
-        return view;
-      }
-
-      const nextCars = cars.map(function (car) {
-        const carId = normalizeText(car && (car.id || car.carId));
-        return mergeCoreIntoPrepared(car, coreById.get(carId));
-      });
-      const next = {
-        ...view,
-        schemaVersion: TARGET_SCHEMA,
-        cars: nextCars,
-        counts: {
-          all: nextCars.length,
-          host: nextCars.filter(function (car) { return car.isHost === true; }).length,
-          player: nextCars.filter(function (car) { return car.isPlayer === true; }).length
-        },
-        upgradedFromSchemaVersion: Number(view.schemaVersion || 0),
-        schemaUpgradedAt: new Date().toISOString(),
-        schemaUpgradeSource: "recruit-explicit-gate"
-      };
-
-      await getDb().collection("myCarViews").doc(id).set(next);
-      preparedViewCache.set(id, next);
-      console.log("✅ Recruit Prepared View one-time schema upgrade complete", id, nextCars.length);
-      return next;
-    })().finally(function () {
-      migrationCache.delete(id);
-    });
-
-    migrationCache.set(id, task);
-    return task;
   }
 
   async function readPreparedCar(carId) {
@@ -338,7 +128,6 @@ console.log(
     if (!normalizedOwnerId) return [];
     const viewerId = await resolveViewerId(normalizedOwnerId);
     let view = await readPreparedView(viewerId);
-    if (view && needsSchemaUpgrade(view)) view = await upgradePreparedView(viewerId, view);
     return uniqueIds([
       normalizedOwnerId,
       viewerId,
@@ -348,12 +137,11 @@ console.log(
 
   async function getHostCarsFromMyCarViews(viewerIds) {
     const requestedIds = uniqueIds(viewerIds);
-    const viewerIds = uniqueIds(await Promise.all(requestedIds.map(function (id) { return resolveViewerId(id); })));
+    const resolvedViewerIds = uniqueIds(await Promise.all(requestedIds.map(function (id) { return resolveViewerId(id); })));
     const carsById = new Map();
 
-    await Promise.all(viewerIds.map(async function (viewerId) {
+    await Promise.all(resolvedViewerIds.map(async function (viewerId) {
       let view = await readPreparedView(viewerId);
-      if (view && needsSchemaUpgrade(view)) view = await upgradePreparedView(viewerId, view);
       if (!view) return;
       view.cars.forEach(function (car) {
         if (!car || car.isHost !== true) return;
@@ -381,7 +169,6 @@ console.log(
     resolveViewerId,
     readPreparedView,
     needsSchemaUpgrade,
-    upgradePreparedView,
     readPreparedCar,
     getPreparedCarsByIds,
     resolveOwnerIdentityIds,
