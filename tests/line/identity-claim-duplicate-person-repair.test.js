@@ -14,6 +14,6 @@ assert(source.includes("canonicalPersonId: text(canonicalPersonId)"), "historica
 assert(source.includes('lineIdentityReassignedReason: "host_approved_existing_claim"'), "duplicate LINE repair must leave an audit reason");
 assert(source.includes("duplicateLinePeople: linePeople.filter"), "repair scope must be limited to duplicate rows that share the verified LINE identity");
 assert(source.includes("系統不會只靠同名自動合併"), "same-name matching must remain forbidden as identity proof");
-assert(page.includes("identity-claim-approval.js?v=2"), "car detail must load the repaired identity claim runtime without stale cache");
+assert(page.includes("identity-claim-approval.js?v=3"), "car detail must load the repaired identity claim runtime without stale cache");
 
 console.log("identity-claim-duplicate-person-repair.test.js passed");
