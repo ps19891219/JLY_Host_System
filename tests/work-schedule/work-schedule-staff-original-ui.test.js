@@ -1,4 +1,4 @@
-const fs=require('fs'),path=require('path');
+const fs=require('fs'),path=require('path'),assert=require('assert');
 const root=path.resolve(__dirname,'../..');
 const html=fs.readFileSync(path.join(root,'pages/work-schedule-staff.html'),'utf8');
 const js=fs.readFileSync(path.join(root,'js/modules/work-schedule/work-schedule-staff-page.js'),'utf8');
