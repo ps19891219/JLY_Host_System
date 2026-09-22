@@ -23,7 +23,41 @@ async function loadWorkRows(workId){const id=txt(workId);if(!id)return[];const d
 async function loadWorkMine(workId,personIds){const ids=[...new Set((personIds||[]).map(txt).filter(Boolean))];if(!txt(workId)||!ids.length)return[];const docs=await Promise.all(ids.map(id=>views.doc(mineRowsDocId(workId,id)).get()));const map=new Map();docs.forEach(doc=>(doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[]).forEach(r=>map.set(String(r.id),r)));return sortWorkRows([...map.values()])}
 async function applyRowChange(before,after){const oldRow=before&&before.id?rowFromDoc({id:before.id,data:()=>before}):before;const newRow=after&&after.id?rowFromDoc({id:after.id,data:()=>after}):after;const workIds=[...new Set([oldRow?.workId,newRow?.workId].map(txt).filter(Boolean))];for(const workId of workIds){const ref=views.doc(workRowsDocId(workId)),doc=await ref.get(),map=new Map((doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[]).map(r=>[String(r.id),r]));if(oldRow&&txt(oldRow.workId)===workId)map.delete(String(oldRow.id));if(newRow&&txt(newRow.workId)===workId&&newRow.status!=='cancelled')map.set(String(newRow.id),newRow);const rows=sortWorkRows([...map.values()]);await ref.set({type:'work-schedule-work-all',workId,rows,updatedAt:serverTime()},{merge:true});const people=[...new Set([...(oldRow?.assignedPersonIds||oldRow?.personIds||[]),...(newRow?.assignedPersonIds||newRow?.personIds||[])].map(txt).filter(Boolean))];for(const personId of people){const mineRef=views.doc(mineRowsDocId(workId,personId)),mine=rows.filter(r=>(r.assignedPersonIds||r.personIds||[]).map(String).includes(personId));await mineRef.set({type:'work-schedule-work-person',workId,personId,rows:mine,updatedAt:serverTime()},{merge:true})}}const months=[...new Set([oldRow?.monthKey||String(oldRow?.date||'').slice(0,7),newRow?.monthKey||String(newRow?.date||'').slice(0,7)].filter(Boolean))];for(const mk of months){const ref=views.doc(`month-${mk}`),doc=await ref.get(),map=new Map((doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[]).map(r=>[String(r.id),r]));if(oldRow)map.delete(String(oldRow.id));if(newRow&&newRow.status!=='cancelled'&&(newRow.monthKey||String(newRow.date||'').slice(0,7))===mk)map.set(String(newRow.id),newRow);await ref.set({type:'work-schedule-month',monthKey:mk,rows:[...map.values()],updatedAt:serverTime()},{merge:true});await rememberMonth(mk)}return newRow}
 async function removeRow(row){return applyRowChange(row,null)}
-async function syncShifts(changes){const list=(changes||[]).map(x=>({before:x?.before||null,after:x?.after||x||null}));for(const change of list)await applyRowChange(change.before,change.after);return list.map(x=>x.after)}
+async function syncShifts(changes){
+ const list=(changes||[]).map(x=>({before:x?.before||null,after:x?.after||x||null})).map(change=>({
+  before:change.before&&change.before.id?rowFromDoc({id:change.before.id,data:()=>change.before}):change.before,
+  after:change.after&&change.after.id?rowFromDoc({id:change.after.id,data:()=>change.after}):change.after
+ }));
+ if(!list.length)return[];
+ const workIds=[...new Set(list.flatMap(change=>[change.before?.workId,change.after?.workId]).map(txt).filter(Boolean))];
+ for(const workId of workIds){
+  const ref=views.doc(workRowsDocId(workId)),doc=await ref.get(),map=new Map((doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[]).map(r=>[String(r.id),r]));
+  const affectedPeople=new Set();
+  for(const change of list){
+   const oldRow=change.before,newRow=change.after;
+   if(oldRow&&txt(oldRow.workId)===workId){map.delete(String(oldRow.id));(oldRow.assignedPersonIds||oldRow.personIds||[]).map(txt).filter(Boolean).forEach(id=>affectedPeople.add(id))}
+   if(newRow&&txt(newRow.workId)===workId&&newRow.status!=='cancelled'){map.set(String(newRow.id),newRow);(newRow.assignedPersonIds||newRow.personIds||[]).map(txt).filter(Boolean).forEach(id=>affectedPeople.add(id))}
+  }
+  const rows=sortWorkRows([...map.values()]);
+  await ref.set({type:'work-schedule-work-all',workId,rows,updatedAt:serverTime()},{merge:true});
+  for(const personId of affectedPeople){const mine=rows.filter(r=>(r.assignedPersonIds||r.personIds||[]).map(String).includes(personId));await views.doc(mineRowsDocId(workId,personId)).set({type:'work-schedule-work-person',workId,personId,rows:mine,updatedAt:serverTime()},{merge:true})}
+ }
+ const remembered=[...new Set(list.flatMap(change=>[
+  change.before?.monthKey||String(change.before?.date||'').slice(0,7),
+  change.after?.monthKey||String(change.after?.date||'').slice(0,7)
+ ]).filter(Boolean))];
+ for(const mk of remembered){
+  const ref=views.doc(`month-${mk}`),doc=await ref.get(),map=new Map((doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[]).map(r=>[String(r.id),r]));
+  for(const change of list){
+   const oldRow=change.before,newRow=change.after,oldMk=oldRow?.monthKey||String(oldRow?.date||'').slice(0,7),newMk=newRow?.monthKey||String(newRow?.date||'').slice(0,7);
+   if(oldRow&&oldMk===mk)map.delete(String(oldRow.id));
+   if(newRow&&newRow.status!=='cancelled'&&newMk===mk)map.set(String(newRow.id),newRow);
+  }
+  await ref.set({type:'work-schedule-month',monthKey:mk,rows:[...map.values()],updatedAt:serverTime()},{merge:true});
+ }
+ await rememberMonths(remembered);
+ return list.map(x=>x.after)
+}
 async function upsertShift(row){await applyRowChange(null,row);return rowFromDoc({id:row?.id,data:()=>row||{}})}
 async function loadWorkMonth(workId,monthKey){const id=txt(workId);if(!id||!monthKey)return[];const rows=await loadWorkRows(id);return rows.filter(r=>(r.monthKey||String(r.date||'').slice(0,7))===monthKey&&r.status!=='cancelled')}
 async function loadMonth(monthKey){return loadMonthSnapshot(monthKey)}
