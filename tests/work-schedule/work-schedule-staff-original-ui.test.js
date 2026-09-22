@@ -14,7 +14,7 @@ ok(html.includes('staffConfirmActions'),'employee detail must expose assignment 
 ok(js.includes('/api/work-schedule-staff-confirmation'),'employee confirmation must go through authenticated server boundary');
 console.log('work-schedule staff original UI readonly guard: ok');
 ok(js.includes('g.mineRows.filter(r=>r.assignmentConfirmationRequired===true)'),'employee confirmation must handle every own role shift requiring confirmation');
-ok(js.includes('Promise.all(targetRows.map'),'employee detail must load confirmation state per role shift');
+ok(js.includes('targetRows.map(row=>({row,state:confirmationState(row)}))'),'employee detail must render confirmation state per role shift from prepared rows');
 
 assert(js.includes('formalMineRows'),'employee Calendar must distinguish formal shifts from tentative assignments');
 assert(js.includes('待確認班次尚未進入正式班表'),'tentative assignments must not sync to Google Calendar');
