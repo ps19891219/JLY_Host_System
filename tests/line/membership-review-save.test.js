@@ -9,5 +9,5 @@ assert(handler.includes('result.verified !== true'),'verify action must not repo
 assert(page.includes('errorLabel(error)'),'membership review should show actionable save errors');
 assert(page.includes('確認中…'),'single confirm must guard against duplicate taps');
 assert(page.includes('已儲存目前核對狀態'),'successful confirm must give explicit persisted-state feedback');
-assert(html.includes('/js/line/membership-review-page.js?v=5'),'membership review cache version must advance');
+assert(html.includes('/js/line/membership-review-page.js?v=6'),'membership review cache version must advance');
 console.log('membership-review-save.test.js passed');
