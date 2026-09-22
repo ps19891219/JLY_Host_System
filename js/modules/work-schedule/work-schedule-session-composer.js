@@ -157,7 +157,8 @@ async function open(){
 function rowMatches(row,date,start,end,role){
   return String(row.workId||'')===String(activeWork.id)&&row.date===date&&row.startTime===start&&row.endTime===end&&(String(row.rolePoolId||'')===String(role.id||'')||norm(row.roleName)===norm(role.name));
 }
-function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){\n  const formalIds=matchingSource?[]:ids;
+function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){
+  const formalIds=matchingSource?[]:ids;
   const count=Math.max(ids.length,Number(role.requiredCount||0),1);
   const slots=Array.from({length:count},(_,i)=>({id:`${refId}-slot-${i+1}`,slotKey:`slot-${i+1}`,label:String(i+1),personId:formalIds[i]||''}));
   const persons=formalIds.map(id=>({personId:id,name:personName(id)}));
@@ -186,7 +187,9 @@ function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){\n 
     tentativePersonIds:matchingSource?ids:[],
     people:persons,
     missingCount:slots.filter(s=>!s.personId).length,
-    staffingStatus:slots.some(s=>!s.personId)?'pending':'complete',\n    assignmentConfirmationRequired:!!matchingSource,\n    assignmentConfirmationStatus:matchingSource?'pending':'not_required',
+    staffingStatus:slots.some(s=>!s.personId)?'pending':'complete',
+    assignmentConfirmationRequired:!!matchingSource,
+    assignmentConfirmationStatus:matchingSource?'pending':'not_required',
     assignmentConfirmationByPerson:matchingSource?Object.fromEntries(ids.map(id=>[String(id),'tentative'])):{},
     note,
     calendar:{syncEnabled:false,autoUpdate:false,provider:'google',calendarId:'primary'},
