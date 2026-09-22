@@ -28,7 +28,7 @@ test("car creation and matching completion update prepared views from known muta
   const createSource = read("js/createcar.js");
   const matchingSource = read("js/matching/matching-createcar.js");
 
-  assert.match(createSource, /syncCarViewsFromKnownMutation\s*\(/);
+  assert.match(createSource, /viewCoordinator\.updateCarViews\s*\(/);
   assert.match(matchingSource, /syncCarViewsFromKnownMutation\s*\(/);
   assert.doesNotMatch(matchingSource, /syncCarViewsFromKnownMutation[\s\S]{0,500}collection\("cars"\)[\s\S]{0,100}\.get\s*\(/);
 });
