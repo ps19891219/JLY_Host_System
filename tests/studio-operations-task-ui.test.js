@@ -1,3 +1,6 @@
 const assert=require('assert');global.JLYStudioOperations=require('../js/modules/studio/studio-operations.js');global.JLYStudioOperationsActions=require('../js/modules/studio/studio-operations-actions.js');const U=require('../js/modules/studio/studio-operations-task-ui.js');const member={status:'active',permissions:['booking.manage','staff_assignment.manage']};assert.deepEqual(U.allowedActions({type:'booking'},member),['accept','propose_adjustment','reject']);assert.equal(U.allowedActions({type:'host_request'},member).length,0);assert.equal(U.command({type:'booking',source:{bookingId:'b1'}},'accept').command,'confirm_booking');console.log('studio task ui permissions ok');
-{const h={id:'pending:p1',type:'host_request',status:'pending'};const m={status:'active',permissions:['activity.host_request.resolve']};assert.deepEqual(U.allowedActions(h,m),['approve','reject']);}
-console.log('host_request adjustment stays hidden until domain support exists');
+{const h={id:'pending:p1',type:'host_request',status:'pending'};const m={status:'active',permissions:['activity.host_request.resolve']};assert.deepEqual(U.allowedActions(h,m),[]);}
+console.log('unwired host-request actions stay hidden until owning-domain support exists');
+
+{const s={id:'staff:s1',type:'staff_issue',status:'declined'};const m={status:'active',permissions:['staff_assignment.manage']};assert.deepEqual(U.allowedActions(s,m),['open_schedule']);}
+console.log('staff issue exposes only wired schedule route');
