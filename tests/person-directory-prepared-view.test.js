@@ -34,3 +34,11 @@ test("LINE rename preserves the previous LINE display name as searchable alias",
  assert.ok(row.aliases.includes("阿東"));
  assert.ok(row.aliases.includes("RN"));
 });
+
+test("merged legacy processed after canonical must not delete the canonical Person",()=>{
+ let view={people:[]};
+ view=V.applyPersonMutation(view,{id:"canonical",displayName:"RN",linkedPlayerIds:["legacy"],status:"active"},"canonical");
+ view=V.applyPersonMutation(view,{id:"legacy",displayName:"東",canonicalPersonId:"canonical",mergedIntoPersonId:"canonical",status:"merged"},"legacy");
+ assert.equal(view.people.length,1);
+ assert.equal(view.people[0].id,"canonical");
+});
