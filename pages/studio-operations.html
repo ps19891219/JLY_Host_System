@@ -12,6 +12,25 @@ async function loadPrepared(){
  render(prepared,data.membership||null);
  operationsLoadState.textContent='已讀取工作室 Prepared Views。清單不掃描 Booking、Activity、Work Schedule 正式資料。';
 }
+window.addEventListener('jly:studio-operation-command',async e=>{
+ const d=e.detail||{},task=d.task||{},action=String(d.action||'');
+ if(task.type==='booking'){
+  const bookingId=task.source&&task.source.bookingId;if(!bookingId)return;
+  const payload={bookingId,action};
+  if(action==='propose_adjustment'){
+   payload.date=prompt('建議日期 YYYY-MM-DD')||'';
+   payload.time=prompt('建議時間 HH:MM')||'';
+   payload.note=prompt('調整說明')||'';
+   if(!payload.date&&!payload.time&&!payload.note)return;
+  }else if(!confirm(action==='accept'?'確認接受這筆預約？':'確認拒絕這筆預約？'))return;
+  const res=await fetch('/api/studio-booking-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok){alert(data.error||'處理失敗');return;}
+  taskDialog.close();await loadPrepared();return;
+ }
+ if(action==='open_schedule'){location.href='work-schedule.html?studio='+encodeURIComponent(studioId);return;}
+ if(action==='open_recruitment'){location.href='studio-recruitment.html?studio='+encodeURIComponent(studioId);return;}
+});
 render({items:[]},null);
 loadPrepared().catch(e=>{console.error(e);operationsLoadState.textContent='待辦資料尚未就緒，沒有回退掃描正式資料。';});
 })();</script></body></html>
