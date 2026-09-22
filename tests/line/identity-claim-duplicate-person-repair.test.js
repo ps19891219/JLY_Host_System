@@ -13,7 +13,9 @@ assert(source.includes('lineUserId: ""'), "duplicate Person rows must release th
 assert(source.includes("canonicalPersonId: text(canonicalPersonId)"), "historical duplicate rows must point at the canonical Person instead of being deleted");
 assert(source.includes('lineIdentityReassignedReason: "host_approved_existing_claim"'), "duplicate LINE repair must leave an audit reason");
 assert(source.includes("duplicateLinePeople: linePeople.filter"), "repair scope must be limited to duplicate rows that share the verified LINE identity");
-assert(source.includes("系統不會只靠同名自動合併"), "same-name matching must remain forbidden as identity proof");
+assert(!source.includes('where("displayName"'), "displayName must not be used as identity proof");
+assert(!source.includes('where("nickname"'), "nickname must not be used as identity proof");
+assert(source.includes('where("lineUserId", "==", lineUserId)'), "verified LINE identity remains the duplicate-repair lookup");
 assert(page.includes("identity-claim-approval.js?v=3"), "car detail must load the repaired identity claim runtime without stale cache");
 
 console.log("identity-claim-duplicate-person-repair.test.js passed");
