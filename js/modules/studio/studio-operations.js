@@ -16,7 +16,13 @@ const ACTION=Object.freeze({
 const FEATURE=Object.freeze({LINE_PROACTIVE_NOTIFICATION:'notification.line.proactive'});
 const txt=v=>String(v==null?'':v).trim();
 const list=v=>Array.isArray(v)?v.map(txt).filter(Boolean):[];
-function permissionSet(membership={}){return new Set([...list(membership.permissions),...list(membership.effectivePermissions)]);}
+function permissionSet(membership={}){
+ const raw=[...list(membership.permissions),...list(membership.effectivePermissions)],p=new Set();
+ for(const x of raw){p.add(x);p.add(x.replace(/:/g,'.'));}
+ const roles=new Set(list(membership.roles||membership.roleIds));
+ if(roles.has('owner')||roles.has('manager')){[ACTION.MANAGE_BOOKINGS,ACTION.VIEW_BOOKINGS,ACTION.VIEW_ACTIVITIES,ACTION.RESOLVE_HOST_REQUEST,ACTION.VIEW_STAFF_SCHEDULE,ACTION.MANAGE_STAFF_ASSIGNMENT,ACTION.VIEW_PLAYERS,ACTION.MANAGE_RECRUITMENT,ACTION.MANAGE_STUDIO].forEach(x=>p.add(x));}
+ return p;
+}
 function can(membership,action){if(!membership||txt(membership.status||'active')!=='active')return false;const p=permissionSet(membership);return p.has('*')||p.has(ACTION.MANAGE_STUDIO)||p.has(txt(action));}
 function featureEnabled(studio={},feature){const enabled=new Set([...list(studio.enabledFeatures),...list(studio.features)]);return enabled.has(txt(feature));}
 function lineProactiveAllowed(studio={},membership={}){return featureEnabled(studio,FEATURE.LINE_PROACTIVE_NOTIFICATION)&&can(membership,ACTION.MANAGE_STUDIO);}
