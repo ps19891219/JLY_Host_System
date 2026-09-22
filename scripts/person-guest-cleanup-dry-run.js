@@ -28,8 +28,9 @@ function buildDryRun(people,activities){
  return {mode:"dry-run",peopleChecked:rows.length,counts,rows};
 }
 function removalPlan(report){
- const safe=list(report&&report.rows).filter(r=>r.decision==="SAFE_TO_REMOVE_GUEST");
- return {mode:"plan-only",deletePersonIds:safe.map(r=>r.personId),preparedViewRemoveIds:safe.map(r=>r.personId),count:safe.length};
+ if(!report||report.mode!=="dry-run")throw new Error("dry_run_report_required");
+ const entries=list(report.rows).filter(r=>r.decision==="SAFE_TO_REMOVE_GUEST").map(r=>({personId:r.personId,displayName:r.displayName,action:"remove_guest_person_and_directory_row",preserveActivityHistory:true}));
+ return {mode:"plan-only",entries,deletePersonIds:entries.map(r=>r.personId),preparedViewRemoveIds:entries.map(r=>r.personId),count:entries.length};
 }
 function applyPreparedViewRemovals(view,ids){
  const remove=new Set(list(ids).map(text).filter(Boolean));
@@ -39,15 +40,12 @@ function applyPreparedViewRemovals(view,ids){
 }
 module.exports={hasIdentity,isGuest,activityReferencesPerson,assessGuest,buildDryRun,removalPlan,applyPreparedViewRemovals};
 
-function removalPlan(report){
- if(!report||report.mode!=="dry-run")throw new Error("dry_run_report_required");
- return list(report.rows).filter(r=>r.decision==="SAFE_TO_REMOVE_GUEST").map(r=>({personId:r.personId,displayName:r.displayName,action:"remove_guest_person_and_directory_row",preserveActivityHistory:true}));
-}
+
 function applyDirectoryRemoval(view,personIds){
  const remove=new Set(list(personIds).map(text).filter(Boolean));
  const base=view&&typeof view==="object"?view:{};
  const people=list(base.people).filter(row=>!remove.has(text(row&&row.id))&&!remove.has(text(row&&row.canonicalPersonId)));
  return {...base,schemaVersion:1,people,count:people.length,updatedAt:new Date().toISOString()};
 }
-module.exports.removalPlan=removalPlan;
-module.exports.applyDirectoryRemoval=applyDirectoryRemoval;
+
+module.exports={hasIdentity,isGuest,activityReferencesPerson,assessGuest,buildDryRun,removalPlan,applyPreparedViewRemovals,applyDirectoryRemoval};
