@@ -247,7 +247,7 @@ async function save(e){
       }
       await batch.commit();
     }
-    if(V.syncShifts)await V.syncShifts(changes.map(c=>({before:c.before,after:c.after})));else if(V.upsertShift)for(const c of changes)await V.upsertShift(c.after);else for(const mk of months)await V.rebuildMonth(mk);
+    if(V.syncShifts)await V.syncShifts(changes.map(c=>({before:c.before,after:c.after})));else if(V.upsertShift)for(const c of changes)await V.upsertShift(c.after);else throw new Error('work_schedule_prepared_view_writer_missing');
     $('workSessionComposerDialog').close();
     await window.JLYWorkScheduleDashboard?.reloadMonth?.(months[0]);
     alert(matchingSource?`完成：已建立 ${changes.length} 筆暫定指派，等待員工確認。`:`完成：已建立／更新 ${changes.length} 筆角色排班。`);
