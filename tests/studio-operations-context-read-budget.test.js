@@ -1,0 +1,13 @@
+"use strict";
+const fs=require("fs"),assert=require("assert");
+const src=fs.readFileSync("api/studio-operations-context.js","utf8");
+assert.match(src,/studioBookingInboxViews/);
+assert.match(src,/pendingActionStudioViews/);
+assert.match(src,/studioMemberships/);
+assert.match(src,/maxReads=8/);
+assert.match(src,/limit\(5\)/);
+assert.doesNotMatch(src,/collection\(["']studioBookingRequests["']\)/);
+assert.doesNotMatch(src,/collection\(["']cars["']\)/);
+assert.doesNotMatch(src,/collection\(["']workShifts["']\)/);
+assert.doesNotMatch(src,/onSnapshot/);
+console.log("studio operations context read budget bounded");
