@@ -18,7 +18,7 @@ test("dry-run never mutates and reports decisions only",()=>{
 test("cleanup plan contains only dry-run safe guests and preserves history",()=>{
  const report=A.buildDryRun([{id:"safe",memberType:"guest"},{id:"member",lineUserId:"U1"}],[]);
  const plan=A.removalPlan(report);
- assert.deepEqual(plan.map(x=>x.personId),["safe"]);assert.equal(plan[0].preserveActivityHistory,true);
+ assert.deepEqual(plan.deletePersonIds,["safe"]);assert.deepEqual(plan.entries.map(x=>x.personId),["safe"]);assert.equal(plan.entries[0].preserveActivityHistory,true);
 });
 test("prepared directory removal does not touch unrelated People",()=>{
  const view=A.applyDirectoryRemoval({people:[{id:"safe"},{id:"keep"}]},["safe"]);
