@@ -13,7 +13,7 @@ async function candidateIds(db,session){
   const d=await db.collection("players").doc(session.profileId).get();
   if(d.exists){const x=d.data()||{};add(ids,d.id);["identityId","playerId","personId","canonicalPersonId","profileId"].forEach(k=>add(ids,x[k]));(x.linkedPlayerIds||[]).forEach(v=>add(ids,v));}
  }
- if(!ids.size&&session.lineUserId){
+ if(![...ids].some(id=>!String(id).startsWith("line:"))&&session.lineUserId){
   const s=await db.collection("players").where("lineUserId","==",session.lineUserId).limit(5).get();
   for(const d of s.docs){const x=d.data()||{};add(ids,d.id);["identityId","playerId","personId","canonicalPersonId","profileId"].forEach(k=>add(ids,x[k]));(x.linkedPlayerIds||[]).forEach(v=>add(ids,v));}
  }
