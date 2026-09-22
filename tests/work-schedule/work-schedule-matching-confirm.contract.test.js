@@ -9,7 +9,10 @@ assert(composer.includes("selectedDates=new Set([draft.date])"));
 assert(composer.includes("const allowed=new Set((draft.availablePersonIds||[]).map(String))"));
 assert(composer.includes("員工確認後才進入正式班表"));
 assert(composer.includes("L.findConflicts"));
-assert(composer.includes("batch.set(c.ref,data)"));\nassert(composer.includes("const formalIds=matchingSource?[]:ids"));\nassert(composer.includes("tentativePersonIds:matchingSource?ids:[]"));\nassert(composer.includes("assignedPersonIds:formalIds"));
+assert(composer.includes("batch.set(c.ref,data)"));
+assert(composer.includes("const formalIds=matchingSource?[]:ids"));
+assert(composer.includes("tentativePersonIds:matchingSource?ids:[]"));
+assert(composer.includes("assignedPersonIds:formalIds"));
 assert(composer.includes("JLYWorkScheduleSessionComposer={open,openMatchingDraft}"));
 console.log('matching tentative assignment boundary contract ok');
 
