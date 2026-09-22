@@ -16,8 +16,23 @@ function monthBounds(monthKey){const [y,m]=String(monthKey||'').split('-').map(N
 async function rebuildMonth(monthKey){if(!monthKey)return[];let snap=await shifts.where('monthKey','==',monthKey).get();if(snap.empty){const bounds=monthBounds(monthKey);if(bounds){const{start,end}=bounds;snap=await shifts.where('date','>=',start).where('date','<',end).get()}}const rows=snap.docs.map(rowFromDoc).filter(r=>r.status!=='cancelled'&&String(r.date||'').startsWith(`${monthKey}-`));await views.doc(`month-${monthKey}`).set({type:'work-schedule-month',monthKey,rows,updatedAt:serverTime()},{merge:true});await rememberMonth(monthKey);return rows}
 async function loadMonthSnapshot(monthKey){if(!monthKey)return[];const doc=await views.doc(`month-${monthKey}`).get();return doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[]}
 function sortMonthRows(rows){return rows.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.startTime||'').localeCompare(String(b.startTime||''))||String(a.workName||'').localeCompare(String(b.workName||''),'zh-Hant'))}
-async function syncShifts(changes){const list=(changes||[]).map(c=>({before:c?.before||null,after:c?.after||c||null})),byMonth=new Map();for(const c of list){const id=String(c.after?.id||c.before?.id||'');if(!id)continue;const oldMk=String(c.before?.monthKey||c.before?.date||'').slice(0,7),next=c.after?rowFromDoc({id,data:()=>c.after}):null,newMk=String(next?.monthKey||next?.date||'').slice(0,7);for(const mk of new Set([oldMk,newMk].filter(Boolean))){if(!byMonth.has(mk))byMonth.set(mk,[]);byMonth.get(mk).push({id,oldMk,newMk,next})}}
-const remembered=[];for(const [mk,ops] of byMonth){const ref=views.doc(`month-${mk}`),doc=await ref.get(),current=doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[],map=new Map(current.map(r=>[String(r.id),r]));for(const op of ops){map.delete(op.id);if(op.newMk===mk&&op.next&&op.next.status!=='cancelled')map.set(op.id,op.next)}const rows=sortMonthRows([...map.values()]);await ref.set({type:'work-schedule-month',monthKey:mk,rows,updatedAt:serverTime()},{merge:true});if(rows.length)remembered.push(mk)}if(remembered.length)await rememberMonths(remembered);return list.map(c=>c.after)}
+async function syncShifts(changes){
+ const list=(changes||[]).map(c=>({before:c?.before||null,after:c?.after||c||null})),byMonth=new Map();
+ for(const c of list){const id=String(c.after?.id||c.before?.id||'');if(!id)continue;const oldMk=String(c.before?.monthKey||c.before?.date||'').slice(0,7),next=c.after?rowFromDoc({id,data:()=>c.after}):null,newMk=String(next?.monthKey||next?.date||'').slice(0,7);for(const mk of new Set([oldMk,newMk].filter(Boolean))){if(!byMonth.has(mk))byMonth.set(mk,[]);byMonth.get(mk).push({id,oldMk,newMk,next})}}
+ const remembered=[];
+ for(const [mk,ops] of byMonth){const ref=views.doc(`month-${mk}`),doc=await ref.get(),current=doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[],map=new Map(current.map(r=>[String(r.id),r]));for(const op of ops){map.delete(op.id);if(op.newMk===mk&&op.next&&op.next.status!=='cancelled')map.set(op.id,op.next)}const rows=sortMonthRows([...map.values()]);await ref.set({type:'work-schedule-month',monthKey:mk,rows,updatedAt:serverTime()},{merge:true});if(rows.length)remembered.push(mk)}
+ if(remembered.length)await rememberMonths(remembered);
+ const workIds=[...new Set(list.flatMap(c=>[txt(c.before?.workId),txt(c.after?.workId)]).filter(Boolean))];
+ for(const workId of workIds){
+  const ref=views.doc(workRowsDocId(workId)),doc=await ref.get(),rows0=doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[],map=new Map(rows0.map(row=>[String(row.id),row]));
+  for(const c of list){const oldId=String(c.before?.id||''),newId=String(c.after?.id||'');if(txt(c.before?.workId)===workId&&oldId)map.delete(oldId);if(txt(c.after?.workId)===workId&&newId){const row=rowFromDoc({id:newId,data:()=>c.after});if(row.status!=='cancelled')map.set(newId,row)}}
+  const rows=sortWorkRows([...map.values()]);
+  await ref.set({type:'work-schedule-work-all',workId,rows,updatedAt:serverTime()},{merge:true});
+  const people=[...new Set(list.flatMap(c=>[...(c.before?.assignedPersonIds||c.before?.personIds||[]),...(c.after?.assignedPersonIds||c.after?.personIds||[])]).map(txt).filter(Boolean))];
+  for(const personId of people){const mine=rows.filter(row=>(row.assignedPersonIds||row.personIds||[]).map(String).includes(personId));await views.doc(mineRowsDocId(workId,personId)).set({type:'work-schedule-work-person',workId,personId,rows:mine,updatedAt:serverTime()},{merge:true})}
+ }
+ return list.map(c=>c.after)
+}
 async function upsertShift(row){await syncShifts([{after:row}]);return rowFromDoc({id:row?.id,data:()=>row||{}})}
 async function ensureMonthSnapshot(monthKey){return loadMonthSnapshot(monthKey)}
 function workRowsDocId(workId){return `work-${txt(workId).replace(/\//g,'_')}-all`}
