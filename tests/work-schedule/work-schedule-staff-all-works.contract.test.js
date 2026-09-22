@@ -7,7 +7,7 @@ function ok(v,m){if(!v)throw new Error(m)}
 
 // Employee entry is studio-scoped, but it must consume every monthly Read View row
 // for that studio instead of being tied to one work/script.
-ok(api.includes('loadReadViewRows(db)'),'staff context must load the shared Work Schedule Read View');
+ok(api.includes('loadReadViewRows(db,months)'),'staff context must load bounded shared Work Schedule Read Views');
 ok(api.includes('snapshotRows.filter(row=>studioMatches(row,studio))'),'staff context must filter by studio, not by one work/script');
 ok(!api.includes('req.query&&req.query.workId')&&!api.includes('req.query&&req.query.workName'),'employee entry must not require a work/script query parameter');
 
