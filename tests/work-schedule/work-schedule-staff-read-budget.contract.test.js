@@ -17,8 +17,8 @@ ok(api.includes('isTentativeMine'),'tentative assignment must be visible to the 
 
 const view=fs.readFileSync('js/modules/work-schedule/work-schedule-read-view.js','utf8');
 const dashboard=fs.readFileSync('js/modules/work-schedule/work-schedule-dashboard.js','utf8');
-ok(view.includes('async function syncShifts(changes)'),'read view must group prepared-view changes by month');
-ok(view.includes('new Set([oldMk,newMk].filter(Boolean))'),'prepared view sync must handle month moves');
+ok(view.includes('async function syncShifts(changes)'),'read view must batch prepared-view changes');
+ok(view.includes('oldMk=')&&view.includes('newMk=')&&view.includes('if(oldRow&&oldMk===mk)')&&view.includes('newMk===mk'),'prepared view sync must handle month moves');
 ok(dashboard.includes('V.syncShifts'),'dashboard assignment writes should batch prepared month view updates');
 
 const composer=fs.readFileSync('js/modules/work-schedule/work-schedule-session-composer.js','utf8');
