@@ -18,7 +18,8 @@ function applyPersonMutation(view,person,id){
  const base=view&&typeof view==="object"?view:{};
  const rows=list(base.people).filter(Boolean);
  const next=compact(person,id);
- const removeIds=new Set([next.id,next.canonicalPersonId,...next.linkedPlayerIds].map(text).filter(Boolean));
+ const retired=next.status==="deleted"||next.status==="removed"||next.status==="merged"||!!text(next.mergedIntoPersonId);
+ const removeIds=new Set((retired?[next.id]:[next.id,next.canonicalPersonId,...next.linkedPlayerIds]).map(text).filter(Boolean));
  const prior=rows.find(row=>text(row.id)===next.id||text(row.canonicalPersonId)===next.id)||{};
  next.aliases=Array.from(new Set([...list(prior.aliases),prior.displayName,prior.nickname,prior.playerName,prior.lineDisplayName,...next.aliases,next.displayName,next.nickname,next.playerName,next.lineDisplayName].map(text).filter(Boolean)));
  next.linkedPlayerIds=Array.from(new Set([...list(prior.linkedPlayerIds),...next.linkedPlayerIds].map(text).filter(Boolean)));
@@ -26,7 +27,7 @@ function applyPersonMutation(view,person,id){
   const rid=text(row.id),rc=text(row.canonicalPersonId);
   return !removeIds.has(rid)&&!removeIds.has(rc)&&!list(row.linkedPlayerIds).some(x=>removeIds.has(text(x)));
  });
- if(next.status!=="deleted"&&next.status!=="removed"&&next.status!=="merged"&&!text(next.mergedIntoPersonId))kept.push(next);
+ if(!retired)kept.push(next);
  kept.sort((a,b)=>text(a.displayName).localeCompare(text(b.displayName),"zh-Hant"));
  return {...base,schemaVersion:1,people:kept,count:kept.length,updatedAt:new Date().toISOString()};
 }
