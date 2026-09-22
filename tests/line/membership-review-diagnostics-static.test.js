@@ -12,5 +12,5 @@ test("LINE membership review diagnostics render group names and use the refreshe
 
   assert.match(js, /sample&&sample\.groupName/);
   assert.match(js, /LINE 群組：/);
-  assert.match(html, /membership-review-page\.js\?v=4/);
+  assert.match(html, /membership-review-page\.js\?v=6/);
 });
