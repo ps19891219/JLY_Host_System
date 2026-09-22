@@ -5,6 +5,6 @@ assert(page.includes('先收集可配合時間，媒合成功後才進正式排�
 assert(page.includes('先選既有劇本'));
 assert(js.includes("collection('studioMatchings')"));
 assert(js.includes("status:'collecting'"));
-assert(js.includes("selectedWorkId:''"));
+assert(js.includes("selectedWorkId:workId"));
 assert(!js.includes("collection('workShifts')"));
 console.log('studio matching workspace contract ok');
