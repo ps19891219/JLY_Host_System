@@ -18,7 +18,7 @@ console.log('matching tentative assignment boundary contract ok');
 
 const policy=fs.readFileSync('js/modules/work-schedule/work-schedule-change-policy.js','utf8'),lifecycle=fs.readFileSync('js/modules/work-schedule/work-schedule-lifecycle.js','utf8');
 assert(policy.includes('confirmationInvalidated'));
-assert(lifecycle.includes("assignmentConfirmationStatus:'invalidated'"));
+assert(lifecycle.includes("confirmationInvalidated?'invalidated'"));
 
 const confirmApi=fs.readFileSync('api/work-schedule-staff-confirmation.js','utf8');
 assert(confirmApi.includes('tentativePersonIds'));
@@ -35,7 +35,7 @@ assert(dashboard.includes('已婉拒 '));
 assert(dashboard.includes('需重確認 '));
 
 assert(lifecycle.includes("states[id]==='confirmed'"));
-assert(lifecycle.includes("nextStates[id]='invalidated'"));
+assert(lifecycle.includes("states[id]='invalidated'"));
 assert(lifecycle.includes('tentativePersonIds:nextTentative'));
 assert(lifecycle.includes('assignedPersonIds:nextAssigned'));
 
