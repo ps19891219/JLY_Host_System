@@ -1,6 +1,6 @@
 const fs=require('fs'),assert=require('assert');
 const studio=fs.readFileSync('js/modules/work-schedule/studio-matching-workspace.js','utf8'),handoff=fs.readFileSync('js/modules/work-schedule/work-schedule-matching-draft-handoff.js','utf8'),composer=fs.readFileSync('js/modules/work-schedule/work-schedule-session-composer.js','utf8');
-assert(studio.includes('確認並進入正式排班'));
+assert(studio.includes('建立正式排班'));
 assert(studio.includes("status:'ready_to_schedule'"));
 assert(studio.includes("jlyStudioMatchingDraft"));
 assert(studio.includes("formalPersonId"));
