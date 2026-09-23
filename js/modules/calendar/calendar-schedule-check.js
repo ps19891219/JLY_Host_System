@@ -3,7 +3,7 @@
 const txt=v=>String(v??'').trim();
 function localDateTime(date,time){
   if(!date||!time)return null;
-  const d=new Date(`${date}T${time}:00`);
+  const d=new Date(`${date}T${time}:00+08:00`);
   return Number.isNaN(d.getTime())?null:d;
 }
 function readDuration(config={}){

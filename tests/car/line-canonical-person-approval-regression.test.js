@@ -14,10 +14,11 @@ test("new LINE application reuses an existing canonical Person instead of reject
   assert.doesNotMatch(source, /LINE Identity 已經有正式 Person，不能再建立第二個 Person/);
 });
 
-test("existing historical roster claim prefers the claimant canonical Person", () => {
+test("existing historical roster claim keeps the host-approved target canonical and repairs duplicate LINE rows", () => {
   assert.match(source, /async function canonicalForExistingClaim/);
-  assert.match(source, /if \(linePerson\)/);
-  assert.match(source, /legacyPerson: targetPerson && targetPerson\.id !== linePerson\.id/);
+  assert.match(source, /const linePeople = await resolveLinePersons\(db, app\);/);
+  assert.match(source, /person: targetPerson/);
+  assert.match(source, /duplicateLinePeople: linePeople\.filter/);
   assert.match(source, /updateExistingRosterIdentity\(freshTarget, latestPerson, current\)/);
 });
 

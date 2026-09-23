@@ -112,9 +112,7 @@ test("delete-test-car 將 owner MyCar View 與 Core car 放在同一 final batch
   );
 });
 
-test("我的車頁載入一次性 repair runtime", () => {
-  assert.match(
-    mycarPage,
-    /mycar\.js\?v=48[\s\S]*mycar-view-existence-repair\.js\?v=2/
-  );
+test("我的車正常頁面不自動載入 existence repair runtime", () => {
+  assert.match(mycarPage, /mycar\.js\?v=49/);
+  assert.doesNotMatch(mycarPage, /mycar-view-existence-repair\.js/);
 });

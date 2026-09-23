@@ -146,7 +146,7 @@ async function open(){
   selectedDates=new Set();
   timeSlots=[{start:'11:00',end:''}];
   assignments={};
-  sessionHosts={};matchingAllowedPersonIds=null;
+  sessionHosts={};matchingSource=null;matchingAllowedPersonIds=null;
   const now=new Date();
   calendarCursor=new Date(now.getFullYear(),now.getMonth(),1);
   $('workSessionComposerTitle').textContent=activeWork.name||activeWork.workName||'新增排班';
@@ -158,9 +158,10 @@ function rowMatches(row,date,start,end,role){
   return String(row.workId||'')===String(activeWork.id)&&row.date===date&&row.startTime===start&&row.endTime===end&&(String(row.rolePoolId||'')===String(role.id||'')||norm(row.roleName)===norm(role.name));
 }
 function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){
+  const formalIds=matchingSource?[]:ids;
   const count=Math.max(ids.length,Number(role.requiredCount||0),1);
-  const slots=Array.from({length:count},(_,i)=>({id:`${refId}-slot-${i+1}`,slotKey:`slot-${i+1}`,label:String(i+1),personId:ids[i]||''}));
-  const persons=ids.map(id=>({personId:id,name:personName(id)}));
+  const slots=Array.from({length:count},(_,i)=>({id:`${refId}-slot-${i+1}`,slotKey:`slot-${i+1}`,label:String(i+1),personId:formalIds[i]||''}));
+  const persons=formalIds.map(id=>({personId:id,name:personName(id)}));
   return{
     workId:activeWork.id,
     workName:activeWork.name||activeWork.workName||'',
@@ -181,11 +182,15 @@ function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){
     durationSource:endWasExplicit?'explicit':'default_1h',
     requiredCount:count,
     staffSlots:slots,
-    assignedPersonIds:ids,
-    personIds:ids,
+    assignedPersonIds:formalIds,
+    personIds:formalIds,
+    tentativePersonIds:matchingSource?ids:[],
     people:persons,
     missingCount:slots.filter(s=>!s.personId).length,
     staffingStatus:slots.some(s=>!s.personId)?'pending':'complete',
+    assignmentConfirmationRequired:!!matchingSource,
+    assignmentConfirmationStatus:matchingSource?'pending':'not_required',
+    assignmentConfirmationByPerson:matchingSource?Object.fromEntries(ids.map(id=>[String(id),'tentative'])):{},
     note,
     calendar:{syncEnabled:false,autoUpdate:false,provider:'google',calendarId:'primary'},
     schemaVersion:7,
@@ -245,10 +250,10 @@ async function save(e){
       }
       await batch.commit();
     }
-    for(const mk of months)await V.rebuildMonth(mk);
+    if(V.syncShifts)await V.syncShifts(changes.map(c=>({before:c.before,after:c.after})));else if(V.upsertShift)for(const c of changes)await V.upsertShift(c.after);else throw new Error('work_schedule_prepared_view_writer_missing');
     $('workSessionComposerDialog').close();
     await window.JLYWorkScheduleDashboard?.reloadMonth?.(months[0]);
-    alert(`完成：已建立／更新 ${changes.length} 筆角色排班。`);
+    alert(matchingSource?`完成：已建立 ${changes.length} 筆暫定指派，等待員工確認。`:`完成：已建立／更新 ${changes.length} 筆角色排班。`);
   }catch(err){alert(`建立排班失敗：${err.message||err}`)}
 }
 
@@ -272,7 +277,7 @@ async function openMatchingDraft(draft){
   }
   calendarCursor=new Date(draft.date+'T00:00:00');
   $('workSessionComposerTitle').textContent=(activeWork.name||activeWork.workName||'新增排班')+' · 媒合確認';
-  $('workSessionNote').value='由配合時間媒合帶入；只有按下「建立全部排班」後才成為正式排班。';
+  $('workSessionNote').value='由配合時間媒合帶入；按下「建立全部排班」只會送出暫定指派；員工確認後才進入正式班表。';
   renderCalendar();renderTimes();renderSessions();
   const dlg=$('workSessionComposerDialog');if(dlg&&!dlg.open)dlg.showModal();
 }

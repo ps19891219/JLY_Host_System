@@ -29,7 +29,8 @@ function safePurpose(value) {
   return [
     "car_player_entry",
     "car_dm_entry",
-    "work_schedule_staff_entry"
+    "work_schedule_staff_entry",
+    "studio_matching_vote"
   ].includes(purpose)
     ? purpose
     : "";

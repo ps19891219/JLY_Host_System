@@ -1,0 +1,26 @@
+"use strict";
+const fs=require("fs"),path=require("path"),assert=require("assert");
+const src=fs.readFileSync(path.join(__dirname,"..","scripts","read-view-initializer.js"),"utf8");
+assert(src.includes('const APPLY=args.has("--apply"),PROMOTE=args.has("--promote")'),"dry-run must be default");
+assert(src.includes('Math.min(100,Number(value("page-size")||25))'),"page size bounded");
+assert(src.includes('Math.min(1000,Number(value("max-docs")||100))'),"max docs bounded");
+assert(src.includes('collection("personDirectoryViewBuilds")'),"apply must use staging");
+assert(src.includes('canonicalWrites:0'),"staging apply must not write canonical");
+assert(src.includes('collection("personDirectoryViewSnapshots")'),"promotion must snapshot canonical");
+assert(src.includes('build_not_completed'),"partial build must not promote");
+assert(src.includes('resume_after_mismatch'),"resume cursor must be guarded");
+assert(src.includes('MAX_VIEW_BYTES=900000'),"prepared view document size must be bounded");
+assert(src.includes('staging_view_too_large'),"oversized staging view must fail closed");
+assert(src.includes('canonical_snapshot_too_large'),"oversized canonical snapshot must fail closed");
+assert(!/\.delete\s*\(/.test(src),"initializer must not delete");
+assert(!/collection\(["']cars["']\)/.test(src),"must not scan Activities");
+assert(!/collection\(["']workShifts["']\)/.test(src),"must not scan Work Schedule");
+assert(!/collection\(["']studioMatchings["']\)/.test(src),"must not scan Matching");
+assert(src.includes('SCOPE!=="person-directory"'),"unsupported scopes fail closed");
+
+assert(src.includes('ROLLBACK=args.has("--rollback")'),"rollback mode must be explicit");
+assert(src.includes('snapshot_not_found'),"rollback requires an existing snapshot");
+assert(src.includes('snapshot_target_mismatch'),"rollback must validate the snapshot target");
+assert(src.includes('snapshot_has_no_canonical_data'),"rollback must fail closed instead of deleting canonical");
+assert(src.includes('rolledBackFromBuildId:BUILD_ID'),"rollback must leave an audit marker");
+console.log("read-view-initializer-safety.test.js passed");

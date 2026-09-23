@@ -173,16 +173,28 @@ console.log("picker-data.js 已成功載入！");
     return "尚未連結";
   }
 
+  function preparedDirectoryRef() {
+    return getDatabase().collection("personDirectoryViews").doc("canonical");
+  }
+
+  async function loadPreparedPersonDirectory() {
+    const snapshot = await preparedDirectoryRef().get();
+    if (!snapshot.exists) {
+      const error = new Error("人員索引尚未建立，已停止自動掃描 players Core");
+      error.code = "person_directory_view_missing";
+      throw error;
+    }
+    const payload = snapshot.data() || {};
+    const rows = Array.isArray(payload.people) ? payload.people : [];
+    return sortMembersByName(dedupeCanonicalMembers(removeDeletedMembers(rows)));
+  }
+
   async function loadAllMembers() {
-    const snapshot = await getDatabase().collection("players").get();
-    const members = snapshot.docs.map(function (doc) {
-      return { id: doc.id, ...doc.data() };
-    });
-    return sortMembersByName(dedupeCanonicalMembers(removeDeletedMembers(members)));
+    return loadPreparedPersonDirectory();
   }
 
   async function loadPersonDirectory() {
-    return loadAllMembers();
+    return loadPreparedPersonDirectory();
   }
 
   function searchMembers(members, keyword) {
@@ -262,7 +274,7 @@ console.log("picker-data.js 已成功載入！");
     normalizeText, getMemberName, getMemberSearchValues,
     getCanonicalMemberId, getStrongIdentityKeys, dedupeCanonicalMembers,
     isLineLinked, hasFormalIdentity, getIdentityState, getIdentityLabel,
-    loadAllMembers, loadPersonDirectory, searchMembers,
+    loadAllMembers, loadPersonDirectory, loadPreparedPersonDirectory, searchMembers,
     loadStudioById, loadStudioMemberIds, getStudioMemberIds,
     getMembersByIds, findDuplicateMembers, findDuplicateMember
   };

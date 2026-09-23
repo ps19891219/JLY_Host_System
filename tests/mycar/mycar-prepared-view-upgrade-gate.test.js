@@ -15,8 +15,8 @@ test("MyCar page does not auto-load legacy full recovery on every visit", () => 
     html,
     /<script\s+src="\/js\/modules\/car\/identity\/mycar-legacy-identity-repair\.js\?v=13"><\/script>/
   );
-  assert.match(html, /mycar-prepared-view-upgrade\.js\?v=1/);
-  assert.match(html, /loadLegacyRecovery/);
+  assert.doesNotMatch(html, /mycar-prepared-view-upgrade\.js/);
+  assert.doesNotMatch(html, /loadLegacyRecovery/);
 });
 
 test("prepared view upgrader migrates only IDs already indexed in the view", () => {

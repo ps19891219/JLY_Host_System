@@ -9,5 +9,5 @@ assert(bridge.includes("error:'person_not_available'"));
 assert(!bridge.includes("collection('workShifts')"),'bridge must not create official shifts by itself');
 assert(dashboard.includes("shifts=db.collection('workShifts')"),'formal Work Schedule remains the writer');
 assert(dashboard.includes('applyAssignments'),'formal assignment pipeline remains available');
-assert(page.includes('work-schedule-matching-bridge.js?v=1'));
+assert(page.includes('work-schedule-matching-bridge.js?v=2'));
 console.log('work-schedule matching bridge contract ok');
