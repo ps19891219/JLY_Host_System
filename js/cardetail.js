@@ -693,18 +693,10 @@ function buildCarNavigation(scriptName) {
 >
   🗓️ 時間媒合
 </button>
-
-          <button
-            type="button"
-            onclick="finishCurrentCar()"
-          >
-            🏁 結束車團
-          </button>
-
-          <button
+<button
             type="button"
             class="car-menu-danger"
-            onclick="cancelCurrentCar()"
+            onclick="cancelCar()"
           >
             🚫 取消車團
           </button>
