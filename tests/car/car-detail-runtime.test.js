@@ -21,5 +21,5 @@ test("Car Detail carries carId from MyCar card URL into the Core loader", () => 
 test("Car Detail deploys the repaired runtime cache version", () => {
   const html = read("pages/car-detail.html");
 
-  assert.match(html, /\/js\/cardetail\.js\?v=61/);
+  assert.match(html, /\/js\/cardetail\.js\?v=62/);
 });
