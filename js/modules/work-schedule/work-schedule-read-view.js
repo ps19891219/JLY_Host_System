@@ -59,7 +59,7 @@ async function syncShifts(changes){
  return list.map(x=>x.after)
 }
 async function upsertShift(row){await applyRowChange(null,row);return rowFromDoc({id:row?.id,data:()=>row||{}})}
-async function loadWorkMonth(workId,monthKey){const id=txt(workId);if(!id||!monthKey)return[];const rows=await loadWorkRows(id);return rows.filter(r=>(r.monthKey||String(r.date||'').slice(0,7))===monthKey&&r.status!=='cancelled')}
+async function loadWorkMonth(workId,monthKey){const id=txt(workId);if(!id||!monthKey)return[];const rows=await loadMonthSnapshot(monthKey);return rows.filter(r=>txt(r.workId)===id&&r.status!=='cancelled')}
 async function loadMonth(monthKey){return loadMonthSnapshot(monthKey)}
 function repairMarkerId(workName){return `work-history-${txt(workName).replace(/\//g,'_')}`}
 async function repairWorkHistory(workName){const name=txt(workName);if(!name)return[];const snap=await shifts.where('workName','==',name).get(),rows=snap.docs.map(rowFromDoc).filter(r=>r.status!=='cancelled'&&r.date);const byMonth=new Map();rows.forEach(r=>{const mk=r.monthKey||String(r.date).slice(0,7);if(!mk)return;if(!byMonth.has(mk))byMonth.set(mk,[]);byMonth.get(mk).push(r)});for(const [mk,workRows] of byMonth){const ref=views.doc(`month-${mk}`),doc=await ref.get(),existing=doc.exists&&Array.isArray(doc.data()?.rows)?doc.data().rows:[],map=new Map(existing.map(r=>[String(r.id),r]));workRows.forEach(r=>map.set(String(r.id),r));await ref.set({type:'work-schedule-month',monthKey:mk,rows:[...map.values()],updatedAt:serverTime()},{merge:true});await rememberMonth(mk)}await views.doc(repairMarkerId(name)).set({type:'work-schedule-work-history-repair',workName:name,repairVersion:WORK_HISTORY_REPAIR_VERSION,repairedAt:serverTime()},{merge:true});return rows}
