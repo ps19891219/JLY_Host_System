@@ -17,6 +17,9 @@ module.exports=async function handler(req,res){
    const data=doc.exists?doc.data()||{}:null;
    views[mk]={exists:doc.exists,count:data&&Array.isArray(data.rows)?data.rows.length:0,rows:data&&Array.isArray(data.rows)?data.rows.filter(r=>dates.includes(String(r.date||""))):[]};
   }
-  return send(res,200,{success:true,source,views});
+  const workDoc=await db.collection("workScheduleViews").doc("work-HMlsoMDqVdxUMEH8apSr-all").get();
+  const workData=workDoc.exists?workDoc.data()||{}:null;
+  const workRows=workData&&Array.isArray(workData.rows)?workData.rows:[];
+  return send(res,200,{success:true,sourceCounts:Object.fromEntries(Object.entries(source).map(([k,v])=>[k,v.length])),viewSummary:Object.fromEntries(Object.entries(views).map(([k,v])=>[k,{exists:v.exists,count:v.count,matchingRows:v.rows.length}])),workView:{exists:workDoc.exists,count:workRows.length,dates:workRows.filter(r=>dates.includes(String(r.date||""))).map(r=>({id:r.id,date:r.date,roleName:r.roleName,startTime:r.startTime,endTime:r.endTime,status:r.status}))}});
  }catch(e){return send(res,500,{success:false,error:String(e&&e.message||e)})}
 };
