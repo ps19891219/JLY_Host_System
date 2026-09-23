@@ -11,5 +11,5 @@ assert(source.includes('cancelReason: reasonText'),"cancel reason must be preser
 assert(source.includes('cancelledAt: nowTime()'),"cancel timestamp must be preserved");
 assert(source.includes('"車團已取消，原因："'),"cancel history must be recorded");
 assert(source.includes("syncJLYViewsFromKnownMutation"),"cancel must sync prepared views");
-assert(page.includes("/js/cardetail.js?v=62"),"car detail must load the refreshed lifecycle asset");
+assert(page.includes("/js/cardetail.js?v=63"),"car detail must load the refreshed lifecycle asset");
 console.log("car cancel lifecycle regression checks passed");
