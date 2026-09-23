@@ -39,6 +39,54 @@ console.log("recruit-controller.js 已成功載入！");
     return Array.from(map.values());
   }
 
+  function timestampMillis(value) {
+    if (!value) return 0;
+    if (typeof value.toDate === "function") {
+      return value.toDate().getTime();
+    }
+    if (Number.isFinite(Number(value.seconds))) {
+      return Number(value.seconds) * 1000;
+    }
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function isRecruitPageExpired(page) {
+    const expiresAt =
+      timestampMillis(
+        page && page.expiresAt
+      );
+
+    return Boolean(
+      expiresAt &&
+      Date.now() >= expiresAt
+    );
+  }
+
+  function canCurrentViewerCreateTemporaryLinks(
+    recruitPage
+  ) {
+    const shareData =
+      window.JLYRecruitShareData;
+
+    if (
+      !shareData ||
+      typeof shareData.getOwnerId !==
+        "function"
+    ) {
+      return false;
+    }
+
+    return String(
+      shareData.getOwnerId() || ""
+    ).trim() ===
+      String(
+        recruitPage &&
+        recruitPage.ownerId ||
+        ""
+      ).trim();
+  }
+
   function retryWhenModulesReady(container) {
     if (moduleRetryCount >= MAX_MODULE_RETRIES) {
       container.innerHTML = '<div class="recruit-error"><h2>揪團頁載入未完成</h2><p>資料模組沒有完成載入，請重新整理頁面。</p></div>';
@@ -78,6 +126,74 @@ console.log("recruit-controller.js 已成功載入！");
         return render.renderError(container, "這個分享連結可能已失效。");
       }
 
+      if (isRecruitPageExpired(recruitPage)) {
+        return render.renderError(
+          container,
+          "這個臨時分享連結已過期。"
+        );
+      }
+
+      const batchShare =
+        window.JLYRecruitBatchShare;
+
+      if (
+        batchShare &&
+        typeof batchShare
+          .setTemporaryLinkEnabled ===
+          "function"
+      ) {
+        batchShare
+          .setTemporaryLinkEnabled(
+            canCurrentViewerCreateTemporaryLinks(
+              recruitPage
+            ) &&
+            recruitPage.scope !==
+              "selected"
+          );
+      }
+
+      if (
+        recruitPage.scope ===
+          "selected"
+      ) {
+        const selectedCars =
+          typeof data
+            .getPreparedCarsByIds ===
+            "function"
+            ? await data
+                .getPreparedCarsByIds(
+                  Array.isArray(
+                    recruitPage.carIds
+                  )
+                    ? recruitPage.carIds
+                    : []
+                )
+            : [];
+
+        const filteredSelectedCars =
+          sortRecruitCars(
+            filterRecruitCars(
+              selectedCars
+            )
+          );
+
+        if (
+          batchShare &&
+          typeof batchShare.setCars ===
+            "function"
+        ) {
+          batchShare.setCars(
+            filteredSelectedCars
+          );
+        }
+
+        render.renderPage(
+          container,
+          filteredSelectedCars
+        );
+        return;
+      }
+
       const ownerCars = await data.getRecruitCarsByOwner(recruitPage.ownerId);
       const hostCars = Array.isArray(ownerCars) ? ownerCars : [];
       const assistCarIds = window.JLYCarRelations && typeof window.JLYCarRelations.getAssistRecruitingCarIds === "function"
@@ -100,12 +216,31 @@ console.log("recruit-controller.js 已成功載入！");
       const filteredAssistCars = sortRecruitCars(filterRecruitCars(assistCars));
       const allCars = sortRecruitCars(mergeCars([filteredHostCars, filteredAssistCars]));
 
-      if (window.JLYRecruitBatchShare && typeof window.JLYRecruitBatchShare.setCars === "function") {
-        window.JLYRecruitBatchShare.setCars(allCars);
+      if (
+        batchShare &&
+        typeof batchShare.setCars ===
+          "function"
+      ) {
+        batchShare.setCars(allCars);
       }
 
       if (window.JLYRecruitTabs && typeof window.JLYRecruitTabs.init === "function") {
-        window.JLYRecruitTabs.init({ onChange: function (cars) { render.renderPage(container, cars); } });
+        window.JLYRecruitTabs.init({
+          onChange: function (cars) {
+            if (
+              batchShare &&
+              typeof batchShare.setCars ===
+                "function"
+            ) {
+              batchShare.setCars(cars);
+            }
+
+            render.renderPage(
+              container,
+              cars
+            );
+          }
+        });
         window.JLYRecruitTabs.setCarGroups({ all: allCars, host: filteredHostCars, assist: filteredAssistCars });
         window.JLYRecruitTabs.setTab("all");
         return;
