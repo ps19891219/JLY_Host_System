@@ -21,5 +21,5 @@ assert(rebuildMonthIndex.includes("snapshotPreparedView('month-index','rebuildMo
 const rebuildWorkIndex=view.slice(view.indexOf("async function rebuildWorkIndex"),view.indexOf("async function loadWorkIndex"));
 assert(rebuildWorkIndex.includes("snapshotPreparedView('work-index','rebuildWorkIndex',indexDoc)"),"work-index rebuild must snapshot before overwrite");
 
-assert(page.includes("/js/modules/work-schedule/work-schedule-read-view.js?v=8"),"Work Schedule must load refreshed snapshot-safe asset");
+assert(page.includes("/js/modules/work-schedule/work-schedule-read-view.js?v=9"),"Work Schedule must load refreshed snapshot-safe asset");
 console.log("work schedule repair snapshot contract ok");
