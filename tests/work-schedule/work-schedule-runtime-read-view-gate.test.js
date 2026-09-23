@@ -16,7 +16,7 @@ const runtime=[
 test("normal Work Schedule reads consume prepared views only",()=>{
  assert.match(read,/async function loadMonth\(monthKey\)\{return loadMonthSnapshot\(monthKey\)\}/);
  assert.match(read,/async function ensureMonthSnapshot\(monthKey\)\{return loadMonthSnapshot\(monthKey\)\}/);
- assert.match(read,/async function loadWorkMonth[\s\S]*?const rows=await loadWorkRows\(id\)/);
+ assert.match(read,/async function loadWorkMonth[\s\S]*?const rows=await loadMonthSnapshot\(monthKey\)/);
  assert.match(read,/async function loadMonthIndex\(\)\{const doc=await views\.doc\('month-index'\)\.get\(\)/);
  assert.match(read,/async function loadWorkIndex\(\)\{const doc=await views\.doc\('work-index'\)\.get\(\)/);
 });
