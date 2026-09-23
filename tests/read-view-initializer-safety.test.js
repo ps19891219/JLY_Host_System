@@ -17,4 +17,10 @@ assert(!/collection\(["']cars["']\)/.test(src),"must not scan Activities");
 assert(!/collection\(["']workShifts["']\)/.test(src),"must not scan Work Schedule");
 assert(!/collection\(["']studioMatchings["']\)/.test(src),"must not scan Matching");
 assert(src.includes('SCOPE!=="person-directory"'),"unsupported scopes fail closed");
+
+assert(src.includes('ROLLBACK=args.has("--rollback")'),"rollback mode must be explicit");
+assert(src.includes('snapshot_not_found'),"rollback requires an existing snapshot");
+assert(src.includes('snapshot_target_mismatch'),"rollback must validate the snapshot target");
+assert(src.includes('snapshot_has_no_canonical_data'),"rollback must fail closed instead of deleting canonical");
+assert(src.includes('rolledBackFromBuildId:BUILD_ID'),"rollback must leave an audit marker");
 console.log("read-view-initializer-safety.test.js passed");
