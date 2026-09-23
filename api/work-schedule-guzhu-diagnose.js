@@ -4,11 +4,11 @@ const dates=["2027-10-04","2027-11-01","2027-12-01"];
 const token="guzhu-20270923-4f8a";
 function send(res,status,data){res.statusCode=status;res.setHeader("Content-Type","application/json; charset=utf-8");res.setHeader("Cache-Control","no-store");res.end(JSON.stringify(data));}
 module.exports=async function handler(req,res){
- if(!["GET","POST"].includes(req.method))return send(res,405,{success:false,error:"method_not_allowed"});
+ if(req.method!=="GET")return send(res,405,{success:false,error:"method_not_allowed"});
  if(String(req.query&&req.query.token||"")!==token)return send(res,403,{success:false,error:"invalid_token"});
  try{
   const db=getFirestore();
-  if(req.method==="POST"){
+  if(String(req.query&&req.query.mode||"")==="repair"){
     const workId="HMlsoMDqVdxUMEH8apSr";
     const snap=await db.collection("workShifts").where("workId","==",workId).limit(200).get();
     const rows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>String(r.status||"scheduled")!=="cancelled").sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))||String(a.startTime||"").localeCompare(String(b.startTime||""))||String(a.roleName||"").localeCompare(String(b.roleName||"")));
