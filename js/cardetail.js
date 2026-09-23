@@ -1390,25 +1390,85 @@ async function finishCar() {
 }
 
 async function cancelCar() {
-  const reason = prompt(
-    "請輸入取消原因，可空白：",
-    ""
-  );
+  const db = window.db;
+  const carId = getCarId();
+  const currentCar = window.currentCarData;
+
+  if (!db) {
+    alert("Firebase 尚未載入");
+    return;
+  }
+
+  if (!carId) {
+    alert("找不到車團 ID");
+    return;
+  }
+
+  if (!currentCar) {
+    alert("車團資料尚未載入完成，請重新整理後再試。");
+    return;
+  }
+
+  const currentCalendar = currentCar.calendar || {};
+  const alreadyCancelled =
+    currentCar.status === "已取消";
+
+  if (alreadyCancelled && !currentCalendar.eventId) {
+    alert("這台車已取消，Google Calendar 也沒有待清除的行程。");
+    closeCarMenu();
+    return;
+  }
+
+  const reason = alreadyCancelled
+    ? (currentCar.cancelReason || "未填寫")
+    : prompt(
+        "請輸入取消原因，可空白：",
+        ""
+      );
 
   if (
     !confirm(
-      "確定要取消這台車嗎？取消後資料會保留。"
+      alreadyCancelled
+        ? "這台車已經取消。是否補清除仍存在的 Google Calendar 行程？"
+        : "確定要取消這台車嗎？取消後資料會保留；若已同步 Google Calendar，也會一併刪除該行程。"
     )
   ) {
     return;
   }
 
-  const db = window.db;
-  const carId = getCarId();
+  closeCarMenu();
 
-  if (!db) {
-    alert("Firebase 尚未載入");
-    return;
+  let googleAuthorized = false;
+  let googleAuthError = null;
+
+  /*
+    Google 授權必須緊接使用者點擊，
+    不能先等待 Firestore。
+  */
+  if (currentCalendar.eventId) {
+    try {
+      if (
+        !window.JLYCalendarDetailActions ||
+        typeof window.JLYCalendarDetailActions.authorizeForCar !== "function"
+      ) {
+        throw new Error(
+          "Google Calendar 授權模組尚未載入"
+        );
+      }
+
+      await window.JLYCalendarDetailActions.authorizeForCar(
+        currentCar
+      );
+
+      googleAuthorized = true;
+    } catch (error) {
+      googleAuthError = error;
+
+      console.warn(
+        "取消車團時 Google Calendar 授權未完成：",
+        error
+      );
+    }
   }
 
   try {
@@ -1423,52 +1483,174 @@ async function cancelCar() {
       return;
     }
 
-    const car = doc.data();
+    const car = {
+      id: doc.id,
+      ...doc.data()
+    };
+
+    const latestCalendar =
+      car.calendar || {};
+
+    let googleDeleted =
+      !latestCalendar.eventId;
+
+    if (latestCalendar.eventId) {
+      if (!googleAuthorized) {
+        const continueWithoutGoogle =
+          confirm(
+            [
+              "⚠️ Google Calendar 授權未完成。",
+              "",
+              googleAuthError &&
+              googleAuthError.message
+                ? googleAuthError.message
+                : "無法取得 Google 授權",
+              "",
+              alreadyCancelled
+                ? "Google 行程目前無法清除。"
+                : "是否仍取消 JLY 車團？",
+              "",
+              "注意：Google Calendar 原行程可能會保留。"
+            ].join("\n")
+          );
+
+        if (!continueWithoutGoogle) {
+          return;
+        }
+      } else {
+        if (
+          !window.JLYCalendarSync ||
+          typeof window.JLYCalendarSync.removeSyncedEvent !== "function"
+        ) {
+          throw new Error(
+            "Calendar Sync 模組尚未載入"
+          );
+        }
+
+        const calendarResult =
+          await window.JLYCalendarSync.removeSyncedEvent({
+            carId,
+            car
+          });
+
+        if (calendarResult.ok === true) {
+          googleDeleted = true;
+        } else {
+          const continueWithoutGoogle =
+            confirm(
+              [
+                "⚠️ Google Calendar 行程刪除失敗。",
+                "",
+                calendarResult.error &&
+                calendarResult.error.message
+                  ? calendarResult.error.message
+                  : "未知錯誤",
+                "",
+                alreadyCancelled
+                  ? "Google 行程目前仍會保留。"
+                  : "是否仍取消 JLY 車團？"
+              ].join("\n")
+            );
+
+          if (!continueWithoutGoogle) {
+            return;
+          }
+        }
+      }
+    }
 
     const reasonText =
-      reason && reason.trim()
-        ? reason.trim()
+      reason && String(reason).trim()
+        ? String(reason).trim()
         : "未填寫";
 
-    const history = addHistory(
-      car,
-      "已取消",
-      "車團已取消，原因：" +
-        reasonText
-    );
+    const cancelledAt =
+      car.cancelledAt || nowTime();
 
-    await carRef.update({
+    const nextCalendar =
+      googleDeleted
+        ? {
+            ...latestCalendar,
+            syncEnabled: false,
+            eventId: "",
+            eventUrl: "",
+            syncStatus: "cancelled",
+            lastError: "",
+            cancelledAt: nowTime()
+          }
+        : latestCalendar;
+
+    const history =
+      alreadyCancelled
+        ? addHistory(
+            car,
+            googleDeleted
+              ? "Google 行程已清除"
+              : "Google 行程清除未完成",
+            googleDeleted
+              ? "已補清除取消車團的 Google Calendar 行程"
+              : "取消車團仍保留 Google Calendar 行程"
+          )
+        : addHistory(
+            car,
+            "已取消",
+            "車團已取消，原因：" +
+              reasonText +
+              (
+                latestCalendar.eventId
+                  ? (
+                      googleDeleted
+                        ? "；Google Calendar 行程已刪除"
+                        : "；Google Calendar 行程尚未刪除"
+                    )
+                  : ""
+              )
+          );
+
+    const patch = {
       status: "已取消",
       cancelReason: reasonText,
-      cancelledAt: nowTime(),
+      cancelledAt,
       history,
       updatedAt: nowTime()
-    });
+    };
+
+    if (googleDeleted && latestCalendar.eventId) {
+      patch.calendar = nextCalendar;
+    }
+
+    await carRef.update(patch);
+
+    const changedFields = [
+      "status",
+      "cancelReason",
+      "cancelledAt",
+      "history"
+    ];
+
+    if (patch.calendar) {
+      changedFields.push("calendar");
+    }
 
     await syncJLYViewsFromKnownMutation(
-      {
-        id: carId,
-        ...car
-      },
-      {
-        status: "已取消",
-        cancelReason:
-          reasonText,
-        cancelledAt:
-          nowTime(),
-        history
-      },
-      [
-        "status",
-        "cancelReason",
-        "cancelledAt",
-        "history"
-      ],
+      car,
+      patch,
+      changedFields,
       carId
     );
 
     alert(
-      "已取消車團，紀錄已保留"
+      alreadyCancelled
+        ? (
+            googleDeleted
+              ? "Google Calendar 行程已清除，取消紀錄保留。"
+              : "車團仍為已取消，但 Google Calendar 行程尚未清除。"
+          )
+        : (
+            googleDeleted
+              ? "已取消車團，紀錄已保留，Google Calendar 行程已刪除。"
+              : "已取消車團，紀錄已保留；Google Calendar 行程尚未刪除。"
+          )
     );
 
     renderCarDetail();
