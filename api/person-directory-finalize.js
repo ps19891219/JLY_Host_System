@@ -67,7 +67,8 @@ module.exports=async function handler(req,res){
   const dryRun={scanned,eligible,retiredCount,lastId,pages,sourceExhausted,writes:0,collectionsRead:["players"],collectionsWritten:[]};
   if(!sourceExhausted)throw new Error("source_exceeds_max_docs");
   if(scanned<1)throw new Error("source_empty");
-  if(view.count!==eligible)throw new Error("eligible_count_mismatch");
+  if(view.count<1||view.count>eligible)throw new Error("visible_count_invalid");
+  const collapsedCount=eligible-view.count;
   if(retiredCount>Math.max(50,Math.ceil(scanned*0.2)))throw new Error("retired_ratio_too_high");
   const viewBytes=bytes(view);
   if(viewBytes>MAX_VIEW_BYTES)throw new Error("view_too_large");
@@ -101,7 +102,7 @@ module.exports=async function handler(req,res){
   const canonical=verifyCanonical.data()||{},build=verifyBuild.data()||{};
   if(canonical.count!==view.count||build.count!==view.count)throw new Error("verify_count_mismatch");
   if(!(canonical.initializer&&canonical.initializer.buildId===BUILD_ID))throw new Error("verify_build_id_mismatch");
-  const result={success:true,buildId:BUILD_ID,dryRun,staging:{count:build.count,bytes:bytes(build),writes:1},promotion:{snapshotCreated:true,canonicalWrites:1,previousCanonicalExisted:promoted.previousCanonicalExisted},verify:{canonicalCount:canonical.count,snapshotExists:true,buildExists:true,totalWrites:3}};
+  const result={success:true,buildId:BUILD_ID,dryRun:{...dryRun,visibleCount:view.count,collapsedCount},staging:{count:build.count,bytes:bytes(build),writes:1},promotion:{snapshotCreated:true,canonicalWrites:1,previousCanonicalExisted:promoted.previousCanonicalExisted},verify:{canonicalCount:canonical.count,snapshotExists:true,buildExists:true,totalWrites:3}};
   console.log("[PERSON_DIRECTORY_FINALIZE]",JSON.stringify(result));
   return send(res,200,result);
  }catch(e){
