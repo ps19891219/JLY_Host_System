@@ -14,8 +14,8 @@ function rowFromDoc(d){const x={id:d.id,...d.data()};return {id:x.id,workId:x.wo
 function workView(w){const roles=(w.roles||[]).map((r,i)=>({id:String(r.id||r.name||`role-${i+1}`),name:txt(r.name),eligiblePersonIds:(r.eligiblePersonIds||r.personIds||[]).map(String),staffSlots:Array.isArray(r.staffSlots)?r.staffSlots:Array.isArray(r.slots)?r.slots:[]}));return {id:w.id,name:w.name||w.workName||'',studioName:w.studioName||'',roles,roleCount:roles.filter(r=>r.name).length,candidateCount:new Set(roles.flatMap(r=>r.eligiblePersonIds)).size}}
 async function rememberMonths(monthKeys){const wanted=[...new Set((monthKeys||[]).filter(Boolean))];if(!wanted.length)return;const ref=views.doc('month-index'),doc=await ref.get(),current=doc.exists&&Array.isArray(doc.data()?.months)?doc.data().months:[],months=[...new Set([...current,...wanted])].sort();await ref.set({type:'work-schedule-month-index',months,updatedAt:serverTime()},{merge:true})}
 async function rememberMonth(monthKey){return rememberMonths([monthKey])}
-function monthBounds(monthKey){const [y,m]=String(monthKey||'').split('-').map(Number);if(!y||!m)return null;const start=`${y}-${String(m).padStart(2,'0')-01`,next=new Date(y,m,1),end=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')-01`;return{start,end}}
-function snapshotIdFor(docId){return `${txt(docId).replace(/[^A-Za-z0-9_-]/g,'_')-${Date.now()}`}
+function monthBounds(monthKey){const [y,m]=String(monthKey||'').split('-').map(Number);if(!y||!m)return null;const start=`${y}-${String(m).padStart(2,'0')}-01`,next=new Date(y,m,1),end=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-01`;return{start,end}}
+function snapshotIdFor(docId){return `${txt(docId).replace(/[^A-Za-z0-9_-]/g,'_')}-${Date.now()}`}
 async function snapshotPreparedView(docId,operation,knownDoc){
  const id=txt(docId);if(!id)throw new Error('snapshot_target_required');
  const doc=knownDoc||await views.doc(id).get(),snapshotId=snapshotIdFor(id);
