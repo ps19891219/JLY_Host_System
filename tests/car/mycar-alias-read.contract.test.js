@@ -1,0 +1,13 @@
+"use strict";
+const fs=require("node:fs"),assert=require("node:assert");
+const source=fs.readFileSync("js/mycar.js","utf8");
+const page=fs.readFileSync("pages/mycar.html","utf8");
+const start=source.indexOf("async function loadMyCarPreparedView");
+const end=source.indexOf("const MYCAR_RETURN_MARKER_KEY",start);
+const fn=source.slice(start,end);
+assert(fn.includes('collection(\n          "myCarViewAliases"'),"missing-view fallback must resolve MyCar alias");
+assert(fn.includes("let view =\n    await module.read(\n      requestedId"),"must try direct Prepared View first");
+assert(fn.includes("view =\n          await module.read(\n            resolvedId"),"must read canonical Prepared View after alias resolution");
+assert(fn.includes('String(view.viewerId || "").trim() !==\n      resolvedId'),"validation must use resolved canonical viewerId");
+assert(page.includes("/js/mycar.js?v=50"),"MyCar page must load refreshed alias-read asset");
+console.log("mycar alias read contract ok");

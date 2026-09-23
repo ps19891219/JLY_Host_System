@@ -135,10 +135,57 @@ async function loadMyCarPreparedView(
   const module =
     await ensureMyCarViewModule();
 
-  const view =
+  const requestedId =
+    String(
+      ownerId || ""
+    ).trim();
+
+  let resolvedId =
+    requestedId;
+
+  let view =
     await module.read(
-      ownerId
+      requestedId
     );
+
+  if (!view) {
+    const aliasSnapshot =
+      await window.db
+        .collection(
+          "myCarViewAliases"
+        )
+        .doc(
+          requestedId
+        )
+        .get();
+
+    if (
+      aliasSnapshot.exists
+    ) {
+      const alias =
+        aliasSnapshot.data() ||
+        {};
+
+      const routedId =
+        String(
+          alias.viewerId || ""
+        ).trim();
+
+      if (
+        routedId &&
+        routedId !==
+          requestedId
+      ) {
+        resolvedId =
+          routedId;
+
+        view =
+          await module.read(
+            resolvedId
+          );
+      }
+    }
+  }
 
   if (!view) {
     throw new Error(
@@ -150,7 +197,7 @@ async function loadMyCarPreparedView(
     Number(view.schemaVersion) < 4 ||
     view.viewType !== "mycar_index" ||
     String(view.viewerId || "").trim() !==
-      String(ownerId || "").trim() ||
+      resolvedId ||
     !Array.isArray(view.cars)
   ) {
     throw new Error(
