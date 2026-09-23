@@ -34,5 +34,5 @@ module.exports=async function handler(req,res){
     if(scanned>=maxDocs)break;
     q=db.collection("players").orderBy("__name__").startAfter(lastId).limit(pageSize);
   }
-  return send(res,200,{success:true,mode:"dry-run",scope:"person-directory",scanned,eligible,lastId,pageSize,maxDocs,pages,sourceExhausted,writes:0,collectionsRead:["players"],collectionsWritten:[]});
+  const result={success:true,mode:"dry-run",scope:"person-directory",scanned,eligible,lastId,pageSize,maxDocs,pages,sourceExhausted,writes:0,collectionsRead:["players"],collectionsWritten:[]};\n  console.log("[PERSON_DIRECTORY_DRY_RUN]",JSON.stringify(result));\n  return send(res,200,result);
 };
