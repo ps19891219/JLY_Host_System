@@ -9,6 +9,9 @@ console.log(
   let selectedCarIds =
     new Set();
 
+  let temporaryLinkEnabled =
+    false;
+
   function escapeHtml(value) {
     return String(
       value == null
@@ -525,6 +528,17 @@ console.log(
         selectedCarIds.size ===
         0;
     }
+
+    const temporaryButton =
+      document.getElementById(
+        "recruitBatchTemporaryLinkButton"
+      );
+
+    if (temporaryButton) {
+      temporaryButton.disabled =
+        selectedCarIds.size === 0 ||
+        !temporaryLinkEnabled;
+    }
   }
 
   function toggleCar(
@@ -838,6 +852,60 @@ console.log(
           ></textarea>
         </div>
 
+        <div
+          id="recruitBatchTemporaryLinkControls"
+          style="
+            margin-top:18px;
+            padding-top:16px;
+            border-top:1px solid #eee;
+            display:${temporaryLinkEnabled ? "block" : "none"};
+          "
+        >
+          <label
+            for="recruitBatchExpiresDays"
+            style="
+              display:block;
+              margin-bottom:8px;
+              font-weight:700;
+            "
+          >
+            臨時連結有效期限
+          </label>
+
+          <select
+            id="recruitBatchExpiresDays"
+            style="
+              width:100%;
+              padding:12px;
+              box-sizing:border-box;
+            "
+          >
+            <option value="1">1 天</option>
+            <option value="3">3 天</option>
+            <option value="7" selected>7 天</option>
+            <option value="14">14 天</option>
+            <option value="30">30 天</option>
+            <option value="never">不自動過期</option>
+          </select>
+
+          <button
+            id="recruitBatchTemporaryLinkButton"
+            type="button"
+            disabled
+            onclick="
+              JLYRecruitBatchShare
+                .createTemporaryLink()
+            "
+            style="
+              width:100%;
+              margin-top:10px;
+              padding:14px;
+            "
+          >
+            🔗 產生臨時揪團連結
+          </button>
+        </div>
+
         <button
           id="recruitBatchGenerateButton"
           type="button"
@@ -1006,6 +1074,92 @@ console.log(
     showPreview(text);
   }
 
+  async function createTemporaryLink() {
+    const cars =
+      getSelectedCars();
+
+    if (!cars.length) {
+      alert("請至少選擇一台車");
+      return;
+    }
+
+    if (
+      !temporaryLinkEnabled ||
+      !window.JLYRecruitShareData ||
+      typeof window.JLYRecruitShareData
+        .createSelectedShareToken !==
+        "function"
+    ) {
+      alert("目前無法建立臨時分享連結");
+      return;
+    }
+
+    const expiryValue =
+      document.getElementById(
+        "recruitBatchExpiresDays"
+      )?.value || "7";
+
+    const button =
+      document.getElementById(
+        "recruitBatchTemporaryLinkButton"
+      );
+
+    if (button) {
+      button.disabled = true;
+      button.textContent =
+        "正在建立連結…";
+    }
+
+    try {
+      const result =
+        await window.JLYRecruitShareData
+          .createSelectedShareToken(
+            cars.map(function (car) {
+              return car.id;
+            }),
+            expiryValue === "never"
+              ? "never"
+              : Number(expiryValue)
+          );
+
+      await navigator.clipboard
+        .writeText(result.shareUrl);
+
+      alert(
+        "✅ 臨時揪團連結已建立並複製\n\n" +
+        (
+          result.expiresAt
+            ? "有效至：" +
+              new Date(result.expiresAt)
+                .toLocaleString("zh-TW")
+            : "此連結不自動過期"
+        )
+      );
+    } catch (error) {
+      console.error(
+        "建立臨時揪團連結失敗：",
+        error
+      );
+
+      alert(
+        "建立失敗：" +
+        (
+          error &&
+          error.message
+            ? error.message
+            : "未知錯誤"
+        )
+      );
+    } finally {
+      if (button) {
+        button.disabled =
+          selectedCarIds.size === 0;
+        button.textContent =
+          "🔗 產生臨時揪團連結";
+      }
+    }
+  }
+
   async function copyPreview() {
     const preview =
       document.getElementById(
@@ -1048,8 +1202,16 @@ console.log(
         : [];
   }
 
+  function setTemporaryLinkEnabled(
+    enabled
+  ) {
+    temporaryLinkEnabled =
+      enabled === true;
+  }
+
   window.JLYRecruitBatchShare = {
     setCars,
+    setTemporaryLinkEnabled,
     open:
       openModal,
     close:
@@ -1057,6 +1219,7 @@ console.log(
     toggleCar,
     toggleAll,
     generate,
+    createTemporaryLink,
     copyPreview,
     buildCarText,
     buildBatchText

@@ -354,7 +354,20 @@
           carId:
             String(
               config.carId || ""
-            )
+            ),
+
+          ...(
+            String(
+              config.actorId || ""
+            ).trim()
+              ? {
+                  jlyActorId:
+                    String(
+                      config.actorId || ""
+                    ).trim()
+                }
+              : {}
+          )
         }
       }
     };
