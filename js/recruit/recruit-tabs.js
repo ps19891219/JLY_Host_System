@@ -164,7 +164,7 @@ console.log(
         class="recruit-tab"
         data-recruit-tab="assist"
       >
-        我協助的
+        我的協作
         <span
           class="recruit-tab-count"
           data-recruit-count="assist"
