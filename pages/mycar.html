@@ -47,6 +47,7 @@
     <div class="batch-toolbar-title"><strong>☑️ 批次操作中</strong></div>
     <label class="batch-select-all"><input id="selectAllCars" type="checkbox" onchange="toggleSelectAllCars(this.checked)">全選目前清單</label>
     <div id="selectedCarCount">已選取 0 台車</div>
+    <button id="batchTemporaryShareButton" type="button" onclick="openMyCarTemporaryShare()" disabled>🔗 產生臨時揪團連結（0）</button>
     <button id="joinSelectedCarsButton" type="button" onclick="joinSelectedCars()" hidden disabled>加入已選取車團（0）</button>
     <button type="button" class="batch-convert-button" disabled>📝 轉換文字檔（下一步製作）</button>
     <button type="button" class="gray" onclick="cancelBatchMode()">✖️ 離開批次操作</button>
@@ -71,12 +72,13 @@
 <script src="../js/car/car-relations.js"></script>
 <script src="../js/recruit/recruit-share-data.js"></script>
 <script src="../js/recruit/recruit-share.js"></script>
+<script src="../js/mycar-temporary-share.js?v=1"></script>
 <script src="/js/modules/calendar/calendar-config.js?v=1"></script>
 <script src="/js/modules/calendar/calendar-auth.js?v=1"></script>
 <script src="/js/modules/calendar/calendar-provider-google.js?v=3"></script>
 <script src="/js/modules/calendar/calendar-data.js?v=3"></script>
 <script src="/js/modules/calendar/calendar-sync.js?v=3"></script>
-<script src="/js/mycar.js?v=50"></script>
+<script src="/js/mycar.js?v=51"></script>
 <!--
   Normal MyCar runtime is intentionally read-only against myCarViews/{viewerId}.
   Schema/identity repair is an explicit maintenance operation only and must not
