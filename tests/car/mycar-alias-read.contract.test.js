@@ -9,5 +9,5 @@ assert(fn.includes('collection(\n          "myCarViewAliases"'),"missing-view fa
 assert(fn.includes("let view =\n    await module.read(\n      requestedId"),"must try direct Prepared View first");
 assert(fn.includes("view =\n          await module.read(\n            resolvedId"),"must read canonical Prepared View after alias resolution");
 assert(fn.includes('String(view.viewerId || "").trim() !==\n      resolvedId'),"validation must use resolved canonical viewerId");
-assert(page.includes("/js/mycar.js?v=50"),"MyCar page must load refreshed alias-read asset");
+assert(page.includes("/js/mycar.js?v=51"),"MyCar page must load refreshed alias-read asset");
 console.log("mycar alias read contract ok");
