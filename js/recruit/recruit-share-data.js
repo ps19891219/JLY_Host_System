@@ -269,6 +269,97 @@ console.log(
   }
 
   // ============================================================
+  // 建立批次選取型臨時分享
+  // ============================================================
+
+  async function createSelectedShareToken(
+    carIds,
+    expiresDays
+  ) {
+    const db = getDb();
+    const ownerId = getOwnerId();
+    const ids = Array.from(
+      new Set(
+        (Array.isArray(carIds) ? carIds : [])
+          .map(normalizeText)
+          .filter(Boolean)
+      )
+    );
+
+    if (!ownerId) {
+      throw new Error("目前沒有使用者 Identity");
+    }
+
+    if (!ids.length) {
+      throw new Error("請至少選擇一台車");
+    }
+
+    if (ids.length > 50) {
+      throw new Error("單一臨時連結最多 50 台車");
+    }
+
+    const days =
+      expiresDays === null ||
+      expiresDays === "never"
+        ? null
+        : Math.max(
+            1,
+            Math.min(
+              90,
+              Number(expiresDays || 7)
+            )
+          );
+
+    const token = createShareToken();
+    const now = new Date();
+    const expiresAt = days
+      ? new Date(
+          now.getTime() +
+          days * 24 * 60 * 60 * 1000
+        )
+      : null;
+
+    const payload = {
+      ownerId,
+      status: "active",
+      scope: "selected",
+      carIds: ids,
+      temporary: true,
+      createdAt:
+        firebase.firestore
+          .FieldValue
+          .serverTimestamp(),
+      updatedAt:
+        firebase.firestore
+          .FieldValue
+          .serverTimestamp()
+    };
+
+    if (expiresAt) {
+      payload.expiresAt =
+        firebase.firestore.Timestamp
+          .fromDate(expiresAt);
+    }
+
+    await db
+      .collection("recruitPages")
+      .doc(token)
+      .set(payload);
+
+    return {
+      ownerId,
+      activeToken: token,
+      shareUrl: getRecruitUrl(token),
+      carIds: ids,
+      expiresAt:
+        expiresAt
+          ? expiresAt.toISOString()
+          : "",
+      expiresDays: days
+    };
+  }
+
+  // ============================================================
   // 停用分享
   // ============================================================
 
@@ -342,6 +433,7 @@ console.log(
     getRecruitUrl,
     getShareProfile,
     rotateShareToken,
+    createSelectedShareToken,
     disableShareToken
   };
 })();
