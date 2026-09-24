@@ -354,6 +354,11 @@
           carId:
             String(
               config.carId || ""
+            ),
+
+          jlyActorId:
+            String(
+              config.actorId || ""
             )
         }
       }
