@@ -3,7 +3,7 @@ const {getFirestore}=require("../services/firebase/admin");
 
 const TOKEN="player-collab-import-20260925-v1";
 const SOURCE_SCRIPT="向生而死";
-const IMPORT_ID="player-collab-apr-may-20260925";
+const IMPORT_ID="player-collab-apr-sep-20260925";
 
 const ITEMS=[
  {key:"2027-04-16-1000-liejing",scriptName:"裂鏡重圓",gameDate:"2027-04-16",gameTime:"10:00",endTime:"14:00",durationText:"4小時",durationMinutes:240,totalPeople:6,price:400},
@@ -15,6 +15,29 @@ const ITEMS=[
  {key:"2027-05-14-1530-jueyadiao",scriptName:"絕崖雕",gameDate:"2027-05-14",gameTime:"15:30",endTime:"20:30",durationText:"5小時",durationMinutes:300,totalPeople:6,price:450},
  {key:"2027-05-17-1000-shizhen",scriptName:"失真的旋律",gameDate:"2027-05-17",gameTime:"10:00",endTime:"14:00",durationText:"4小時",durationMinutes:240,totalPeople:6,price:400},
  {key:"2027-05-17-1500-yehu",scriptName:"野狐悠談",gameDate:"2027-05-17",gameTime:"15:00",endTime:"22:00",durationText:"7小時",durationMinutes:420,totalPeople:6,price:500}
+ ,
+ {key:"2027-06-04-1300-wuqifuyun",scriptName:"霧起浮雲",gameDate:"2027-06-04",gameTime:"13:00",endTime:"18:00",durationText:"5小時",durationMinutes:300,totalPeople:5,price:450},
+ {key:"2027-06-18-0900-qixunaizhi",scriptName:"期須乃至",gameDate:"2027-06-18",gameTime:"09:00",endTime:"14:00",durationText:"5小時",durationMinutes:300,totalPeople:6,price:450},
+ {key:"2027-06-18-1430-quanzhiguan",scriptName:"泉之館",gameDate:"2027-06-18",gameTime:"14:30",endTime:"19:00",durationText:"4.5小時",durationMinutes:270,totalPeople:6,price:450},
+ {key:"2027-06-18-1930-fuquanlou",scriptName:"復泉樓",gameDate:"2027-06-18",gameTime:"19:30",endTime:"00:00",durationText:"4.5小時",durationMinutes:270,totalPeople:6,price:450},
+ {key:"2027-06-25-1000-wanghaici",scriptName:"望海祠",gameDate:"2027-06-25",gameTime:"10:00",endTime:"17:00",durationText:"7小時",durationMinutes:420,totalPeople:6,price:500},
+ {key:"2027-06-25-1730-yishizhimen",scriptName:"儀式之門",gameDate:"2027-06-25",gameTime:"17:30",endTime:"22:00",durationText:"4.5小時",durationMinutes:270,totalPeople:5,price:400},
+ {key:"2027-07-20-1000-wangchixin",scriptName:"枉癡心",gameDate:"2027-07-20",gameTime:"10:00",endTime:"17:00",durationText:"7小時",durationMinutes:420,totalPeople:6,price:500},
+ {key:"2027-07-20-1730-guzhouying",scriptName:"孤舟螢",gameDate:"2027-07-20",gameTime:"17:30",endTime:"22:00",durationText:"4.5小時",durationMinutes:270,totalPeople:5,price:450},
+ {key:"2027-07-22-1000-manna",scriptName:"曼娜",gameDate:"2027-07-22",gameTime:"10:00",endTime:"15:00",durationText:"5小時",durationMinutes:300,totalPeople:6,price:450},
+ {key:"2027-07-22-1530-minghaizhuiyou",scriptName:"冥海縋幽",gameDate:"2027-07-22",gameTime:"15:30",endTime:"20:00",durationText:"4.5小時",durationMinutes:270,totalPeople:5,price:400},
+ {key:"2027-07-27-1300-zuijiazhuang",scriptName:"詛家莊",gameDate:"2027-07-27",gameTime:"13:00",endTime:"18:30",durationText:"5.5小時",durationMinutes:330,totalPeople:6,price:450},
+ {key:"2027-07-27-1900-chunweishe",scriptName:"春味社",gameDate:"2027-07-27",gameTime:"19:00",endTime:"00:00",durationText:"5小時",durationMinutes:300,totalPeople:6,price:450},
+ {key:"2027-07-28-1000-wangliangta",scriptName:"魍魎塔",gameDate:"2027-07-28",gameTime:"10:00",endTime:"15:30",durationText:"5.5小時",durationMinutes:330,totalPeople:6,price:450},
+ {key:"2027-07-28-1600-yuyiyan",scriptName:"雨異妍",gameDate:"2027-07-28",gameTime:"16:00",endTime:"21:00",durationText:"5小時",durationMinutes:300,totalPeople:6,price:450},
+ {key:"2027-08-20-1000-xianlingji",scriptName:"先靈祭",gameDate:"2027-08-20",gameTime:"10:00",endTime:"15:00",durationText:"5小時",durationMinutes:300,totalPeople:6,price:450},
+ {key:"2027-08-20-1530-duchong",scriptName:"蠹蟲",gameDate:"2027-08-20",gameTime:"15:30",endTime:"20:30",durationText:"5小時",durationMinutes:300,totalPeople:6,price:450},
+ {key:"2027-08-25-1000-zhuyingehuang",scriptName:"燭影額妝",gameDate:"2027-08-25",gameTime:"10:00",endTime:"17:30",durationText:"7.5小時",durationMinutes:450,totalPeople:6,price:500},
+ {key:"2027-08-25-1730-maodaxia",scriptName:"貓大俠",gameDate:"2027-08-25",gameTime:"17:30",endTime:"23:30",durationText:"5小時",durationMinutes:300,totalPeople:5,price:500},
+ {key:"2027-09-10-1000-shanguimu",scriptName:"山鬼母",gameDate:"2027-09-10",gameTime:"10:00",endTime:"17:00",durationText:"7小時",durationMinutes:420,totalPeople:5,price:600},
+ {key:"2027-09-10-1730-yingxiehuapu",scriptName:"應邪化僕",gameDate:"2027-09-10",gameTime:"17:30",endTime:"23:30",durationText:"6小時",durationMinutes:360,totalPeople:5,price:500},
+ {key:"2027-09-17-1000-anboya",scriptName:"暗波崖",gameDate:"2027-09-17",gameTime:"10:00",endTime:"17:30",durationText:"7.5小時",durationMinutes:450,totalPeople:6,price:500},
+ {key:"2027-09-17-1800-shepin",scriptName:"蛇聘",gameDate:"2027-09-17",gameTime:"18:00",endTime:"00:00",durationText:"6小時",durationMinutes:360,totalPeople:5,price:500}
 ];
 
 function t(v){return String(v==null?"":v).trim()}
