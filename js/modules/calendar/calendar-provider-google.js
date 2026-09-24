@@ -356,10 +356,18 @@
               config.carId || ""
             ),
 
-          jlyActorId:
+          ...(
             String(
               config.actorId || ""
-            )
+            ).trim()
+              ? {
+                  jlyActorId:
+                    String(
+                      config.actorId || ""
+                    ).trim()
+                }
+              : {}
+          )
         }
       }
     };
