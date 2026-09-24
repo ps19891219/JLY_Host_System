@@ -1,0 +1,21 @@
+"use strict";
+const fs=require("node:fs"),assert=require("node:assert");
+const source=fs.readFileSync("js/modules/calendar/mycar/player-personal-sync.js","utf8");
+const provider=fs.readFileSync("js/modules/calendar/calendar-provider-google.js","utf8");
+const entry=fs.readFileSync("js/modules/calendar/mycar/entry.js","utf8");
+const loader=fs.readFileSync("js/modules/calendar/mycar-calendar-repair.js","utf8");
+const page=fs.readFileSync("pages/mycar.html","utf8");
+
+assert(source.includes("readSelectedPlayerCars"),"player preflight missing");
+assert(source.includes("prepared.isPlayer !== true"),"player role must be verified from MyCar Prepared View");
+assert(source.includes('collection("cars")'),"explicit selected player sync may read exact Core car docs");
+assert(!source.includes('.collection("cars").get('),"player sync must not scan Core cars");
+assert(source.includes("personalCalendar"),"personal calendar mapping must live on relation");
+assert(source.includes("JLYCarRelations.updateRelation"),"personal mapping must use car relation");
+assert(!source.includes("JLYCalendarData.updateCarCalendar"),"player sync must not overwrite host car.calendar mapping");
+assert(source.includes("jlyActorId"),"player event identity matching missing");
+assert(provider.includes("jlyActorId"),"Google event resource must support actor marker");
+assert(entry.includes("player-personal-sync.js?v=1"),"MyCar entry must load player personal sync");
+assert(loader.includes("entry.js?v=7"),"MyCar calendar loader must refresh entry");
+assert(page.includes("mycar-calendar-repair.js?v=10"),"MyCar page must refresh calendar loader");
+console.log("mycar player personal calendar contract ok");
