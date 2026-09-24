@@ -17,5 +17,6 @@ assert(source.includes("jlyActorId"),"player event identity matching missing");
 assert(provider.includes("jlyActorId"),"Google event resource must support actor marker");
 assert(entry.includes("player-personal-sync.js?v=1"),"MyCar entry must load player personal sync");
 assert(loader.includes("entry.js?v=7"),"MyCar calendar loader must refresh entry");
+assert(page.includes("calendar-provider-google.js?v=3"),"MyCar page must refresh Google provider asset");
 assert(page.includes("mycar-calendar-repair.js?v=10"),"MyCar page must refresh calendar loader");
 console.log("mycar player personal calendar contract ok");
