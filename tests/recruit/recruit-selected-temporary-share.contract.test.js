@@ -1,0 +1,23 @@
+"use strict";
+const fs=require("node:fs"),assert=require("node:assert");
+const data=fs.readFileSync("js/recruit/recruit-share-data.js","utf8");
+const controller=fs.readFileSync("js/recruit/recruit-controller.js","utf8");
+const batch=fs.readFileSync("js/recruit/recruit-batch-share.js","utf8");
+const tabs=fs.readFileSync("js/recruit/recruit-tabs.js","utf8");
+const page=fs.readFileSync("pages/recruit.html","utf8");
+
+assert(data.includes("createSelectedShareToken"),"temporary selected share creator missing");
+assert(data.includes('scope: "selected"'),"selected share scope missing");
+assert(data.includes("carIds: ids"),"selected share must store only selected car ids");
+assert(data.includes("expiresAt"),"temporary share expiry missing");
+assert(controller.includes('recruitPage.scope ===\n          "selected"'),"selected-share controller branch missing");
+assert(controller.includes("getPreparedCarsByIds"),"selected share must read prepared car views by ids");
+assert(!controller.includes('collection("cars")'),"recruit controller must not scan/read Core cars directly");
+assert(batch.includes("createTemporaryLink"),"batch temporary-link action missing");
+assert(batch.includes("recruitBatchExpiresDays"),"expiry selector missing");
+assert(tabs.includes("我的協作"),"assist tab must be named 我的協作");
+assert(controller.includes("batchShare.setCars(cars)"),"batch source must follow current recruit tab");
+assert(page.includes("recruit-share-data.js?v=2"),"recruit owner share-data module missing");
+assert(page.includes("recruit-batch-share.js?v=5"),"recruit batch cache version missing");
+assert(page.includes("recruit-controller.js?v=9"),"recruit controller cache version missing");
+console.log("recruit selected temporary share contract ok");
