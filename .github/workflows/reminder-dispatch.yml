@@ -1,0 +1,39 @@
+name: Dispatch LINE reminders
+
+on:
+  schedule:
+    # GitHub Actions cron is UTC. 01:00 UTC = 09:00 Asia/Taipei.
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: jly-reminder-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch due reminders
+        env:
+          REMINDER_DISPATCH_SECRET: ${{ secrets.REMINDER_DISPATCH_SECRET }}
+          REMINDER_DISPATCH_URL: https://jly-host-system-eeso.vercel.app/api/run-reminders
+        run: |
+          set -euo pipefail
+          if [ -z "${REMINDER_DISPATCH_SECRET:-}" ]; then
+            echo "::error::REMINDER_DISPATCH_SECRET is not configured in GitHub Actions secrets."
+            exit 1
+          fi
+          response_file="$(mktemp)"
+          status="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST \
+            --header "Authorization: Bearer ${REMINDER_DISPATCH_SECRET}" \
+            --header "Content-Type: application/json" \
+            "${REMINDER_DISPATCH_URL}")"
+          cat "$response_file"
+          echo
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Reminder dispatcher returned HTTP $status."
+            exit 1
+          fi
