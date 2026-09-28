@@ -274,10 +274,13 @@ console.log(
 
   async function createSelectedShareToken(
     carIds,
-    expiresDays
+    expiresDays,
+    options
   ) {
     const db = getDb();
     const ownerId = getOwnerId();
+    const settings = options && typeof options === "object" ? options : {};
+    const showPlayers = settings.showPlayers === true;
     const ids = Array.from(
       new Set(
         (Array.isArray(carIds) ? carIds : [])
@@ -325,6 +328,7 @@ console.log(
       scope: "selected",
       carIds: ids,
       temporary: true,
+      showPlayers,
       createdAt:
         firebase.firestore
           .FieldValue
@@ -351,6 +355,7 @@ console.log(
       activeToken: token,
       shareUrl: getRecruitUrl(token),
       carIds: ids,
+      showPlayers,
       expiresAt:
         expiresAt
           ? expiresAt.toISOString()
