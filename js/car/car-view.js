@@ -116,11 +116,12 @@ console.log(
     );
 
     try {
-      const apiUrl = new URL("/api/car-view-context", location.origin);
-      apiUrl.searchParams.set("id", carId);
-      if (getShareRef()) apiUrl.searchParams.set("share", getShareRef());
+      const shareRef = getShareRef();
+      const apiUrl =
+        "/api/car-view-context?id=" + encodeURIComponent(carId) +
+        (shareRef ? "&share=" + encodeURIComponent(shareRef) : "");
       const response = await fetch(
-        apiUrl.toString(),
+        apiUrl,
         { credentials: "same-origin", cache: "no-store" }
       );
       const result = await response.json();
