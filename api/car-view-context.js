@@ -8,6 +8,41 @@ const { submitCarEntry } = require("../services/car/car-entry-service");
 
 function text(value) { return String(value == null ? "" : value).trim(); }
 
+function timestampMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  if (Number.isFinite(Number(value.seconds))) return Number(value.seconds) * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function temporarySharePolicy(db, shareRef, carId) {
+  const ref = text(shareRef);
+  if (!ref) return null;
+  const snap = await db.collection("recruitPages").doc(ref).get();
+  if (!snap.exists) return null;
+  const page = snap.data() || {};
+  const expiresAt = timestampMillis(page.expiresAt);
+  const ids = Array.isArray(page.carIds) ? page.carIds.map(text) : [];
+  if (text(page.status) !== "active" || text(page.scope) !== "selected" || !ids.includes(text(carId))) return null;
+  if (expiresAt && Date.now() >= expiresAt) return null;
+  return { showPlayers: page.showPlayers === true };
+}
+
+function hidePublicRoster(payload) {
+  if (!payload || payload.access === "member" || !payload.car) return payload;
+  return {
+    ...payload,
+    car: {
+      ...payload.car,
+      players: [],
+      seatSlots: Array.isArray(payload.car.seatSlots)
+        ? payload.car.seatSlots.map(slot => ({ ...slot, playerId: "" }))
+        : []
+    }
+  };
+}
+
 function send(res, statusCode, body) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -87,7 +122,14 @@ function createHandler(dependencies = {}) {
       if (!car) return send(res, 404, { success: false, error: "car_not_found" });
       const verified = verifySession(readCookie(req));
       const session = verified.valid ? await hydrateMemberSession(verified.data, dependencies) : null;
-      return send(res, 200, { success: true, ...carViewPayload(car, session) });
+      let payload = carViewPayload(car, session);
+      const shareRef = text(req.query && req.query.share);
+      if (shareRef) {
+        const db = dependencies.db || getFirestore();
+        const policy = await temporarySharePolicy(db, shareRef, carId);
+        if (policy && policy.showPlayers !== true) payload = hidePublicRoster(payload);
+      }
+      return send(res, 200, { success: true, ...payload });
     } catch (error) {
       console.error("讀取玩家車團資訊失敗", error);
       return send(res, 500, { success: false, error: "car_view_failed" });
@@ -98,3 +140,5 @@ function createHandler(dependencies = {}) {
 module.exports = createHandler();
 module.exports.createHandler = createHandler;
 module.exports.hydrateMemberSession = hydrateMemberSession;
+module.exports.temporarySharePolicy = temporarySharePolicy;
+module.exports.hidePublicRoster = hidePublicRoster;
