@@ -16,7 +16,7 @@ assert(mycar.includes("{ showPlayers }"));
 assert(shareData.includes("showPlayers,"));
 assert(recruitRender.includes("setShareRef"));
 assert(recruitRender.includes('"&share="'));
-assert(carView.includes('searchParams.set("share"'));
+assert(carView.includes('"&share="'));
 assert(api.includes("temporarySharePolicy"));
 assert(api.includes("hidePublicRoster"));
 assert(api.includes("players: []"));
