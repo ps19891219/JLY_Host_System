@@ -25,6 +25,10 @@ console.log(
     ).get("id");
   }
 
+  function getShareRef() {
+    return new URLSearchParams(location.search).get("share") || "";
+  }
+
   function getContainer() {
     return document.getElementById(
       "car-view-content"
@@ -112,8 +116,12 @@ console.log(
     );
 
     try {
+      const shareRef = getShareRef();
+      const apiUrl =
+        "/api/car-view-context?id=" + encodeURIComponent(carId) +
+        (shareRef ? "&share=" + encodeURIComponent(shareRef) : "");
       const response = await fetch(
-        "/api/car-view-context?id=" + encodeURIComponent(carId),
+        apiUrl,
         { credentials: "same-origin", cache: "no-store" }
       );
       const result = await response.json();

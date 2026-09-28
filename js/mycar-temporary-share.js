@@ -67,6 +67,8 @@
             option("30", "30 天", false) +
             option("never", "不自動過期", false) +
           "</select>" +
+          '<label><input type="checkbox" id="mycarTemporaryShareShowPlayers"> 公開目前玩家名單</label>' +
+          '<p class="recruit-share-hint">預設不公開，只影響這一條臨時連結。</p>' +
           '<button type="button" class="recruit-share-primary" id="mycarTemporaryShareCreate">🔗 建立並複製連結</button>' +
           '<button type="button" class="recruit-share-secondary" id="mycarTemporaryShareCancel">取消</button>' +
         "</div>" +
@@ -104,6 +106,7 @@
     const ids = selectedIds();
     const button = document.getElementById("mycarTemporaryShareCreate");
     const expiry = document.getElementById("mycarTemporaryShareExpiry")?.value || "7";
+    const showPlayers = document.getElementById("mycarTemporaryShareShowPlayers")?.checked === true;
 
     if (!ids.length) {
       alert("目前沒有選取車團");
@@ -119,7 +122,8 @@
     try {
       const result = await window.JLYRecruitShareData.createSelectedShareToken(
         ids,
-        expiry === "never" ? "never" : Number(expiry)
+        expiry === "never" ? "never" : Number(expiry),
+        { showPlayers }
       );
 
       await copyText(result.shareUrl);

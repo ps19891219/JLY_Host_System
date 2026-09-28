@@ -5,6 +5,8 @@ console.log(
 (function () {
   "use strict";
 
+  let shareRef = "";
+
   function escapeHtml(value) {
     return String(
       value == null
@@ -166,15 +168,13 @@ console.log(
     `;
   }
 
-  function getCarViewUrl(
-    carId
-  ) {
-    return (
-      "car-view.html?id=" +
-      encodeURIComponent(
-        carId
-      )
-    );
+  function getCarViewUrl(carId) {
+    const base = "car-view.html?id=" + encodeURIComponent(carId);
+    return shareRef ? base + "&share=" + encodeURIComponent(shareRef) : base;
+  }
+
+  function setShareRef(value) {
+    shareRef = String(value || "").trim();
   }
 
   function renderCarCard(car) {
@@ -391,6 +391,7 @@ console.log(
   }
 
   window.JLYRecruitRender = {
+    setShareRef,
     getStatus,
     getNeedCount,
     renderPage,
