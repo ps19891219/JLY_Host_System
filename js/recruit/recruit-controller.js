@@ -122,6 +122,7 @@ console.log("recruit-controller.js 已成功載入！");
       if (!token) return render.renderError(container, "缺少分享連結資訊。");
 
       const recruitPage = await data.getRecruitPageByToken(token);
+      if (typeof render.setShareRef === "function") render.setShareRef(token);
       if (!recruitPage || !recruitPage.ownerId) {
         return render.renderError(container, "這個分享連結可能已失效。");
       }
