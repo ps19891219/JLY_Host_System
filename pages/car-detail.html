@@ -99,12 +99,12 @@
 <script src="/js/modules/accounting/activity-fee-controller.js?v=20"></script>
 
 <script src="/js/seat.js?v=2"></script>
-<script src="/js/cardetail.js?v=63"></script>
+<script src="/js/cardetail.js?v=64"></script>
 <script src="/js/modules/car/detail/delete-test-car-actions.js?v=1"></script>
 
 <script src="/js/modules/car/detail/upgrade/detail-upgrade.js?v=2"></script>
 
-<script src="/js/modules/car/detail/application/application-actions.js?v=2"></script>
+<script src="/js/modules/car/detail/application/application-actions.js?v=3"></script>
 <script src="/js/modules/car/detail/application/dm-application-actions.js?v=2"></script>
 <script src="/js/modules/car/detail/application/identity-claim-approval.js?v=3"></script>
 <script src="/js/modules/car/detail/application/identity-claim-guard.js?v=1"></script>
@@ -112,7 +112,7 @@
 <script src="/js/modules/car/detail/render/summary-render.js?v=2"></script>
 <script src="/js/modules/car/detail/render/seat-section-render.js?v=1"></script>
 <script src="/js/modules/car/detail/render/history-render.js?v=1"></script>
-<script src="/js/modules/car/detail/render/detail-page-render.js?v=7"></script>
+<script src="/js/modules/car/detail/render/detail-page-render.js?v=8"></script>
 <script src="/js/modules/accounting/accounting-controller.js?v=41"></script>
 <script src="/js/modules/car/detail/line-group-binding-actions.js?v=2"></script>
 
@@ -133,7 +133,27 @@
   <script>
     const params = new URLSearchParams(location.search);
     const carId = params.get("id");
-    
+    if (params.get("focus") === "applications") {
+      const focusReview = function () {
+        const target = document.getElementById("applicationReviewSection");
+        if (!target) return false;
+        target.scrollIntoView({behavior:"auto",block:"start"});
+        return true;
+      };
+      window.addEventListener("load", function () {
+        let tries=0;
+        const timer=setInterval(function(){
+          tries+=1;
+          if(focusReview()||tries>=20) clearInterval(timer);
+        },100);
+      });
+    }
+
+    window.returnFromApplicationReview = function () {
+      let target="application-review.html";
+      try { target=sessionStorage.getItem("applicationReviewReturnUrl")||target; } catch (_) {}
+      location.href=target;
+    };
   </script>
 </body>
 </html>
