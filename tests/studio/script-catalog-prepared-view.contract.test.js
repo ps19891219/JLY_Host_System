@@ -1,0 +1,11 @@
+const assert=require("assert"),fs=require("fs");
+const repo=fs.readFileSync("services/firebase/script-catalog-repository.js","utf8");
+const api=fs.readFileSync("api/script-catalog.js","utf8");
+const studio=fs.readFileSync("pages/studio-scripts.html","utf8");
+assert(repo.includes('collection("scriptCatalogViews").doc(LIST_ID).get()'));
+assert(repo.includes('collection("scriptDetailViews").doc(id).get()'));
+assert(!repo.includes('collection("scripts").get()'));
+assert(api.includes("getPublicCatalog"));
+assert(api.includes("getPublicDetail"));
+assert(studio.includes("Script Master"));
+console.log("script catalog prepared-view read contract ok");
