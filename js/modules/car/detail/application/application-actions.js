@@ -1037,242 +1037,88 @@ console.log(
   // 核准申請
   // ------------------------------------------------------------
 
-  async function approveApplication(
-    index
-  ) {
-    const db =
-      window.db;
-
-    const carId =
-      getCarId();
-
-    if (!db) {
-      alert(
-        "Firebase 尚未載入"
-      );
-
-      return;
-    }
-
-    if (!carId) {
-      alert(
-        "找不到車團 ID"
-      );
-
-      return;
-    }
-
+  async function approveApplications(indices) {
+    const db=window.db, carId=getCarId();
+    if(!db){alert("Firebase 尚未載入");return;}
+    if(!carId){alert("找不到車團 ID");return;}
     try {
-      const carRef =
-        db
-          .collection("cars")
-          .doc(carId);
+      const carRef=db.collection("cars").doc(carId);
+      const doc=await carRef.get();
+      if(!doc.exists){alert("找不到這台車");return;}
+      const car=doc.data()||{};
+      const applications=cloneArray(car.applications);
+      const players=cloneArray(car.players);
+      const requested=(Array.isArray(indices)?indices:[])
+        .map(Number).filter(Number.isInteger)
+        .filter(i=>i>=0&&i<applications.length);
+      const unique=Array.from(new Set(requested)).sort((a,b)=>a-b);
+      if(!unique.length){alert("請先選擇要核准的申請");return;}
 
-      const doc =
-        await carRef.get();
-
-      if (!doc.exists) {
-        alert(
-          "找不到這台車"
+      let nextSlots=cloneArray(car.slots);
+      let history=cloneArray(car.history);
+      const approvedPlayers=[];
+      unique.forEach(function(applicationIndex){
+        const app=applications[applicationIndex];
+        const player=buildPlayerFromApplication(app,players.length);
+        const workingCar={...car,players:[...players],slots:nextSlots,history};
+        players.push(player);
+        const seatResult=autoAssignApprovedPlayer(workingCar,player);
+        nextSlots=Array.isArray(seatResult.slots)?seatResult.slots:nextSlots;
+        const name=getApplicationPlayerName(app);
+        history=addHistory({...workingCar,history},"玩家加入",
+          seatResult.assigned
+            ? name+" 已核准加入車團，並自動安排至"+getPositionLabel(seatResult.assignedPosition)
+            : name+" 已核准加入車團，等待主揪安排席位"+(seatResult.reason?"（"+seatResult.reason+"）":"")
         );
-
-        return;
-      }
-
-      const car =
-        doc.data();
-
-      const applications =
-        cloneArray(
-          car.applications
-        );
-
-      const players =
-        cloneArray(
-          car.players
-        );
-
-      const applicationIndex =
-        Number(index);
-
-      const app =
-        applications[
-          applicationIndex
-        ];
-
-      if (!app) {
-        alert(
-          "找不到這筆申請"
-        );
-
-        return;
-      }
-
-      const defaultName =
-        getApplicationPlayerName(
-          app
-        );
-
-      const player =
-        buildPlayerFromApplication(
-          app,
-          players.length
-        );
-
-      players.push(
-        player
-      );
-
-      applications.splice(
-        applicationIndex,
-        1
-      );
-
-      const autoSeatResult =
-        autoAssignApprovedPlayer(
-          car,
-          player
-        );
-
-      const nextSlots =
-        Array.isArray(
-          autoSeatResult.slots
-        )
-          ? autoSeatResult.slots
-          : cloneArray(
-              car.slots
-            );
-
-      const historyText =
-        autoSeatResult.assigned
-          ? (
-              defaultName +
-              " 已核准加入車團，並自動安排至" +
-              getPositionLabel(
-                autoSeatResult
-                  .assignedPosition
-              )
-            )
-          : (
-              defaultName +
-              " 已核准加入車團，等待主揪安排席位" +
-              (
-                autoSeatResult.reason
-                  ? "（" +
-                    autoSeatResult.reason +
-                    "）"
-                  : ""
-              )
-            );
-
-      const history =
-        addHistory(
-          car,
-          "玩家加入",
-          historyText
-        );
-
-      const updateData = {
-        players,
-
-        playerIds:
-          buildActivePlayerIds(
-            players
-          ),
-
-        applications,
-
-        slots:
-          nextSlots,
-
-        history,
-
-        updatedAt:
-          nowTime()
-      };
-
-      await carRef.update(
-        updateData
-      );
-
-      const beforeCarSnapshot = {
-        id: carId,
-        ...car
-      };
-
-      const afterCarSnapshot = {
-        id: carId,
-        ...car,
-        ...updateData
-      };
-
-      await syncCarPreparedViewMutation(
-        beforeCarSnapshot,
-        afterCarSnapshot
-      );
-
-      await syncKnownMembershipMutation(
-        {
-          id: carId,
-          ...car
-        },
-        {
-          id: carId,
-          ...car,
-          ...updateData
-        },
-        [
-          player &&
-          (
-            player.playerId ||
-            player.id ||
-            player.profileId
-          )
-        ],
-        [
-          "players",
-          "playerIds",
-          "applications",
-          "slots",
-          "history"
-        ]
-      );
-
-      await syncStudioRecruitmentMutation({
-        id: carId,
-        ...car,
-        ...updateData
+        approvedPlayers.push(player);
       });
-
-      if (
-        autoSeatResult.assigned
-      ) {
-        alert(
-          "已核准加入，並自動安排席位！"
-        );
-      } else {
-        alert(
-          "已核准加入，目前已放入待安排。"
-        );
-      }
-
+      const approvedSet=new Set(unique);
+      const remainingApplications=applications.filter((_,i)=>!approvedSet.has(i));
+      const updateData={
+        players,
+        playerIds:buildActivePlayerIds(players),
+        applications:remainingApplications,
+        slots:nextSlots,
+        history,
+        updatedAt:nowTime()
+      };
+      await carRef.update(updateData);
+      const beforeCar={id:carId,...car};
+      const afterCar={id:carId,...car,...updateData};
+      await syncCarPreparedViewMutation(beforeCar,afterCar);
+      await syncKnownMembershipMutation(
+        beforeCar,afterCar,
+        approvedPlayers.map(p=>p&&(p.playerId||p.id||p.profileId)).filter(Boolean),
+        ["players","playerIds","applications","slots","history"]
+      );
+      await syncStudioRecruitmentMutation(afterCar);
+      alert(unique.length===1?"已核准加入！":("已一次核准 "+unique.length+" 筆申請！"));
       await refreshCarDetail();
-    } catch (error) {
-      console.error(
-        "核准申請失敗：",
-        error
-      );
-
-      alert(
-        "核准失敗：" +
-        (
-          error &&
-          error.message
-            ? error.message
-            : "未知錯誤"
-        )
-      );
+      scrollToApplicationReview();
+    } catch(error) {
+      console.error("核准申請失敗：",error);
+      alert("核准失敗："+(error&&error.message?error.message:"未知錯誤"));
     }
+  }
+
+  async function approveApplication(index) {
+    return approveApplications([index]);
+  }
+
+  async function approveAllApplications() {
+    const car=window.currentCarData&&typeof window.currentCarData==="object"?window.currentCarData:{};
+    const apps=Array.isArray(car.applications)?car.applications:[];
+    return approveApplications(apps.map((_,index)=>index));
+  }
+
+  async function approveSelectedApplications() {
+    const boxes=Array.from(document.querySelectorAll("[data-application-review-checkbox]:checked"));
+    return approveApplications(boxes.map(box=>Number(box.value)));
+  }
+
+  function scrollToApplicationReview() {
+    const target=document.getElementById("applicationReviewSection");
+    if(target) target.scrollIntoView({behavior:"smooth",block:"start"});
   }
 
   // ------------------------------------------------------------
@@ -1436,6 +1282,14 @@ console.log(
       autoAssignApprovedPlayer,
 
       approveApplication,
+
+      approveApplications,
+
+      approveAllApplications,
+
+      approveSelectedApplications,
+
+      scrollToApplicationReview,
 
       rejectApplication
     };
