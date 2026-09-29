@@ -192,6 +192,45 @@ console.log(
 
 
 
+  let carPreparedViewSyncLoadPromise = null;
+
+  async function ensureCarPreparedViewSync() {
+    if (window.JLYViewRuntimeLoader) {
+      return window.JLYViewRuntimeLoader.ensure();
+    }
+    if (carPreparedViewSyncLoadPromise) return carPreparedViewSyncLoadPromise;
+    carPreparedViewSyncLoadPromise = new Promise(function(resolve,reject){
+      const script=document.createElement("script");
+      script.src="/js/data-view/view-runtime-loader.js?v=2";
+      script.async=true;
+      script.onload=async function(){
+        try {
+          if (!window.JLYViewRuntimeLoader) throw new Error("View Runtime Loader 未初始化");
+          resolve(await window.JLYViewRuntimeLoader.ensure());
+        } catch(error){ reject(error); }
+      };
+      script.onerror=reject;
+      document.head.appendChild(script);
+    });
+    return carPreparedViewSyncLoadPromise;
+  }
+
+  async function syncCarPreparedViewMutation(beforeCar, afterCar) {
+    try {
+      const runtime=await ensureCarPreparedViewSync();
+      const coordinator=runtime&&runtime.coordinator;
+      if (!coordinator || typeof coordinator.updateCarViews!=="function") return [];
+      return await coordinator.updateCarViews({
+        beforeCar,
+        afterCar,
+        changedFields:["players","playerIds","applications","slots","history","updatedAt"]
+      });
+    } catch(error) {
+      console.warn("核准報名同步 Car Prepared View 失敗：", error);
+      return [];
+    }
+  }
+
   async function syncStudioRecruitmentMutation(afterCar) {
     if (!afterCar || !(afterCar.studioId || afterCar.organizationId)) return null;
     try {
@@ -1154,6 +1193,22 @@ console.log(
 
       await carRef.update(
         updateData
+      );
+
+      const beforeCarSnapshot = {
+        id: carId,
+        ...car
+      };
+
+      const afterCarSnapshot = {
+        id: carId,
+        ...car,
+        ...updateData
+      };
+
+      await syncCarPreparedViewMutation(
+        beforeCarSnapshot,
+        afterCarSnapshot
       );
 
       await syncKnownMembershipMutation(
