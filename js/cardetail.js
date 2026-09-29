@@ -2219,7 +2219,14 @@ function buildApplicationsHtml(
     );
   }
 
-  return applications
+  const toolbar = `
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <button type="button" onclick="approveSelectedApplications()">✅ 核准所選</button>
+      <button type="button" onclick="approveAllApplications()">✅ 全部核准（${applications.length}）</button>
+    </div>
+  `;
+
+  return toolbar + applications
     .map(function (
       app,
       index
@@ -2255,6 +2262,10 @@ function buildApplicationsHtml(
 
       return `
         <div class="player-card">
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <input type="checkbox" data-application-review-checkbox value="${index}">
+            選取這筆申請
+          </label>
           <p>
             👤 ${escapeHtml(
               playerName
