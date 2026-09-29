@@ -53,7 +53,7 @@ function renderReviewList() {
   list.innerHTML = rows.map(item => {
     const car = item.car || {}, apps = item[key], body = apps.map(currentReviewType === "dm" ? buildDmItem : buildPlayerItem).join("");
     const carId = encodeURIComponent(reviewText(car.id));
-    return `<div class="card"><h3>${reviewEscape(car.scriptName || car.name || "未命名劇本")}</h3><p>${apps.length} 筆待審核</p>${body}<button type="button" onclick="location.href='car-detail.html?id=${carId}'">前往處理</button></div>`;
+    return `<div class="card"><h3>${reviewEscape(car.scriptName || car.name || "未命名劇本")}</h3><p>${apps.length} 筆待審核</p>${body}<button type="button" onclick="openCarApplicationReview('${carId}')">前往處理</button></div>`;
   }).join("");
 }
 
@@ -76,5 +76,13 @@ async function loadRegistrationReview() {
   }
 }
 
+function openCarApplicationReview(carId) {
+  try {
+    sessionStorage.setItem("applicationReviewReturnUrl", location.href);
+    sessionStorage.setItem("carDetailReviewFocus", "1");
+  } catch (_) {}
+  location.href="car-detail.html?id="+carId+"&focus=applications";
+}
+window.openCarApplicationReview = openCarApplicationReview;
 window.setReviewType = setReviewType;
 document.addEventListener("DOMContentLoaded", loadRegistrationReview);
