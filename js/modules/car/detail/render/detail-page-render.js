@@ -348,7 +348,7 @@ console.log(
         `;
 
     return `
-      <div class="card">
+      <div class="card" id="applicationReviewSection" style="scroll-margin-top:16px;">
         <h3>
           🔔 待確認申請
         </h3>
