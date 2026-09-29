@@ -1,0 +1,17 @@
+const assert=require("assert"),fs=require("fs");
+const actions=fs.readFileSync("js/modules/car/detail/application/application-actions.js","utf8");
+const card=fs.readFileSync("js/cardetail.js","utf8");
+const review=fs.readFileSync("js/application-review.js","utf8");
+const page=fs.readFileSync("pages/car-detail.html","utf8");
+assert(actions.includes("async function approveApplications(indices)"));
+assert(actions.includes("await carRef.update(updateData)"));
+assert(actions.includes("await syncCarPreparedViewMutation(beforeCar,afterCar)"));
+assert(actions.includes("approveSelectedApplications"));
+assert(actions.includes("approveAllApplications"));
+assert(card.includes("核准所選"));
+assert(card.includes("全部核准"));
+assert(card.includes("data-application-review-checkbox"));
+assert(review.includes("&focus=applications"));
+assert(page.includes('params.get("focus") === "applications"'));
+assert(page.includes('applicationReviewSection'));
+console.log("application review batch/navigation contract ok");
