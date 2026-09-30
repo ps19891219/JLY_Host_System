@@ -1,31 +1,23 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>劇本管理｜JLY 工作室</title>
-  <link rel="stylesheet" href="../css/style.css">
-</head>
-<body>
-  <main class="container">
-    <div class="hero">
-      <div class="jelly">🎭</div>
-      <h1>劇本管理</h1>
-      <p>凱崴私團</p>
-    </div>
-
-    <div class="card">
-      <h2>工作室劇本</h2>
-      <p>這裡管理工作室上架與維護的劇本資料，例如名稱、封面、簡介、人數配置、時長與標籤。排班表只引用劇本，不在這裡處理每天的人員配置。</p>
-    </div>
-
-    <div class="card">
-      <h2>Script Master 接軌中</h2>
-      <p>本頁先建立正式責任入口。劇本資料會接既有 JLY Script Master 規劃，不把 Work Schedule 的 Work 當成第二套劇本資料庫。</p>
-    </div>
-
-    <button type="button" style="width:100%;" disabled>＋ 新增劇本（下一階段接 Script Master）</button>
-    <button type="button" class="gray" style="width:100%;margin-top:12px;" onclick="location.href='studio-detail.html?studio=kaiwei-private'">← 返回凱崴私團</button>
-  </main>
-</body>
-</html>
+<html lang="zh-Hant"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>劇本管理｜JLY 工作室</title><link rel="stylesheet" href="../css/style.css">
+<style>.script-admin{max-width:900px;margin:auto}.script-list{display:grid;gap:12px}.script-row{display:flex;justify-content:space-between;gap:12px;align-items:center}.script-row small{display:block;color:#666;margin-top:4px}.script-actions{display:flex;gap:8px}.script-form{display:grid;gap:12px}.script-form label{display:grid;gap:6px}.script-form input,.script-form textarea,.script-form select{width:100%;box-sizing:border-box;padding:10px}.script-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.booking-box{padding:12px;border:1px solid #eee;border-radius:12px}.booking-box label{display:flex;align-items:center;gap:8px}.booking-box input[type=checkbox]{width:auto}@media(max-width:600px){.script-two{grid-template-columns:1fr}.script-row{align-items:flex-start;flex-direction:column}}</style></head>
+<body><main class="container script-admin">
+<div class="hero"><div class="jelly">🎭</div><h1>劇本管理</h1><p>凱崴私團</p></div>
+<div class="card"><h2>工作室劇本</h2><p>沿用 Work Schedule 既有劇本與角色資格。這裡補齊玩家會看到的封面、介紹、人數、時長與預約設定，不建立第二套劇本。</p><button id="createScript" type="button">＋ 新增劇本</button></div>
+<section id="listCard" class="card"><h2>劇本列表</h2><p id="status">正在讀取既有劇本…</p><div id="scriptList" class="script-list"></div></section>
+<section id="editorCard" class="card" hidden><div class="script-row"><h2 id="editorTitle">編輯劇本</h2><button id="closeEditor" class="gray" type="button">返回列表</button></div>
+<form id="scriptForm" class="script-form">
+<input id="scriptId" type="hidden">
+<label>劇本名稱<input id="name" required></label>
+<label>封面網址<input id="coverUrl" type="url" placeholder="https://…"></label>
+<label>劇本介紹<textarea id="summary" rows="5"></textarea></label>
+<label>標籤<input id="tags" placeholder="情感, 推理, 歡樂"></label>
+<div class="script-two"><label>玩家人數<input id="playerCount" type="number" min="0"></label><label>時長（分鐘）<input id="durationMinutes" type="number" min="0" step="30"></label></div>
+<div class="script-two"><label>男位<input id="maleSlots" type="number" min="0"></label><label>女位<input id="femaleSlots" type="number" min="0"></label></div>
+<div class="booking-box"><strong>玩家預約</strong><label><input id="bookingEnabled" type="checkbox" checked> 開放玩家預約</label><label><input id="allowHostRequest" type="checkbox"> 玩家可以指定／偏好主持人</label><label><input id="depositRequired" type="checkbox"> 此劇本需要訂金</label><div class="script-two"><label>訂金方式<select id="depositType"><option value="fixed">固定金額</option><option value="per_person">每人金額</option></select></label><label>訂金金額<input id="depositAmount" type="number" min="0"></label></div></div>
+<button type="submit">儲存劇本設定</button>
+</form></section>
+<button type="button" class="gray" style="width:100%;margin-top:12px" onclick="location.href='studio-detail.html?studio=kaiwei-private'">← 返回凱崴私團</button>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script><script src="/firebase/firebase.js?v=39"></script><script src="/js/modules/work-schedule/work-schedule-read-view.js?v=9"></script><script src="/js/studio/studio-script-catalog.js"></script><script src="/js/studio/script-work-bridge.js"></script><script src="/js/studio/studio-script.js"></script>
+</body></html>
