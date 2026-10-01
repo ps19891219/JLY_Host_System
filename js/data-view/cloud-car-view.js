@@ -36,9 +36,151 @@ console.log("cloud-car-view.js 已成功載入！");
     };
   }
 
+  const CANCELLED = new Set([
+    "已取消",
+    "取消",
+    "cancelled",
+    "canceled"
+  ]);
+
+  function normalizeSeatType(value) {
+    const normalized =
+      normalizeId(value).toLowerCase();
+
+    if (["male", "m", "男", "男位", "boy"].includes(normalized)) {
+      return "male";
+    }
+
+    if (["female", "f", "女", "女位", "girl"].includes(normalized)) {
+      return "female";
+    }
+
+    return "flexible";
+  }
+
+  function buildSeatSummary(car) {
+    const source =
+      car && typeof car === "object"
+        ? car
+        : {};
+
+    const slots =
+      Array.isArray(source.slots)
+        ? source.slots
+        : [];
+
+    if (!slots.length) {
+      return source.seatSummary &&
+        typeof source.seatSummary === "object"
+        ? { ...source.seatSummary }
+        : null;
+    }
+
+    const activePlayerIds =
+      new Set(
+        (
+          Array.isArray(source.players)
+            ? source.players
+            : []
+        )
+          .filter(function (player) {
+            return !CANCELLED.has(
+              normalizeId(
+                player && player.status
+              )
+            );
+          })
+          .map(function (player) {
+            return normalizeId(
+              player &&
+              (
+                player.playerId ||
+                player.id ||
+                player.profileId ||
+                player.applicationId
+              )
+            );
+          })
+          .filter(Boolean)
+      );
+
+    const summary = {
+      totalSeatCount: 0,
+      occupiedSeatCount: 0,
+      maleTotal: 0,
+      maleOccupied: 0,
+      femaleTotal: 0,
+      femaleOccupied: 0,
+      flexibleTotal: 0,
+      flexibleOccupied: 0,
+      waitingCount: 0
+    };
+
+    slots.forEach(function (slot) {
+      const safeSlot =
+        slot && typeof slot === "object"
+          ? slot
+          : {};
+
+      const sectionType =
+        normalizeSeatType(
+          safeSlot.originalType ||
+          safeSlot.sectionType ||
+          safeSlot.slotType ||
+          safeSlot.type
+        );
+
+      summary.totalSeatCount += 1;
+
+      if (sectionType === "male") {
+        summary.maleTotal += 1;
+      } else if (sectionType === "female") {
+        summary.femaleTotal += 1;
+      } else {
+        summary.flexibleTotal += 1;
+      }
+
+      const playerId =
+        normalizeId(safeSlot.playerId);
+
+      const occupied =
+        Boolean(playerId) &&
+        (
+          activePlayerIds.size === 0 ||
+          activePlayerIds.has(playerId)
+        );
+
+      if (!occupied) {
+        return;
+      }
+
+      summary.occupiedSeatCount += 1;
+
+      if (sectionType === "male") {
+        summary.maleOccupied += 1;
+      } else if (sectionType === "female") {
+        summary.femaleOccupied += 1;
+      } else {
+        summary.flexibleOccupied += 1;
+      }
+    });
+
+    summary.waitingCount =
+      Math.max(
+        activePlayerIds.size -
+        summary.occupiedSeatCount,
+        0
+      );
+
+    return summary;
+  }
+
   function buildView(car) {
     const source =
       cloneCar(car);
+
+    const seatSummary =
+      buildSeatSummary(source);
 
     const carId =
       normalizeId(
@@ -74,7 +216,8 @@ console.log("cloud-car-view.js 已成功載入！");
 
       car: {
         ...source,
-        id: carId
+        id: carId,
+        seatSummary
       }
     };
   }
