@@ -157,18 +157,14 @@ console.log("recruit-controller.js 已成功載入！");
         recruitPage.scope ===
           "selected"
       ) {
+        // Temporary selected links always resolve their cards from the
+        // canonical carDetailViews so an old MyCar card snapshot cannot freeze
+        // vacancy/player information at link-creation time.
         const selectedCars =
-          typeof data
-            .getPreparedCarsByIds ===
-            "function"
-            ? await data
-                .getPreparedCarsByIds(
-                  Array.isArray(
-                    recruitPage.carIds
-                  )
-                    ? recruitPage.carIds
-                    : []
-                )
+          typeof data.getPreparedCarsByIds === "function"
+            ? await data.getPreparedCarsByIds(
+                Array.isArray(recruitPage.carIds) ? recruitPage.carIds : []
+              )
             : [];
 
         const filteredSelectedCars =
