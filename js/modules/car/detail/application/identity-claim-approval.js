@@ -248,6 +248,35 @@
     };
   }
 
+  let identityClaimViewRuntimePromise = null;
+
+  async function syncIdentityClaimCarViews(beforeCar, afterCar, changedFields) {
+    try {
+      if (!identityClaimViewRuntimePromise) {
+        identityClaimViewRuntimePromise = window.JLYViewRuntimeLoader
+          ? window.JLYViewRuntimeLoader.ensure()
+          : new Promise(function (resolve, reject) {
+              const script = document.createElement("script");
+              script.src = "/js/data-view/view-runtime-loader.js?v=2";
+              script.async = true;
+              script.onload = function () {
+                if (!window.JLYViewRuntimeLoader) return reject(new Error("View Runtime Loader 未初始化"));
+                window.JLYViewRuntimeLoader.ensure().then(resolve, reject);
+              };
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+      }
+      const runtime = await identityClaimViewRuntimePromise;
+      const coordinator = runtime && runtime.coordinator;
+      if (!coordinator || typeof coordinator.updateCarViews !== "function") return [];
+      return await coordinator.updateCarViews({ beforeCar, afterCar, changedFields });
+    } catch (error) {
+      console.warn("LINE 身份核准後 Prepared View 同步失敗：", error);
+      return [];
+    }
+  }
+
   async function approveExistingPlayer(appIndex, app, car) {
     const db = window.db;
     const target = findPlayer(car.players, app);
@@ -257,6 +286,7 @@
     const duplicateRefs = list(resolved.duplicateLinePeople).map(item => db.collection("players").doc(item.id));
     const carRef = db.collection("cars").doc(carId());
     const personRef = db.collection("players").doc(person.id);
+    let beforeCarForView = null, afterCarForView = null;
     await db.runTransaction(async transaction => {
       const freshCarSnap = await transaction.get(carRef);
       const freshPersonSnap = resolved.createPerson ? null : await transaction.get(personRef);
@@ -264,6 +294,7 @@
       for (const ref of duplicateRefs) duplicateSnaps.push(await transaction.get(ref));
       if (!freshCarSnap.exists || (!resolved.createPerson && (!freshPersonSnap || !freshPersonSnap.exists))) throw new Error("核准時資料已變動，請重新整理後再試");
       const freshCar = freshCarSnap.data() || {};
+      beforeCarForView = { id: carId(), ...freshCar };
       const applications = list(freshCar.applications).map(item => ({ ...item }));
       const current = applications[Number(appIndex)];
       if (!current || text(current.id) !== text(app.id) || current.status && current.status !== "pending") throw new Error("這筆玩家身分申請已經被處理或位置已變動");
@@ -291,8 +322,11 @@
       transaction.set(personRef, { ...latestPerson.data, ...personPayload }, { merge: !resolved.createPerson });
       freshDuplicates.forEach((item, index) => transaction.set(duplicateRefs[index], duplicateLineRepairPatch(latestPerson.id), { merge: true }));
       transaction.set(directoryRef, applyDirectoryIdentityMerge(directorySnap.exists ? directorySnap.data() : {}, { id: latestPerson.id, data: { ...latestPerson.data, ...personPayload } }, freshDuplicates.map(item => item.id)), { merge: false });
-      transaction.update(carRef, { players, applications, updatedAt: nowIso() });
+      const carPatch = { players, applications, updatedAt: nowIso() };
+      afterCarForView = { ...beforeCarForView, ...carPatch };
+      transaction.update(carRef, carPatch);
     });
+    await syncIdentityClaimCarViews(beforeCarForView, afterCarForView, ["players","applications","updatedAt"]);
     alert(`✅ 已核准：LINE「${claimantName(app)}」已認領既有玩家「${text(app.targetPlayerName) || text(target.playerName || target.displayName || target.name)}」`);
   }
 
@@ -301,12 +335,14 @@
     const existingPerson = await resolveLinePerson(db, app);
     const personRef = existingPerson ? db.collection("players").doc(existingPerson.id) : db.collection("players").doc();
     const carRef = db.collection("cars").doc(carId());
+    let beforeCarForView = null, afterCarForView = null;
     await db.runTransaction(async transaction => {
       const snap = await transaction.get(carRef);
       const personSnap = existingPerson ? await transaction.get(personRef) : null;
       if (!snap.exists) throw new Error("找不到這台車");
       if (existingPerson && (!personSnap || !personSnap.exists)) throw new Error("既有 Person 已變動，請重新整理後再試");
       const freshCar = snap.data() || {};
+      beforeCarForView = { id: carId(), ...freshCar };
       const applications = list(freshCar.applications).map(item => ({ ...item }));
       const current = applications[Number(appIndex)];
       if (!current || text(current.id) !== text(app.id) || current.status && current.status !== "pending") throw new Error("這筆玩家申請已經被處理或位置已變動");
@@ -323,14 +359,17 @@
       const autoSeatResult = originalActions.autoAssignApprovedPlayer(freshCar, player);
       applications.splice(Number(appIndex), 1);
       transaction.set(personRef, payload, { merge: existingPerson });
-      transaction.update(carRef, {
+      const carPatch = {
         players,
         playerIds: Array.from(new Set(players.filter(p => !["已取消", "取消", "cancelled", "canceled"].includes(text(p.status))).map(p => text(p.playerId || p.id || p.profileId)).filter(Boolean))),
         applications,
         slots: Array.isArray(autoSeatResult.slots) ? autoSeatResult.slots : list(freshCar.slots),
         updatedAt: nowIso()
-      });
+      };
+      afterCarForView = { ...beforeCarForView, ...carPatch };
+      transaction.update(carRef, carPatch);
     });
+    await syncIdentityClaimCarViews(beforeCarForView, afterCarForView, ["players","playerIds","applications","slots","updatedAt"]);
     alert(existingPerson ? `✅ 已核准：使用既有 Person 加入車團：${text(existingPerson.data.displayName) || claimantName(app)}` : `✅ 已核准並建立正式 Person：${claimantName(app)}`);
   }
 
@@ -343,6 +382,7 @@
     const duplicateRefs = list(resolved.duplicateLinePeople).map(item => db.collection("players").doc(item.id));
     const carRef = db.collection("cars").doc(carId());
     const personRef = db.collection("players").doc(person.id);
+    let beforeCarForView = null, afterCarForView = null;
     await db.runTransaction(async transaction => {
       const freshCarSnap = await transaction.get(carRef);
       const freshPersonSnap = resolved.createPerson ? null : await transaction.get(personRef);
@@ -350,6 +390,7 @@
       for (const ref of duplicateRefs) duplicateSnaps.push(await transaction.get(ref));
       if (!freshCarSnap.exists || (!resolved.createPerson && (!freshPersonSnap || !freshPersonSnap.exists))) throw new Error("核准時資料已變動，請重新整理後再試");
       const freshCar = freshCarSnap.data() || {};
+      beforeCarForView = { id: carId(), ...freshCar };
       const applications = list(freshCar.dmApplications).map(item => ({ ...item }));
       const appIndex = applications.findIndex(item => text(item.id) === text(applicationId));
       if (appIndex < 0 || applications[appIndex].status !== "pending") throw new Error("這筆 DM 身分申請已經被處理");
@@ -377,8 +418,11 @@
       transaction.set(personRef, { ...latestPerson.data, ...personPayload }, { merge: !resolved.createPerson });
       freshDuplicates.forEach((item, index) => transaction.set(duplicateRefs[index], duplicateLineRepairPatch(latestPerson.id), { merge: true }));
       transaction.set(directoryRef, applyDirectoryIdentityMerge(directorySnap.exists ? directorySnap.data() : {}, { id: latestPerson.id, data: { ...latestPerson.data, ...personPayload } }, freshDuplicates.map(item => item.id)), { merge: false });
-      transaction.update(carRef, { staffSlots, dmApplications: applications, updatedAt: nowIso() });
+      const carPatch = { staffSlots, dmApplications: applications, updatedAt: nowIso() };
+      afterCarForView = { ...beforeCarForView, ...carPatch };
+      transaction.update(carRef, carPatch);
     });
+    await syncIdentityClaimCarViews(beforeCarForView, afterCarForView, ["staffSlots","dmApplications","updatedAt"]);
     alert(`✅ 已核准：LINE「${claimantName(app)}」已認領既有 DM「${text(app.targetStaffName) || text(target.displayName || target.name)}」`);
   }
 
@@ -387,12 +431,14 @@
     const existingPerson = await resolveLinePerson(db, app);
     const personRef = existingPerson ? db.collection("players").doc(existingPerson.id) : db.collection("players").doc();
     const carRef = db.collection("cars").doc(carId());
+    let beforeCarForView = null, afterCarForView = null;
     await db.runTransaction(async transaction => {
       const snap = await transaction.get(carRef);
       const personSnap = existingPerson ? await transaction.get(personRef) : null;
       if (!snap.exists) throw new Error("找不到這台車");
       if (existingPerson && (!personSnap || !personSnap.exists)) throw new Error("既有 Person 已變動，請重新整理後再試");
       const freshCar = snap.data() || {};
+      beforeCarForView = { id: carId(), ...freshCar };
       const applications = list(freshCar.dmApplications).map(item => ({ ...item }));
       const appIndex = applications.findIndex(item => text(item.id) === text(applicationId));
       if (appIndex < 0 || applications[appIndex].status !== "pending") throw new Error("這筆 DM 申請已經被處理");
@@ -404,8 +450,11 @@
       staffSlots.push({ id: `staff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, order: staffSlots.length + 1, label: "DM", personId: person.id, memberId: person.id, profileId: person.id, lineUserId: text(current.lineUserId), lineDisplayName: claimantName(current), displayName: text(person.data.displayName) || claimantName(current), source: existingPerson ? "dm_application_approved_existing_person" : "dm_application_approved_new_person" });
       applications[appIndex] = { ...current, status: "approved", approvedAt: nowIso(), updatedAt: nowIso(), resolvedPersonId: person.id };
       transaction.set(personRef, payload, { merge: existingPerson });
-      transaction.update(carRef, { staffSlots, dmApplications: applications, updatedAt: nowIso() });
+      const carPatch = { staffSlots, dmApplications: applications, updatedAt: nowIso() };
+      afterCarForView = { ...beforeCarForView, ...carPatch };
+      transaction.update(carRef, carPatch);
     });
+    await syncIdentityClaimCarViews(beforeCarForView, afterCarForView, ["staffSlots","dmApplications","updatedAt"]);
     alert(existingPerson ? `✅ 已核准：使用既有 Person 加入 DM／工作人員：${text(existingPerson.data.displayName) || claimantName(app)}` : `✅ 已核准並建立正式 Person／DM：${claimantName(app)}`);
   }
 
