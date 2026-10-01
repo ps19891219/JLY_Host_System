@@ -186,9 +186,9 @@ function publicCar(car) {
   const playerIdMap = new Map();
   rawPlayers.forEach((player, index) => identityIds(player).forEach(id => playerIdMap.set(id, players[index].id)));
 
-  const seatSlots = (Array.isArray(source.seatSlots) ? source.seatSlots : []).map(function (slot, index) {
+  const sourceSeatSlots = Array.isArray(source.seatSlots) && source.seatSlots.length\n    ? source.seatSlots\n    : (Array.isArray(source.slots) ? source.slots : []);\n  const seatSlots = sourceSeatSlots.map(function (slot, index) {
     const safe = slot && typeof slot === "object" ? slot : {};
-    const originalPlayerId = text(safe.playerId || safe.memberId || safe.profileId);
+    const nestedPlayer = safe.player && typeof safe.player === "object" ? safe.player : {};\n    const originalPlayerId = text(safe.playerId || safe.memberId || safe.profileId || nestedPlayer.playerId || nestedPlayer.id || nestedPlayer.profileId);
     return {
       id: `public-seat-${index + 1}`,
       order: Number(safe.order || index + 1),
