@@ -157,14 +157,18 @@ console.log("recruit-controller.js 已成功載入！");
         recruitPage.scope ===
           "selected"
       ) {
-        // Temporary selected links always resolve their cards from the
-        // canonical carDetailViews so an old MyCar card snapshot cannot freeze
-        // vacancy/player information at link-creation time.
         const selectedCars =
-          typeof data.getPreparedCarsByIds === "function"
-            ? await data.getPreparedCarsByIds(
-                Array.isArray(recruitPage.carIds) ? recruitPage.carIds : []
-              )
+          typeof data
+            .getPreparedCarsByIds ===
+            "function"
+            ? await data
+                .getPreparedCarsByIds(
+                  Array.isArray(
+                    recruitPage.carIds
+                  )
+                    ? recruitPage.carIds
+                    : []
+                )
             : [];
 
         const filteredSelectedCars =
@@ -192,16 +196,7 @@ console.log("recruit-controller.js 已成功載入！");
       }
 
       const ownerCars = await data.getRecruitCarsByOwner(recruitPage.ownerId);
-      const hostIndexCars = Array.isArray(ownerCars) ? ownerCars : [];
-      // MyCar index decides which cars belong in this list. Card content itself
-      // comes from the canonical carDetailViews so normal and temporary recruit
-      // links show the same current vacancy/player data.
-      const hostCars =
-        typeof data.getPreparedCarsByIds === "function"
-          ? await data.getPreparedCarsByIds(
-              hostIndexCars.map(function (car) { return car && car.id; }).filter(Boolean)
-            )
-          : hostIndexCars;
+      const hostCars = Array.isArray(ownerCars) ? ownerCars : [];
       const assistCarIds = window.JLYCarRelations && typeof window.JLYCarRelations.getAssistRecruitingCarIds === "function"
         ? await window.JLYCarRelations.getAssistRecruitingCarIds(recruitPage.ownerId)
         : [];
