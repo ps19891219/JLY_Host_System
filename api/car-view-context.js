@@ -1,6 +1,6 @@
 "use strict";
 
-const { getCarById } = require("../services/firebase/line-accounting-authorization-repository");
+const { getCarDetailViewById } = require("../services/firebase/car-detail-view-repository");
 const { getFirestore } = require("../services/firebase/admin");
 const { readCookie, verifyMemberSession } = require("../services/line/member-session");
 const { carViewPayload } = require("../services/car/car-view-access");
@@ -92,7 +92,7 @@ async function hydrateMemberSession(session, dependencies = {}) {
 }
 
 function createHandler(dependencies = {}) {
-  const readCar = dependencies.getCarById || getCarById;
+  const readCar = dependencies.getCarDetailViewById || dependencies.getCarById || getCarDetailViewById;
   const verifySession = dependencies.verifyMemberSession || verifyMemberSession;
   const submit = dependencies.submitCarEntry || submitCarEntry;
 
