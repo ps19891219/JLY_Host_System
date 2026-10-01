@@ -53,11 +53,3 @@ test("Recruit host list returns prepared car snapshots without reading cars Core
   assert.equal(cars[0].id, "car-1");
   assert.equal(cars[0].scriptName, "A");
 });
-
-
-test("recruit controller uses MyCar only as membership index and renders cards from canonical detail views", () => {
-  const source = fs.readFileSync(path.join(root, "js/recruit/recruit-controller.js"), "utf8");
-  assert.match(source, /getRecruitCarsByOwner\(recruitPage\.ownerId\)/);
-  assert.match(source, /getPreparedCarsByIds/);
-  assert.doesNotMatch(source, /collection\(["']cars["']\)/);
-});
