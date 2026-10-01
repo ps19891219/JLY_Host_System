@@ -1217,12 +1217,18 @@ console.log(
             " 的報名申請已被拒絕"
         );
 
-      await carRef.update({
+      const updateData = {
         applications,
         history,
-        updatedAt:
-          nowTime()
-      });
+        updatedAt: nowTime()
+      };
+
+      await carRef.update(updateData);
+
+      await syncCarPreparedViewMutation(
+        { id: carId, ...car },
+        { id: carId, ...car, ...updateData }
+      );
 
       alert(
         "已拒絕申請"
