@@ -53,3 +53,30 @@ test("Recruit host list returns prepared car snapshots without reading cars Core
   assert.equal(cars[0].id, "car-1");
   assert.equal(cars[0].scriptName, "A");
 });
+
+
+test("Recruit host list stays on one MyCar Prepared View read", async () => {
+  let myCarReads = 0;
+  let detailReads = 0;
+  const preparedView = {
+    viewType: "mycar_index",
+    cars: [
+      { id: "car-1", isHost: true, visibility: "public", scriptName: "A", seatSummary: { maleTotal: 3, maleOccupied: 2, femaleTotal: 3, femaleOccupied: 3 } }
+    ]
+  };
+  const db = {
+    collection(name) {
+      if (name === "carDetailViews") {
+        detailReads += 1;
+        throw new Error("Owner Recruit list must not read per-card detail views");
+      }
+      if (name !== "myCarViews") throw new Error("unexpected collection: " + name);
+      return { doc() { return { async get() { myCarReads += 1; return { exists: true, data: () => preparedView }; } }; } };
+    }
+  };
+  const data = loadRecruitData(db);
+  const cars = await data.getHostCarsFromMyCarViews(["viewer-1"]);
+  assert.equal(cars.length, 1);
+  assert.equal(myCarReads, 1);
+  assert.equal(detailReads, 0);
+});

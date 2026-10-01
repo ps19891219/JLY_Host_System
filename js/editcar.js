@@ -1903,6 +1903,41 @@ await audit
       updatedData
   });
 
+/*
+  Core mutation is complete. Refresh the existing Prepared Views at the
+  write boundary so Recruit/MyCar can stay single-read and never compensate
+  with per-card Core/detail reads.
+*/
+const editedCarBefore = {
+  ...currentEditingCar,
+  id: carId
+};
+
+const editedCarAfter = {
+  ...currentEditingCar,
+  ...updatedData,
+  id: carId
+};
+
+const viewCoordinator =
+  window.JLYViewMutationCoordinator;
+
+if (
+  !viewCoordinator ||
+  typeof viewCoordinator.updateCarViews !==
+    "function"
+) {
+  throw new Error(
+    "Prepared View Mutation Coordinator 尚未載入"
+  );
+}
+
+await viewCoordinator.updateCarViews({
+  beforeCar: editedCarBefore,
+  afterCar: editedCarAfter,
+  changedFields: Object.keys(updatedData)
+});
+
   if (currentEditingCar.studioId || currentEditingCar.organizationId) {
     try {
       const studioId=String(currentEditingCar.studioId||currentEditingCar.organizationId||"").trim();

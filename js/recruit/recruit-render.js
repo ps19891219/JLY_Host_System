@@ -89,6 +89,23 @@ console.log(
     );
   }
 
+  function getNeedText(car) {
+    const sourceCar = car || {};
+    const summary = sourceCar.seatSummary && typeof sourceCar.seatSummary === "object" ? sourceCar.seatSummary : null;
+    if (summary && (Number(summary.maleTotal || 0) > 0 || Number(summary.femaleTotal || 0) > 0)) {
+      const maleNeed = Math.max(Number(summary.maleTotal || 0) - Number(summary.maleOccupied || 0), 0);
+      const femaleNeed = Math.max(Number(summary.femaleTotal || 0) - Number(summary.femaleOccupied || 0), 0);
+      const flexibleNeed = Math.max(Number(summary.flexibleTotal || 0) - Number(summary.flexibleOccupied || 0), 0);
+      const parts = [];
+      if (maleNeed > 0) parts.push(maleNeed + "男");
+      if (femaleNeed > 0) parts.push(femaleNeed + "女");
+      if (flexibleNeed > 0) parts.push(flexibleNeed + "不限");
+      return parts.length ? "👥 尚缺 " + parts.join(" ") : "✅ 已滿";
+    }
+    const need = getNeedCount(sourceCar);
+    return need > 0 ? "👥 尚缺 " + need + " 人" : "✅ 已滿";
+  }
+
   function getStatus(car) {
     const sourceCar =
       car || {};
@@ -289,13 +306,7 @@ console.log(
           <div
             class="recruit-car-need"
           >
-            ${
-              need > 0
-                ? "👥 尚缺 " +
-                  need +
-                  " 人"
-                : "✅ 已滿"
-            }
+            ${escapeHtml(getNeedText(car))}
           </div>
         </div>
       </a>
@@ -394,6 +405,7 @@ console.log(
     setShareRef,
     getStatus,
     getNeedCount,
+    getNeedText,
     renderPage,
     renderLoading,
     renderError
