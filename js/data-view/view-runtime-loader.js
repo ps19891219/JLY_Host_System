@@ -121,12 +121,12 @@ console.log("view-runtime-loader.js 已成功載入！");
         );
 
         await loadScript(
-          "/js/data-view/cloud-car-view.js?v=1",
+          "/js/data-view/cloud-car-view.js?v=2",
           "cloud-car-view"
         );
 
         await loadScript(
-          "/js/data-view/mycar-view.js?v=8",
+          "/js/data-view/mycar-view.js?v=9",
           "mycar-view"
         );
 
