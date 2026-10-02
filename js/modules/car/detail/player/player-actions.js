@@ -695,28 +695,56 @@ console.log(
         updateData
       );
 
-      await syncKnownMembershipMutation(
-        {
-          id: carId,
-          ...carData
-        },
-        {
-          id: carId,
-          ...carData,
-          ...updateData
-        },
-        [
-          getPlayerId(
-            targetPlayer
-          )
-        ],
-        [
-          "players",
-          "playerIds",
-          "slots",
-          "history"
-        ]
-      );
+      const viewSyncResults =
+        await syncKnownMembershipMutation(
+          {
+            id: carId,
+            ...carData
+          },
+          {
+            id: carId,
+            ...carData,
+            ...updateData
+          },
+          [
+            getPlayerId(
+              targetPlayer
+            )
+          ],
+          [
+            "players",
+            "playerIds",
+            "slots",
+            "history"
+          ]
+        );
+
+      const requiredViewSyncFailed =
+        !Array.isArray(viewSyncResults) ||
+        !viewSyncResults.some(
+          function (result) {
+            return result &&
+              result.type === "car_detail" &&
+              result.ok === true;
+          }
+        ) ||
+        !viewSyncResults.some(
+          function (result) {
+            return result &&
+              result.type === "mycar" &&
+              result.ok === true;
+          }
+        );
+
+      if (requiredViewSyncFailed) {
+        console.error(
+          "玩家移除後 Prepared View 同步未完成：",
+          viewSyncResults
+        );
+        alert(
+          "玩家已移除，但清單同步尚未完成。請先不要重複操作，系統已保留正式車團資料。"
+        );
+      }
 
       await syncStudioRecruitmentMutation({
         id: carId,
