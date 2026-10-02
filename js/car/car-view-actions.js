@@ -28,7 +28,7 @@ async function submit(payload,host){const controls=host.querySelectorAll("button
 function positionForm(host){const row=document.createElement("div");row.className="car-view-entry-form";const select=document.createElement("select");select.setAttribute("aria-label","玩家報名位置");["男位","女位","不限"].forEach(value=>{const o=document.createElement("option");o.value=value;o.textContent=value;select.appendChild(o);});const label=document.createElement("label");const cross=document.createElement("input");cross.type="checkbox";label.appendChild(cross);label.appendChild(document.createTextNode(" 我是反串"));row.appendChild(select);row.appendChild(label);host.appendChild(row);return{select,cross};}
 function submitNewPlayer(host,pos){return submit({type:"player",targetPlayerId:"",position:pos.select.value,isCrossPlay:pos.cross.checked},host);}
 function renderPlayer(host,viewer,car){
-  if(viewer.playerStatus==="joined"){button(host,"✅ 你已加入這台車",null,true);return;}
+  if(viewer.playerStatus==="joined"){button(host,"✅ 你已加入這台車",null,true);button(host,"📅 加入我的 Google 行事曆",()=>window.JLYCarViewPlayerCalendar?.open(carId(),car));return;}
   if(viewer.playerStatus==="pending"){button(host,"🟡 玩家身分申請等待主揪審核中",null,true);return;}
   if(!viewer.authenticated){button(host,"🎮 使用 LINE 身分繼續報名",()=>login("player"));note(host,"車團資訊可直接查看，送出報名時才需要確認 LINE 身分。");return;}
   const full=isPlayerFull(car);
