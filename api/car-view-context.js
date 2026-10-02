@@ -30,15 +30,31 @@ async function temporarySharePolicy(db, shareRef, carId) {
 }
 
 function hidePublicRoster(payload) {
-  if (!payload || payload.access === "member" || !payload.car) return payload;
+  if (!payload || !payload.car) return payload;
+  const scrubSlot = slot => ({
+    ...(slot || {}),
+    playerId: "",
+    profileId: "",
+    displayName: "",
+    name: "",
+    player: null
+  });
   return {
     ...payload,
+    rosterVisible: false,
     car: {
       ...payload.car,
       players: [],
-      seatSlots: Array.isArray(payload.car.seatSlots)
-        ? payload.car.seatSlots.map(slot => ({ ...slot, playerId: "" }))
-        : []
+      waitingPlayers: [],
+      unassignedPlayers: [],
+      seatSlots: Array.isArray(payload.car.seatSlots) ? payload.car.seatSlots.map(scrubSlot) : [],
+      slots: Array.isArray(payload.car.slots) ? payload.car.slots.map(scrubSlot) : [],
+      seats: Array.isArray(payload.car.seats) ? payload.car.seats.map(scrubSlot) : [],
+      staffSlots: [],
+      staffList: [],
+      dmList: [],
+      dm: "",
+      dmName: ""
     }
   };
 }
@@ -128,6 +144,7 @@ function createHandler(dependencies = {}) {
         const db = dependencies.db || getFirestore();
         const policy = await temporarySharePolicy(db, shareRef, carId);
         if (policy && policy.showPlayers !== true) payload = hidePublicRoster(payload);
+        else if (policy) payload = { ...payload, rosterVisible: true };
       }
       return send(res, 200, { success: true, ...payload });
     } catch (error) {
