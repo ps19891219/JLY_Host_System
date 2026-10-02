@@ -1062,10 +1062,16 @@ function getCurrentSeatSummary(
 function renderCurrentSeatSummary(
   car
 ) {
-  const summary =
-    getCurrentSeatSummary(
-      car
-    );
+  const prepared = car && car.seatSummary && typeof car.seatSummary === "object"
+    ? car.seatSummary
+    : null;
+  const summary = car && car.rosterVisible === false && prepared
+    ? {
+        maleCount: Number(prepared.maleOccupied || 0),
+        femaleCount: Number(prepared.femaleOccupied || 0),
+        waitingCount: Number(prepared.waitingCount || 0)
+      }
+    : getCurrentSeatSummary(car);
 
   return (
     '<div class="seat-summary car-view-current-summary">' +
@@ -1429,7 +1435,9 @@ function renderCurrentSeatSummary(
       car
     ) +
 
-    '<div class="car-view-seat-staff">' +
+    (car && car.rosterVisible === false
+      ? '<div class="car-view-seat-loading">玩家名單未公開</div>'
+      : '<div class="car-view-seat-staff">' +
 
     '<div class="car-view-seat-staff-title">' +
     "🎭 工作人員" +
@@ -1447,7 +1455,7 @@ function renderCurrentSeatSummary(
     "座位讀取中..." +
     "</div>" +
 
-    "</div>" +
+    "</div>") +
 
     "</section>"
   );
@@ -1640,9 +1648,11 @@ function renderCurrentSeatSummary(
 
       "</article>";
 
-    renderSeatBoard(
-      sourceCar
-    );
+    if (sourceCar.rosterVisible !== false) {
+      renderSeatBoard(
+        sourceCar
+      );
+    }
   }
 
   function renderLoading(
