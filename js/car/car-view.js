@@ -127,7 +127,7 @@ console.log(
       const result = await response.json();
       if (response.status === 404) return renderModule.renderNotFound(container);
       if (!response.ok || !result.success) throw new Error(result.error || "讀取車團資料失敗");
-      const car = { ...result.car, id: result.car.id || carId, viewAccess: result.access };
+      const car = { ...result.car, id: result.car.id || carId, viewAccess: result.access, rosterVisible: result.rosterVisible !== false };
       window.currentPublicCarData = car;
       renderModule.renderCarView(container, car, carId);
       console.log("玩家頁已載入車團資料：", carId, result.access);
