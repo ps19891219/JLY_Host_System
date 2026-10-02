@@ -888,6 +888,13 @@ console.log(
             <option value="never">不自動過期</option>
           </select>
 
+          <label
+            style="display:flex;gap:10px;align-items:center;margin-top:12px;"
+          >
+            <input id="recruitBatchShowPlayers" type="checkbox">
+            顯示目前玩家名單
+          </label>
+
           <button
             id="recruitBatchTemporaryLinkButton"
             type="button"
@@ -1119,7 +1126,12 @@ console.log(
             }),
             expiryValue === "never"
               ? "never"
-              : Number(expiryValue)
+              : Number(expiryValue),
+            {
+              showPlayers: Boolean(
+                document.getElementById("recruitBatchShowPlayers")?.checked
+              )
+            }
           );
 
       await navigator.clipboard
