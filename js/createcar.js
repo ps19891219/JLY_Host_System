@@ -862,14 +862,39 @@ planningStatus:
       throw new Error("建立車團後無法同步 MyCar Prepared View");
     }
 
-    await viewCoordinator.updateCarViews({
-      beforeCar: null,
-      afterCar: {
-        id: carId,
-        ...car
-      },
-      changedFields: Object.keys(car)
-    });
+    const viewSyncResults =
+      await viewCoordinator.updateCarViews({
+        beforeCar: null,
+        afterCar: {
+          id: carId,
+          ...car
+        },
+        changedFields: Object.keys(car)
+      });
+
+    const myCarViewSync =
+      Array.isArray(viewSyncResults)
+        ? viewSyncResults.find(
+            result =>
+              result &&
+              result.type === "mycar"
+          )
+        : null;
+
+    if (
+      !myCarViewSync ||
+      myCarViewSync.ok !== true
+    ) {
+      console.error(
+        "建立車團後 MyCar Prepared View 同步失敗：",
+        myCarViewSync &&
+        myCarViewSync.error
+      );
+
+      throw new Error(
+        "車團已建立，但「我的揪團」同步尚未完成。請先不要重複建立，系統已保留正式車團資料。"
+      );
+    }
 
     let calendarResult = null;
 
