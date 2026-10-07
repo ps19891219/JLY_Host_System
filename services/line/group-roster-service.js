@@ -111,15 +111,16 @@ function isManager(actorProfile, car) {
 function cloneRows(value) {
   return (Array.isArray(value) ? value : []).map(row => {
     if (!row || typeof row !== "object") return row;
-    return {
-      ...row,
-      player: row.player && typeof row.player === "object"
-        ? { ...row.player }
-        : row.player,
-      memberSnapshot: row.memberSnapshot && typeof row.memberSnapshot === "object"
-        ? { ...row.memberSnapshot }
-        : row.memberSnapshot
-    };
+    const copy = { ...row };
+    // Historical records often omit these properties entirely.
+    // Do not manufacture undefined fields: Firestore rejects them on update.
+    if (row.player && typeof row.player === "object") {
+      copy.player = { ...row.player };
+    }
+    if (row.memberSnapshot && typeof row.memberSnapshot === "object") {
+      copy.memberSnapshot = { ...row.memberSnapshot };
+    }
+    return copy;
   });
 }
 
