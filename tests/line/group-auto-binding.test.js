@@ -13,6 +13,38 @@ const {
   routeEvent
 } = require("../../services/line/event-router");
 
+
+test("compact four-digit group time is removed from exact script hint and used for matching", async () => {
+  const groupName = "2026/10/20 0900 測試車車";
+  assert.equal(extractScriptHint(groupName), "測試車車");
+  assert.deepEqual(extractDateHint(groupName), {
+    year: "2026", month: "10", day: "20"
+  });
+  assert.equal(extractTimeHint(groupName), "09:00");
+  assert.equal(extractTimeHint("測試車車 2026"), "");
+
+  let queryName = "";
+  const result = await detectGroupCar("group-compact-time", {
+    getGroupSummary: async () => ({
+      groupId: "group-compact-time",
+      groupName
+    }),
+    findCarDetailViewsByScriptName: async (name, options) => {
+      queryName = name;
+      assert.equal(options.limit, 12);
+      return [
+        { id: "car-wrong-date", scriptName: name, gameDate: "2026-10-21", gameTime: "09:00", status: "招募中" },
+        { id: "car-correct", scriptName: name, gameDate: "2026-10-20", gameTime: "09:00", status: "招募中" },
+        { id: "car-wrong-time", scriptName: name, gameDate: "2026-10-20", gameTime: "19:00", status: "招募中" }
+      ];
+    }
+  });
+  assert.equal(queryName, "測試車車");
+  assert.equal(result.detected, true);
+  assert.equal(result.candidates.length, 1);
+  assert.equal(result.candidates[0].carId, "car-correct");
+});
+
 test("group name extracts script, date and time without scanning cars", async () => {
   assert.equal(
     extractScriptHint("《民國17年》 12/07 19:00 車群"),
