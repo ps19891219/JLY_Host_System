@@ -140,12 +140,32 @@ function createHandler(dependencies = {}) {
       const session = verified.valid ? await hydrateMemberSession(verified.data, dependencies) : null;
       let payload = carViewPayload(car, session);
       const shareRef = text(req.query && req.query.share);
+      let sharePolicy = null;
+
       if (shareRef) {
         const db = dependencies.db || getFirestore();
-        const policy = await temporarySharePolicy(db, shareRef, carId);
-        if (policy && policy.showPlayers !== true) payload = hidePublicRoster(payload);
-        else if (policy) payload = { ...payload, rosterVisible: true };
+        sharePolicy = await temporarySharePolicy(db, shareRef, carId);
       }
+
+      /*
+       * 公開揪團頁預設不公開玩家／工作人員名單。
+       * 只有：
+       * 1. 已是正式車團成員，或
+       * 2. 有效的臨時揪團連結明確設定 showPlayers=true
+       * 才能看到名單。
+       *
+       * 這裡只處理既有 Prepared View payload，不增加 Core read。
+       */
+      if (payload.access !== "member") {
+        if (sharePolicy && sharePolicy.showPlayers === true) {
+          payload = { ...payload, rosterVisible: true };
+        } else {
+          payload = hidePublicRoster(payload);
+        }
+      } else {
+        payload = { ...payload, rosterVisible: true };
+      }
+
       return send(res, 200, { success: true, ...payload });
     } catch (error) {
       console.error("讀取玩家車團資訊失敗", error);
