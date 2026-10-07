@@ -448,11 +448,19 @@ async function handleMessageEvent(
       const carLabel = normalizeText(bindResult.car && bindResult.car.label) || "JLY 車團";
       bindingReply =
         `✅ 已成功綁定《${carLabel}》\n\n` +
-        "在群組輸入「JLY 小助手」\n" +
-        "即可開啟這台車的專屬功能選單。";
-    }
+        "群組成員現在就可以使用下方入口報名／認領。\n" +
+        "之後輸入「JLY 小助手」仍可開啟這台車的專屬功能選單。";
 
-    await replyWithText(context.replyToken, bindingReply);
+      await replyWithMessages(context.replyToken, [
+        { type: "text", text: bindingReply },
+        buildMemberWelcomeCard(bindResult.car || {}, {
+          baseUrl: readPublicBaseUrl(),
+          carId: bindResult.car && bindResult.car.id
+        })
+      ]);
+    } else {
+      await replyWithText(context.replyToken, bindingReply);
+    }
 
     return {
       handled: true,
