@@ -280,6 +280,8 @@ function activePlayerIds(car) {
         player.id ||
         player.profileId
       ))
+      .map(text)
+      .filter(id => id && !/^line:/i.test(id))
   );
 }
 
