@@ -165,14 +165,63 @@ console.log("seat-board.js V2 已成功載入！");
       typeof window.getSlots ===
       "function"
     ) {
+      const legacySlots =
+        window.getSlots(car);
+
+      if (
+        Array.isArray(legacySlots) &&
+        legacySlots.length > 0
+      ) {
+        return cloneValue(
+          legacySlots
+        );
+      }
+    }
+
+    const candidates = [
+      car.slots,
+      car.seatSlots,
+      car.seats,
+      car.seatLayout &&
+        car.seatLayout.slots
+    ];
+
+    for (
+      let index = 0;
+      index < candidates.length;
+      index += 1
+    ) {
+      if (
+        Array.isArray(candidates[index]) &&
+        candidates[index].length > 0
+      ) {
+        return cloneValue(
+          candidates[index]
+        );
+      }
+    }
+
+    /*
+     * 舊車團可能只有 totalPeople / 男女 / 不限席位設定，
+     * 尚未保存 slots 陣列。玩家查看頁仍應依既有設定建立
+     * 唯讀席位版面，不能誤顯示「尚未建立席位」。
+     *
+     * buildSlots 只在記憶體建立畫面資料，不寫 Firestore，
+     * 因此不增加任何 Core / Prepared View 讀取。
+     */
+    if (
+      window.JLYSeatData &&
+      typeof window.JLYSeatData
+        .buildSlots === "function"
+    ) {
       return cloneValue(
-        window.getSlots(car)
+        window.JLYSeatData.buildSlots(
+          car
+        )
       );
     }
 
-    return Array.isArray(car.slots)
-      ? cloneValue(car.slots)
-      : [];
+    return [];
   }
 
   function buildPlayerMap(players) {
