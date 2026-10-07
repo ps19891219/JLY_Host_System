@@ -56,10 +56,25 @@ function extractDateHint(groupName) {
   return null;
 }
 
+function stripDateTokens(value) {
+  return normalizeDigits(value)
+    .replace(/20\d{2}\s*[\/\.\-年]\s*\d{1,2}\s*[\/\.\-月]\s*\d{1,2}\s*日?/g, " ")
+    .replace(/\d{1,2}\s*[\/\.\-]\s*\d{1,2}/g, " ")
+    .replace(/\d{1,2}\s*月\s*\d{1,2}\s*日?/g, " ");
+}
+
+function extractCompactTimeHint(value) {
+  // Four-digit times are ambiguous with years, so require a separate date hint.
+  if (!extractDateHint(value)) return "";
+  const withoutDate = stripDateTokens(value);
+  const match = withoutDate.match(/(?:^|[\s|｜(（])((?:[01]\d|2[0-3]))([0-5]\d)(?=$|[\s|｜)）])/);
+  return match ? match[1] + ":" + match[2] : "";
+}
+
 function extractTimeHint(groupName) {
   const value = normalizeDigits(groupName);
   const match = value.match(/(?:^|[^\d])(\d{1,2})\s*[:：]\s*(\d{2})(?:[^\d]|$)/);
-  if (!match) return "";
+  if (!match) return extractCompactTimeHint(value);
   const hour = Number(match[1]);
   const minute = Number(match[2]);
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return "";
@@ -67,10 +82,13 @@ function extractTimeHint(groupName) {
 }
 
 function normalizeScriptHint(value) {
-  return normalizeDigits(value)
-    .replace(/20\d{2}\s*[\/\.\-年]\s*\d{1,2}\s*[\/\.\-月]\s*\d{1,2}\s*日?/g, " ")
-    .replace(/\d{1,2}\s*[\/\.\-]\s*\d{1,2}/g, " ")
-    .replace(/\d{1,2}\s*月\s*\d{1,2}\s*日?/g, " ")
+  const normalized = normalizeDigits(value);
+  const withoutDate = stripDateTokens(normalized);
+  const withoutCompactTime = extractDateHint(normalized)
+    ? withoutDate.replace(/(^|[\s|｜(（])(?:[01]\d|2[0-3])[0-5]\d(?=$|[\s|｜)）])/g, "$1 ")
+    : withoutDate;
+
+  return withoutCompactTime
     .replace(/\d{1,2}\s*[:：]\s*\d{2}/g, " ")
     .replace(/\bJLY\b/gi, " ")
     .replace(/(?:車團|車群|群組|開團|開車|小助手|提醒群)/g, " ")
