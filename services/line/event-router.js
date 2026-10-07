@@ -364,13 +364,8 @@ async function handleMessageEvent(
       function (mention) {
         return (
           mention &&
-          (
-            mention.type === "all" ||
-            (
-              mention.type === "user" &&
-              mention.isSelf !== true
-            )
-          )
+          mention.type === "user" &&
+          mention.isSelf !== true
         );
       }
     );
