@@ -101,6 +101,12 @@ const {
   enableGroupPreTripReminder,
   captureGroupReminderTargets
 } = require("./reminder-service");
+const {
+  detectGroupCar
+} = require("./group-auto-binding-service");
+const {
+  addMentionedRosterMembers
+} = require("./group-roster-service");
 
 function normalizeText(value) {
   return String(
@@ -202,6 +208,22 @@ function normalizeMessage(event) {
   };
 }
 
+function normalizePostback(event) {
+  const source =
+    event &&
+    event.postback &&
+    typeof event.postback === "object"
+      ? event.postback
+      : {};
+
+  return {
+    data:
+      normalizeText(
+        source.data
+      )
+  };
+}
+
 function createEventContext(event) {
   const eventType =
     normalizeText(
@@ -232,6 +254,11 @@ function createEventContext(event) {
 
     message:
       normalizeMessage(
+        event
+      ),
+
+    postback:
+      normalizePostback(
         event
       ),
 
