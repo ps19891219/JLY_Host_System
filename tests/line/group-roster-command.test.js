@@ -49,6 +49,10 @@ test("male mention command adds linked player and keeps unlinked user pending", 
       displayName: "小明",
       memberType: "member"
     }],
+    getGroupMemberProfile: async (_groupId, lineUserId) => ({
+      userId: lineUserId,
+      displayName: lineUserId === "U2" ? "阿哲" : ""
+    }),
     applyCarMutation: async (_carId, mutator) => {
       const beforeCar = {
         id: "car-1",
@@ -61,6 +65,12 @@ test("male mention command adds linked player and keeps unlinked user pending", 
             id: "seat-m1",
             originalType: "male",
             type: "male",
+            playerId: null
+          },
+          {
+            id: "seat-flex1",
+            originalType: "flexible",
+            type: "flexible",
             playerId: null
           }
         ],
@@ -81,13 +91,20 @@ test("male mention command adds linked player and keeps unlinked user pending", 
   });
 
   assert.equal(result.changed, true);
-  assert.equal(result.addedCount, 1);
-  assert.equal(result.seatedCount, 1);
+  assert.equal(result.addedCount, 2);
+  assert.equal(result.seatedCount, 2);
   assert.equal(result.pendingIdentityCount, 1);
-  assert.equal(finalCar.players.length, 1);
+  assert.equal(finalCar.players.length, 2);
   assert.equal(finalCar.players[0].playerId, "person-1");
   assert.equal(finalCar.players[0].position, "男位");
+  assert.equal(finalCar.players[1].playerId, "line:U2");
+  assert.equal(finalCar.players[1].pendingLineUserId, "U2");
+  assert.equal(finalCar.players[1].displayName, "阿哲");
+  assert.equal(finalCar.players[1].isLineLinked, false);
   assert.equal(finalCar.slots[0].playerId, "person-1");
+  assert.equal(finalCar.slots[1].playerId, "line:U2");
+  assert.equal(finalCar.slots[1].originalType, "flexible");
+  assert.equal(finalCar.slots[1].type, "male");
   assert.equal(finalCar.lineRosterCandidates.length, 1);
   assert.equal(finalCar.lineRosterCandidates[0].lineUserId, "U2");
   assert.equal(finalCar.lineRosterCandidates[0].status, "pending_identity");
