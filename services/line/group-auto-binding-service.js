@@ -4,7 +4,8 @@ const {
   getGroupSummary
 } = require("./group-membership-client");
 const {
-  findCarDetailViewsByScriptName
+  findCarDetailViewsByScriptName,
+  findCarDetailViewsByDate
 } = require("../firebase/line-auto-binding-repository");
 
 function text(value) {
@@ -23,36 +24,31 @@ function pad2(value) {
   return Number.isFinite(number) ? String(number).padStart(2, "0") : "";
 }
 
+function validDate(month, day, year) {
+  const m = Number(month);
+  const d = Number(day);
+  const y = Number(year || 2024);
+  if (!Number.isInteger(m) || !Number.isInteger(d) || m < 1 || m > 12 || d < 1) return false;
+  return d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
 function extractDateHint(groupName) {
   const value = normalizeDigits(groupName);
-
   let match = value.match(/(20\d{2})\s*[\/\.\-年]\s*(\d{1,2})\s*[\/\.\-月]\s*(\d{1,2})(?:\s*日)?/);
   if (match) {
-    return {
-      year: match[1],
-      month: pad2(match[2]),
-      day: pad2(match[3])
-    };
+    if (!validDate(match[2], match[3], match[1])) return null;
+    return { year: match[1], month: pad2(match[2]), day: pad2(match[3]) };
   }
-
   match = value.match(/(?:^|[^\d])(\d{1,2})\s*[\/\.\-]\s*(\d{1,2})(?:[^\d]|$)/);
   if (match) {
-    return {
-      year: "",
-      month: pad2(match[1]),
-      day: pad2(match[2])
-    };
+    if (!validDate(match[1], match[2])) return null;
+    return { year: "", month: pad2(match[1]), day: pad2(match[2]) };
   }
-
   match = value.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日?/);
   if (match) {
-    return {
-      year: "",
-      month: pad2(match[1]),
-      day: pad2(match[2])
-    };
+    if (!validDate(match[1], match[2])) return null;
+    return { year: "", month: pad2(match[1]), day: pad2(match[2]) };
   }
-
   return null;
 }
 
@@ -64,10 +60,9 @@ function stripDateTokens(value) {
 }
 
 function extractCompactTimeHint(value) {
-  // Four-digit times are ambiguous with years, so require a separate date hint.
   if (!extractDateHint(value)) return "";
   const withoutDate = stripDateTokens(value);
-  const match = withoutDate.match(/(?:^|[\s|｜(（])((?:[01]\d|2[0-3]))([0-5]\d)(?=$|[\s|｜)）])/);
+  const match = withoutDate.match(/(?:^|[\s|｜(（\-])((?:[01]\d|2[0-3]))([0-5]\d)(?=$|[^\d])/);
   return match ? match[1] + ":" + match[2] : "";
 }
 
@@ -85,7 +80,7 @@ function normalizeScriptHint(value) {
   const normalized = normalizeDigits(value);
   const withoutDate = stripDateTokens(normalized);
   const withoutCompactTime = extractDateHint(normalized)
-    ? withoutDate.replace(/(^|[\s|｜(（])(?:[01]\d|2[0-3])[0-5]\d(?=$|[\s|｜)）])/g, "$1 ")
+    ? withoutDate.replace(/(^|[\s|｜(（\-])(?:[01]\d|2[0-3])[0-5]\d(?=$|[^\d])/g, "$1 ")
     : withoutDate;
 
   return withoutCompactTime
@@ -148,68 +143,93 @@ function candidateSummary(car) {
   };
 }
 
-function rankCandidates(cars, dateHint, timeHint) {
+function matchStrength(car, scriptHint) {
+  const hint = normalizeScriptHint(scriptHint).replace(/\s/g, "").toLowerCase();
+  const name = text(car && (car.scriptName || car.title || car.name)).replace(/\s/g, "").toLowerCase();
+  if (!hint || !name) return 0;
+  if (hint === name) return 3;
+  if (hint.includes(name)) return 2;
+  if (name.includes(hint)) return 1;
+  return 0;
+}
+
+function rankCandidates(cars, dateHint, timeHint, scriptHint = "") {
   let pool = (Array.isArray(cars) ? cars : [])
     .filter(isActiveCandidate)
     .filter(car => text(car && (car.id || car.carId)));
+  if (dateHint) pool = pool.filter(car => matchesDateHint(car, dateHint));
+  if (timeHint) pool = pool.filter(car => carTime(car) === timeHint);
+  return pool.sort((a, b) =>
+    matchStrength(b, scriptHint) - matchStrength(a, scriptHint) ||
+    (carDate(a) + " " + carTime(a)).localeCompare(carDate(b) + " " + carTime(b)) ||
+    text(a.scriptName).localeCompare(text(b.scriptName))
+  ).map(candidateSummary);
+}
 
-  if (dateHint) {
-    const dateMatches = pool.filter(car => matchesDateHint(car, dateHint));
-    if (dateMatches.length) pool = dateMatches;
-  }
+function taipeiDateParts(now) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return { year: Number(value.year), month: Number(value.month), day: Number(value.day) };
+}
 
-  if (timeHint) {
-    const timeMatches = pool.filter(car => carTime(car) === timeHint);
-    if (timeMatches.length) pool = timeMatches;
-  }
-
-  return pool
-    .map(candidateSummary)
-    .sort(function (a, b) {
-      return (a.gameDate + " " + a.gameTime)
-        .localeCompare(b.gameDate + " " + b.gameTime);
-    });
+function dateForLookup(hint, now = new Date()) {
+  if (!hint) return "";
+  const current = taipeiDateParts(now);
+  const year = hint.year ? Number(hint.year)
+    : Number(hint.month) * 100 + Number(hint.day) < current.month * 100 + current.day
+      ? current.year + 1 : current.year;
+  if (!validDate(hint.month, hint.day, year)) return "";
+  return [year, hint.month, hint.day].join("-");
 }
 
 async function detectGroupCar(groupId, dependencies = {}) {
   const readSummary = dependencies.getGroupSummary || getGroupSummary;
-  const findByScript = dependencies.findCarDetailViewsByScriptName ||
-    findCarDetailViewsByScriptName;
-
+  const findByScript = dependencies.findCarDetailViewsByScriptName || findCarDetailViewsByScriptName;
+  const findByDate = dependencies.findCarDetailViewsByDate || findCarDetailViewsByDate;
   const summary = await readSummary(groupId, dependencies);
   const groupName = text(summary && summary.groupName);
   const scriptHint = extractScriptHint(groupName);
   const dateHint = extractDateHint(groupName);
   const timeHint = extractTimeHint(groupName);
+  const normalizedName = normalizeDigits(groupName);
 
-  if (!scriptHint) {
-    return {
-      detected: false,
-      reason: "script_hint_missing",
-      group: summary,
-      scriptHint: "",
-      dateHint,
-      timeHint,
-      candidates: []
-    };
+  const hasClockToken = /(?:^|[^\d])\d{1,2}\s*[:：]\s*\d{2}(?:[^\d]|$)/.test(normalizedName);
+  if (hasClockToken && !timeHint) {
+    return { detected: false, reason: "invalid_time_hint", group: summary,
+      scriptHint, dateHint, timeHint, candidates: [] };
+  }
+  const hasDateToken = /(?:20\d{2}\s*[\/\.\-年]\s*)?\d{1,2}\s*[\/\.\-月]\s*\d{1,2}/.test(normalizedName);
+  if (hasDateToken && !dateHint) {
+    return { detected: false, reason: "invalid_date_hint", group: summary,
+      scriptHint, dateHint, timeHint, candidates: [] };
+  }
+  const lookupDate = dateForLookup(dateHint, dependencies.now || new Date());
+  if (dateHint && !lookupDate) {
+    return { detected: false, reason: "invalid_inferred_date", group: summary,
+      scriptHint, dateHint, timeHint, candidates: [] };
+  }
+  if (!lookupDate && !scriptHint) {
+    return { detected: false, reason: "candidate_hint_missing", group: summary,
+      scriptHint, dateHint, timeHint, candidates: [] };
   }
 
-  const views = await findByScript(scriptHint, {
-    limit: 12,
-    db: dependencies.db
-  });
-  const candidates = rankCandidates(views, dateHint, timeHint).slice(0, 5);
-
+  // Exactly one bounded Prepared View query; never scan Cars or People.
+  const views = lookupDate
+    ? await findByDate(lookupDate, { limit: 12, db: dependencies.db })
+    : await findByScript(scriptHint, { limit: 12, db: dependencies.db });
+  const effectiveDateHint = lookupDate
+    ? { year: lookupDate.slice(0, 4), month: lookupDate.slice(5, 7), day: lookupDate.slice(8, 10) }
+    : null;
+  const candidates = rankCandidates(views, effectiveDateHint, timeHint, scriptHint).slice(0, 5);
   return {
     detected: candidates.length > 0,
     reason: candidates.length
       ? (candidates.length === 1 ? "single_candidate" : "multiple_candidates")
       : "candidate_not_found",
     group: summary,
-    scriptHint,
-    dateHint,
-    timeHint,
-    candidates
+    scriptHint, dateHint, timeHint, candidates
   };
 }
 
@@ -219,5 +239,6 @@ module.exports = {
   extractScriptHint,
   matchesDateHint,
   rankCandidates,
+  dateForLookup,
   detectGroupCar
 };
