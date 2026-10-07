@@ -17,6 +17,9 @@ const {
 const {
   syncActivity
 } = require("../studio/studio-recruitment-view-service");
+const {
+  getGroupMemberProfile
+} = require("./group-membership-client");
 
 const MAX_TARGETS = 20;
 
@@ -158,6 +161,37 @@ function findAvailableSeat(slots, role) {
   ) || null;
 }
 
+function syntheticLineId(lineUserId) {
+  return "line:" + text(lineUserId);
+}
+
+function makeProvisionalPlayer(lineUserId, displayName, role, now) {
+  const id = syntheticLineId(lineUserId);
+  const name = text(displayName) || "LINE 車友";
+  const position = roleLabel(role);
+  return {
+    playerId: id,
+    playerName: name,
+    displayName: name,
+    hostAlias: name,
+    name,
+    hostNote: "",
+    position,
+    requestedPosition: position,
+    playPosition: role,
+    isCrossPlay: false,
+    roleChoice: "",
+    seatLabel: "",
+    memberType: "guest",
+    isLineLinked: false,
+    pendingLineUserId: text(lineUserId),
+    source: "line_group_mention_pending_identity",
+    status: "已加入",
+    joinedAt: now,
+    updatedAt: now
+  };
+}
+
 function makePlayer(profile, role, now) {
   const id = profileId(profile);
   const name = playerDisplayName(profile);
@@ -221,6 +255,45 @@ function assignSeat(slots, player, role, now) {
   }
 
   slots[index] = next;
+  return true;
+}
+
+function addProvisionalStaffSlot(staffSlots, lineUserId, displayName, now) {
+  const pendingId = text(lineUserId);
+  if (!pendingId) return false;
+
+  const exists = staffSlots.some(slot =>
+    text(slot && slot.pendingLineUserId) === pendingId ||
+    text(slot && (
+      slot.memberId ||
+      (slot.memberSnapshot && slot.memberSnapshot.memberId)
+    )) === syntheticLineId(pendingId)
+  );
+  if (exists) return false;
+
+  const name = text(displayName) || "LINE 車友";
+  const memberId = syntheticLineId(pendingId);
+  const order = staffSlots.length + 1;
+  staffSlots.push({
+    id: "staff_" + memberId,
+    order,
+    label: "DM",
+    memberId,
+    displayName: name,
+    isCrossPlay: false,
+    position: "",
+    pendingLineUserId: pendingId,
+    memberSnapshot: {
+      memberId,
+      displayName: name,
+      position: "",
+      isCrossPlay: false,
+      source: "line_group_mention_pending_identity"
+    },
+    source: "line_group_mention_pending_identity",
+    createdAt: now,
+    updatedAt: now
+  });
   return true;
 }
 
@@ -314,6 +387,9 @@ async function addMentionedRosterMembers(context, roleInput, dependencies = {}) 
   const batchReader = dependencies.findPlayersByLineUserIds || findPlayersByLineUserIds;
   const mutate = dependencies.applyCarMutation || applyCarMutation;
   const studioSync = dependencies.syncActivity || syncActivity;
+  const readGroupProfile =
+    dependencies.getGroupMemberProfile ||
+    getGroupMemberProfile;
 
   const actorProfile = await actorReader(context.source.userId);
   if (!actorProfile) {
@@ -322,6 +398,69 @@ async function addMentionedRosterMembers(context, roleInput, dependencies = {}) 
 
   const linkedProfiles = await batchReader(userIds);
   const profileMap = buildProfileMap(linkedProfiles);
+
+  const unresolvedIds =
+    userIds.filter(
+      lineUserId =>
+        !profileMap.has(
+          lineUserId
+        )
+    );
+
+  const groupProfileRows =
+    await Promise.all(
+      unresolvedIds.map(
+        async function (
+          lineUserId
+        ) {
+          try {
+            const profile =
+              await readGroupProfile(
+                context.source.groupId,
+                lineUserId,
+                dependencies
+              );
+
+            return {
+              lineUserId,
+              displayName:
+                text(
+                  profile &&
+                  profile.displayName
+                )
+            };
+          } catch (error) {
+            console.warn(
+              "LINE group roster profile lookup failed.",
+              {
+                lineUserId,
+                message:
+                  text(
+                    error &&
+                    error.message
+                  )
+              }
+            );
+
+            return {
+              lineUserId,
+              displayName: ""
+            };
+          }
+        }
+      )
+    );
+
+  const groupProfileMap =
+    new Map(
+      groupProfileRows.map(
+        row => [
+          row.lineUserId,
+          row
+        ]
+      )
+    );
+
   const carId = text(context.accountingCarId);
   if (!carId) return { changed: false, reason: "binding_required" };
 
@@ -346,6 +485,16 @@ async function addMentionedRosterMembers(context, roleInput, dependencies = {}) 
     for (const lineUserId of userIds) {
       const profile = profileMap.get(lineUserId);
       if (!profile || !profileId(profile)) {
+        const groupProfile =
+          groupProfileMap.get(
+            lineUserId
+          ) || {};
+
+        const pendingDisplayName =
+          text(
+            groupProfile.displayName
+          );
+
         upsertPendingCandidate(candidates, {
           lineUserId,
           targetRole: role,
@@ -353,6 +502,87 @@ async function addMentionedRosterMembers(context, roleInput, dependencies = {}) 
           addedByLineUserId: context.source.userId,
           now
         });
+
+        if (role === "dm") {
+          if (
+            pendingDisplayName &&
+            addProvisionalStaffSlot(
+              staffSlots,
+              lineUserId,
+              pendingDisplayName,
+              now
+            )
+          ) {
+            addedCount += 1;
+          } else if (
+            staffSlots.some(
+              slot =>
+                text(
+                  slot &&
+                  slot.pendingLineUserId
+                ) ===
+                lineUserId
+            )
+          ) {
+            alreadyExistsCount += 1;
+          }
+        } else {
+          const syntheticId =
+            syntheticLineId(
+              lineUserId
+            );
+
+          const existingPending =
+            players.find(
+              player =>
+                text(
+                  player &&
+                  player.pendingLineUserId
+                ) ===
+                  lineUserId ||
+                text(
+                  player &&
+                  (
+                    player.playerId ||
+                    player.id ||
+                    player.profileId
+                  )
+                ) ===
+                  syntheticId
+            );
+
+          if (existingPending) {
+            alreadyExistsCount += 1;
+          } else if (
+            pendingDisplayName
+          ) {
+            const provisional =
+              makeProvisionalPlayer(
+                lineUserId,
+                pendingDisplayName,
+                role,
+                now
+              );
+
+            players.push(
+              provisional
+            );
+
+            addedCount += 1;
+
+            if (
+              assignSeat(
+                slots,
+                provisional,
+                role,
+                now
+              )
+            ) {
+              seatedCount += 1;
+            }
+          }
+        }
+
         pendingIdentityCount += 1;
         continue;
       }
@@ -466,8 +696,11 @@ module.exports = {
   isManager,
   findAvailableSeat,
   makePlayer,
+  makeProvisionalPlayer,
   assignSeat,
   addStaffSlot,
+  addProvisionalStaffSlot,
   upsertPendingCandidate,
+  syntheticLineId,
   addMentionedRosterMembers
 };
