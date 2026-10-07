@@ -1085,7 +1085,29 @@ console.log(
       await carRef.update(updateData);
       const beforeCar={id:carId,...car};
       const afterCar={id:carId,...car,...updateData};
-      await syncCarPreparedViewMutation(beforeCar,afterCar);
+      const preparedViewResults =
+        await syncCarPreparedViewMutation(
+          beforeCar,
+          afterCar
+        );
+
+      const carDetailSync =
+        preparedViewResults.find(
+          function (result) {
+            return result &&
+              result.type === "car_detail";
+          }
+        );
+
+      if (
+        !carDetailSync ||
+        carDetailSync.ok !== true
+      ) {
+        throw new Error(
+          "玩家已核准，但 Recruit / 車團 Prepared View 同步尚未完成。請先不要重複操作。"
+        );
+      }
+
       await syncKnownMembershipMutation(
         beforeCar,afterCar,
         approvedPlayers.map(p=>p&&(p.playerId||p.id||p.profileId)).filter(Boolean),
@@ -1225,10 +1247,28 @@ console.log(
 
       await carRef.update(updateData);
 
-      await syncCarPreparedViewMutation(
-        { id: carId, ...car },
-        { id: carId, ...car, ...updateData }
-      );
+      const preparedViewResults =
+        await syncCarPreparedViewMutation(
+          { id: carId, ...car },
+          { id: carId, ...car, ...updateData }
+        );
+
+      const carDetailSync =
+        preparedViewResults.find(
+          function (result) {
+            return result &&
+              result.type === "car_detail";
+          }
+        );
+
+      if (
+        !carDetailSync ||
+        carDetailSync.ok !== true
+      ) {
+        throw new Error(
+          "申請已拒絕，但 Recruit / 車團 Prepared View 同步尚未完成。請先不要重複操作。"
+        );
+      }
 
       alert(
         "已拒絕申請"
