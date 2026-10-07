@@ -518,6 +518,11 @@ async function dispatchOne(
       .sendTextPush ||
     sendTextPush;
 
+  const pushMessages =
+    dependencies
+      .sendPushMessage ||
+    sendPushMessage;
+
   const markSent =
     dependencies
       .markReminderSent ||
