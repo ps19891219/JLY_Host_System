@@ -1480,6 +1480,408 @@ async function handleMessageEvent(
   };
 }
 
+function parsePostbackData(value) {
+  const params =
+    new URLSearchParams(
+      normalizeText(value)
+    );
+
+  return {
+    action:
+      normalizeText(
+        params.get("jly_action")
+      ),
+
+    carId:
+      normalizeText(
+        params.get("carId")
+      )
+  };
+}
+
+function candidateButtonLabel(
+  candidate,
+  index,
+  total
+) {
+  const date =
+    normalizeText(
+      candidate &&
+      candidate.gameDate
+    );
+
+  const shortDate =
+    /^\d{4}-\d{2}-\d{2}$/.test(
+      date
+    )
+      ? date.slice(5).replace("-", "/")
+      : date;
+
+  const time =
+    normalizeText(
+      candidate &&
+      candidate.gameTime
+    );
+
+  const detail =
+    [shortDate, time]
+      .filter(Boolean)
+      .join(" ");
+
+  const fallback =
+    total > 1
+      ? "候選 " + String(index + 1)
+      : "確認綁定";
+
+  return (
+    detail
+      ? "綁定 " + detail
+      : fallback
+  ).slice(0, 20);
+}
+
+function buildAutoBindingMessage(
+  detection
+) {
+  const candidates =
+    Array.isArray(
+      detection &&
+      detection.candidates
+    )
+      ? detection.candidates
+      : [];
+
+  const groupName =
+    normalizeText(
+      detection &&
+      detection.group &&
+      detection.group.groupName
+    );
+
+  const scriptName =
+    normalizeText(
+      detection &&
+      detection.scriptHint
+    ) ||
+    normalizeText(
+      candidates[0] &&
+      candidates[0].scriptName
+    ) ||
+    "JLY 車團";
+
+  const lines = [
+    "🤖 JLY 小助手已加入這個群組",
+    groupName
+      ? "LINE 群組：" + groupName
+      : "",
+    "",
+    candidates.length === 1
+      ? "我偵測到這可能是《" + scriptName + "》。"
+      : "我找到 " + String(candidates.length) + " 台可能的《" + scriptName + "》。",
+    "請由主揪確認要綁定哪一台車。"
+  ].filter(Boolean);
+
+  return {
+    type: "text",
+    text: lines.join("\n"),
+    quickReply: {
+      items:
+        candidates.map(
+          function (
+            candidate,
+            index
+          ) {
+            const carId =
+              normalizeText(
+                candidate &&
+                candidate.carId
+              );
+
+            return {
+              type: "action",
+              action: {
+                type: "postback",
+                label:
+                  candidateButtonLabel(
+                    candidate,
+                    index,
+                    candidates.length
+                  ),
+                data:
+                  "jly_action=auto_bind&carId=" +
+                  encodeURIComponent(
+                    carId
+                  ),
+                displayText:
+                  "確認綁定《" +
+                  normalizeText(
+                    candidate &&
+                    candidate.scriptName
+                  ) +
+                  "》"
+              }
+            };
+          }
+        )
+    }
+  };
+}
+
+async function handleJoinEvent(
+  context,
+  dependencies = {}
+) {
+  const resolveBinding =
+    dependencies.resolveGroupBinding ||
+    resolveGroupBinding;
+
+  const detect =
+    dependencies.detectGroupCar ||
+    detectGroupCar;
+
+  const replyWithText =
+    dependencies.sendTextReply ||
+    sendTextReply;
+
+  const replyWithMessages =
+    dependencies.sendReplyMessage ||
+    sendReplyMessage;
+
+  if (
+    context.source.type !== "group" ||
+    !context.source.groupId ||
+    !context.replyToken
+  ) {
+    return {
+      handled: false,
+      route: "join_unsupported_source",
+      context
+    };
+  }
+
+  try {
+    const existing =
+      await resolveBinding(
+        context.source.groupId
+      );
+
+    if (
+      existing &&
+      existing.bound === true
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "✅ JLY 小助手已回到這個車群，原本的車團綁定仍然有效。\n輸入「JLY 小助手」即可開啟功能選單。"
+      );
+
+      return {
+        handled: true,
+        route: "join_existing_binding",
+        context,
+        groupBinding: existing
+      };
+    }
+  } catch (error) {
+    console.error(
+      "LINE join binding lookup failed.",
+      error
+    );
+  }
+
+  let detection = null;
+
+  try {
+    detection =
+      await detect(
+        context.source.groupId,
+        dependencies
+      );
+  } catch (error) {
+    console.error(
+      "LINE group auto-detection failed.",
+      error
+    );
+  }
+
+  if (
+    detection &&
+    detection.detected === true &&
+    Array.isArray(
+      detection.candidates
+    ) &&
+    detection.candidates.length
+  ) {
+    await replyWithMessages(
+      context.replyToken,
+      [
+        buildAutoBindingMessage(
+          detection
+        )
+      ]
+    );
+
+    return {
+      handled: true,
+      route:
+        detection.candidates.length === 1
+          ? "join_auto_binding_candidate"
+          : "join_auto_binding_candidates",
+      context,
+      detection
+    };
+  }
+
+  const groupName =
+    normalizeText(
+      detection &&
+      detection.group &&
+      detection.group.groupName
+    );
+
+  await replyWithText(
+    context.replyToken,
+    "🤖 JLY 小助手已加入" +
+      (groupName ? "「" + groupName + "」" : "這個群組") +
+      "。\n目前無法唯一判斷是哪台車，請從 JLY 車團頁產生既有配對碼完成綁定。"
+  );
+
+  return {
+    handled: true,
+    route: "join_auto_binding_not_found",
+    context,
+    detection
+  };
+}
+
+async function handlePostbackEvent(
+  context,
+  dependencies = {}
+) {
+  const command =
+    parsePostbackData(
+      context &&
+      context.postback &&
+      context.postback.data
+    );
+
+  if (
+    command.action !==
+      "auto_bind"
+  ) {
+    return {
+      handled: false,
+      route: "postback_unknown",
+      context
+    };
+  }
+
+  const replyWithText =
+    dependencies.sendTextReply ||
+    sendTextReply;
+
+  const replyWithMessages =
+    dependencies.sendReplyMessage ||
+    sendReplyMessage;
+
+  const bind =
+    dependencies.bindGroupToCar ||
+    bindGroupToCar;
+
+  const readPublicBaseUrl =
+    dependencies.getPublicBaseUrl ||
+    getPublicBaseUrl;
+
+  if (
+    context.source.type !== "group" ||
+    !context.source.groupId ||
+    !context.replyToken ||
+    !command.carId
+  ) {
+    return {
+      handled: false,
+      route: "postback_auto_bind_invalid",
+      context
+    };
+  }
+
+  const bindResult =
+    await bind(
+      context,
+      command.carId,
+      dependencies
+    );
+
+  const failureMessages = {
+    group_required:
+      "車團綁定只能在 LINE 群組內執行。",
+    line_identity_unlinked:
+      "請先完成 LINE 與 JLY Member 身分連結，再確認這台車。",
+    car_not_found:
+      "找不到這個 JLY 車團。",
+    owner_required:
+      "只有這台車的主揪可以確認自動綁定。",
+    binding_conflict:
+      "這個 LINE 群組已綁定其他車團，系統不會自動覆蓋。"
+  };
+
+  if (!bindResult.bound) {
+    await replyWithText(
+      context.replyToken,
+      failureMessages[bindResult.reason] ||
+        "車團綁定失敗，請稍後再試。"
+    );
+
+    return {
+      handled: true,
+      route: "postback_auto_bind_failed",
+      context,
+      bindResult
+    };
+  }
+
+  const carLabel =
+    normalizeText(
+      bindResult.car &&
+      bindResult.car.label
+    ) ||
+    "JLY 車團";
+
+  await replyWithMessages(
+    context.replyToken,
+    [
+      {
+        type: "text",
+        text:
+          "✅ 已成功綁定《" +
+          carLabel +
+          "》\n\n" +
+          "現在可以直接在群組使用：\n" +
+          "新增DM @車友\n" +
+          "新增男位 @車友\n" +
+          "新增女位 @車友\n\n" +
+          "群組成員也可以使用下方入口報名／認領。"
+      },
+      buildMemberWelcomeCard(
+        bindResult.car || {},
+        {
+          baseUrl:
+            readPublicBaseUrl(),
+          carId:
+            bindResult.car &&
+            bindResult.car.id
+        }
+      )
+    ]
+  );
+
+  return {
+    handled: true,
+    route: "postback_auto_bound",
+    context,
+    bindResult
+  };
+}
+
 async function handleMemberJoinedEvent(
   context,
   dependencies = {}
@@ -1660,12 +2062,16 @@ async function routeEvent(
       );
 
     case "join":
-      return {
-        handled: true,
-        route:
-          "join",
-        context
-      };
+      return handleJoinEvent(
+        context,
+        dependencies
+      );
+
+    case "postback":
+      return handlePostbackEvent(
+        context,
+        dependencies
+      );
 
     case "memberJoined":
       return handleMemberJoinedEvent(
@@ -1739,5 +2145,9 @@ async function routeEvents(
 module.exports = {
   routeEvent,
   routeEvents,
-  createEventContext
+  createEventContext,
+  parsePostbackData,
+  buildAutoBindingMessage,
+  handleJoinEvent,
+  handlePostbackEvent
 };
