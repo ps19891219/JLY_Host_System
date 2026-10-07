@@ -72,3 +72,29 @@ test("non-memberJoined events still use the general router", async () => {
   assert.deepEqual(routed, [event]);
   assert.equal(result.routeResults[0].route, "message");
 });
+
+
+test("multiple memberJoined events for the same group send one welcome reply", async () => {
+  const welcomed = [];
+  const events = [
+    { type: "memberJoined", replyToken: "reply-1", source: { type: "group", groupId: "group-1" } },
+    { type: "memberJoined", replyToken: "reply-2", source: { type: "group", groupId: "group-1" } },
+    { type: "memberJoined", replyToken: "reply-3", source: { type: "group", groupId: "group-1" } }
+  ];
+
+  const result = await processVerifiedEvents(events, {
+    routeEvents: async () => [],
+    sendMemberJoinedWelcome: async event => {
+      welcomed.push(event.replyToken);
+      return { handled: true, route: "member_joined_welcome" };
+    },
+    processMembershipEvents: async received => {
+      assert.equal(received.length, 3);
+      return [];
+    }
+  });
+
+  assert.deepEqual(welcomed, ["reply-1"]);
+  assert.equal(result.routeResults.filter(item => item.route === "member_joined_welcome").length, 1);
+  assert.equal(result.routeResults.filter(item => item.route === "member_joined_welcome_coalesced").length, 2);
+});
