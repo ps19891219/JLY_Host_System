@@ -1,5 +1,13 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 LINE Group Auto Binding Date-First Candidate Discovery
+- LINE join 讀取既有 LINE group summary 後，對有效群名日期推算單一 yyyy-mm-dd；無年提示使用 Asia/Taipei 的下次同月日，驗證日期正確後才讀取。
+- 僅以 `carDetailViews.where("car.gameDate", "==", date).limit(12)` 查詢候選，當日取得的資料再以嚴格 HH:mm 比對並用劇本名稱排序；無日期群名維持既有 scriptName 精準查詢，皆只查一次 bounded Prepared View，不掃 cars/Person/MyCar。
+- 多台同日期時間需主揪手動選取，單一候選仍須 owner authorization 確認；配對碼與 lineGroupBindings 繼續為正式綁定來源，沒有自動直接綁定。
+- 有日期卻無符合車團、日期時間格式不合理、同日超過 12 筆候選，都不擴大查詢或猜測，保留配對碼備援。LINE mention roster/reminder/Person Claim 不修改。
+- 本更新加入 tests/line/group-auto-date-first.test.js，保留原 group auto-binding 測試並改為新日期查詢假件；實機驗收狀態依 Vercel + LINE 真實測試另行確認。
+
+
 > Status: Working Map
 >
 > Version: V3.21

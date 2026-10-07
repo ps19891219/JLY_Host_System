@@ -23,14 +23,15 @@ test("compact four-digit group time is removed from exact script hint and used f
   assert.equal(extractTimeHint(groupName), "09:00");
   assert.equal(extractTimeHint("測試車車 2026"), "");
 
-  let queryName = "";
+  let requestedDate = "";
   const result = await detectGroupCar("group-compact-time", {
     getGroupSummary: async () => ({
       groupId: "group-compact-time",
       groupName
     }),
-    findCarDetailViewsByScriptName: async (name, options) => {
-      queryName = name;
+    findCarDetailViewsByDate: async (date, options) => {
+      requestedDate = date;
+      const name = "測試車車";
       assert.equal(options.limit, 12);
       return [
         { id: "car-wrong-date", scriptName: name, gameDate: "2026-10-21", gameTime: "09:00", status: "招募中" },
@@ -39,7 +40,7 @@ test("compact four-digit group time is removed from exact script hint and used f
       ];
     }
   });
-  assert.equal(queryName, "測試車車");
+  assert.equal(requestedDate, "2026-10-20");
   assert.equal(result.detected, true);
   assert.equal(result.candidates.length, 1);
   assert.equal(result.candidates[0].carId, "car-correct");
@@ -59,14 +60,15 @@ test("group name extracts script, date and time without scanning cars", async ()
     "19:00"
   );
 
-  let requestedScript = "";
+  let requestedDate = "";
   const result = await detectGroupCar("group-1", {
+    now: new Date("2026-10-08T00:00:00Z"),
     getGroupSummary: async () => ({
       groupId: "group-1",
       groupName: "《民國17年》 12/07 19:00 車群"
     }),
-    findCarDetailViewsByScriptName: async scriptName => {
-      requestedScript = scriptName;
+    findCarDetailViewsByDate: async date => {
+      requestedDate = date;
       return [
         {
           id: "car-a",
@@ -86,7 +88,7 @@ test("group name extracts script, date and time without scanning cars", async ()
     }
   });
 
-  assert.equal(requestedScript, "民國17年");
+  assert.equal(requestedDate, "2026-12-07");
   assert.equal(result.detected, true);
   assert.equal(result.candidates.length, 1);
   assert.equal(result.candidates[0].carId, "car-b");

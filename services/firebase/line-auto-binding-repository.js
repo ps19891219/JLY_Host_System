@@ -42,8 +42,21 @@ async function findCarDetailViewsByScriptName(scriptName, options = {}) {
     .filter(Boolean);
 }
 
+async function findCarDetailViewsByDate(gameDate, options = {}) {
+  const date = text(gameDate);
+  if (!/^20\d{2}-\d{2}-\d{2}$/.test(date)) return [];
+  const db = options.db || getFirestore();
+  const limit = normalizeLimit(options.limit);
+  const snapshot = await db.collection(COLLECTION)
+    .where("car.gameDate", "==", date)
+    .limit(limit)
+    .get();
+  return snapshot.docs.map(viewCar).filter(Boolean);
+}
+
 module.exports = {
   COLLECTION,
   DEFAULT_LIMIT,
-  findCarDetailViewsByScriptName
+  findCarDetailViewsByScriptName,
+  findCarDetailViewsByDate
 };
