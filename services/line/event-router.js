@@ -464,6 +464,178 @@ async function handleMessageEvent(
   }
 
   if (
+    messageResult.action ===
+      "assistant_roster_add"
+  ) {
+    if (!context.replyToken) {
+      return {
+        handled: false,
+        route: "message_missing_reply_token",
+        context,
+        groupBinding
+      };
+    }
+
+    if (
+      context.source.type !== "group" ||
+      !context.source.groupId
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "新增車友只能在 LINE 車群內使用。"
+      );
+      return {
+        handled: true,
+        route: "assistant_roster_group_required",
+        context,
+        groupBinding
+      };
+    }
+
+    if (!context.accountingCarId) {
+      await replyWithText(
+        context.replyToken,
+        "請先將這個 LINE 群組綁定 JLY 車團，再使用新增 DM／男位／女位。"
+      );
+      return {
+        handled: true,
+        route: "assistant_roster_binding_required",
+        context,
+        groupBinding
+      };
+    }
+
+    const rosterResult =
+      await addMentionedRosterMembers(
+        context,
+        messageResult.rosterCommand &&
+          messageResult.rosterCommand.role,
+        dependencies
+      );
+
+    const rosterFailure = {
+      mentions_required:
+        "請在指令後直接 @ 要新增的車友，例如：新增男位 @小明 @阿哲",
+      line_identity_unlinked:
+        "發出這個指令的人尚未完成 JLY LINE 身分連結，暫時不能修改車團名單。",
+      owner_or_manager_required:
+        "只有這台車的主揪／管理者可以從 LINE 群組新增人員。",
+      role_invalid:
+        "請使用「新增DM」、「新增男位」或「新增女位」。",
+      car_not_found:
+        "找不到這台 JLY 車團。",
+      binding_required:
+        "請先將這個 LINE 群組綁定 JLY 車團。"
+    };
+
+    if (!rosterResult.changed) {
+      if (
+        rosterResult.reason ===
+          "no_roster_change"
+      ) {
+        await replyWithText(
+          context.replyToken,
+          "這批車友已經在本場名單裡，不需要重複新增。"
+        );
+      } else {
+        await replyWithText(
+          context.replyToken,
+          rosterFailure[rosterResult.reason] ||
+            "這次新增沒有完成，請稍後再試。"
+        );
+      }
+
+      return {
+        handled: true,
+        route: "assistant_roster_add_failed",
+        context,
+        groupBinding,
+        rosterResult
+      };
+    }
+
+    const label =
+      messageResult.rosterCommand &&
+      messageResult.rosterCommand.label
+        ? messageResult.rosterCommand.label
+        : "人員";
+    const lines = [
+      "✅ " + label + "登記完成",
+      "",
+      "已加入：" +
+        String(
+          Number(
+            rosterResult.addedCount || 0
+          )
+        ) +
+        " 人"
+    ];
+
+    if (
+      Number(
+        rosterResult.seatedCount || 0
+      ) > 0
+    ) {
+      lines.push(
+        "已自動入座：" +
+          String(
+            Number(
+              rosterResult.seatedCount
+            )
+          ) +
+          " 人"
+      );
+    }
+
+    if (
+      Number(
+        rosterResult.alreadyExistsCount || 0
+      ) > 0
+    ) {
+      lines.push(
+        "原本已在名單：" +
+          String(
+            Number(
+              rosterResult.alreadyExistsCount
+            )
+          ) +
+          " 人"
+      );
+    }
+
+    if (
+      Number(
+        rosterResult.pendingIdentityCount || 0
+      ) > 0
+    ) {
+      lines.push(
+        "待認領：" +
+          String(
+            Number(
+              rosterResult.pendingIdentityCount
+            )
+          ) +
+          " 人",
+        "",
+        "待認領的車友只保留本場 LINE 關聯，不會另外建立重複 Person。"
+      );
+    }
+
+    await replyWithText(
+      context.replyToken,
+      lines.join("\n")
+    );
+
+    return {
+      handled: true,
+      route: "assistant_roster_added",
+      context,
+      groupBinding,
+      rosterResult
+    };
+  }
+
+  if (
     !messageResult.handled &&
     hasReminderMentions
   ) {
