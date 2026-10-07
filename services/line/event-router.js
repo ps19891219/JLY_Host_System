@@ -368,6 +368,10 @@ async function handleMessageEvent(
     dependencies.captureGroupReminderTargets ||
     captureGroupReminderTargets;
 
+  const addRosterMembers =
+    dependencies.addMentionedRosterMembers ||
+    addMentionedRosterMembers;
+
   if (
     context.message.type !== "text"
   ) {
@@ -506,7 +510,7 @@ async function handleMessageEvent(
     }
 
     const rosterResult =
-      await addMentionedRosterMembers(
+      await addRosterMembers(
         context,
         messageResult.rosterCommand &&
           messageResult.rosterCommand.role,
