@@ -47,7 +47,8 @@ const {
 );
 
 const {
-  sendTextPush
+  sendTextPush,
+  sendPushMessage
 } = require(
   "./line-push"
 );
@@ -188,6 +189,92 @@ function buildReminderMessage(
   );
 
   return lines.join("\n");
+}
+
+
+function getReminderTargetUserIds(
+  reminder
+) {
+  const seen = new Set();
+
+  return (
+    Array.isArray(
+      reminder &&
+      reminder.targetLineUserIds
+    )
+      ? reminder.targetLineUserIds
+      : []
+  )
+    .map(normalizeText)
+    .filter(function (userId) {
+      if (
+        !userId ||
+        seen.has(userId)
+      ) {
+        return false;
+      }
+
+      seen.add(userId);
+      return true;
+    })
+    .slice(0, 20);
+}
+
+
+function buildReminderMessageObject(
+  car,
+  reminder
+) {
+  const message =
+    buildReminderMessage(
+      car,
+      reminder
+    );
+
+  const targetUserIds =
+    getReminderTargetUserIds(
+      reminder
+    );
+
+  if (targetUserIds.length === 0) {
+    return {
+      type: "text",
+      text: message
+    };
+  }
+
+  const substitution = {};
+
+  const mentionTokens =
+    targetUserIds.map(
+      function (
+        userId,
+        index
+      ) {
+        const key =
+          "u" +
+          String(index + 1);
+
+        substitution[key] = {
+          type: "mention",
+          mentionee: {
+            type: "user",
+            userId
+          }
+        };
+
+        return "{" + key + "}";
+      }
+    );
+
+  return {
+    type: "textV2",
+    text:
+      mentionTokens.join(" ") +
+      "\n\n" +
+      message,
+    substitution
+  };
 }
 
 
@@ -426,6 +513,11 @@ async function dispatchOne(
       .sendTextPush ||
     sendTextPush;
 
+  const pushMessages =
+    dependencies
+      .sendPushMessage ||
+    sendPushMessage;
+
   const markSent =
     dependencies
       .markReminderSent ||
@@ -500,10 +592,44 @@ async function dispatchOne(
         reminder
       );
 
-    await push(
-      binding.groupId,
-      message
-    );
+    const targetUserIds =
+      getReminderTargetUserIds(
+        reminder
+      );
+
+    if (targetUserIds.length > 0) {
+      try {
+        await pushMessages(
+          binding.groupId,
+          [
+            buildReminderMessageObject(
+              car,
+              reminder
+            )
+          ]
+        );
+      } catch (mentionError) {
+        /*
+         * A saved LINE user may have left the group after target selection.
+         * Do not lose the actual reminder because one mention became invalid.
+         * Fall back to the original group reminder without mentions.
+         */
+        console.warn(
+          "LINE reminder mention push failed; using group fallback.",
+          mentionError
+        );
+
+        await push(
+          binding.groupId,
+          message
+        );
+      }
+    } else {
+      await push(
+        binding.groupId,
+        message
+      );
+    }
 
     const sentAt =
       new Date()
@@ -674,6 +800,8 @@ async function dispatchDueReminders(
 
 module.exports = {
   buildReminderMessage,
+  buildReminderMessageObject,
+  getReminderTargetUserIds,
   buildReminderNoticeMessage,
 
   dispatchReminderNotice,

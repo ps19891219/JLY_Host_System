@@ -66,6 +66,8 @@ test("enabling the activity reminder creates one formal schedule at the 09:00 de
   assert.equal(writes[0].data.status, "scheduled");
   assert.equal(writes[0].data.sendTime, "09:00");
   assert.equal(writes[0].data.scheduledAt, "2027-08-23T01:00:00.000Z");
+  assert.equal(writes[0].data.targetCaptureOpen, true);
+  assert.deepEqual(writes[0].data.targetLineUserIds, []);
 });
 
 test("cancelled or ended activity invalidates its due reminder", () => {
@@ -142,4 +144,97 @@ test("atomic claim prevents duplicate reminder delivery when scheduler reruns", 
   assert.equal(first.sent, true);
   assert.equal(second.skipped, true);
   assert.equal(pushes, 1);
+});
+
+
+test("re-enabling an existing reminder reopens LINE target capture without creating a second reminder", async () => {
+  const captureWrites = [];
+  const result = await reminderService.enableGroupPreTripReminder(
+    "car-1",
+    { gameDate: "2027-08-24" },
+    {
+      getPreTripReminder: async () => ({
+        enabled: true,
+        status: "scheduled",
+        targetLineUserIds: ["U1"]
+      }),
+      setPreTripReminderTargetCapture: async (carId, enabled) => {
+        captureWrites.push({ carId, enabled });
+        return { updated: true };
+      },
+      enablePreTripReminder: async () => {
+        throw new Error("must_not_create_duplicate");
+      }
+    }
+  );
+
+  assert.equal(result.enabled, true);
+  assert.equal(result.alreadyEnabled, true);
+  assert.equal(result.reminder.targetCaptureOpen, true);
+  assert.deepEqual(captureWrites, [{ carId: "car-1", enabled: true }]);
+});
+
+test("mention capture normalizes users and reports unavailable LINE ids", async () => {
+  let savedIds = null;
+  const result = await reminderService.captureGroupReminderTargets(
+    "car-1",
+    [
+      { type: "user", userId: "U1", isSelf: false },
+      { type: "user", userId: "U1", isSelf: false },
+      { type: "user", userId: "", isSelf: false },
+      { type: "user", userId: "BOT", isSelf: true }
+    ],
+    {
+      addPreTripReminderTargets: async (_carId, ids) => {
+        savedIds = ids;
+        return { captured: true, addedCount: 1, totalCount: 1 };
+      }
+    }
+  );
+
+  assert.deepEqual(savedIds, ["U1"]);
+  assert.equal(result.captured, true);
+  assert.equal(result.unavailableCount, 1);
+});
+
+test("due reminder with saved LINE targets sends one textV2 group push with mentions", async () => {
+  let pushed = null;
+  const result = await dispatcher.dispatchOne(
+    { id: "preTrip", carId: "car-1" },
+    {
+      claimReminder: async () => ({
+        claimed: true,
+        reminder: {
+          id: "preTrip",
+          carId: "car-1",
+          status: "sending",
+          targetLineUserIds: ["U1", "U2"]
+        }
+      }),
+      getCarById: async () => ({
+        scriptName: "測試車",
+        gameDate: "2027-08-24",
+        gameTime: "19:00"
+      }),
+      getActiveBindingByCarId: async () => ({
+        status: "active",
+        groupId: "group-1"
+      }),
+      sendPushMessage: async (groupId, messages) => {
+        pushed = { groupId, messages };
+      },
+      sendTextPush: async () => {
+        throw new Error("text fallback should not be used when targets exist");
+      },
+      markReminderSent: async () => ({ sent: true })
+    }
+  );
+
+  assert.equal(result.sent, true);
+  assert.equal(pushed.groupId, "group-1");
+  assert.equal(pushed.messages.length, 1);
+  assert.equal(pushed.messages[0].type, "textV2");
+  assert.match(pushed.messages[0].text, /\{u1\} \{u2\}/);
+  assert.equal(pushed.messages[0].substitution.u1.mentionee.userId, "U1");
+  assert.equal(pushed.messages[0].substitution.u2.mentionee.userId, "U2");
 });

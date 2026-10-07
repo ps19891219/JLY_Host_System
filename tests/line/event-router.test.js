@@ -34,7 +34,15 @@ function createTextEvent(options = {}) {
       type: "text",
       text:
         options.text ||
-        "JLY 小助手"
+        "JLY 小助手",
+      ...(Array.isArray(options.mentions)
+        ? {
+            mention: {
+              mentionees:
+                options.mentions
+            }
+          }
+        : {})
     }
   };
 }

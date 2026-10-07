@@ -17,7 +17,9 @@ Responsibilities:
 
 const {
   getPreTripReminder,
-  enablePreTripReminder: saveEnabledPreTripReminder
+  enablePreTripReminder: saveEnabledPreTripReminder,
+  setPreTripReminderTargetCapture,
+  addPreTripReminderTargets
 } = require(
   "../firebase/reminder-repository"
 );
@@ -182,10 +184,23 @@ async function enableGroupPreTripReminder(
     existing &&
     existing.enabled === true
   ) {
+    const openTargetCapture =
+      dependencies.setPreTripReminderTargetCapture ||
+      setPreTripReminderTargetCapture;
+
+    await openTargetCapture(
+      carId,
+      true
+    );
+
     return {
       enabled: true,
       alreadyEnabled: true,
-      reminder: existing
+      targetCaptureOpen: true,
+      reminder: {
+        ...existing,
+        targetCaptureOpen: true
+      }
     };
   }
 
@@ -238,6 +253,8 @@ async function enableGroupPreTripReminder(
           DEFAULT_CUSTOM_MESSAGE,
         targetType:
           "line_group",
+        targetLineUserIds: [],
+        targetCaptureOpen: true,
         scheduledAt,
         status:
           schedulePassed
@@ -255,6 +272,98 @@ async function enableGroupPreTripReminder(
         ? "scheduled_time_passed"
         : "enabled",
     scheduledAt
+  };
+}
+
+
+function normalizeReminderMentions(
+  mentions
+) {
+  const source =
+    Array.isArray(mentions)
+      ? mentions
+      : [];
+
+  const userIds = [];
+  const seen = new Set();
+  let unavailableCount = 0;
+  let hasAllMention = false;
+
+  for (const mention of source) {
+    const item =
+      mention &&
+      typeof mention === "object"
+        ? mention
+        : {};
+
+    if (normalizeText(item.type) === "all") {
+      hasAllMention = true;
+      continue;
+    }
+
+    if (
+      normalizeText(item.type) !== "user" ||
+      item.isSelf === true
+    ) {
+      continue;
+    }
+
+    const userId =
+      normalizeText(
+        item.userId
+      );
+
+    if (!userId) {
+      unavailableCount += 1;
+      continue;
+    }
+
+    if (!seen.has(userId)) {
+      seen.add(userId);
+      userIds.push(userId);
+    }
+  }
+
+  return {
+    userIds,
+    unavailableCount,
+    hasAllMention
+  };
+}
+
+async function captureGroupReminderTargets(
+  carId,
+  mentions,
+  dependencies = {}
+) {
+  const normalized =
+    normalizeReminderMentions(
+      mentions
+    );
+
+  if (normalized.hasAllMention) {
+    return {
+      captured: false,
+      reason: "mention_all_not_supported",
+      unavailableCount:
+        normalized.unavailableCount
+    };
+  }
+
+  const saveTargets =
+    dependencies.addPreTripReminderTargets ||
+    addPreTripReminderTargets;
+
+  const result =
+    await saveTargets(
+      carId,
+      normalized.userIds
+    );
+
+  return {
+    ...result,
+    unavailableCount:
+      normalized.unavailableCount
   };
 }
 
@@ -317,6 +426,8 @@ module.exports = {
 
   getReminderStatus,
   enableGroupPreTripReminder,
+  captureGroupReminderTargets,
+  normalizeReminderMentions,
   buildReminderStatusText,
   buildGroupReminderReply,
 
