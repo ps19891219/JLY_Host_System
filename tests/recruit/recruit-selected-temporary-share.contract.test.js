@@ -18,6 +18,6 @@ assert(batch.includes("recruitBatchExpiresDays"),"expiry selector missing");
 assert(tabs.includes("我的協作"),"assist tab must be named 我的協作");
 assert(controller.includes("batchShare.setCars(cars)"),"batch source must follow current recruit tab");
 assert(page.includes("recruit-share-data.js?v=2"),"recruit owner share-data module missing");
-assert(page.includes("recruit-batch-share.js?v=5"),"recruit batch cache version missing");
+assert(page.includes("recruit-batch-share.js?v=6"),"recruit batch cache version missing");
 assert(page.includes("recruit-controller.js?v=9"),"recruit controller cache version missing");
 console.log("recruit selected temporary share contract ok");

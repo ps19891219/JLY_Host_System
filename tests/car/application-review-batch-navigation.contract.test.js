@@ -5,7 +5,7 @@ const review=fs.readFileSync("js/application-review.js","utf8");
 const page=fs.readFileSync("pages/car-detail.html","utf8");
 assert(actions.includes("async function approveApplications(indices)"));
 assert(actions.includes("await carRef.update(updateData)"));
-assert(actions.includes("await syncCarPreparedViewMutation(beforeCar,afterCar)"));
+assert(/await\s+syncCarPreparedViewMutation\(\s*beforeCar,\s*afterCar\s*\)/.test(actions));
 assert(actions.includes("approveSelectedApplications"));
 assert(actions.includes("approveAllApplications"));
 assert(card.includes("核准所選"));

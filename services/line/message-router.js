@@ -245,6 +245,34 @@ function routeMenuCommand(text) {
 }
 
 // ============================================================
+// LINE group roster commands
+// ============================================================
+
+function parseRosterCommand(value) {
+  const normalized = normalizeText(value)
+    .replace(/^(?:@?\s*)?(?:jly\s*)?小助手\s*/i, "")
+    .replace(/^jly\s*/i, "")
+    .trim();
+
+  const match = normalized.match(/^新增\s*(DM|主持人?|男位|男角|女位|女角)(?:\s+.*)?$/i);
+  if (!match) return null;
+
+  const rawRole = String(match[1] || "").toLowerCase();
+  const role =
+    rawRole === "dm" || rawRole.startsWith("主持")
+      ? "dm"
+      : (rawRole.startsWith("男") ? "male" : "female");
+
+  return {
+    role,
+    label:
+      role === "dm"
+        ? "DM"
+        : (role === "male" ? "男位" : "女位")
+  };
+}
+
+// ============================================================
 // Route Text Message
 // ============================================================
 
@@ -265,6 +293,18 @@ function routeTextMessage(text) {
       action:
         "ignore_empty",
       replyText: ""
+    };
+  }
+
+  const rosterCommand =
+    parseRosterCommand(normalizedText);
+
+  if (rosterCommand) {
+    return {
+      handled: true,
+      action: "assistant_roster_add",
+      replyText: "",
+      rosterCommand
     };
   }
 
@@ -396,6 +436,7 @@ function routeTextMessage(text) {
 module.exports = {
   routeTextMessage,
   isAssistantCalled,
-  routeMenuCommand
+  routeMenuCommand,
+  parseRosterCommand
 };
 

@@ -17,6 +17,26 @@ async function findPlayerByLineUserId(lineUserId) {
   return { id: document.id, ...document.data() };
 }
 
+async function findPlayersByLineUserIds(lineUserIds) {
+  const ids = Array.from(new Set(
+    (Array.isArray(lineUserIds) ? lineUserIds : [])
+      .map(value => String(value || "").trim())
+      .filter(Boolean)
+  )).slice(0, 20);
+
+  if (!ids.length) return [];
+
+  const snapshot = await getFirestore()
+    .collection("players")
+    .where("lineUserId", "in", ids)
+    .get();
+
+  return snapshot.docs.map(document => ({
+    id: document.id,
+    ...document.data()
+  }));
+}
+
 async function listPlayersForIdentityResolution() {
   const snapshot = await getFirestore()
     .collection("players")
@@ -61,6 +81,7 @@ async function getActorNamesByLineUserIds(lineUserIds) {
 
 module.exports = {
   findPlayerByLineUserId,
+  findPlayersByLineUserIds,
   listPlayersForIdentityResolution,
   getCarById,
   getActorNamesByLineUserIds
