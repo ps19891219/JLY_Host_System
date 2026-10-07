@@ -34,6 +34,9 @@ const REMINDER_COLLECTION =
 const PRE_TRIP_DOCUMENT =
   "preTrip";
 
+const MAX_REMINDER_TARGETS =
+  20;
+
 
 // ============================================================
 // Normalize Text
@@ -45,6 +48,21 @@ function normalizeText(value) {
       ? ""
       : value
   ).trim();
+}
+
+function normalizeTargetIds(values) {
+  const seen = new Set();
+  const result = [];
+
+  for (const value of (Array.isArray(values) ? values : [])) {
+    const id = normalizeText(value);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    result.push(id);
+    if (result.length >= MAX_REMINDER_TARGETS) break;
+  }
+
+  return result;
 }
 
 
@@ -249,6 +267,16 @@ async function enablePreTripReminder(
             reminderData.targetType
           ) || "line_group",
 
+        targetLineUserIds:
+          normalizeTargetIds(
+            Array.isArray(existing.targetLineUserIds)
+              ? existing.targetLineUserIds
+              : reminderData.targetLineUserIds
+          ),
+
+        targetCaptureOpen:
+          reminderData.targetCaptureOpen === true,
+
         scheduledAt:
           normalizeText(
             reminderData.scheduledAt
@@ -307,6 +335,169 @@ async function enablePreTripReminder(
           ...existing,
           ...next
         }
+      };
+    }
+  );
+}
+
+// ============================================================
+// Reminder target capture
+// ============================================================
+
+async function setPreTripReminderTargetCapture(
+  carId,
+  enabled
+) {
+  const now =
+    new Date()
+      .toISOString();
+
+  await getReminderRef(
+    carId,
+    PRE_TRIP_DOCUMENT
+  ).set(
+    {
+      targetCaptureOpen:
+        enabled === true,
+      updatedAt:
+        now
+    },
+    {
+      merge: true
+    }
+  );
+
+  return {
+    updated: true,
+    targetCaptureOpen:
+      enabled === true
+  };
+}
+
+async function addPreTripReminderTargets(
+  carId,
+  userIds
+) {
+  const db =
+    getFirestore();
+
+  const ref =
+    getReminderRef(
+      carId,
+      PRE_TRIP_DOCUMENT
+    );
+
+  const incoming =
+    normalizeTargetIds(
+      userIds
+    );
+
+  return db.runTransaction(
+    async function (
+      transaction
+    ) {
+      const snapshot =
+        await transaction.get(
+          ref
+        );
+
+      if (!snapshot.exists) {
+        return {
+          captured: false,
+          reason: "reminder_not_found"
+        };
+      }
+
+      const existing =
+        snapshot.data() || {};
+
+      if (existing.enabled !== true) {
+        return {
+          captured: false,
+          reason: "reminder_disabled"
+        };
+      }
+
+      if (existing.targetCaptureOpen !== true) {
+        return {
+          captured: false,
+          reason: "target_capture_closed"
+        };
+      }
+
+      if (incoming.length === 0) {
+        return {
+          captured: false,
+          reason: "mention_user_id_unavailable",
+          targetCaptureOpen: true
+        };
+      }
+
+      const current =
+        normalizeTargetIds(
+          existing.targetLineUserIds
+        );
+
+      const currentSet =
+        new Set(current);
+
+      const merged =
+        current.slice();
+
+      let addedCount = 0;
+
+      for (const userId of incoming) {
+        if (
+          currentSet.has(userId) ||
+          merged.length >= MAX_REMINDER_TARGETS
+        ) {
+          continue;
+        }
+
+        currentSet.add(userId);
+        merged.push(userId);
+        addedCount += 1;
+      }
+
+      const ignoredCount =
+        Math.max(
+          incoming.length -
+          addedCount,
+          0
+        );
+
+      const now =
+        new Date()
+          .toISOString();
+
+      transaction.set(
+        ref,
+        {
+          targetLineUserIds:
+            merged,
+          targetCaptureOpen:
+            false,
+          targetUpdatedAt:
+            now,
+          updatedAt:
+            now
+        },
+        {
+          merge: true
+        }
+      );
+
+      return {
+        captured: true,
+        reason: "targets_saved",
+        addedCount,
+        ignoredCount,
+        totalCount:
+          merged.length,
+        targetLineUserIds:
+          merged,
+        targetCaptureOpen:
+          false
       };
     }
   );
@@ -919,6 +1110,10 @@ module.exports = {
   getReminder,
   getPreTripReminder,
   enablePreTripReminder,
+  setPreTripReminderTargetCapture,
+  addPreTripReminderTargets,
+  normalizeTargetIds,
+  MAX_REMINDER_TARGETS,
 
   buildDueReminderQuery,
   listDueReminders,
