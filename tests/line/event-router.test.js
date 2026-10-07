@@ -696,7 +696,7 @@ test("one-time pairing shows confirm and cancel buttons before binding", async f
 });
 
 test("successful binding only shows the player-facing result and next step", async function () {
-  let replyText = "";
+  let sentMessages = null;
   const result = await routeEvent(
     createTextEvent({ text: "JLY 確認綁定 A7K9P2" }),
     {
@@ -710,15 +710,20 @@ test("successful binding only shows the player-facing result and next step", asy
           car: { id: "car-1", label: "紅豆3：黑金時代" }
         };
       },
-      sendTextReply: async function (_replyToken, text) { replyText = text; }
+      getPublicBaseUrl: function () { return "https://example.com"; },
+      sendReplyMessage: async function (_replyToken, messages) { sentMessages = messages; }
     }
   );
 
   assert.equal(result.route, "group_car_bound");
+  assert.equal(Array.isArray(sentMessages), true);
+  assert.equal(sentMessages.length, 2);
+  const replyText = sentMessages[0].text;
   assert.ok(replyText.includes("已成功綁定《紅豆3：黑金時代》"));
   assert.ok(replyText.includes("JLY 小助手"));
   assert.equal(replyText.includes("遷移"), false);
   assert.equal(replyText.includes("3 筆"), false);
+  assert.equal(sentMessages[1].type, "flex");
 });
 test("quick accounting saves an unresolved payer silently as a pending draft", async function () {
   let replyText = "";
