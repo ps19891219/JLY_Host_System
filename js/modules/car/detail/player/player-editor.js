@@ -1286,26 +1286,44 @@ console.log(
         updateData
       );
 
-      await syncKnownMembershipMutation(
-        {
-          id: carId,
-          ...car
-        },
-        {
-          id: carId,
-          ...car,
-          ...updateData
-        },
-        [
-          playerId
-        ],
-        [
-          "players",
-          "playerIds",
-          "slots",
-          "history"
-        ]
-      );
+      const viewSyncResults =
+        await syncKnownMembershipMutation(
+          {
+            id: carId,
+            ...car
+          },
+          {
+            id: carId,
+            ...car,
+            ...updateData
+          },
+          [
+            playerId
+          ],
+          [
+            "players",
+            "playerIds",
+            "slots",
+            "history"
+          ]
+        );
+
+      const carDetailSync =
+        viewSyncResults.find(
+          function (result) {
+            return result &&
+              result.type === "car_detail";
+          }
+        );
+
+      if (
+        !carDetailSync ||
+        carDetailSync.ok !== true
+      ) {
+        throw new Error(
+          "玩家資料已寫入，但 Recruit / 車團 Prepared View 同步尚未完成。請先不要重複操作。"
+        );
+      }
 
       if (
         updateDefault &&
