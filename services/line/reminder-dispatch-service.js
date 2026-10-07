@@ -341,11 +341,6 @@ async function dispatchReminderNotice(
       .sendTextPush ||
     sendTextPush;
 
-  const pushMessages =
-    dependencies
-      .sendPushMessage ||
-    sendPushMessage;
-
   const markSent =
     dependencies
       .markReminderNoticeSent ||
@@ -603,15 +598,32 @@ async function dispatchOne(
       );
 
     if (targetUserIds.length > 0) {
-      await pushMessages(
-        binding.groupId,
-        [
-          buildReminderMessageObject(
-            car,
-            reminder
-          )
-        ]
-      );
+      try {
+        await pushMessages(
+          binding.groupId,
+          [
+            buildReminderMessageObject(
+              car,
+              reminder
+            )
+          ]
+        );
+      } catch (mentionError) {
+        /*
+         * A saved LINE user may have left the group after target selection.
+         * Do not lose the actual reminder because one mention became invalid.
+         * Fall back to the original group reminder without mentions.
+         */
+        console.warn(
+          "LINE reminder mention push failed; using group fallback.",
+          mentionError
+        );
+
+        await push(
+          binding.groupId,
+          message
+        );
+      }
     } else {
       await push(
         binding.groupId,
