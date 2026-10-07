@@ -13,6 +13,76 @@ const {
   routeEvent
 } = require("../../services/line/event-router");
 
+
+test("existing car history remains serializable for LINE player and DM roster updates", async () => {
+  const history = [
+    { type: "建立車團", text: "舊車團紀錄", time: "2026-10-01T01:00:00.000Z" },
+    {
+      type: "調整",
+      text: "既有玩家紀錄",
+      player: { playerId: "legacy-1", displayName: "舊玩家" },
+      memberSnapshot: { memberId: "legacy-1", displayName: "舊玩家" },
+      time: "2026-10-02T01:00:00.000Z"
+    }
+  ];
+
+  function assertNoUndefined(value, location = "updateData") {
+    assert.notEqual(value, undefined, location + " must not contain undefined");
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => assertNoUndefined(item, location + "[" + index + "]"));
+    } else if (value && typeof value === "object") {
+      Object.entries(value).forEach(([key, item]) => {
+        assertNoUndefined(item, location + "." + key);
+      });
+    }
+  }
+
+  for (const role of ["female", "dm"]) {
+    const beforeCar = {
+      id: "car-history",
+      ownerId: "owner-person",
+      history: structuredClone(history),
+      players: [],
+      playerIds: [],
+      staffSlots: [],
+      slots: [{ id: "seat-f1", originalType: "female", type: "female", playerId: null }]
+    };
+    let updatedCar = null;
+    const result = await addMentionedRosterMembers({
+      timestamp: 1791413509000,
+      source: { type: "group", groupId: "test-group", userId: "owner-line" },
+      accountingCarId: "car-history",
+      message: { mentions: [{ type: "user", userId: "friend-line", isSelf: false }] }
+    }, role, {
+      findPlayerByLineUserId: async () => ({
+        id: "owner-person", lineUserId: "owner-line"
+      }),
+      findPlayersByLineUserIds: async () => [{
+        id: "friend-person", lineUserId: "friend-line", displayName: "車友"
+      }],
+      applyCarMutation: async (_carId, mutator) => {
+        const mutation = await mutator(beforeCar);
+        assertNoUndefined(mutation.updateData);
+        updatedCar = { ...beforeCar, ...mutation.updateData };
+        return { ...mutation, beforeCar, afterCar: updatedCar };
+      }
+    });
+    assert.equal(result.changed, true);
+    assert.equal(result.addedCount, 1);
+    assert.deepEqual(updatedCar.history.slice(0, history.length), history);
+    assert.equal(Object.hasOwn(updatedCar.history[0], "player"), false);
+    assert.equal(Object.hasOwn(updatedCar.history[0], "memberSnapshot"), false);
+    assert.equal(updatedCar.history.length, history.length + 1);
+    if (role === "dm") {
+      assert.equal(updatedCar.staffSlots[0].memberId, "friend-person");
+    } else {
+      assert.equal(updatedCar.players[0].playerId, "friend-person");
+      assert.equal(updatedCar.slots[0].playerId, "friend-person");
+    }
+    assert.deepEqual(beforeCar.history, history);
+  }
+});
+
 test("roster commands distinguish DM, male and female additions", () => {
   assert.equal(parseRosterCommand("新增DM @甲").role, "dm");
   assert.equal(parseRosterCommand("新增男位 @甲 @乙").role, "male");
