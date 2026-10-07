@@ -65,8 +65,32 @@ async function processVerifiedEvents(events, dependencies = {}) {
    * binding and can fall back to a generic card if car metadata is slow. This
    * keeps LINE reply-token work ahead of all secondary routing/bookkeeping.
    */
+  const welcomedGroups = new Set();
+
   for (const event of eventList) {
     if (event && event.type === "memberJoined") {
+      const source = event.source && typeof event.source === "object"
+        ? event.source
+        : {};
+      const groupId = String(source.groupId || "").trim();
+      const welcomeKey = groupId || String(event.replyToken || "").trim();
+
+      /*
+       * LINE may deliver several memberJoined events together when multiple
+       * people are invited at once. Send only one signup/welcome card for the
+       * same group in this webhook delivery, while membership bookkeeping still
+       * receives the complete event list below.
+       */
+      if (welcomeKey && welcomedGroups.has(welcomeKey)) {
+        routeResults.push({
+          handled: true,
+          route: "member_joined_welcome_coalesced",
+          groupId
+        });
+        continue;
+      }
+
+      if (welcomeKey) welcomedGroups.add(welcomeKey);
       routeResults.push(await welcome(event));
       continue;
     }
