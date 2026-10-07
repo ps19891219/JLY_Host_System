@@ -48,10 +48,11 @@ test("car view API gives an anonymous viewer a safe renderable overview", async 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.access, "public");
   assert.equal(res.body.viewer.authenticated, false);
-  assert.equal(res.body.car.players.length, 1);
-  assert.equal(res.body.car.players[0].memberId, undefined);
-  assert.equal(res.body.car.staffSlots[0].memberId, undefined);
-  assert.equal(res.body.car.seatSlots[0].id, "public-seat-1");
+  assert.equal(res.body.rosterVisible, false);
+  assert.equal(res.body.car.players.length, 0);
+  assert.equal(res.body.car.staffSlots.length, 0);
+  assert.equal(res.body.car.seatSlots[0].playerId, "");
+  assert.equal(res.body.car.seatSlots[0].displayName, "");
   assert.equal(res.body.car.note, undefined);
   assert.equal(res.body.car.hostNote, undefined);
   assert.equal(res.body.car.lineToken, undefined);
@@ -90,4 +91,47 @@ test("car view API sends player and DM actions through the same shared entry ser
   assert.equal(calls[1].payload.type, "dm");
   assert.equal(calls[0].session.profileId, "person-1");
   assert.equal(calls[1].session.profileId, "person-1");
+});
+
+
+test("temporary recruit link may explicitly expose the safe public roster", async () => {
+  const handler = createHandler({
+    getCarById: async () => ({
+      id: "car-1",
+      players: [{ memberId: "member-1", displayName: "玩家 A", position: "男位" }],
+      staffSlots: [{ id: "dm-private", memberId: "dm-1", displayName: "DM A", label: "DM" }],
+      seatSlots: [{ id: "seat-private", position: "男位", playerId: "member-1" }]
+    }),
+    verifyMemberSession: () => ({ valid: false }),
+    db: {
+      collection(name) {
+        assert.equal(name, "recruitPages");
+        return {
+          doc() {
+            return {
+              async get() {
+                return {
+                  exists: true,
+                  data: () => ({
+                    status: "active",
+                    scope: "selected",
+                    carIds: ["car-1"],
+                    showPlayers: true
+                  })
+                };
+              }
+            };
+          }
+        };
+      }
+    }
+  });
+  const res = response();
+  await handler({ method: "GET", query: { id: "car-1", share: "temporary-token" }, headers: {} }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.access, "public");
+  assert.equal(res.body.rosterVisible, true);
+  assert.equal(res.body.car.players[0].displayName, "玩家 A");
+  assert.equal(res.body.car.staffSlots[0].displayName, "DM A");
+  assert.equal(res.body.car.players[0].memberId, undefined);
 });
