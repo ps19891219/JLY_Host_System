@@ -9,6 +9,9 @@ const {
 const {
   addMentionedRosterMembers
 } = require("../../services/line/group-roster-service");
+const {
+  routeEvent
+} = require("../../services/line/event-router");
 
 test("roster commands distinguish DM, male and female additions", () => {
   assert.equal(parseRosterCommand("新增DM @甲").role, "dm");
@@ -142,4 +145,60 @@ test("DM mention command writes existing member into staffSlots, not players", a
   assert.equal(finalCar.staffSlots.length, 1);
   assert.equal(finalCar.staffSlots[0].label, "DM");
   assert.equal(finalCar.staffSlots[0].memberId, "dm-person");
+});
+
+
+test("explicit roster command wins over reminder mention capture", async () => {
+  let rosterCalls = 0;
+  let reminderCalls = 0;
+  let replyText = "";
+
+  const result = await routeEvent({
+    type: "message",
+    timestamp: 1,
+    replyToken: "reply-token",
+    source: {
+      type: "group",
+      groupId: "group-1",
+      userId: "host-line"
+    },
+    message: {
+      id: "message-1",
+      type: "text",
+      text: "新增女位 @小美",
+      mention: {
+        mentionees: [
+          { type: "user", userId: "UF", isSelf: false }
+        ]
+      }
+    }
+  }, {
+    resolveGroupBinding: async groupId => ({
+      bound: true,
+      binding: { groupId, carId: "car-1" }
+    }),
+    addMentionedRosterMembers: async (_context, role) => {
+      rosterCalls += 1;
+      assert.equal(role, "female");
+      return {
+        changed: true,
+        addedCount: 1,
+        seatedCount: 1,
+        pendingIdentityCount: 0,
+        alreadyExistsCount: 0
+      };
+    },
+    captureGroupReminderTargets: async () => {
+      reminderCalls += 1;
+      return { captured: true };
+    },
+    sendTextReply: async (_token, value) => {
+      replyText = value;
+    }
+  });
+
+  assert.equal(result.route, "assistant_roster_added");
+  assert.equal(rosterCalls, 1);
+  assert.equal(reminderCalls, 0);
+  assert.match(replyText, /女位登記完成/);
 });
