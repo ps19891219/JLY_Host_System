@@ -98,7 +98,8 @@ const { prepareQuickAccounting, saveResolvedQuickAccounting } = require("./quick
 const { buildStoreInfo, buildTimeInfo, buildPeopleInfo } = require("./car-info-slices");
 const {
   getReminderStatus,
-  enableGroupPreTripReminder
+  enableGroupPreTripReminder,
+  captureGroupReminderTargets
 } = require("./reminder-service");
 
 function normalizeText(value) {
@@ -146,6 +147,39 @@ function normalizeMessage(event) {
       ? event.message
       : {};
 
+  const mentions =
+    message &&
+    message.mention &&
+    Array.isArray(
+      message.mention.mentionees
+    )
+      ? message.mention.mentionees
+          .map(function (mention) {
+            const source =
+              mention &&
+              typeof mention === "object"
+                ? mention
+                : {};
+
+            return {
+              type:
+                normalizeText(
+                  source.type
+                ),
+              userId:
+                normalizeText(
+                  source.userId
+                ),
+              isSelf:
+                source.isSelf === true,
+              index:
+                Number(source.index || 0),
+              length:
+                Number(source.length || 0)
+            };
+          })
+      : [];
+
   return {
     id:
       normalizeText(
@@ -162,7 +196,9 @@ function normalizeMessage(event) {
         ? normalizeText(
             message.text
           )
-        : ""
+        : "",
+
+    mentions
   };
 }
 
@@ -301,6 +337,10 @@ async function handleMessageEvent(
     dependencies.enableGroupPreTripReminder ||
     enableGroupPreTripReminder;
 
+  const captureReminderTargets =
+    dependencies.captureGroupReminderTargets ||
+    captureGroupReminderTargets;
+
   if (
     context.message.type !== "text"
   ) {
@@ -317,8 +357,27 @@ async function handleMessageEvent(
       context.message.text
     );
 
+  const hasReminderMentions =
+    context.source.type === "group" &&
+    Array.isArray(context.message.mentions) &&
+    context.message.mentions.some(
+      function (mention) {
+        return (
+          mention &&
+          (
+            mention.type === "all" ||
+            (
+              mention.type === "user" &&
+              mention.isSelf !== true
+            )
+          )
+        );
+      }
+    );
+
   if (
-    !messageResult.handled
+    !messageResult.handled &&
+    !hasReminderMentions
   ) {
     console.log(
       "LINE message ignored.",
@@ -380,6 +439,136 @@ async function handleMessageEvent(
   if (groupBinding && groupBinding.bound) {
     context.accountingCarId =
       groupBinding.binding.carId;
+  }
+
+  if (
+    !messageResult.handled &&
+    hasReminderMentions
+  ) {
+    if (
+      !context.replyToken ||
+      !context.accountingCarId
+    ) {
+      return {
+        handled: false,
+        route: "ignore_normal_chat",
+        context,
+        groupBinding
+      };
+    }
+
+    const targetResult =
+      await captureReminderTargets(
+        context.accountingCarId,
+        context.message.mentions,
+        dependencies
+      );
+
+    if (
+      targetResult.captured === true
+    ) {
+      const lines = [
+        "✅ 已記住這台車的提醒名單！",
+        "",
+        "這次新增：" +
+          String(
+            Number(
+              targetResult.addedCount || 0
+            )
+          ) +
+          " 人",
+        "目前名單：" +
+          String(
+            Number(
+              targetResult.totalCount || 0
+            )
+          ) +
+          " 人"
+      ];
+
+      if (
+        Number(
+          targetResult.unavailableCount || 0
+        ) > 0
+      ) {
+        lines.push(
+          "",
+          "另有 " +
+            String(
+              Number(
+                targetResult.unavailableCount
+              )
+            ) +
+            " 位因 LINE 未提供 userId，這次無法加入。"
+        );
+      }
+
+      lines.push(
+        "",
+        "行前提醒時，JLY 小助手會在群組直接標記這些車友。"
+      );
+
+      await replyWithText(
+        context.replyToken,
+        lines.join("\n")
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_targets_captured",
+        context,
+        groupBinding,
+        targetResult
+      };
+    }
+
+    if (
+      targetResult.reason ===
+        "mention_all_not_supported"
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "請直接 @ 個別車友，不要使用 @All，這樣 JLY 才能建立正確的提醒名單。"
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_targets_all_unsupported",
+        context,
+        groupBinding,
+        targetResult
+      };
+    }
+
+    if (
+      targetResult.reason ===
+        "mention_user_id_unavailable"
+    ) {
+      await replyWithText(
+        context.replyToken,
+        "我有看到標記，但 LINE 這次沒有提供可用的 userId。可以改標記其他車友，或請對方先與官方帳號互動後再試一次。"
+      );
+
+      return {
+        handled: true,
+        route:
+          "assistant_reminder_targets_unavailable",
+        context,
+        groupBinding,
+        targetResult
+      };
+    }
+
+    return {
+      handled: false,
+      route:
+        "ignore_normal_chat",
+      context,
+      groupBinding,
+      targetResult
+    };
   }
 
   if (messageResult.action === "group_car_bind") {
@@ -561,15 +750,48 @@ async function handleMessageEvent(
       };
     }
 
-    await replyWithText(
-      context.replyToken,
+    const existingTargetCount =
+      Array.isArray(
+        reminderResult &&
+        reminderResult.reminder &&
+        reminderResult.reminder
+          .targetLineUserIds
+      )
+        ? reminderResult.reminder
+            .targetLineUserIds.length
+        : 0;
+
+    const reminderLines = [
+      reminderResult.alreadyEnabled
+        ? "✅ 已重新開啟提醒名單設定"
+        : "✅ 已開啟行前通知",
+      "",
+      "請直接 @ 需要提醒的車友。",
+      "可以一次標記多人，JLY 會把這一批加入這台車的提醒名單。"
+    ];
+
+    if (existingTargetCount > 0) {
+      reminderLines.push(
+        "",
+        "目前提醒名單：" +
+          String(existingTargetCount) +
+          " 人"
+      );
+    }
+
+    if (
       reminderResult.reason ===
         "scheduled_time_passed"
-        ? (
-            "✅ 已開啟行前通知\n" +
-            "⚠️ 預設提醒時間已經過，請到車團頁面確認新的提醒時間。"
-          )
-        : "✅ 已開啟行前通知"
+    ) {
+      reminderLines.push(
+        "",
+        "⚠️ 預設提醒時間已經過，請到車團頁面確認新的提醒時間。"
+      );
+    }
+
+    await replyWithText(
+      context.replyToken,
+      reminderLines.join("\n")
     );
 
     return {
