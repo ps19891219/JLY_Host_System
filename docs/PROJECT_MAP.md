@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 LINE 小助手移除重複行前通知按鈕
+- 只移除 `services/line/group-assistant-card.js` 車團資訊快捷卡的「🔔 行前通知」按鈕／提醒狀態列，其他車團資訊、快速記帳及車團總覽入口不變。
+- 同步移除 `services/line/event-router.js` 開卡時不必要的 `getReminderStatus` 單筆讀取；不影響「新增男位／女位 @車友」自動同步提醒名單（PR #308），也不修改任何已建立的 Reminder。
+- 保留既有 `開啟行前通知` 手動文字指令、`⏰ 提醒功能` 管理頁、提醒排程及 LINE Push。原 `services/line/group-quick-menu.js` 的「提醒」入口亦維持不變。
+
+
 ## 2026/10/08 LINE 新增男女位同步行前提醒
 - LINE「新增男位 @車友」「新增女位 @車友」只有在既有主揪權限驗證通過、名單寫入成功（或既在名單）時，才會額外開啟／沿用既有 `cars/{carId}/reminders/preTrip`，並以同一則 LINE mentionees 的 userId 加入提醒名單。DM 不自動加入玩家提醒。
 - 只沿用 `services/line/reminder-service.js` 的 `enableGroupPreTripReminder` + `captureGroupReminderTargets`，不建第二套 Reminder、Person、View，不掃 Cars/Persons；已開啟 Reminder 時會保留既有時間與自訂文案。每次指令都是已知單台文件的 bounded 操作，提醒名單最多 20 人。

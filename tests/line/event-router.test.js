@@ -105,6 +105,9 @@ test(
             date: "2026-08-20"
           };
         },
+        getReminderStatus: async function () {
+          throw new Error("Quick menu should not query reminder status");
+        },
         createGroupAssistantToken: function () { return "signed-token"; },
         getPublicBaseUrl: function () { return "https://example.com"; },
         sendReplyMessage: async function (
@@ -132,7 +135,7 @@ test(
     assert.equal(calls[1][2][0].type, "flex");
     assert.deepEqual(calls[1][2][0].contents.body.contents.map(
       function (item) { return item.action.type; }
-    ), ["message", "message", "message", "uri", "message", "uri", "message"]);
+    ), ["message", "message", "message", "uri", "uri", "message"]);
   }
 );
 
