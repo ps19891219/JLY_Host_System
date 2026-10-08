@@ -73,6 +73,10 @@
     intro.textContent = "🔧 受控批次維護｜這次只處理 " + ids.length + " 台已知車團。";
     const explanation = root.document.createElement("p");
     explanation.textContent = "以正式建立者身分逐台驗證，已正確的 View 不重寫。正常開頁不會執行修復。";
+    const loginButton = root.document.createElement("button");
+    loginButton.type = "button";
+    loginButton.textContent = "🔐 先完成 JLY LINE 正式登入（未登入者點此）";
+    loginButton.setAttribute("style", "margin:6px 0 10px;width:100%;padding:12px;");
     const button = root.document.createElement("button");
     button.type = "button";
     button.textContent = "開始檢查／修復這 " + ids.length + " 台";
@@ -86,7 +90,24 @@
     }
     const status = root.document.createElement("p");
     status.setAttribute("role", "status");
-    status.textContent = "請用建立這些車團時的 JLY 身分點擊。按下前不讀寫資料。";
+    status.textContent = "若此瀏覽器尚未登入 JLY LINE，請先按上方登入。完成授權會返回本頁，再按修復。";
+    loginButton.addEventListener("click", async function () {
+      loginButton.disabled = true;
+      status.textContent = "正在前往 LINE 正式登入，完成後將返回此修復頁…";
+      try {
+        const login = root.JLYLineLogin;
+        if (!login || typeof login.start !== "function") {
+          throw new Error("LINE 登入模組未載入");
+        }
+        await login.start({
+          returnPath: root.location.pathname + root.location.search,
+          purpose: "car_repair_entry"
+        });
+      } catch (error) {
+        loginButton.disabled = false;
+        status.textContent = "⚠️ 無法啟動 LINE 登入：" + text(error && error.message);
+      }
+    });
     button.addEventListener("click", async function () {
       button.disabled = true;
       status.textContent = "正在逐台檢查，請勿離開頁面…";
@@ -104,7 +125,7 @@
         if (!response.ok || data.success !== true) {
           const reason = text(data && data.error);
           const messages = {
-            line_login_required: "此瀏覽器尚未完成 JLY LINE 正式登入，請在已登入 LINE 的 Safari 開啟。",
+            line_login_required: "此瀏覽器尚未完成 JLY LINE 正式登入，請點上方「先完成 JLY LINE 正式登入」再回來修復。",
             formal_line_identity_required: "目前是臨時 LINE 身分，需先完成正式認領。",
             formal_line_identity_mismatch: "LINE 身分與正式 JLY Profile 不一致，已停止修復。",
             formal_profile_missing: "正式 JLY Profile 不存在，未修改。",
@@ -126,7 +147,7 @@
         button.disabled = false;
       }
     });
-    panel.append(intro, explanation, button, list, status);
+    panel.append(intro, explanation, loginButton, button, list, status);
     container.prepend(panel);
   }
   root.JLYCarDetailViewBatchRepair = { parseKnownCarIds, runKnownCarRepairs, mount, MAX_CARS, EXACT_REPAIR_IDS };
