@@ -778,3 +778,88 @@ test("car information shortcuts reply with only the requested slice", async func
   assert.match(replies[1], /時間資訊/);assert.doesNotMatch(replies[1], /人員資訊/);
   assert.match(replies[2], /人員資訊/);assert.doesNotMatch(replies[2], /店家資訊/);
 });
+
+
+test("JLY 提醒 is read-only for historical cars and never enables or scans Core", async () => {
+  let reads=0, writes=0, reply="";
+  const result=await routeEvent(createTextEvent({text:"JLY 提醒"}),{
+    resolveGroupBinding:async(groupId)=>({bound:true,binding:{groupId,carId:"car-1"}}),
+    getReminderStatus:async(carId,car)=>{
+      reads++;assert.equal(carId,"car-1");assert.equal(car,null);
+      return {configured:false,enabled:false,reminder:null};
+    },
+    getCarById:async()=>{throw Error("unnecessary Core read")},
+    enableGroupPreTripReminder:async()=>{writes++;throw Error("unwanted write")},
+    captureGroupReminderTargets:async()=>{writes++;throw Error("unwanted write")},
+    sendTextReply:async(_token,text)=>{reply=text}
+  });
+  assert.equal(result.route,"assistant_reminder_status");
+  assert.equal(reads,1);
+  assert.equal(writes,0);
+  assert.match(reply,/尚未開啟/);
+  assert.match(reply,/開啟行前通知/);
+});
+
+test("reminder status reports schedule and deduplicated target count without LINE identifiers",async()=>{
+  let reply="";
+  const result=await routeEvent(createTextEvent({text:"JLY 提醒狀態"}),{
+    resolveGroupBinding:async(groupId)=>({bound:true,binding:{groupId,carId:"car-1"}}),
+    getReminderStatus:async()=>({configured:true,enabled:true,reminder:{
+      status:"scheduled",
+      scheduledAt:"2027-01-27T07:00:00Z",
+      targetLineUserIds:["UID-ONE","UID-TWO","UID-ONE"]
+    }}),
+    sendTextReply:async(_token,text)=>{reply=text}
+  });
+  assert.equal(result.route,"assistant_reminder_status");
+  assert.match(reply,/已排程/);
+  assert.match(reply,/2027/);
+  assert.match(reply,/2 人/);
+  assert.doesNotMatch(reply,/UID-ONE|UID-TWO/);
+});
+
+test("unbound group cannot read reminder status",async()=>{
+  let reads=0, reply="";
+  const result=await routeEvent(createTextEvent({text:"JLY 提醒"}),{
+    resolveGroupBinding:async()=>({bound:false}),
+    getReminderStatus:async()=>{reads++;throw Error("unwanted")},
+    sendTextReply:async(_token,text)=>{reply=text}
+  });
+  assert.equal(reads,0);
+  assert.equal(result.route,"assistant_reminder_status_binding_required");
+  assert.match(reply,/綁定/);
+});
+
+test("status lookup failure reports read error and never enables",async()=>{
+  let writes=0,reply="";
+  const result=await routeEvent(createTextEvent({text:"JLY 通知狀態"}),{
+    resolveGroupBinding:async(groupId)=>({bound:true,binding:{groupId,carId:"car-1"}}),
+    getReminderStatus:async()=>{throw Error("simulated read error")},
+    enableGroupPreTripReminder:async()=>{writes++},
+    sendTextReply:async(_token,text)=>{reply=text}
+  });
+  assert.equal(writes,0);
+  assert.equal(result.route,"assistant_reminder_status_failed");
+  assert.match(reply,/沒有修改任何提醒設定/);
+});
+
+test("report represents sent, sending, failed, and action-required without guaranteed delivery",()=>{
+  const {buildReminderStatusReport}=require("../../services/line/reminder-service");
+  for(const [status,expected] of [
+    ["sent",/已提交 LINE 發送/],
+    ["sending",/發送處理中/],
+    ["failed",/發送失敗/],
+    ["action_required",/需要調整/]
+  ]){
+    const message=buildReminderStatusReport({
+      configured:true,enabled:true,reminder:{
+        status,
+        scheduledAt:"2027-01-27T07:00:00Z",
+        targetLineUserIds:[]
+      }
+    });
+    assert.match(message,expected);
+    assert.match(message,/實際送達仍以 LINE 結果為準/);
+    assert.doesNotMatch(message,/保證送達/);
+  }
+});
