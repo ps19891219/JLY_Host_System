@@ -6,6 +6,7 @@ const {
 } = require("../services/firebase/line-accounting-authorization-repository");
 const { createPairingCode } = require("../services/firebase/line-group-pairing-repository");
 const { handleMembershipHealth } = require("../services/line/membership-health-api-handler");
+const { repairThreeKnownCarViews } = require("../services/line/known-three-car-view-repair-service");
 const {
   readCookie,
   verifyMemberSession
@@ -78,6 +79,24 @@ module.exports = async function handler(req, res) {
     // share this existing LINE POST function. Pairing requests have no `action`.
     if (["verify", "initialize", "catchup"].includes(String(input.action || "").trim())) {
       return handleMembershipHealth(req, res, input);
+    }
+
+    // Maintenance action is explicitly initiated by the three-car button,
+    // not by group pairing, normal page view, or any LINE message.
+    if (text(input.action) === "repair_three_known_car_views") {
+      if (text(req.headers && req.headers.origin) !== "https://jly-host-system-eeso.vercel.app") {
+        return send(res, 403, { success: false, error: "origin_not_allowed" });
+      }
+      if (text(input.confirm) !== "REPAIR_THREE_KNOWN_CAR_VIEWS") {
+        return send(res, 400, { success: false, error: "repair_confirmation_required" });
+      }
+      const verified = verifyMemberSession(readCookie(req));
+      if (!verified.valid) return send(res, 401, { success: false, error: "line_login_required" });
+      const outcome = await repairThreeKnownCarViews(verified.data);
+      if (!outcome.authorized) {
+        return send(res, 403, { success: false, error: outcome.reason });
+      }
+      return send(res, 200, { success: true, results: outcome.results });
     }
 
     // Authorization happens when the short-lived code is minted. The LINE
