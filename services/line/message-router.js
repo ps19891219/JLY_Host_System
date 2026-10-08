@@ -169,6 +169,9 @@ function routeMenuCommand(text) {
       };
 
     case "jly提醒":
+    case "jly提醒狀態":
+    case "jly通知狀態":
+      return { handled: true, action: "assistant_reminder_status", replyText: "" };
     case "開啟行前通知":
     case "jly開啟行前通知":
       return {
@@ -234,7 +237,9 @@ function routeMenuCommand(text) {
           "快捷指令：\n" +
           "JLY 店家｜查看工作室與地點\n" +
           "JLY 時間｜查看日期與開始時間\n" +
-          "JLY 人員｜查看玩家人數與缺額\n\n" +
+          "JLY 人員｜查看玩家人數與缺額\n" +
+      "JLY 提醒｜查看本場提醒狀態\n" +
+      "開啟行前通知｜舊車團手動開啟提醒\n\n" +
           "快速記帳可使用選單按鈕，或輸入：\n" +
           "@JLY小助手 記帳 晚餐 690 詩婕付"
       };
