@@ -1,5 +1,14 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 Car Detail View 單台明確修復與建車同步驗證
+- 《知因》單台 Car ID mRNxEFlvWEDg59GIXFVn，既有 /api/car-view-context 精準讀取曾回 404 car_not_found；這只證明該 Prepared View 不可用，尚不區分不存在或 car 欄位缺失。
+- 維護入口：pages/car-detail.html?id=<knownCarId>&viewRepair=1，顯示明確手動檢查按鈕；一般車團頁不執行維護讀寫。
+- 單台修復模組 js/modules/car/detail/car-detail-view-single-repair.js，利用現有 owner JLYPermissions 與 Cloud Car View Runtime，僅讀確定 ID 的 cars/{id}、carDetailViews/{id}，缺失或陳舊時才寫回原 Prepared View Schema 並單台讀回確認。沒有全庫掃描、Person/MyCar 修改、LINE 綁定變更或第二套 Car Model。
+- pages/car-detail.html 明確載入既有 permissions.js（原詳情頁未載入）以及單台維護模組，以防修復流程無權限函式；建立車團 js/createcar.js 在 MyCar 同步之外也驗證 car_detail View 成功，失敗需告知車團已建立且不可重複新增。
+- 修復不在部署時自動執行，主揪必須明確點擊；完成後重新邀請 LINE Bot 才觸發 join。正式寫入結果必須透過實機驗證。
+- Tests：tests/data-view/car-detail-view-single-repair.test.js 驗證單台已知 ID、權限、防重複、View 缺失、陳舊及失敗流程。
+
+
 ## 2026/10/08 LINE Group Auto Binding Date-First Candidate Discovery
 - LINE join 讀取既有 LINE group summary 後，對有效群名日期推算單一 yyyy-mm-dd；無年提示使用 Asia/Taipei 的下次同月日，驗證日期正確後才讀取。
 - 僅以 `carDetailViews.where("car.gameDate", "==", date).limit(12)` 查詢候選，當日取得的資料再以嚴格 HH:mm 比對並用劇本名稱排序；無日期群名維持既有 scriptName 精準查詢，皆只查一次 bounded Prepared View，不掃 cars/Person/MyCar。
