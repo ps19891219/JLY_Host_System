@@ -31,7 +31,8 @@ function allowsExistingIdentityRecovery(purpose) {
   return [
     "car_player_entry",
     "car_dm_entry",
-    "work_schedule_staff_entry"
+    "work_schedule_staff_entry",
+    "car_repair_entry"
   ].includes(text(purpose).toLowerCase());
 }
 

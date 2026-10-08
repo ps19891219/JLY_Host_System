@@ -1,5 +1,12 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 三台批次維護登入導流
+- 既有三台修復已採 signed LINE member session 驗證，但瀏覽器未登入時原批次頁只有錯誤提示；新增顯式「先完成 JLY LINE 正式登入」按鈕，沿用已存在的 `js/line.js` → `/api/line-login-state` → LINE OAuth → `/pages/line-callback.html` → `/api/line-login`，登入完成按 signed state 返回原本含 Car IDs 的修復連結。
+- 專用 purpose `car_repair_entry` 僅允許恢復既有 LINE 正式連結 Profile，**不得建立第一筆臨時 LINE 身分**；不調整正式 server-side repair 權限門檻及 3 個固定 Car IDs。正常詳細頁不自動啟動 OAuth、沒有新增 Firestore Reads。
+- 手機內建瀏覽器與 Safari 的 JLY cookie 不共用，LINE App 已登入不代表 JLY 網頁取得 member session。若跨 App 授權返回失敗，以 Safari 完成正式登入再按既有修復按鈕。登入≠Prepared View 修復成功，必須按修復後讀回驗證。
+- 本次只修改 `api/line-login-state.js`、`api/line-login.js`、`pages/car-detail.html`、`js/modules/car/detail/car-detail-view-batch-repair.js` 和此 Project Map，另增 `tests/line/threecar-repair-login-entry.test.js`。
+
+
 ## 2026/10/08 三台舊車 LINE 正式身分受控回補入口
 - 沿用 PR #312 指定三台批次 UI，改由**已存在的** /api/line-group-pairing-code POST function 接收 action=repair_three_known_car_views，不增加 Vercel Function 數。維持同源 JSON POST、正式 LINE signed member session 驗證，另精準讀取 players/{session.profileId} 確認 LINE userId 與身份一致，不信任本機 Identity 快取；臨時 LINE 身分不得修復。
 - 後端操作嚴格限定 vSfmdHC7okcHKiGyJAaM、h9xHEXaDs8jCXb6hl4Ih、O7dgQYnWux16tLtgH4iM，沿用原有 js/core/identity.js 已定義的正式 System Admin Profile 身分，或由既有已確認 Identity ID 比對 car.ownerId / createdByPersonId；不可根據名稱判定，也不可手動傳入任意 carId。
