@@ -22,6 +22,34 @@
     );
   }
 
+  // Creator authority is independent of the player's host role.
+  // Refresh only the already-known JLY profile on explicit maintenance click.
+  async function assertCreatorCanRepair(car, db, deps = {}) {
+    const permissions = root.JLYPermissions;
+    const canEdit = deps.canEditCar || (value => Boolean(
+      permissions && typeof permissions.canEditCar === "function" &&
+      permissions.canEditCar(value)
+    ));
+    if (!text(car.ownerId)) {
+      const override = (deps.canOverride && deps.canOverride()) ||
+        (permissions && typeof permissions.isSystemAdminMode === "function" &&
+         permissions.isSystemAdminMode());
+      if (override) return { proof: "system_admin" };
+      throw new Error("creator_record_missing");
+    }
+    if (canEdit(car)) return { proof: "confirmed_creator_identity" };
+    const identity = deps.identity || root.JLYIdentity;
+    const knownId = identity &&
+      typeof identity.getCurrentPlayerProfileId === "function"
+      ? text(identity.getCurrentPlayerProfileId()) : "";
+    if (knownId && identity &&
+        typeof identity.syncFromPlayerProfile === "function") {
+      await identity.syncFromPlayerProfile(db, knownId);
+      if (canEdit(car)) return { proof: "confirmed_creator_alias" };
+    }
+    throw new Error("creator_identity_mismatch");
+  }
+
   async function repairSingleCarView(carId, deps = {}) {
     const id = text(carId);
     if (!/^[A-Za-z0-9_-]{6,80}$/.test(id)) throw new Error("car_id_invalid");
@@ -33,12 +61,7 @@
     if (!carSnapshot.exists) throw new Error("car_not_found");
     const car = { ...(carSnapshot.data() || {}), id: carSnapshot.id };
 
-    const canEdit = deps.canEditCar || (value => Boolean(
-      root.JLYPermissions &&
-      typeof root.JLYPermissions.canEditCar === "function" &&
-      root.JLYPermissions.canEditCar(value)
-    ));
-    if (!text(car.ownerId) || !canEdit(car)) throw new Error("owner_required");
+    await assertCreatorCanRepair(car, db, deps);
 
     const viewRef = db.collection("carDetailViews").doc(id);
     const previous = await viewRef.get();
@@ -88,7 +111,7 @@
     button.textContent = "🔧 檢查／修復本台 LINE 辨識資料";
     const status = root.document.createElement("p");
     status.setAttribute("role", "status");
-    status.textContent = "請以這台車的主揪身分操作。";
+    status.textContent = "請以建立車團時的 JLY 身分操作，無論你是主揪或玩家。";
     button.addEventListener("click", async () => {
       button.disabled = true;
       status.textContent = "正在檢查這台車團資料…";
@@ -99,9 +122,11 @@
           : "✅ 單台 Prepared View 已修復並讀回驗證，現在可重新邀請 LINE 小助手。";
       } catch (error) {
         const code = text(error && error.message);
-        status.textContent = code === "owner_required"
-          ? "⚠️ 目前不是這台車的主揪／管理者，未修改任何資料。"
-          : "⚠️ 修復未完成（" + code + "）。請保留錯誤訊息，不要重複建立車團。";
+        status.textContent = code === "creator_identity_mismatch"
+          ? "⚠️ 已重新核對目前 JLY Profile，仍無法確認這台車的建立者身分。未修改資料。請改用原本建立車團的瀏覽器。"
+          : code === "creator_record_missing"
+            ? "⚠️ 這台舊車缺少建立者記錄，已停止以避免誤改。"
+            : "⚠️ 修復未完成（" + code + "）。請保留錯誤訊息，不要重新建車。";
       } finally {
         button.disabled = false;
       }
@@ -110,7 +135,7 @@
     container.prepend(panel);
   }
 
-  root.JLYCarDetailViewSingleRepair = { sameCarSnapshot, repairSingleCarView, mountMaintenanceAction };
+  root.JLYCarDetailViewSingleRepair = { sameCarSnapshot, assertCreatorCanRepair, repairSingleCarView, mountMaintenanceAction };
   if (root.document) {
     if (root.document.readyState === "loading") {
       root.document.addEventListener("DOMContentLoaded", mountMaintenanceAction, { once: true });

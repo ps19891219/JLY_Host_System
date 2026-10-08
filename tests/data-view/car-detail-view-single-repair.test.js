@@ -54,7 +54,7 @@ test("stale game date and time are repaired",async()=>{
 });
 test("non-owner cannot read or write any prepared view",async()=>{
   const f=fixture(null);
-  await assert.rejects(repairSingleCarView(carId,{db:f.db,canEditCar:()=>false,ensureRuntime:runtime(f)}),/owner_required/);
+  await assert.rejects(repairSingleCarView(carId,{db:f.db,canEditCar:()=>false,ensureRuntime:runtime(f)}),/creator_identity_mismatch/);
   assert.deepEqual(f.calls.filter(x=>x[0]==="collection").map(x=>x[1]),["cars"]);
 });
 test("invalid car ID never causes a Firestore request",async()=>{
