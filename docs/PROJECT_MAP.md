@@ -1,5 +1,12 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 LINE 主揪免 @自己加入行前提醒名單
+- 新增 `services/line/owner-reminder-target-service.js`；以現有 `isCarOwner` 與 LINE Identity 優先判定發出操作的主揪，否則僅依 `ownerId`、`ownerPersonId`、`ownerProfileId` 三個已知 ID 做 bounded `players/{id}` 精準查詢，未串聯或身分衝突直接略過，不掃 Person/Player。
+- 新增 `services/firebase/reminder-owner-target-repository.js`，對現有 `cars/{carId}/reminders/preTrip` 進行單筆 transaction 去重追加主揪 LINE userId，20 人上限；只更動 `targetLineUserIds`、`targetUpdatedAt`、`updatedAt`，保留排程、群組通知、capture 開關、發送生命週期，不重發已發送提醒。
+- 只有已授權「新增男／女位 @車友」且 Reminder 已成功啟用，或群組明確「開啟行前通知」時會嘗試加入正式主揪。普通群聊、「JLY 提醒」唯讀查詢與 DM 指令不觸發寫入；主揪不占車位。
+- 本次無新 Collection/Index、無 Activity/Person/Identity schema 改動。整合測試 `tests/line/owner-reminder-integration.test.js` 及兩個 bounded service/repository 測試。Production 實機驗收需與 LINE 送達結果區分。
+
+
 ## 2026/10/08 LINE 舊車團提醒狀態唯讀查詢
 - 「JLY 提醒」「JLY 提醒狀態」「JLY 通知狀態」改為單筆純查詢：透過已綁定群組的 carId 精準讀取既有 `cars/{carId}/reminders/preTrip`。不讀 Cars Collection、不掃 Person、不在小助手開卡時讀提醒，不修改 reminder 設定。
 - LINE 回覆是否開啟、排程／發送中／已提交發送／失敗／需調整狀態、台灣時間預定提醒及指定 @ 人數；不揭露 LINE userId，也不宣稱 LINE 一定送達。
