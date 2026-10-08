@@ -1,5 +1,13 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 LINE 舊車團提醒狀態唯讀查詢
+- 「JLY 提醒」「JLY 提醒狀態」「JLY 通知狀態」改為單筆純查詢：透過已綁定群組的 carId 精準讀取既有 `cars/{carId}/reminders/preTrip`。不讀 Cars Collection、不掃 Person、不在小助手開卡時讀提醒，不修改 reminder 設定。
+- LINE 回覆是否開啟、排程／發送中／已提交發送／失敗／需調整狀態、台灣時間預定提醒及指定 @ 人數；不揭露 LINE userId，也不宣稱 LINE 一定送達。
+- 舊車團尚未啟用時顯示手動指令「開啟行前通知」，明確啟用後才用 @ 登記提醒名單；已經使用 PR #308「新增男位／女位 @車友」的車團沿用原通知資料。
+- PR #309 已移除卡片上重複啟用按鈕，仍保留 `⏰ 提醒功能` 管理頁與既有 Reminder Dispatcher／Push。沒有新增 Firestore Collection 或 Index。
+- 回歸測試：`tests/line/event-router.test.js` 和 `tests/line/message-router.test.js`。
+
+
 ## 2026/10/08 LINE 小助手移除重複行前通知按鈕
 - 只移除 `services/line/group-assistant-card.js` 車團資訊快捷卡的「🔔 行前通知」按鈕／提醒狀態列，其他車團資訊、快速記帳及車團總覽入口不變。
 - 同步移除 `services/line/event-router.js` 開卡時不必要的 `getReminderStatus` 單筆讀取；不影響「新增男位／女位 @車友」自動同步提醒名單（PR #308），也不修改任何已建立的 Reminder。
