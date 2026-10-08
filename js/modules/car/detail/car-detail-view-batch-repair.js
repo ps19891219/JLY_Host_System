@@ -6,6 +6,11 @@
 (function (root) {
   "use strict";
   const MAX_CARS = 12;
+  const EXACT_REPAIR_IDS = Object.freeze([
+    "vSfmdHC7okcHKiGyJAaM",
+    "h9xHEXaDs8jCXb6hl4Ih",
+    "O7dgQYnWux16tLtgH4iM"
+  ]);
   const VALID_ID = /^[A-Za-z0-9_-]{6,80}$/;
   function text(value) { return String(value == null ? "" : value).trim(); }
   function parseKnownCarIds(search) {
@@ -57,7 +62,8 @@
   function mount() {
     if (!root.location || !root.document) return;
     const ids = parseKnownCarIds(root.location.search);
-    if (!ids.length) return;
+    if (ids.length !== EXACT_REPAIR_IDS.length ||
+        EXACT_REPAIR_IDS.some((id, i) => ids[i] !== id)) return;
     const container = root.document.querySelector(".container");
     if (!container || root.document.getElementById("jly-car-detail-view-batch-repair")) return;
     const panel = root.document.createElement("section");
@@ -85,14 +91,35 @@
       button.disabled = true;
       status.textContent = "正在逐台檢查，請勿離開頁面…";
       try {
-        const repair = root.JLYCarDetailViewSingleRepair &&
-          root.JLYCarDetailViewSingleRepair.repairSingleCarView;
-        const results = await runKnownCarRepairs(ids, repair, row => {
-          entries.get(row.carId).textContent = row.carId + "：" + describe(row);
+        const response = await fetch("/api/line-group-pairing-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            action: "repair_three_known_car_views",
+            confirm: "REPAIR_THREE_KNOWN_CAR_VIEWS"
+          })
         });
-        const success = results.filter(row => row.status !== "failed").length;
+        const data = await response.json();
+        if (!response.ok || data.success !== true) {
+          const reason = text(data && data.error);
+          const messages = {
+            line_login_required: "此瀏覽器尚未完成 JLY LINE 正式登入，請在已登入 LINE 的 Safari 開啟。",
+            formal_line_identity_required: "目前是臨時 LINE 身分，需先完成正式認領。",
+            formal_line_identity_mismatch: "LINE 身分與正式 JLY Profile 不一致，已停止修復。",
+            formal_profile_missing: "正式 JLY Profile 不存在，未修改。",
+            origin_not_allowed: "請從正式站開啟批次維護連結。"
+          };
+          throw new Error(messages[reason] || "安全檢查未通過（" + reason + "），未修改資料。");
+        }
+        const results = Array.isArray(data.results) ? data.results : [];
+        for (const row of results) {
+          const node = entries.get(row.carId);
+          if (node) node.textContent = row.carId + "：" + describe(row);
+        }
+        const success = results.filter(row => row.status === "current" || row.status === "repaired").length;
         status.textContent = "完成：" + success + "/" + ids.length +
-          " 台確認正常；失敗 " + (ids.length - success) + " 台。成功者可測 LINE 辨識。";
+          " 台讀回確認；失敗 " + (ids.length - success) + " 台。成功者可再測 LINE 辨識。";
       } catch (error) {
         status.textContent = "⚠️ 批次未啟動：" + text(error && error.message);
       } finally {
@@ -102,7 +129,7 @@
     panel.append(intro, explanation, button, list, status);
     container.prepend(panel);
   }
-  root.JLYCarDetailViewBatchRepair = { parseKnownCarIds, runKnownCarRepairs, mount, MAX_CARS };
+  root.JLYCarDetailViewBatchRepair = { parseKnownCarIds, runKnownCarRepairs, mount, MAX_CARS, EXACT_REPAIR_IDS };
   if (root.document) {
     if (root.document.readyState === "loading") {
       root.document.addEventListener("DOMContentLoaded", mount, {once:true});

@@ -1,5 +1,14 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 三台舊車 LINE 正式身分受控回補入口
+- 沿用 PR #312 指定三台批次 UI，改由**已存在的** /api/line-group-pairing-code POST function 接收 action=repair_three_known_car_views，不增加 Vercel Function 數。維持同源 JSON POST、正式 LINE signed member session 驗證，另精準讀取 players/{session.profileId} 確認 LINE userId 與身份一致，不信任本機 Identity 快取；臨時 LINE 身分不得修復。
+- 後端操作嚴格限定 vSfmdHC7okcHKiGyJAaM、h9xHEXaDs8jCXb6hl4Ih、O7dgQYnWux16tLtgH4iM，沿用原有 js/core/identity.js 已定義的正式 System Admin Profile 身分，或由既有已確認 Identity ID 比對 car.ownerId / createdByPersonId；不可根據名稱判定，也不可手動傳入任意 carId。
+- 一次操作讀取同一 Profile 一次，再逐台 transaction 精準讀 cars/{id} + carDetailViews/{id}；只在缺漏／陳舊時使用原有 services/firebase/car-prepared-view-write-through.js 的 buildCarDetailView 更新 carDetailViews/{id}，Core 完全唯讀，寫後精準讀回驗證。沒有 Cars / Players collection scan、沒有自動部署時寫入。
+- 原有 LINE 群組配對碼、會員健康檢查、Reminder、Accounting、MyCar 無修改。原有批次入口只在使用者按下按鈕後 POST，不再在客戶端依 JLY Identity 直接寫 View；若正式 LINE Session 不存在，明確顯示需在已完成正式登入的同一瀏覽器開啟。
+- 只有 Production 真實三台回補成功且 GET /api/car-view-context 個別不再 404 後，才能對外宣稱已修復；程式上線不等於舊資料已回補。
+- 測試：tests/line/known-three-car-view-repair.test.js 和原有 CI。
+
+
 ## 2026/10/08 三台已知舊車建立者身分／Prepared View 受控回補
 - 已知 Car ID 只限 `vSfmdHC7okcHKiGyJAaM`、`h9xHEXaDs8jCXb6hl4Ih`、`O7dgQYnWux16tLtgH4iM`；三者此前 `/api/car-view-context` 回傳 404，這不等於 Core 不存在。本輪**不掃 Core Collection**。
 - 沿用已存在的 `js/modules/car/detail/car-detail-view-single-repair.js`，首次權限不符時只針對已知 `getCurrentPlayerProfileId()` 呼叫既有 `syncFromPlayerProfile`，讀取 `players/{knownProfileId}` 的正式歷史 linkedPlayerIds，再用 `JLYPermissions.canEditCar` 重檢。建立者權限不以 `myRole` 或群主身分判斷，不根據名字推認。ownerId 缺失除原有 System Admin Override 外一律 fail closed。
