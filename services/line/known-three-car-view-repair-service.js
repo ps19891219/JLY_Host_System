@@ -45,7 +45,7 @@ async function verifyFormalActor(session, db) {
   }
   const ids = getIdentityIds(profile);
   ids.add(profileId);
-  return { authorized: true, ids, systemAdmin: ids.has(LEGACY_SYSTEM_ADMIN_PROFILE_ID) };
+  return { authorized: true, ids, systemAdmin: profileId === LEGACY_SYSTEM_ADMIN_PROFILE_ID };
 }
 
 async function repairOneKnownCar(id, actor, db) {

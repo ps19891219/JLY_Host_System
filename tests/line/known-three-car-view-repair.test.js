@@ -64,6 +64,13 @@ test("an already current Prepared View is not rewritten",async()=>{
   assert.equal(r.results[0].status,"current");
   assert.equal(f.history.includes("write:carDetailViews/"+ids[0]),false);
 });
+test("linked profile alias cannot impersonate system-admin profile",async()=>{
+  const f=dbFor({other:{lineUserId:"Uother",linkedPlayerIds:[admin]}},cars);
+  const r=await service.repairThreeKnownCarViews({profileId:"other",lineUserId:"Uother"},{db:f.db});
+  assert.equal(r.authorized,true);
+  assert.deepEqual(r.results.map(x=>x.reason),ids.map(()=>"creator_identity_mismatch"));
+  assert.equal(f.history.some(x=>x.startsWith("write:")),false);
+});
 test("unrelated formally linked user cannot alter any of the three cars",async()=>{
   const f=dbFor({other:{lineUserId:"Uother"}},cars);
   const r=await service.repairThreeKnownCarViews({profileId:"other",lineUserId:"Uother"},{db:f.db});
