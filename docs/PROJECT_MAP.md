@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 LINE 新增男女位同步行前提醒
+- LINE「新增男位 @車友」「新增女位 @車友」只有在既有主揪權限驗證通過、名單寫入成功（或既在名單）時，才會額外開啟／沿用既有 `cars/{carId}/reminders/preTrip`，並以同一則 LINE mentionees 的 userId 加入提醒名單。DM 不自動加入玩家提醒。
+- 只沿用 `services/line/reminder-service.js` 的 `enableGroupPreTripReminder` + `captureGroupReminderTargets`，不建第二套 Reminder、Person、View，不掃 Cars/Persons；已開啟 Reminder 時會保留既有時間與自訂文案。每次指令都是已知單台文件的 bounded 操作，提醒名單最多 20 人。
+- 提醒失敗不得回滾已成功的車團名單，LINE 回覆須明確說明提醒未同步。普通 @ 訊息仍採原有 capture 開關與權限規則。回歸測試 `tests/line/roster-reminder-auto-enable.test.js`。
+
+
 ## 2026/10/08 Car Detail View 單台明確修復與建車同步驗證
 - 《知因》單台 Car ID mRNxEFlvWEDg59GIXFVn，既有 /api/car-view-context 精準讀取曾回 404 car_not_found；這只證明該 Prepared View 不可用，尚不區分不存在或 car 欄位缺失。
 - 維護入口：pages/car-detail.html?id=<knownCarId>&viewRepair=1，顯示明確手動檢查按鈕；一般車團頁不執行維護讀寫。

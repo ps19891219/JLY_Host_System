@@ -368,6 +368,33 @@ async function captureGroupReminderTargets(
 }
 
 
+/**
+ * A bound LINE "新增男位/女位 @..." roster command also opts its mentioned
+ * players into the EXISTING pre-trip reminder. The reminder opens first,
+ * then the same userIds are appended by the existing bounded target API.
+ */
+async function syncRosterReminderTargets(carId, car, mentions, dependencies = {}) {
+  const normalized = normalizeReminderMentions(mentions);
+  if (normalized.hasAllMention) {
+    return { captured: false, reason: "mention_all_not_supported" };
+  }
+  if (!normalized.userIds.length) {
+    return { captured: false, reason: "mention_user_id_unavailable" };
+  }
+  const enable = dependencies.enableGroupPreTripReminder || enableGroupPreTripReminder;
+  const capture = dependencies.captureGroupReminderTargets || captureGroupReminderTargets;
+  const enabled = await enable(carId, car, dependencies);
+  if (!enabled.enabled) return { captured: false, reason: enabled.reason || "reminder_not_enabled" };
+  const saved = await capture(carId, mentions, dependencies);
+  return {
+    ...saved,
+    enabled: true,
+    alreadyEnabled: Boolean(enabled.alreadyEnabled),
+    scheduledAt: enabled.scheduledAt || (enabled.reminder && enabled.reminder.scheduledAt) || "",
+    status: (enabled.reminder && enabled.reminder.status) || ""
+  };
+}
+
 function buildReminderStatusText(
   result
 ) {
@@ -427,6 +454,7 @@ module.exports = {
   getReminderStatus,
   enableGroupPreTripReminder,
   captureGroupReminderTargets,
+  syncRosterReminderTargets,
   normalizeReminderMentions,
   buildReminderStatusText,
   buildGroupReminderReply,
