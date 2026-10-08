@@ -109,6 +109,7 @@ const {
 const {
   addMentionedRosterMembers
 } = require("./group-roster-service");
+const { syncOwnerReminderTarget } = require("./owner-reminder-target-service");
 
 function normalizeText(value) {
   return String(
@@ -376,6 +377,9 @@ async function handleMessageEvent(
   const syncRosterReminder =
     dependencies.syncRosterReminderTargets ||
     syncRosterReminderTargets;
+  const includeOwnerReminder =
+    dependencies.syncOwnerReminderTarget ||
+    syncOwnerReminderTarget;
 
   if (
     context.message.type !== "text"
@@ -548,14 +552,39 @@ async function handleMessageEvent(
         rosterReminderResult = { captured: false, reason: "reminder_sync_failed" };
       }
     }
+    // @self is unavailable in LINE; add only the formally linked host,
+    // after authorized roster mutation and existing reminder activation.
+    let ownerReminderResult = null;
+    if (rosterReminderResult && rosterReminderResult.enabled === true) {
+      try {
+        const car = rosterResult.afterCar || rosterResult.beforeCar ||
+          await readCar(context.accountingCarId);
+        ownerReminderResult = car
+          ? await includeOwnerReminder(context.accountingCarId, car, context, dependencies)
+          : { included: false, reason: "car_not_found" };
+      } catch (error) {
+        console.error("LINE owner reminder target sync failed.", {
+          carId: context.accountingCarId,
+          message: String(error && error.message || error)
+        });
+        ownerReminderResult = { included: false, reason: "owner_target_sync_failed" };
+      }
+    }
+    const ownerReminderNote = ownerReminderResult && ownerReminderResult.included
+      ? "\n👑 主揪已列入提醒名單。"
+      : ownerReminderResult && ownerReminderResult.reason === "target_limit_reached"
+        ? "\n⚠️ 提醒名單已滿 20 人，主揪尚未加入。"
+        : "";
     const reminderNote = rosterReminderResult
       ? rosterReminderResult.captured === true
         ? "\n\n🔔 已開啟行前通知，這次 @ 的車友已加入提醒名單。" +
-          "\n目前提醒名單：" + String(rosterReminderResult.totalCount || 0) + " 人。" +
+          "\n目前提醒名單：" + String(ownerReminderResult && Number.isInteger(ownerReminderResult.totalCount)
+            ? ownerReminderResult.totalCount : (rosterReminderResult.totalCount || 0)) + " 人。" +
           (Number(rosterReminderResult.ignoredCount || 0) > 0
             ? "\n已在提醒名單或超過上限：" + String(rosterReminderResult.ignoredCount) + " 人。" : "")
         : "\n\n⚠️ 車團人員已處理，但行前提醒名單未同步成功，請檢查提醒設定。"
       : "";
+    const reminderWithOwnerNote = reminderNote + ownerReminderNote;
     const rosterFailure = {
       mentions_required:
         "請在指令後直接 @ 要新增的車友，例如：新增男位 @小明 @阿哲",
@@ -578,7 +607,7 @@ async function handleMessageEvent(
       ) {
         await replyWithText(
           context.replyToken,
-          "這批車友已經在本場名單裡，不需要重複新增。" + reminderNote
+          "這批車友已經在本場名單裡，不需要重複新增。" + reminderWithOwnerNote
         );
       } else {
         await replyWithText(
@@ -667,7 +696,7 @@ async function handleMessageEvent(
 
     await replyWithText(
       context.replyToken,
-      lines.join("\n") + reminderNote
+      lines.join("\n") + reminderWithOwnerNote
     );
 
     return {
@@ -1030,7 +1059,20 @@ async function handleMessageEvent(
       };
     }
 
-    const existingTargetCount =
+    // A manual enable is an explicit action; the status query remains read-only.
+    let ownerReminderResult = null;
+    try {
+      ownerReminderResult = await includeOwnerReminder(
+        context.accountingCarId, car, context, dependencies
+      );
+    } catch (error) {
+      console.error("LINE owner reminder target sync failed.", {
+        carId: context.accountingCarId,
+        message: String(error && error.message || error)
+      });
+      ownerReminderResult = { included: false, reason: "owner_target_sync_failed" };
+    }
+    const previousTargetCount =
       Array.isArray(
         reminderResult &&
         reminderResult.reminder &&
@@ -1041,6 +1083,10 @@ async function handleMessageEvent(
             .targetLineUserIds.length
         : 0;
 
+    const existingTargetCount = ownerReminderResult &&
+      Number.isInteger(ownerReminderResult.totalCount)
+        ? ownerReminderResult.totalCount : previousTargetCount;
+
     const reminderLines = [
       reminderResult.alreadyEnabled
         ? "✅ 已重新開啟提醒名單設定"
@@ -1050,6 +1096,13 @@ async function handleMessageEvent(
       "可以一次標記多人，JLY 會把這一批加入這台車的提醒名單。"
     ];
 
+    if (ownerReminderResult && ownerReminderResult.included) {
+      reminderLines.push("", "👑 已自動把正式連結 LINE 的主揪加入提醒名單。");
+    } else if (ownerReminderResult && ownerReminderResult.reason === "target_limit_reached") {
+      reminderLines.push("", "⚠️ 提醒名單已滿 20 人，主揪尚未加入。");
+    } else {
+      reminderLines.push("", "ℹ️ 主揪若未加入，請確認已完成 JLY LINE 正式串聯。");
+    }
     if (existingTargetCount > 0) {
       reminderLines.push(
         "",
