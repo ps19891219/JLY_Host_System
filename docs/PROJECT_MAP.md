@@ -1,5 +1,13 @@
 # JLY Host System｜Project Map
 
+## 2026/10/08 三台已知舊車建立者身分／Prepared View 受控回補
+- 已知 Car ID 只限 `vSfmdHC7okcHKiGyJAaM`、`h9xHEXaDs8jCXb6hl4Ih`、`O7dgQYnWux16tLtgH4iM`；三者此前 `/api/car-view-context` 回傳 404，這不等於 Core 不存在。本輪**不掃 Core Collection**。
+- 沿用已存在的 `js/modules/car/detail/car-detail-view-single-repair.js`，首次權限不符時只針對已知 `getCurrentPlayerProfileId()` 呼叫既有 `syncFromPlayerProfile`，讀取 `players/{knownProfileId}` 的正式歷史 linkedPlayerIds，再用 `JLYPermissions.canEditCar` 重檢。建立者權限不以 `myRole` 或群主身分判斷，不根據名字推認。ownerId 缺失除原有 System Admin Override 外一律 fail closed。
+- 新增 `js/modules/car/detail/car-detail-view-batch-repair.js`，由 `pages/car-detail.html?id=<knownId>&viewRepairBatch=1&ids=<comma-separated-known-ids>` 明確啟動，只在使用者按鈕後逐筆呼叫**既有** `repairSingleCarView`，依原 Cloud Car Detail View schema 寫入 `carDetailViews/{id}`，已是最新就跳過，寫後讀回核對。不同車錯誤隔離。
+- 正常 Car Detail 頁無新增 Firestore Reads；不修改 Core、MyCar、Person、Activity、LINE Group Binding、Reminder，也不升級 Spark。批次頁不能視為已完成 Production 回補，須待真實有權限操作、3 台 `car-view-context` 讀回與 LINE 群組驗收後方可標記成功。
+- 測試：`tests/data-view/car-detail-view-batch-repair.test.js` 與 `tests/data-view/car-detail-view-creator-guard.test.js`。
+
+
 ## 2026/10/08 LINE 主揪免 @自己加入行前提醒名單
 - 新增 `services/line/owner-reminder-target-service.js`；以現有 `isCarOwner` 與 LINE Identity 優先判定發出操作的主揪，否則僅依 `ownerId`、`ownerPersonId`、`ownerProfileId` 三個已知 ID 做 bounded `players/{id}` 精準查詢，未串聯或身分衝突直接略過，不掃 Person/Player。
 - 新增 `services/firebase/reminder-owner-target-repository.js`，對現有 `cars/{carId}/reminders/preTrip` 進行單筆 transaction 去重追加主揪 LINE userId，20 人上限；只更動 `targetLineUserIds`、`targetUpdatedAt`、`updatedAt`，保留排程、群組通知、capture 開關、發送生命週期，不重發已發送提醒。
