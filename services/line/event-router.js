@@ -97,7 +97,6 @@ const {
 const { prepareQuickAccounting, saveResolvedQuickAccounting } = require("./quick-accounting-service");
 const { buildStoreInfo, buildTimeInfo, buildPeopleInfo } = require("./car-info-slices");
 const {
-  getReminderStatus,
   enableGroupPreTripReminder,
   captureGroupReminderTargets,
   syncRosterReminderTargets
@@ -358,9 +357,6 @@ async function handleMessageEvent(
   const readPublicBaseUrl = dependencies.getPublicBaseUrl || getPublicBaseUrl;
   const prepareQuickEntry = dependencies.prepareQuickAccounting || prepareQuickAccounting;
   const saveResolvedQuickEntry = dependencies.saveResolvedQuickAccounting || saveResolvedQuickAccounting;
-  const readReminderStatus =
-    dependencies.getReminderStatus ||
-    getReminderStatus;
   const enableReminder =
     dependencies.enableGroupPreTripReminder ||
     enableGroupPreTripReminder;
@@ -1449,18 +1445,11 @@ async function handleMessageEvent(
     context.source.type === "group"
   ) {
     let car = null;
-    let reminderStatus = null;
     if (context.accountingCarId) {
       try {
         car = await readCar(context.accountingCarId);
-        reminderStatus =
-          await readReminderStatus(
-            context.accountingCarId,
-            car,
-            dependencies
-          );
       } catch (error) {
-        console.error("LINE assistant car/reminder lookup failed.", error);
+        console.error("LINE assistant car lookup failed.", error);
       }
     }
     const token = context.accountingCarId
@@ -1474,12 +1463,7 @@ async function handleMessageEvent(
       [buildGroupAssistantCard(car, {
         token,
         baseUrl: readPublicBaseUrl(),
-        carId: context.accountingCarId,
-        reminder:
-          reminderStatus &&
-          reminderStatus.reminder
-            ? reminderStatus.reminder
-            : null
+        carId: context.accountingCarId
       })]
     );
   } else if (
