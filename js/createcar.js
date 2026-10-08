@@ -896,6 +896,17 @@ planningStatus:
       );
     }
 
+
+    // MyCar success does not prove the Car Detail Prepared View was written.
+    // LINE group detection depends exclusively on carDetailViews.
+    const detailViewSync = Array.isArray(viewSyncResults)
+      ? viewSyncResults.find(result => result && result.type === "car_detail")
+      : null;
+    if (!detailViewSync || detailViewSync.ok !== true) {
+      console.error("建立車團後 Car Detail Prepared View 同步失敗", detailViewSync && detailViewSync.error);
+      throw new Error("車團已建立，但 LINE 辨識所需的 Car Detail View 同步未完成。請勿重新建立車團，請使用單台修復入口。");
+    }
+
     let calendarResult = null;
 
     /*
