@@ -23,7 +23,7 @@ const cases = [
   ],
   [
     "JLY 提醒",
-    "assistant_reminder_enable"
+    "assistant_reminder_status"
   ],
   [
     "JLY 車團資訊",
@@ -52,7 +52,7 @@ for (const [text, action] of cases) {
         result.action,
         action
       );
-      if (action === "assistant_reminder_enable") {
+      if (action === "assistant_reminder_status") {
         assert.equal(result.replyText, "");
       } else {
         assert.ok(
@@ -69,4 +69,12 @@ test("group help lists the available compact car shortcuts and quick accounting"
   assert.ok(result.replyText.includes("JLY 時間"));
   assert.ok(result.replyText.includes("JLY 人員"));
   assert.ok(result.replyText.includes("記帳 晚餐 690 詩婕付"));
+});
+
+test("status queries are read-only while legacy explicit enable is retained", () => {
+  assert.equal(routeTextMessage("JLY 提醒狀態").action, "assistant_reminder_status");
+  assert.equal(routeTextMessage("JLY 通知狀態").action, "assistant_reminder_status");
+  assert.equal(routeTextMessage("開啟行前通知").action, "assistant_reminder_enable");
+  assert.equal(routeTextMessage("JLY 開啟行前通知").action, "assistant_reminder_enable");
+  assert.match(routeTextMessage("JLY 使用說明").replyText, /JLY 提醒/);
 });
