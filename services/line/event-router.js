@@ -97,6 +97,8 @@ const {
 const { prepareQuickAccounting, saveResolvedQuickAccounting } = require("./quick-accounting-service");
 const { buildStoreInfo, buildTimeInfo, buildPeopleInfo } = require("./car-info-slices");
 const {
+  getReminderStatus,
+  buildReminderStatusReport,
   enableGroupPreTripReminder,
   captureGroupReminderTargets,
   syncRosterReminderTargets
@@ -360,6 +362,9 @@ async function handleMessageEvent(
   const enableReminder =
     dependencies.enableGroupPreTripReminder ||
     enableGroupPreTripReminder;
+  const readReminderStatus =
+    dependencies.getReminderStatus ||
+    getReminderStatus;
 
   const captureReminderTargets =
     dependencies.captureGroupReminderTargets ||
@@ -894,6 +899,47 @@ async function handleMessageEvent(
       groupBinding,
       bindResult
     };
+  }
+
+  // Explicit on-demand status query for this group's bound car only.
+  // Never enable reminders or load whole Cars / Person collections.
+  if (messageResult.action === "assistant_reminder_status") {
+    if (!context.replyToken) {
+      return { handled: false, route: "message_missing_reply_token", context, groupBinding };
+    }
+    if (context.source.type !== "group" || !context.source.groupId ||
+        !context.accountingCarId) {
+      await replyWithText(context.replyToken, "請先將這個 LINE 群組綁定 JLY 車團，再查看提醒狀態。");
+      return { handled: true, route: "assistant_reminder_status_binding_required", context, groupBinding };
+    }
+
+    try {
+      const reminderStatus = await readReminderStatus(
+        context.accountingCarId, null, dependencies
+      );
+      await replyWithText(context.replyToken, buildReminderStatusReport(reminderStatus));
+      return {
+        handled: true,
+        route: "assistant_reminder_status",
+        context,
+        groupBinding,
+        reminderStatus: {
+          configured: reminderStatus.configured === true,
+          enabled: reminderStatus.enabled === true,
+          status: reminderStatus.reminder && reminderStatus.reminder.status || ""
+        }
+      };
+    } catch (error) {
+      console.error("LINE reminder status read failed.", {
+        carId: context.accountingCarId,
+        message: String(error && error.message || error)
+      });
+      await replyWithText(
+        context.replyToken,
+        "⚠️ 暫時無法查詢行前通知狀態，請稍後再試。本次沒有修改任何提醒設定。"
+      );
+      return { handled: true, route: "assistant_reminder_status_failed", context, groupBinding };
+    }
   }
 
   if (
