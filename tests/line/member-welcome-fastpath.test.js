@@ -25,11 +25,12 @@ test("fast welcome sends a working card even when car metadata is slow", async (
   assert.equal(result.route, "member_joined_welcome");
   assert.equal(result.usedGenericTitle, true);
   assert.equal(sent[0].type, "flex");
-  const urls = sent[0].contents.body.contents.map(item => item.action.uri);
-  assert.deepEqual(urls, [
+  const urls = sent[0].contents.body.contents.map(item => item.action && item.action.uri);
+  assert.deepEqual(urls.filter(Boolean), [
     "https://example.com/pages/car-view.html?id=car-1&entry=dm&source=line_group",
     "https://example.com/pages/car-view.html?id=car-1&entry=player&source=line_group"
   ]);
+  assert.match(sent[0].contents.body.contents[2].text, /暫時無法新增行程/);
 });
 
 test("fast welcome keeps the car title when metadata returns quickly", async () => {
@@ -40,13 +41,14 @@ test("fast welcome keeps the car title when metadata returns quickly", async () 
     source: { type: "group", groupId: "group-2" }
   }, {
     resolveGroupBinding: async () => ({ bound: true, binding: { carId: "car-2" } }),
-    getCarById: async () => ({ id: "car-2", scriptName: "測試劇本" }),
+    getCarById: async () => ({ id: "car-2", scriptName: "測試劇本", gameDate: "2027-10-04", gameTime: "19:00", calendar: { eventDurationMinutes: 180 } }),
     getPublicBaseUrl: () => "https://example.com",
     sendReplyMessage: async (_token, messages) => { sent = messages; }
   });
 
   assert.equal(result.usedGenericTitle, false);
   assert.match(sent[0].altText, /測試劇本/);
+  assert.equal(sent[0].contents.body.contents[2].action.label, "📅 加入我的 Google 行事曆");
 });
 
 test("readCarQuickly times out instead of blocking the reply path", async () => {

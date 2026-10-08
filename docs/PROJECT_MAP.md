@@ -1,5 +1,12 @@
 # JLY Host System｜Project Map
 
+## 2026/10/09 LINE 群組歡迎卡片與個人 Google Calendar 預填
+- Current Runtime 使用既有 `services/line/member-welcome-card.js`，固定 DM、Player、Google Calendar 三列，DM/Player 繼續使用 `/pages/car-view.html?entry=dm|player&source=line_group` 的正式認領／審核入口。
+- 新增純函式 `services/line/google-calendar-prefill-url.js` 使用同一筆已取得 Car 的真實日期時間、明確結束時間或現有 duration 建立 Google Calendar `/calendar/r/eventedit?action=TEMPLATE`。時區 Asia/Taipei，無 OAuth 寫入、無 Firestore Read。
+- `member-welcome-fastpath.js` 與 `event-router.js` 共用 Builder，不增加讀取。綁定成功透過 `group-car-binding-service.js` 已讀取 Car 的安全公開欄位投影建立同款卡片，保留權限與提醒。
+- 時間缺漏、Car 讀取逾時或超出 LINE URI 限制時第三列改為不可新增行程提示，絕不猜測日期時間。每位車友於 Google 個人帳號自行儲存，不提供後續持續同步。
+- 本輪不調整 LINE Identity、Applications、Reminder、Accounting、MyCar、Google Calendar 同步核心。回歸測試：`tests/line/google-calendar-prefill-url.test.js`、`tests/line/member-welcome*.test.js`、`tests/line/group-car-binding-service.test.js`。
+
 ## 2026/10/08 三台批次維護登入導流
 - 既有三台修復已採 signed LINE member session 驗證，但瀏覽器未登入時原批次頁只有錯誤提示；新增顯式「先完成 JLY LINE 正式登入」按鈕，沿用已存在的 `js/line.js` → `/api/line-login-state` → LINE OAuth → `/pages/line-callback.html` → `/api/line-login`，登入完成按 signed state 返回原本含 Car IDs 的修復連結。
 - 專用 purpose `car_repair_entry` 僅允許恢復既有 LINE 正式連結 Profile，**不得建立第一筆臨時 LINE 身分**；不調整正式 server-side repair 權限門檻及 3 個固定 Car IDs。正常詳細頁不自動啟動 OAuth、沒有新增 Firestore Reads。

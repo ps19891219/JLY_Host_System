@@ -290,10 +290,27 @@ async function bindGroupToCar(
     binding,
     migration,
     membershipHealth,
+    // Project fields from the car already read during binding: no extra Firestore reads.
     car: {
       id: car.id || carId,
       label: getCarLabel(car),
-      date: car.date || car.startDate || ""
+      date: car.date || car.startDate || "",
+      scriptName: car.scriptName || "",
+      gameDate: car.gameDate || "",
+      gameTime: car.gameTime || "",
+      startTime: car.startTime || car.time || "",
+      gameEndTime: car.gameEndTime || "",
+      endTime: car.endTime || "",
+      gameEndDate: car.gameEndDate || "",
+      endDate: car.endDate || "",
+      durationMinutes: car.durationMinutes,
+      eventDurationMinutes: car.eventDurationMinutes,
+      calendar: car.calendar && typeof car.calendar === "object"
+        ? { eventDurationMinutes: car.calendar.eventDurationMinutes }
+        : undefined,
+      studioName: car.studioName || car.organizerName || car.organizer || "",
+      locationName: car.locationName || car.location || car.address || car.storeAddress || "",
+      publicNote: car.publicNote || ""
     }
   };
 }

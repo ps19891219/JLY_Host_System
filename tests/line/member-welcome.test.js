@@ -42,7 +42,10 @@ test(
       buildMemberWelcomeCard(
         {
           id: "car-1",
-          scriptName: "測試劇本"
+          scriptName: "測試劇本",
+          gameDate: "2027-10-04",
+          gameTime: "19:00",
+          calendar: { eventDurationMinutes: 180 }
         },
         {
           baseUrl:
@@ -57,7 +60,7 @@ test(
 
     assert.equal(
       buttons.length,
-      2
+      3
     );
 
     assert.equal(
@@ -79,6 +82,8 @@ test(
       buttons[1].action.uri,
       /car-view\.html\?id=car-1&entry=player/
     );
+    assert.equal(buttons[2].action.label, "📅 加入我的 Google 行事曆");
+    assert.equal(new URL(buttons[2].action.uri).hostname, "calendar.google.com");
   }
 );
 
@@ -111,7 +116,10 @@ test(
               return {
                 id: "car-1",
                 scriptName:
-                  "測試劇本"
+                  "測試劇本",
+                gameDate: "2027-10-04",
+                gameTime: "19:00",
+                calendar: { eventDurationMinutes: 180 }
               };
             },
 
@@ -148,6 +156,8 @@ test(
       messages[0].type,
       "flex"
     );
+    assert.equal(messages[0].contents.body.contents.length, 3);
+    assert.equal(messages[0].contents.body.contents[2].action.label, "📅 加入我的 Google 行事曆");
   }
 );
 

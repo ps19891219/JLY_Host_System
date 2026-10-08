@@ -59,7 +59,10 @@ test("authorized pairing binding does not require the LINE executor to be owner 
       getCarById: async () => ({
         id: "car-1",
         ownerId: "owner-1",
-        scriptName: "孤注"
+        scriptName: "孤注",
+        gameDate: "2027-10-04",
+        gameTime: "19:00",
+        calendar: { eventDurationMinutes: 300 }
       }),
       getBindingByGroupId: async () => null,
       saveBinding: async binding => {
@@ -77,6 +80,10 @@ test("authorized pairing binding does not require the LINE executor to be owner 
   assert.equal(savedBinding.createdBy, "line-friend");
   assert.equal(savedBinding.authorizedByPersonId, "owner-1");
   assert.equal(savedBinding.authorizationType, "car_owner_session");
+  assert.equal(result.car.gameDate, "2027-10-04");
+  assert.equal(result.car.gameTime, "19:00");
+  assert.deepEqual(result.car.calendar, { eventDurationMinutes: 300 });
+  assert.equal(result.car.players, undefined);
 });
 
 test("a car owner can bind through the member JLY identity id", async function () {
