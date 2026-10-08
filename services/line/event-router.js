@@ -99,7 +99,8 @@ const { buildStoreInfo, buildTimeInfo, buildPeopleInfo } = require("./car-info-s
 const {
   getReminderStatus,
   enableGroupPreTripReminder,
-  captureGroupReminderTargets
+  captureGroupReminderTargets,
+  syncRosterReminderTargets
 } = require("./reminder-service");
 const {
   detectGroupCar
@@ -371,6 +372,9 @@ async function handleMessageEvent(
   const addRosterMembers =
     dependencies.addMentionedRosterMembers ||
     addMentionedRosterMembers;
+  const syncRosterReminder =
+    dependencies.syncRosterReminderTargets ||
+    syncRosterReminderTargets;
 
   if (
     context.message.type !== "text"
@@ -517,6 +521,40 @@ async function handleMessageEvent(
         dependencies
       );
 
+    // Only an authorized roster command may auto-enroll reminder targets.
+    // Ordinary group @ messages continue to use the explicit capture workflow.
+    const role = messageResult.rosterCommand &&
+      messageResult.rosterCommand.role;
+    let rosterReminderResult = null;
+    if ((rosterResult.changed === true || rosterResult.reason === "no_roster_change") &&
+        (role === "male" || role === "female")) {
+      try {
+        const car = rosterResult.afterCar || rosterResult.beforeCar ||
+          await readCar(context.accountingCarId);
+        rosterReminderResult = car
+          ? await syncRosterReminder(
+              context.accountingCarId,
+              car,
+              context.message.mentions,
+              dependencies
+            )
+          : { captured: false, reason: "car_not_found" };
+      } catch (error) {
+        console.error("LINE roster reminder sync failed.", {
+          carId: context.accountingCarId,
+          message: String(error && error.message || error)
+        });
+        rosterReminderResult = { captured: false, reason: "reminder_sync_failed" };
+      }
+    }
+    const reminderNote = rosterReminderResult
+      ? rosterReminderResult.captured === true
+        ? "\n\n🔔 已開啟行前通知，這次 @ 的車友已加入提醒名單。" +
+          "\n目前提醒名單：" + String(rosterReminderResult.totalCount || 0) + " 人。" +
+          (Number(rosterReminderResult.ignoredCount || 0) > 0
+            ? "\n已在提醒名單或超過上限：" + String(rosterReminderResult.ignoredCount) + " 人。" : "")
+        : "\n\n⚠️ 車團人員已處理，但行前提醒名單未同步成功，請檢查提醒設定。"
+      : "";
     const rosterFailure = {
       mentions_required:
         "請在指令後直接 @ 要新增的車友，例如：新增男位 @小明 @阿哲",
@@ -539,7 +577,7 @@ async function handleMessageEvent(
       ) {
         await replyWithText(
           context.replyToken,
-          "這批車友已經在本場名單裡，不需要重複新增。"
+          "這批車友已經在本場名單裡，不需要重複新增。" + reminderNote
         );
       } else {
         await replyWithText(
@@ -554,7 +592,8 @@ async function handleMessageEvent(
         route: "assistant_roster_add_failed",
         context,
         groupBinding,
-        rosterResult
+        rosterResult,
+        rosterReminderResult
       };
     }
 
@@ -627,7 +666,7 @@ async function handleMessageEvent(
 
     await replyWithText(
       context.replyToken,
-      lines.join("\n")
+      lines.join("\n") + reminderNote
     );
 
     return {
@@ -635,7 +674,8 @@ async function handleMessageEvent(
       route: "assistant_roster_added",
       context,
       groupBinding,
-      rosterResult
+      rosterResult,
+      rosterReminderResult
     };
   }
 
