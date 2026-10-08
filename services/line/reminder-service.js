@@ -395,6 +395,63 @@ async function syncRosterReminderTargets(carId, car, mentions, dependencies = {}
   };
 }
 
+/**
+ * On-demand, read-only LINE pre-trip reminder status. The report never
+ * discloses LINE user IDs and never claims guaranteed delivery.
+ */
+function buildReminderStatusReport(result, options = {}) {
+  const state = result && typeof result === "object" ? result : {};
+  const reminder = state.reminder && typeof state.reminder === "object"
+    ? state.reminder : null;
+
+  if (!state.configured || !state.enabled || !reminder) {
+    return [
+      "⚪ 本場行前通知尚未開啟",
+      "",
+      "舊車團不會因新功能上線而自動補開。",
+      "如需啟用請輸入「開啟行前通知」，",
+      "之後再 @ 需要提醒的車友。"
+    ].join("\n");
+  }
+
+  const reminderStatus = normalizeText(reminder.status);
+  const targets = Array.isArray(reminder.targetLineUserIds)
+    ? reminder.targetLineUserIds : [];
+  const count = new Set(targets.map(normalizeText).filter(Boolean)).size;
+  const now = options.now instanceof Date ? options.now : new Date();
+
+  const labels = {
+    scheduled: "🟢 已排程，等待發送",
+    sending: "🟡 發送處理中",
+    sent: "✅ 已提交 LINE 發送",
+    failed: "⚠️ 發送失敗，需要處理",
+    action_required: "⚠️ 預設提醒時間已過，需要調整",
+    cancelled: "⚪ 已取消",
+    canceled: "⚪ 已取消"
+  };
+  const lines = ["🔔 本場行前通知狀態", labels[reminderStatus] || "🟡 已啟用，狀態待確認"];
+  const scheduledAt = normalizeText(reminder.scheduledAt);
+  if (scheduledAt) {
+    const formatted = formatScheduledAt(scheduledAt);
+    lines.push("預定提醒：" + (formatted || scheduledAt) + "（台灣時間）");
+    const due = new Date(scheduledAt);
+    if (reminderStatus === "scheduled" && !Number.isNaN(due.getTime()) && due <= now) {
+      lines.push("⚠️ 已超過預定時間，請確認發送排程。");
+    }
+  } else {
+    lines.push("⚠️ 尚未設定有效提醒時間。");
+  }
+  lines.push("指定 @提醒對象：" + String(count) + " 人");
+  if (count === 0) {
+    lines.push("尚無個別 @名單；系統仍可能發送一般群組提醒。");
+  }
+  if (reminderStatus === "sent" && reminder.sentAt) {
+    lines.push("提交發送：" + (formatScheduledAt(reminder.sentAt) || normalizeText(reminder.sentAt)));
+  }
+  lines.push("", "此處顯示系統記錄，實際送達仍以 LINE 結果為準。");
+  return lines.join("\n");
+}
+
 function buildReminderStatusText(
   result
 ) {
@@ -457,6 +514,7 @@ module.exports = {
   syncRosterReminderTargets,
   normalizeReminderMentions,
   buildReminderStatusText,
+  buildReminderStatusReport,
   buildGroupReminderReply,
 
   calculateScheduledAt,
