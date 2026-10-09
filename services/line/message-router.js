@@ -83,6 +83,12 @@ function normalizeAssistantAccountingShortcut(value) {
 // Detect Assistant Call
 // ============================================================
 
+// Signup requires an explicit call to the bot, never the bare word 報名.
+function isSignupCardCommand(value) {
+  const compact = normalizeForMatch(value).replace(/\s+/g, "");
+  return /^(?:(?:jly|day)(?:(?:小)?助手)?|(?:小)?助手)報名$/.test(compact);
+}
+
 function isAssistantCalled(text) {
   const normalized =
     normalizeForMatch(
@@ -94,6 +100,7 @@ function isAssistantCalled(text) {
   }
 
   return (
+    /^(?:jly|day|助手)$/.test(normalized.replace(/\s+/g, "")) ||
     normalized.includes(
       "小助手"
     ) ||
@@ -301,6 +308,10 @@ function routeTextMessage(text) {
     };
   }
 
+  if (isSignupCardCommand(normalizedText)) {
+    return { handled: true, action: "assistant_signup_card", replyText: "" };
+  }
+
   const rosterCommand =
     parseRosterCommand(normalizedText);
 
@@ -442,6 +453,7 @@ module.exports = {
   routeTextMessage,
   isAssistantCalled,
   routeMenuCommand,
-  parseRosterCommand
+  parseRosterCommand,
+  isSignupCardCommand
 };
 

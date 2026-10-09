@@ -78,3 +78,20 @@ test("status queries are read-only while legacy explicit enable is retained", ()
   assert.equal(routeTextMessage("JLY 開啟行前通知").action, "assistant_reminder_enable");
   assert.match(routeTextMessage("JLY 使用說明").replyText, /JLY 提醒/);
 });
+
+
+test("signup shortcut aliases require the bot name and keep bare chat silent", () => {
+  for (const cmd of ["助手報名", "助手 報名", "小助手 報名", "JLY 報名",
+    "JLY 小助手 報名", "DAY 報名", "Day 報名", "Day 助手 報名"]) {
+    assert.equal(routeTextMessage(cmd).action, "assistant_signup_card", cmd);
+  }
+  for (const cmd of ["報名", "我想報名", "有人要報名嗎", "報名成功", "報名+1",
+    "我要報名了", "@助手 報名", "JLY 記帳"]) {
+    assert.notEqual(routeTextMessage(cmd).action, "assistant_signup_card", cmd);
+  }
+  assert.equal(routeTextMessage("報名").handled, false);
+  assert.equal(routeTextMessage("助手").action, "assistant_called");
+  assert.equal(routeTextMessage("小助手").action, "assistant_called");
+  assert.equal(routeTextMessage("Day").action, "assistant_called");
+  assert.equal(routeTextMessage("JLY 記帳").action, "assistant_accounting_menu");
+});

@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/09 LINE 群組報名快捷指令
+- 沿用現有 `services/line/message-router.js` 的群組訊息 Parser 與 `services/line/event-router.js` 的 groupId → carId 綁定流程，僅對明確呼叫 `助手 報名`、`小助手 報名`、`JLY 報名`、`Day 報名` 等精確格式提供同一張既有 LINE 三按鈕卡。
+- 單獨 `報名` 與日常聊天不觸發也不讀取 Firestore。LINE 真正 @ Bot 才能使用 `@機器人 報名`；以 Webhook `mention.mentionees[].isSelf`、原始文字 offset 驗證，文字假 @、其他人標記不作為報名授權。
+- 單獨叫出 `助手`、`小助手`、`Day`、單獨標記 Bot 維持原本小助手選單。已綁定群組才精準讀取一筆 Car 並重用 `buildMemberWelcomeCard`，不另加資料庫、Reminder、報名或 Calendar 系統。
+- 測試：`tests/line/message-router.test.js`、`tests/line/member-welcome.test.js` 及完整 `npm test`；正式支援狀態以 Git main 和 Vercel Production READY 為準。
+
 ## 2026/10/09 LINE 群組歡迎卡片與個人 Google Calendar 預填
 - Current Runtime 使用既有 `services/line/member-welcome-card.js`，固定 DM、Player、Google Calendar 三列，DM/Player 繼續使用 `/pages/car-view.html?entry=dm|player&source=line_group` 的正式認領／審核入口。
 - 新增純函式 `services/line/google-calendar-prefill-url.js` 使用同一筆已取得 Car 的真實日期時間、明確結束時間或現有 duration 建立 Google Calendar `/calendar/r/eventedit?action=TEMPLATE`。時區 Asia/Taipei，無 OAuth 寫入、無 Firestore Read。

@@ -190,6 +190,8 @@ function normalizeMessage(event) {
       : [];
 
   return {
+    // LINE mention offsets are relative to the original untrimmed text.
+    rawText: typeof message.text === "string" ? message.text : "",
     id:
       normalizeText(
         message.id
@@ -392,10 +394,35 @@ async function handleMessageEvent(
     };
   }
 
-  const messageResult =
-    routeTextMessage(
-      context.message.text
-    );
+  const directMessageResult = routeTextMessage(context.message.text);
+  // Only LINE's verified bot mention can unlock a bare "報名" after @.
+  // Mentions of other group members, or textual fake @ tags, cannot.
+  const botMentions = (context.message.mentions || []).filter(
+    mention => mention && mention.type === "user" && mention.isSelf === true
+  );
+  let mentionedMessageResult = null;
+  if (botMentions.length === 1) {
+    const mention = botMentions[0];
+    const original = context.message.rawText;
+    if (Number.isInteger(mention.index) && Number.isInteger(mention.length) &&
+        mention.index >= 0 && mention.length > 0 &&
+        mention.index + mention.length <= original.length) {
+      const rest = (
+        original.slice(0, mention.index) +
+        original.slice(mention.index + mention.length)
+      ).trim();
+      if (rest === "報名") {
+        mentionedMessageResult = {
+          handled: true, action: "assistant_signup_card", replyText: ""
+        };
+      } else if (rest === "") {
+        mentionedMessageResult = {
+          handled: true, action: "assistant_called", replyText: "我在這裡 🤖"
+        };
+      }
+    }
+  }
+  const messageResult = mentionedMessageResult || directMessageResult;
 
   const hasReminderMentions =
     context.source.type === "group" &&
@@ -474,6 +501,40 @@ async function handleMessageEvent(
   if (groupBinding && groupBinding.bound) {
     context.accountingCarId =
       groupBinding.binding.carId;
+  }
+
+  if (messageResult.action === "assistant_signup_card") {
+    if (!context.replyToken) {
+      return { handled: false, route: "message_missing_reply_token", context };
+    }
+    if (context.source.type !== "group" || !context.source.groupId) {
+      await replyWithText(context.replyToken,
+        "請在已綁定車團的 LINE 群組輸入「助手 報名」，或標記小助手後輸入「報名」。");
+      return { handled: true, route: "assistant_signup_group_required", context };
+    }
+    if (!context.accountingCarId) {
+      await replyWithText(context.replyToken,
+        "請先將這個 LINE 群組綁定 JLY 車團，再輸入「助手 報名」。");
+      return { handled: true, route: "assistant_signup_binding_required", context, groupBinding };
+    }
+    let car = null;
+    try {
+      car = await readCar(context.accountingCarId);
+    } catch (error) {
+      console.error("LINE signup shortcut car read failed.", error);
+    }
+    if (!car) {
+      await replyWithText(context.replyToken,
+        "暫時無法取得本場車團資訊，請稍後重試。");
+      return { handled: true, route: "assistant_signup_car_unavailable", context, groupBinding };
+    }
+    await replyWithMessages(context.replyToken, [
+      buildMemberWelcomeCard(car, {
+        baseUrl: readPublicBaseUrl(),
+        carId: context.accountingCarId
+      })
+    ]);
+    return { handled: true, route: "assistant_signup_card", context, groupBinding };
   }
 
   if (
