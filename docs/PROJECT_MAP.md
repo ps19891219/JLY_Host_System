@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/09 玩家／DM 自助申請 Prepared View write-through
+- 新玩家或 DM 自助申請沿用正式 cars/{carId} transaction，同筆交易以既有 buildCarDetailView 更新 carDetailViews/{carId}；不額外查詢集合、不修改成員或席位。
+- 同一 LINE 身分重送已存在的待審申請，僅回補該車 Prepared View，回覆 alreadySubmitted=true，不複製正式申請。已加入、其他 LINE 帳號、額滿及名單認領仍按既有驗證處理。
+- 公開玩家報名頁將已申請的錯誤顯示為中文，car-view-actions.js 快取版本 v=7；保留主揪審核，準確同步待審 UI。
+- 測試 car-entry-service、line-person-identity-claim、car-entry-full-claim-regression、car-view-access 與完整 npm test；正式 LINE 實機仍需驗收。
+
 ## 2026/10/09 LINE 群組報名快捷指令
 - 沿用現有 `services/line/message-router.js` 的群組訊息 Parser 與 `services/line/event-router.js` 的 groupId → carId 綁定流程，僅對明確呼叫 `助手 報名`、`小助手 報名`、`JLY 報名`、`Day 報名` 等精確格式提供同一張既有 LINE 三按鈕卡。
 - 單獨 `報名` 與日常聊天不觸發也不讀取 Firestore。LINE 真正 @ Bot 才能使用 `@機器人 報名`；以 Webhook `mention.mentionees[].isSelf`、原始文字 offset 驗證，文字假 @、其他人標記不作為報名授權。

@@ -9,10 +9,12 @@ const { submitCarEntry } = require("../../services/car/car-entry-service");
 function mockDb(initialCar) {
   let car = JSON.parse(JSON.stringify(initialCar));
   const ref = { key: "car-1" };
+  const viewRef = { key: "view-car-1" };
+  let carDetailView = null;
   return {
     collection(name) {
-      assert.equal(name, "cars");
-      return { doc(id) { assert.equal(id, "car-1"); return ref; } };
+      assert.ok(["cars", "carDetailViews"].includes(name));
+      return { doc(id) { assert.equal(id, "car-1"); return name === "cars" ? ref : viewRef; } };
     },
     async runTransaction(callback) {
       const transaction = {
@@ -23,11 +25,16 @@ function mockDb(initialCar) {
         update(target, patch) {
           assert.equal(target, ref);
           car = { ...car, ...JSON.parse(JSON.stringify(patch)) };
+        },
+        set(target, value) {
+          assert.equal(target, viewRef);
+          carDetailView = JSON.parse(JSON.stringify(value));
         }
       };
       await callback(transaction);
     },
-    current() { return JSON.parse(JSON.stringify(car)); }
+    current() { return JSON.parse(JSON.stringify(car)); },
+    currentView() { return JSON.parse(JSON.stringify(carDetailView)); }
   };
 }
 

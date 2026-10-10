@@ -3,6 +3,7 @@
 const { getFirestore } = require("../firebase/admin");
 const { identityIds } = require("./car-view-access");
 const recruitmentView = require("../studio/studio-recruitment-view-service");
+const { buildCarDetailView } = require("../firebase/car-prepared-view-write-through");
 
 function text(value) { return String(value == null ? "" : value).trim(); }
 function lower(value) { return text(value).toLowerCase(); }
@@ -186,6 +187,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
   const identity = baseIdentity(session);
   const db = dependencies.db || getFirestore();
   const carRef = db.collection("cars").doc(carId);
+  const viewRef = db.collection("carDetailViews").doc(carId);
   let result = null;
   let afterCarForRecruitment = null;
 
@@ -198,7 +200,21 @@ async function submitCarEntry(input, session, dependencies = {}) {
     const timestamp = nowIso();
 
     if (type === "player") {
-      assertPlayerAvailable(car, session);
+      try {
+        assertPlayerAvailable(car, session);
+      } catch (error) {
+        if (error && error.code !== "player_application_pending") throw error;
+        // Already pending for this verified identity: repair stale View, no second Core application.
+        const existing = (Array.isArray(car.applications) ? car.applications : [])
+          .find(item => pending(item) && matchesViewer(item, session));
+        if (!existing) throw error;
+        transaction.set(viewRef, buildCarDetailView(car), { merge: false });
+        result = {
+          id: text(existing.id), type: "player", status: "pending",
+          claimType: text(existing.claimType), alreadySubmitted: true
+        };
+        return;
+      }
       const target = findClaimablePlayer(car, input.targetPlayerId, session);
       if (text(input.targetPlayerId) && !target) {
         const error = new Error("player_claim_unavailable"); error.code = "player_claim_unavailable"; throw error;
@@ -227,12 +243,26 @@ async function submitCarEntry(input, session, dependencies = {}) {
         updatedAt: timestamp
       });
       transaction.update(carRef, { applications, updatedAt: timestamp });
+      transaction.set(viewRef, buildCarDetailView({ ...car, applications, updatedAt: timestamp }), { merge: false });
       afterCarForRecruitment = { ...car, applications, updatedAt: timestamp };
       result = { id, status: "pending", type: "player", claimType: target ? "existing_person" : "new_person" };
       return;
     }
 
-    assertDmAvailable(car, session);
+    try {
+      assertDmAvailable(car, session);
+    } catch (error) {
+      if (error && error.code !== "dm_application_pending") throw error;
+      const existing = (Array.isArray(car.dmApplications) ? car.dmApplications : [])
+        .find(item => pending(item) && matchesViewer(item, session));
+      if (!existing) throw error;
+      transaction.set(viewRef, buildCarDetailView(car), { merge: false });
+      result = {
+        id: text(existing.id), type: "dm", status: "pending",
+        claimType: text(existing.claimType), alreadySubmitted: true
+      };
+      return;
+    }
     const target = findClaimableStaffSlot(car, input.targetStaffId, session);
     if (text(input.targetStaffId) && !target) {
       const error = new Error("staff_slot_unavailable"); error.code = "staff_slot_unavailable"; throw error;
@@ -257,6 +287,7 @@ async function submitCarEntry(input, session, dependencies = {}) {
       updatedAt: timestamp
     });
     transaction.update(carRef, { dmApplications: applications, updatedAt: timestamp });
+    transaction.set(viewRef, buildCarDetailView({ ...car, dmApplications: applications, updatedAt: timestamp }), { merge: false });
     afterCarForRecruitment = { ...car, dmApplications: applications, updatedAt: timestamp };
     result = { id, status: "pending", type: "dm", claimType: target ? "existing_slot" : "new_person" };
   });
