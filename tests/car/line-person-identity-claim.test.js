@@ -10,12 +10,13 @@ const { hydrateMemberSession } = require("../../api/car-view-context");
 function fakeCarDb(initialCar) {
   let car = JSON.parse(JSON.stringify(initialCar));
   const carRef = { kind: "car" };
+  const viewRef = { kind: "carDetailView" };
   return {
     get car() { return car; },
     collection(name) {
-      assert.equal(name, "cars");
+      assert.ok(["cars", "carDetailViews"].includes(name));
       return {
-        doc() { return carRef; }
+        doc() { return name === "cars" ? carRef : viewRef; }
       };
     },
     async runTransaction(callback) {
@@ -27,6 +28,10 @@ function fakeCarDb(initialCar) {
         update(ref, patch) {
           assert.equal(ref, carRef);
           car = { ...car, ...JSON.parse(JSON.stringify(patch)) };
+        },
+        set(ref, view) {
+          assert.equal(ref, viewRef);
+          assert.equal(view.car.id, initialCar.id || "car-1");
         }
       };
       return callback(transaction);

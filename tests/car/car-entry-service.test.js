@@ -7,10 +7,12 @@ const { submitCarEntry } = require("../../services/car/car-entry-service");
 function mockDb(initialCar) {
   let car = JSON.parse(JSON.stringify(initialCar));
   const ref = { key: "car-1" };
+  const viewRef = { key: "view-car-1" };
+  let carDetailView = null;
   return {
     collection(name) {
-      assert.equal(name, "cars");
-      return { doc(id) { assert.equal(id, "car-1"); return ref; } };
+      assert.ok(["cars", "carDetailViews"].includes(name));
+      return { doc(id) { assert.equal(id, "car-1"); return name === "cars" ? ref : viewRef; } };
     },
     async runTransaction(callback) {
       const transaction = {
@@ -21,11 +23,16 @@ function mockDb(initialCar) {
         update(target, patch) {
           assert.equal(target, ref);
           car = { ...car, ...JSON.parse(JSON.stringify(patch)) };
+        },
+        set(target, value) {
+          assert.equal(target, viewRef);
+          carDetailView = JSON.parse(JSON.stringify(value));
         }
       };
       await callback(transaction);
     },
-    current() { return JSON.parse(JSON.stringify(car)); }
+    current() { return JSON.parse(JSON.stringify(car)); },
+    currentView() { return JSON.parse(JSON.stringify(carDetailView)); }
   };
 }
 
@@ -61,6 +68,8 @@ test("player entry creates one formal pending application without changing playe
   assert.equal(after.applications[0].position, "女位");
   assert.equal(after.applications[0].isCrossPlay, true);
   assert.equal(after.applications[0].status, "pending");
+  assert.equal(db.currentView().car.applications[0].id, after.applications[0].id);
+  assert.equal(db.currentView().car.players.length, before.players.length);
   assert.deepEqual(after.players, before.players);
   assert.deepEqual(after.seatSlots, before.seatSlots);
   assert.deepEqual(after.staffSlots, before.staffSlots);
@@ -73,11 +82,13 @@ test("existing player and pending player application cannot be duplicated", asyn
     error => error.code === "already_player"
   );
 
-  const pendingDb = mockDb({ players: [], applications: [{ memberId: "person-1", status: "pending", displayName: "詩婕" }] });
-  await assert.rejects(
-    submitCarEntry({ carId: "car-1", type: "player" }, session, { db: pendingDb }),
-    error => error.code === "player_application_pending"
-  );
+  const pendingDb = mockDb({ players: [], applications: [{ id: "app-before", memberId: "person-1", status: "pending", displayName: "詩婕" }] });
+  const result = await submitCarEntry({ carId: "car-1", type: "player" }, session, { db: pendingDb });
+  assert.equal(result.id, "app-before");
+  assert.equal(result.status, "pending");
+  assert.equal(result.alreadySubmitted, true);
+  assert.equal(pendingDb.current().applications.length, 1);
+  assert.equal(pendingDb.currentView().car.applications.length, 1);
 });
 
 test("DM entry preserves formal application shape and does not create staff before host approval", async () => {
@@ -103,6 +114,7 @@ test("DM entry preserves formal application shape and does not create staff befo
   assert.equal(after.dmApplications[0].claimType, "existing_slot");
   assert.equal(after.dmApplications[0].targetStaffId, "dm-1");
   assert.equal(after.dmApplications[0].status, "pending");
+  assert.equal(db.currentView().car.dmApplications[0].id, result.id);
   assert.deepEqual(after.staffSlots, before.staffSlots);
   assert.deepEqual(after.players, before.players);
   assert.deepEqual(after.seatSlots, before.seatSlots);
@@ -115,9 +127,27 @@ test("existing staff and pending DM application cannot be duplicated", async () 
     error => error.code === "already_staff"
   );
 
-  const pendingDb = mockDb({ staffSlots: [], dmApplications: [{ memberId: "person-1", status: "pending", displayName: "詩婕" }] });
-  await assert.rejects(
-    submitCarEntry({ carId: "car-1", type: "dm" }, session, { db: pendingDb }),
-    error => error.code === "dm_application_pending"
-  );
+  const pendingDb = mockDb({ staffSlots: [], dmApplications: [{ id: "dm-before", memberId: "person-1", status: "pending", displayName: "詩婕" }] });
+  const result = await submitCarEntry({ carId: "car-1", type: "dm" }, session, { db: pendingDb });
+  assert.equal(result.id, "dm-before");
+  assert.equal(result.alreadySubmitted, true);
+  assert.equal(pendingDb.current().dmApplications.length, 1);
+  assert.equal(pendingDb.currentView().car.dmApplications.length, 1);
+});
+
+test("player submission makes the Prepared View viewer status pending immediately", async () => {
+  const { viewerState } = require("../../services/car/car-view-access");
+  const db = mockDb({ players: [], applications: [], totalPeople: 6 });
+  await submitCarEntry({ carId: "car-1", type: "player", position: "女位" }, session, { db });
+  assert.equal(viewerState(db.currentView().car, session).playerStatus, "pending");
+});
+
+test("pending repeat does not duplicate entries or update Core", async () => {
+  const db = mockDb({ players: [], applications: [], totalPeople: 6 });
+  await submitCarEntry({ carId: "car-1", type: "player" }, session, { db });
+  const before = db.current();
+  const duplicate = await submitCarEntry({ carId: "car-1", type: "player" }, session, { db });
+  assert.equal(duplicate.alreadySubmitted, true);
+  assert.deepEqual(db.current(), before);
+  assert.equal(db.currentView().car.applications.length, 1);
 });
