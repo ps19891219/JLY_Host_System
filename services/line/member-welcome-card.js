@@ -12,21 +12,13 @@ function buildMemberWelcomeCard(car,options={}){
  const dmUrl=baseUrl+"/pages/car-view.html?id="+carId+"&entry=dm&source=line_group";
  const playerUrl=baseUrl+"/pages/car-view.html?id="+carId+"&entry=player&source=line_group";
  const calendarUrl=buildGoogleCalendarPrefillUrl(car);
+ const mobileCalendarUrl=baseUrl+"/pages/car-calendar-add.html?id="+carId;
  const buttons=[
    uriButton("🎭 我是本場 DM",dmUrl,"#806A9B"),
    uriButton("🎮 我要報名玩家",playerUrl,"#487A91")
  ];
  if(calendarUrl){
-   buttons.push(uriButton("📅 加入我的 Google 行事曆",calendarUrl,"#6969B7"));
+   buttons.push(uriButton("📅 加入我的行事曆",mobileCalendarUrl,"#6969B7"));
  }else{
    // Never guess missing dates, times, durations or an overdue car read.
-   buttons.push({type:"text",text:"📅 行事曆資料待補齊，暫時無法新增行程",size:"sm",color:"#777777",wrap:true,margin:"md"});
- }
- return {type:"flex",altText:"歡迎加入《"+title+"》｜本場活動資訊與個人行事曆",contents:{
-   type:"bubble",size:"mega",header:{type:"box",layout:"vertical",contents:[
-     {type:"text",text:"🎭 歡迎加入《"+title+"》",weight:"bold",size:"lg",wrap:true},
-     {type:"text",text:"本場活動資訊與個人行事曆",size:"sm",color:"#777777",margin:"sm",wrap:true}
-   ]},body:{type:"box",layout:"vertical",contents:buttons}
- }};
-}
-module.exports={buildMemberWelcomeCard};
+   buttons.push({type:"text",text:"📅 行事曆資料待補齊，暫���q�^
