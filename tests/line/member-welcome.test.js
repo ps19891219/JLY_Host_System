@@ -82,8 +82,8 @@ test(
       buttons[1].action.uri,
       /car-view\.html\?id=car-1&entry=player/
     );
-    assert.equal(buttons[2].action.label, "📅 加入我的 Google 行事曆");
-    assert.equal(new URL(buttons[2].action.uri).hostname, "calendar.google.com");
+    assert.equal(buttons[2].action.label, "📅 加入我的行事曆");
+    assert.equal(new URL(buttons[2].action.uri).pathname, "/pages/car-calendar-add.html");
   }
 );
 
@@ -157,7 +157,7 @@ test(
       "flex"
     );
     assert.equal(messages[0].contents.body.contents.length, 3);
-    assert.equal(messages[0].contents.body.contents[2].action.label, "📅 加入我的 Google 行事曆");
+    assert.equal(messages[0].contents.body.contents[2].action.label, "📅 加入我的行事曆");
   }
 );
 
@@ -221,7 +221,7 @@ test("explicit signup command reuses the existing three-button card and reads on
     assert.equal(result.route, "assistant_signup_card", cmd);
     assert.equal(reads, 1);
     assert.deepEqual(sent[0].contents.body.contents.map(x => x.action.label), [
-      "🎭 我是本場 DM", "🎮 我要報名玩家", "📅 加入我的 Google 行事曆"
+      "🎭 我是本場 DM", "🎮 我要報名玩家", "📅 加入我的行事曆"
     ]);
   }
 });
@@ -251,7 +251,7 @@ test("only actual LINE bot mention plus 報名 unlocks the card", async () => {
       assert.equal(result.route, "assistant_signup_card");
       assert.equal(sent[0].type, "flex");
       assert.equal(sent[0].contents.body.contents[2].action.label,
-        "📅 加入我的 Google 行事曆");
+        "📅 加入我的行事曆");
     } else {
       assert.notEqual(result.route, "assistant_signup_card");
     }

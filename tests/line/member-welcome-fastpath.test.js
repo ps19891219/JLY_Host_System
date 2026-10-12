@@ -48,7 +48,7 @@ test("fast welcome keeps the car title when metadata returns quickly", async () 
 
   assert.equal(result.usedGenericTitle, false);
   assert.match(sent[0].altText, /測試劇本/);
-  assert.equal(sent[0].contents.body.contents[2].action.label, "📅 加入我的 Google 行事曆");
+  assert.equal(sent[0].contents.body.contents[2].action.label, "📅 加入我的行事曆");
 });
 
 test("readCarQuickly times out instead of blocking the reply path", async () => {
