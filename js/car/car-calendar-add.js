@@ -20,4 +20,34 @@ async function init(){
  }catch(e){$("loading").textContent=e.message||"載入失敗";}
 }
 async function api(token,path,options={}){
- const headers={Authorization:"Bearer "+token};if���q�^
+ const headers={Authorization:"Bearer "+token};if(options.body)headers["Content-Type"]="application/json";
+ const res=await fetch("https://www.googleapis.com/calendar/v3"+path,{...options,headers});
+ const body=await res.json().catch(()=>({}));
+ if(!res.ok)throw new Error(body.error&&body.error.message||"Google 日曆操作失敗");
+ return body;
+}
+async function google(){
+ if(!event||working)return;working=true;$("google").disabled=true;
+ status("正在確認 Google 授權與現有行程…");
+ try{
+  if(!window.JLYCalendarAuth)throw new Error("Google 授權模組尚未載入");
+  const token=await window.JLYCalendarAuth.requestAccessToken();
+  const params=new URLSearchParams({privateExtendedProperty:"carId="+event.carId,maxResults:"20",showDeleted:"false"});
+  const result=await api(token,"/calendars/primary/events?"+params);
+  const found=(result.items||[]).some(e=>e.status!=="cancelled"&&e.extendedProperties&&e.extendedProperties.private&&e.extendedProperties.private.carId===event.carId);
+  if(found){status("這台車已在這本 Google 日曆內，沒有重複建立。");return;}
+  if(!confirm("確定加入 Google 主要行事曆？\n"+event.title+"\n"+time(event.start)+" ～ "+time(event.end))){status("已取消，沒有建立行程。");return;}
+  const payload={summary:event.title,description:event.description,location:event.location,
+    start:{dateTime:event.start,timeZone:"Asia/Taipei"},end:{dateTime:event.end,timeZone:"Asia/Taipei"},
+    extendedProperties:{private:{source:"JLY",carId:event.carId,jlySource:"line_calendar_mobile"}}};
+  const saved=await api(token,"/calendars/primary/events",{method:"POST",body:JSON.stringify(payload)});
+  if(!saved.id)throw new Error("Google 未回傳事件 ID，請確認是否建立成功，避免重複操作");
+  status("✅ 成功加入 Google 行事曆！");
+ }catch(e){
+  console.error("LINE Google Calendar 加入失敗",e);
+  status("Google 尚未加入："+(e.message||"授權未完成")+"。LINE 若阻擋授權，請改用手機瀏覽器或 .ics。");
+ }finally{working=false;$("google").disabled=false;}
+}
+$("google").addEventListener("click",google);
+init();
+})();

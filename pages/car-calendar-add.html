@@ -8,4 +8,10 @@
 <button type="button" id="google">授權並加入 Google 行事曆</button><p class="help">由本人授權 Google 後，再確認寫入主要行事曆，不會取得 Google 密碼。</p>
 <a class="btn-alt" id="ics" href="#">加入手機或其他行事曆（.ics）</a><p class="help">支援 Apple 行事曆及其他可匯入 .ics 的程式；LINE 若無法開啟，請改用外部瀏覽器。</p>
 <a class="extra" target="_blank" rel="noopener" id="fallback" href="#">Google 網頁版備用入口（仍須按儲存）</a></section>
-<p id="status" role="status" aria-���q�^
+<p id="status" role="status" aria-live="polite"></p><footer>此頁不會更改車團資料，也不會自動將活動加入你的日曆。</footer>
+</main>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="/js/modules/calendar/calendar-config.js?v=1"></script>
+<script src="/js/modules/calendar/calendar-auth.js?v=1"></script>
+<script src="/js/car/car-calendar-add.js?v=1"></script>
+</body></html>

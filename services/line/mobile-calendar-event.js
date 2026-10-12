@@ -28,4 +28,13 @@ function fold(s){
 }
 function buildIcs(event){
  if(!event||!event.carId||!event.start||!event.end)return null;
- const stamp=value=>new Date(value).toISOString().replace(/[-:]/g,"").replace(/\¶»§q«^
+ const stamp=value=>new Date(value).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}Z$/,"Z");
+ const uid=Buffer.from(event.carId,"utf8").toString("hex").slice(0,128);
+ const data=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//JLY Host System//LINE Calendar//ZH-TW",
+ "CALSCALE:GREGORIAN","METHOD:PUBLISH","BEGIN:VEVENT","UID:jly-car-"+uid+"@jly-host-system",
+ "DTSTAMP:"+stamp(Date.now()),"DTSTART:"+stamp(event.start),"DTEND:"+stamp(event.end),
+ "SUMMARY:"+escapeIcs(event.title),"DESCRIPTION:"+escapeIcs(event.description),
+ "LOCATION:"+escapeIcs(event.location),"END:VEVENT","END:VCALENDAR"];
+ return data.map(fold).join("\r\n")+"\r\n";
+}
+module.exports={buildMobileCalendarEvent,buildIcs};

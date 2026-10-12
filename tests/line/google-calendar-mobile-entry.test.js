@@ -21,4 +21,33 @@ test("cross-midnight ICS correctly ends on next day",()=>{
 });
 test("unsafe or incomplete schedule never generates ICS",()=>{
  assert.equal(buildMobileCalendarEvent({...car,calendar:{},durationMinutes:null},"car-1"),null);
- ¶»§q«^
+ assert.equal(buildMobileCalendarEvent({...car,gameDate:"2027-02-29"},"car-1"),null);
+ assert.equal(buildMobileCalendarEvent(car,""),null);
+});
+test("calendar API only fetches one Prepared View by ID and returns safe payload",async()=>{
+ const reads=[];
+ const handler=createHandler({getCarDetailViewById:async id=>{reads.push(id);return {...car,note:"ä¸»æªç§å¯†å‚™è¨»",lineUserId:"secret"};}});
+ let res=fakeResponse();await handler({method:"GET",query:{id:"car-1"}},res);
+ assert.equal(res.statusCode,200);const data=JSON.parse(res.body);
+ assert.equal(data.event.start,"2026-10-20T01:00:00.000Z");
+ assert.equal(data.event.note,undefined);assert.equal(data.event.lineUserId,undefined);
+ assert.deepEqual(reads,["car-1"]);
+ res=fakeResponse();await handler({method:"GET",query:{id:"car-1",format:"ics"}},res);
+ assert.equal(res.statusCode,200);assert.match(res.headers["content-type"],/text\/calendar/);
+ assert.match(res.body,/BEGIN:VEVENT/);assert.deepEqual(reads,["car-1","car-1"]);
+});
+test("API refuses missing time and never assumes default duration",async()=>{
+ const handler=createHandler({getCarDetailViewById:async()=>({...car,calendar:{}})});
+ const res=fakeResponse();await handler({method:"GET",query:{id:"car-1"}},res);
+ assert.equal(res.statusCode,422);
+});
+test("LINE card and mobile UI use existing Google auth, no duplicate Activity backend",()=>{
+ const html=fs.readFileSync(path.join(__dirname,"../../pages/car-calendar-add.html"),"utf8");
+ const ui=fs.readFileSync(path.join(__dirname,"../../js/car/car-calendar-add.js"),"utf8");
+ assert.match(html,/viewport-fit=cover/);
+ assert.match(ui,/JLYCalendarAuth\.requestAccessToken/);
+ assert.match(ui,/privateExtendedProperty/);
+ assert.match(ui,/confirm\(/);
+ assert.match(ui,/format=ics/);
+ assert.doesNotMatch(ui,/\/api\/car-view-context/);
+});

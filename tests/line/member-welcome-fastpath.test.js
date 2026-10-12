@@ -36,4 +36,24 @@ test("fast welcome sends a working card even when car metadata is slow", async (
 test("fast welcome keeps the car title when metadata returns quickly", async () => {
   let sent = null;
   const result = await sendMemberJoinedWelcome({
-    type: "mem���q�^
+    type: "memberJoined",
+    replyToken: "reply-2",
+    source: { type: "group", groupId: "group-2" }
+  }, {
+    resolveGroupBinding: async () => ({ bound: true, binding: { carId: "car-2" } }),
+    getCarById: async () => ({ id: "car-2", scriptName: "測試劇本", gameDate: "2027-10-04", gameTime: "19:00", calendar: { eventDurationMinutes: 180 } }),
+    getPublicBaseUrl: () => "https://example.com",
+    sendReplyMessage: async (_token, messages) => { sent = messages; }
+  });
+
+  assert.equal(result.usedGenericTitle, false);
+  assert.match(sent[0].altText, /測試劇本/);
+  assert.equal(sent[0].contents.body.contents[2].action.label, "📅 加入我的行事曆");
+});
+
+test("readCarQuickly times out instead of blocking the reply path", async () => {
+  const started = Date.now();
+  const car = await readCarQuickly("car-1", async () => new Promise(() => {}), 20);
+  assert.equal(car, null);
+  assert.ok(Date.now() - started < 200);
+});

@@ -25,4 +25,7 @@ function createHandler(deps={}){
     return res.end(buildIcs(event));
    }
    return reply(res,200,{success:true,event});
-  }catch(error){console.error(���q�^
+  }catch(error){console.error("JLY 行事曆單車讀取失敗",error);return reply(res,500,{success:false,error:"calendar_unavailable"});}
+ };
+}
+module.exports=createHandler();module.exports.createHandler=createHandler;

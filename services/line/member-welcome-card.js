@@ -21,4 +21,13 @@ function buildMemberWelcomeCard(car,options={}){
    buttons.push(uriButton("📅 加入我的行事曆",mobileCalendarUrl,"#6969B7"));
  }else{
    // Never guess missing dates, times, durations or an overdue car read.
-   buttons.push({type:"text",text:"📅 行事曆資料待補齊，暫���q�^
+   buttons.push({type:"text",text:"📅 行事曆資料待補齊，暫時無法新增行程",size:"sm",color:"#777777",wrap:true,margin:"md"});
+ }
+ return {type:"flex",altText:"歡迎加入《"+title+"》｜本場活動資訊與個人行事曆",contents:{
+   type:"bubble",size:"mega",header:{type:"box",layout:"vertical",contents:[
+     {type:"text",text:"🎭 歡迎加入《"+title+"》",weight:"bold",size:"lg",wrap:true},
+     {type:"text",text:"本場活動資訊與個人行事曆",size:"sm",color:"#777777",margin:"sm",wrap:true}
+   ]},body:{type:"box",layout:"vertical",contents:buttons}
+ }};
+}
+module.exports={buildMemberWelcomeCard};

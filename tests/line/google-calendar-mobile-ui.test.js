@@ -20,4 +20,33 @@ async function make(options={}){
  };
  const sandbox={
   document:{getElementById:id=>elements.get(id)},
-  location:{sear���q�^
+  location:{search:"?id=car-1"},URLSearchParams,Date,Intl,
+  fetch,confirm:()=>options.confirm!==false,
+  window:{JLYCalendarAuth:{requestAccessToken:async()=>{grants++;return "access-token";}}},
+  console
+ };
+ vm.runInNewContext(source,sandbox,{filename:"car-calendar-add.js"});
+ await new Promise(resolve=>setImmediate(resolve));
+ return {elements,calls,clicked,grants:()=>grants};
+}
+test("mobile Google flow obtains consent and writes once after explicit click",async()=>{
+ const ui=await make();
+ assert.equal(ui.calls.length,1);
+ assert.equal(ui.elements.get("title").textContent,"劇本－測試車車");
+ await ui.clicked();
+ assert.equal(ui.grants(),1);
+ assert.equal(ui.calls.filter(x=>x.method==="POST").length,1);
+ assert.match(ui.elements.get("status").textContent,/成功加入/);
+});
+test("Google dedupe prevents another POST for an existing JLY car",async()=>{
+ const ui=await make({existing:true});
+ await ui.clicked();
+ assert.equal(ui.calls.filter(x=>x.method==="POST").length,0);
+ assert.match(ui.elements.get("status").textContent,/沒有重複建立/);
+});
+test("Google confirmation cancel does not write an event",async()=>{
+ const ui=await make({confirm:false});
+ await ui.clicked();
+ assert.equal(ui.calls.filter(x=>x.method==="POST").length,0);
+ assert.match(ui.elements.get("status").textContent,/已取消/);
+});
