@@ -6,14 +6,14 @@ const code=fs.readFileSync("js/modules/work-schedule/work-schedule-date-search.j
 const workHub=fs.readFileSync("js/modules/work-schedule/work-schedule-work-hub.js","utf8");
 const view=fs.readFileSync("js/modules/work-schedule/work-schedule-read-view.js","utf8");
 const workId="HMlsoMDqVdxUMEH8apSr";
-function mount(){
+function mount(options={}){
  const nodes=new Map(),events=[],requests=[];
- for(const id of ["scheduleDateSearch","scheduleDateQuery","scheduleDateClear","scheduleDashboard","scheduleResultsTitle"]){nodes.set(id,{innerHTML:"",value:"",hidden:false,textContent:"",addEventListener(){},setAttribute(){}})}
+ for(const id of ["scheduleDateSearch","scheduleDateQuery","scheduleDateClear","scheduleDashboard","scheduleResultsTitle"]){nodes.set(id,{innerHTML:"",value:"",hidden:false,textContent:"",listeners:{},addEventListener(name,fn){this.listeners[name]=fn;},setAttribute(){}})}
  const rows=Array.from({length:72},(_,i)=>["DM","NPC"].map(role=>({id:"row-"+i+"-"+role,workId,workName:"孤注",date:"2027-09-"+String(1+i%28).padStart(2,"0"),startTime:String(10+Math.floor(i/28)).padStart(2,"0")+":00",endTime:"18:00",roleName:role,status:"scheduled",staffSlots:[],people:[]}))).flat();
- const w={JLYWorkScheduleReadView:{loadWorkRows:async id=>{requests.push(id);return rows}},dispatchEvent:e=>events.push(e),JLYWorkScheduleStaffSlots:{setRows(){}}};
+ const w={JLYWorkScheduleReadView:{loadWorkRows:async id=>{requests.push(id);return options.load?options.load(id,rows):rows}},dispatchEvent:e=>events.push(e),JLYWorkScheduleStaffSlots:{setRows(){}}};
  const document={getElementById:id=>nodes.get(id),querySelectorAll:()=>[],createElement:()=>({src:""}),body:{appendChild(){}}};
  vm.runInNewContext(code,{window:w,document,location:{href:"https://example.com/pages/work-schedule.html?workId="+workId},URL,CustomEvent:class{constructor(type,arg){this.type=type;this.detail=arg&&arg.detail;}},console});
- return {nodes,events,requests,w};
+ return {nodes,events,requests,w,rows};
 }
 test("72 unique scheduled groups produce 72 visible cards with scoped data-work-id",async()=>{
  const x=mount();await x.w.JLYWorkScheduleDateSearch.ensureWorkVisible(workId);
@@ -86,5 +86,42 @@ test("a direct work link shows schedule even when work index fails",async()=>{
 
 test("scoped scripts are cache-busted together",()=>{
  const page=fs.readFileSync("pages/work-schedule.html","utf8");
- for(const path of ["work-schedule-dashboard.js?v=12","work-schedule-date-search.js?v=15","work-schedule-work-hub.js?v=11"])assert.ok(page.includes(path),path);
+ for(const path of ["work-schedule-dashboard.js?v=12","work-schedule-date-search.js?v=16","work-schedule-work-hub.js?v=11"])assert.ok(page.includes(path),path);
+});
+
+test("repeated ensureVisible while the same Work fetch is pending does not restart loading",async()=>{
+ let resolve;
+ const pending=new Promise(r=>{resolve=r});
+ const x=mount({load:async()=>pending});
+ const check1=x.w.JLYWorkScheduleDateSearch.ensureWorkVisible(workId);
+ const check2=x.w.JLYWorkScheduleDateSearch.loadDefault();
+ assert.equal(x.requests.length,1);
+ resolve(x.rows);
+ await Promise.all([check1,check2]);
+ assert.equal(x.requests.length,1);
+ assert.equal((x.nodes.get("scheduleDashboard").innerHTML.match(/class="work-day-card date-search-result"/g)||[]).length,72);
+});
+
+test("failed first read leaves an actionable error rather than silently retrying",async()=>{
+ let attempts=0;
+ const x=mount({load:async()=>{attempts++;throw Error("network offline")}});
+ await x.w.JLYWorkScheduleDateSearch.ensureWorkVisible(workId);
+ await x.w.JLYWorkScheduleDateSearch.ensureWorkVisible(workId);
+ assert.equal(attempts,1);
+ const host=x.nodes.get("scheduleDashboard");
+ assert.match(host.innerHTML,/班表讀取失敗/);
+ assert.match(host.innerHTML,/network offline/);
+ assert.match(host.innerHTML,/data-work-history-retry/);
+});
+
+test("retry button explicitly retries once and restores 72 events",async()=>{
+ let attempts=0;
+ const x=mount({load:async(_id,rows)=>{attempts++;if(attempts===1)throw Error("temporary unavailable");return rows}});
+ await x.w.JLYWorkScheduleDateSearch.ensureWorkVisible(workId);
+ const host=x.nodes.get("scheduleDashboard");
+ assert.match(host.innerHTML,/data-work-history-retry/);
+ host.listeners.click({target:{closest:()=>({})}});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(attempts,2);
+ assert.equal((host.innerHTML.match(/class="work-day-card date-search-result"/g)||[]).length,72);
 });

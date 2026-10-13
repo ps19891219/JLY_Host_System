@@ -3,7 +3,7 @@
 if(window.__JLYWorkScheduleDateSearchInitialized)return;window.__JLYWorkScheduleDateSearchInitialized=true;
 const $=id=>document.getElementById(id),form=$('scheduleDateSearch'),input=$('scheduleDateQuery'),clear=$('scheduleDateClear'),host=$('scheduleDashboard'),title=$('scheduleResultsTitle'),V=window.JLYWorkScheduleReadView;if(!form||!input||!host||!V)return;
 if(clear){clear.textContent='×';clear.setAttribute('aria-label','清除班表搜尋');clear.hidden=!input.value}
-const pad=n=>String(n).padStart(2,'0'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let currentFilter=null,currentView='all',identityIds=new Set(),lastDefaultRows=null,lastDefaultWorkId='',lastDefaultPromise=null,lastLoadingWorkId='';
+const pad=n=>String(n).padStart(2,'0'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let currentFilter=null,currentView='all',identityIds=new Set(),lastDefaultRows=null,lastDefaultWorkId='',lastDefaultPromise=null,lastLoadingWorkId='',lastFailedWorkId='';
 function validMonth(m){return Number.isInteger(m)&&m>=1&&m<=12}
 function validDate(y,m,d){const checkYear=y||2000,dt=new Date(checkYear,m-1,d);return validMonth(m)&&dt.getMonth()===m-1&&dt.getDate()===d&&(!y||dt.getFullYear()===y)}
 function parseFilter(raw){
@@ -62,33 +62,52 @@ async function search(filter){
   if(title)title.textContent=`🔍 「${filter.label}」搜尋結果`;
   renderRows(rows,`找不到包含「${filter.label}」的班表。`,'search');
 }
+let defaultRequestSequence=0;
 async function loadDefault(){
  const requestedId=activeWorkId();
  currentFilter=null;if(title)title.textContent='';
+ if(!requestedId){host.innerHTML='<div class="empty">請先選擇劇本查看排班。</div>';return;}
+ if(lastDefaultPromise&&lastLoadingWorkId===requestedId)return lastDefaultPromise;
+ const sequence=++defaultRequestSequence;
+ lastFailedWorkId='';lastLoadingWorkId=requestedId;
  host.innerHTML='<div class="empty">正在讀取全部班表…</div>';
- lastLoadingWorkId=requestedId;
  const task=(async()=>{
-  const rows=await applyView(await allActiveRows());
-  // The user may have opened another work while the old request was still pending.
-  if(requestedId!==activeWorkId()||currentFilter!==null)return;
-  lastDefaultRows=rows;lastDefaultWorkId=requestedId;
-  renderRows(rows,currentView==='mine'?'目前沒有你的排班。':'目前沒有排班。','default');
+  try{
+   const rows=await applyView(await allActiveRows());
+   if(sequence!==defaultRequestSequence||requestedId!==activeWorkId()||currentFilter!==null)return;
+   lastDefaultRows=rows;lastDefaultWorkId=requestedId;
+   renderRows(rows,currentView==='mine'?'目前沒有你的排班。':'目前沒有排班。','default');
+  }catch(error){
+   if(sequence!==defaultRequestSequence||requestedId!==activeWorkId())return;
+   lastFailedWorkId=requestedId;
+   console.error('[WorkScheduleDateSearch default]',error);
+   host.innerHTML='<div class="empty" role="alert">班表讀取失敗：'+esc(error?.message||error)+'<div><button type="button" data-work-history-retry>重新讀取班表</button></div></div>';
+  }finally{
+   if(sequence===defaultRequestSequence)lastDefaultPromise=null;
+  }
  })();
- lastDefaultPromise=task;return task;
+ lastDefaultPromise=task;
+ return task;
 }
 async function ensureWorkVisible(id){
  if(!id||String(id)!==activeWorkId())return;
  if(lastDefaultPromise&&lastLoadingWorkId===String(id)){
   try{await lastDefaultPromise}catch(_e){}
+  if(lastDefaultRows&&lastDefaultWorkId===String(id)&&currentFilter===null){
+   renderRows(lastDefaultRows,currentView==='mine'?'目前沒有你的排班。':'目前沒有排班。','default');
+  }
+  // On failure leave the error and Retry control visible. No hidden repeated requests.
+  return;
  }
+ if(lastFailedWorkId===String(id))return;
  if(lastDefaultRows&&lastDefaultWorkId===String(id)&&currentFilter===null){
-  // Restore after the legacy monthly dashboard repaints, without another Firestore read.
   renderRows(lastDefaultRows,currentView==='mine'?'目前沒有你的排班。':'目前沒有排班。','default');return;
  }
  return loadDefault();
 }
 async function refresh(){return currentFilter?search(currentFilter):loadDefault()}async function clearFilter(){input.value='';if(clear)clear.hidden=true;await loadDefault()}
 function setView(next){currentView=next==='mine'?'mine':'all';document.querySelectorAll('[data-dashboard-view]').forEach(b=>b.classList.toggle('active',b.dataset.dashboardView===currentView));window.JLYWorkScheduleDisplayScope=null;refresh().catch(err=>{console.error('[WorkScheduleDateSearch view]',err);host.innerHTML=`<div class="empty">班表讀取失敗：${esc(err.message||err)}</div>`})}
+host.addEventListener('click',e=>{if(e.target.closest('[data-work-history-retry]'))loadDefault().catch(console.error)});
 input.addEventListener('input',()=>{if(clear)clear.hidden=!input.value.trim()});form.addEventListener('submit',e=>{e.preventDefault();const filter=parseFilter(input.value);if(!filter){loadDefault();return}search(filter).catch(err=>{console.error('[WorkScheduleDateSearch]',err);host.innerHTML=`<div class="empty">搜尋失敗：${esc(err.message||err)}</div>`})});clear?.addEventListener('click',()=>clearFilter());
 document.querySelectorAll('[data-dashboard-view]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();setView(b.dataset.dashboardView)},true));
 window.JLYWorkScheduleDateSearch={refresh,loadDefault,ensureWorkVisible,ownsDisplay:()=>Boolean(activeWorkId()),searchCurrent:()=>currentFilter?search(currentFilter):loadDefault(),parseFilter};
