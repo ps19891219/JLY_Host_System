@@ -36,3 +36,55 @@ test("single-work Prepared View fetch is cancellable and does not scan Core",()=
  assert.match(view,/finally\{clearTimeout\(timer\)\}/);
  assert.match(view,/fetch\(.+cache:\x27no-store\x27,signal:controller.signal/);
 });
+
+test("selected-work monthly dashboard cannot erase the 72-event full history",async()=>{
+ const x=mount();
+ await x.w.JLYWorkScheduleDateSearch.ensureWorkVisible(workId);
+ const host=x.nodes.get("scheduleDashboard");
+ const before=host.innerHTML;
+ const dashboard=fs.readFileSync("js/modules/work-schedule/work-schedule-dashboard.js","utf8");
+ const start=dashboard.indexOf("function render(){");
+ const end=dashboard.indexOf("function updateBatchBar(){",start);
+ assert.ok(start>=0&&end>start);
+ const renderFunction=dashboard.slice(start,end);
+ const nodes={scheduleDashboard:host,dashboardMonthLabel:{textContent:""},batchBar:{hidden:false},batchCount:{textContent:""}};
+ const signals=[];
+ const w={JLYWorkScheduleDateSearch:x.w.JLYWorkScheduleDateSearch,dispatchEvent:e=>signals.push(e)};
+ const environment={
+   window:w,console,CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail;}},
+   $:id=>nodes[id],groups:()=>[],month:new Date("2026-10-13T00:00:00Z"),
+   rows:[],allRows:[],view:"all",selected:new Set(),monthKey:()=>"2026-10",
+   updateBatchBar(){},esc:String
+ };
+ vm.runInNewContext(renderFunction+"\nrender();",environment);
+ assert.equal(host.innerHTML,before,"monthly empty response must not replace the full-year cards");
+ assert.equal(signals.filter(e=>e.type==="jly:work-schedule:rows").length,1);
+ assert.equal(w.JLYWorkScheduleDateSearch.ownsDisplay(),true);
+});
+
+test("a direct work link shows schedule even when work index fails",async()=>{
+ const hub=fs.readFileSync("js/modules/work-schedule/work-schedule-work-hub.js","utf8");
+ const start=hub.indexOf("async function load(){");
+ const end=hub.indexOf("function start(){",start);
+ assert.ok(start>=0&&end>start);
+ const calls=[],nodes=new Map();
+ for(const id of ["workHub","workWorkspace","scheduleDashboard"])nodes.set(id,{hidden:false});
+ const w={JLYWorkScheduleDateSearch:{async ensureWorkVisible(id){calls.push("visible:"+id);}}};
+ const V={async loadWorkIndex(){calls.push("index");throw Error("index unavailable")}};
+ const e={$:id=>nodes.get(id),window:w,V,
+  ensureShell(){calls.push("shell");},
+  dashboardNodes:()=>[nodes.get("scheduleDashboard")],
+  URL,location:{href:"https://example.com/pages/work-schedule.html?workId="+workId},
+  console:{warn(){}}
+ };
+ await vm.runInNewContext(hub.slice(start,end)+"\nload()",e);
+ assert.deepEqual(calls,["shell","visible:"+workId,"index"]);
+ assert.equal(nodes.get("scheduleDashboard").hidden,false);
+ assert.equal(nodes.get("workHub").hidden,true);
+ assert.equal(nodes.get("workWorkspace").hidden,true);
+});
+
+test("scoped scripts are cache-busted together",()=>{
+ const page=fs.readFileSync("pages/work-schedule.html","utf8");
+ for(const path of ["work-schedule-dashboard.js?v=12","work-schedule-date-search.js?v=15","work-schedule-work-hub.js?v=11"])assert.ok(page.includes(path),path);
+});
