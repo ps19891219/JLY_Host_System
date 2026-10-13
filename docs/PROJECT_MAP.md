@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/14 Work Schedule 手機載入去重與失敗可見性
+- 《孤注》72 場／144 筆 row 仍經正式單劇本 Prepared View API 精準讀取，沒有改變 Firestore schema 或任何資料寫入。
+- Work Date Search 同一 workId 並行 loadDefault 以同一個 in-flight Promise 合併，舊 request 遲到不覆蓋新畫面；ensureWorkVisible 不對失敗的同一場暗中重試，不會把原本的錯誤提示重新洗成永遠的「正在讀取」。
+- 公開單劇本 API 讀取超時、權限或網路出錯時顯示安全文字與「重新讀取班表」按鈕；沒有 workId 時提示先選劇本。新增工作視圖載入失敗測試；只更新 date-search v16，不修改 Dashboard / Hub / Core / 授權。
+- 此修補只確保 UI 不會無限顯示 spinner，正式 iPhone LINE 內建瀏覽器能否順利取得 72 場，需實機驗收。
+
 ## 2026/10/13 Work Schedule 單劇本手機重畫競態補修
 - 確認在 /pages/work-schedule.html?workId=HMlsoMDqVdxUMEH8apSr 開啟《孤注》時，Work Date Search 負責單劇本完整歷史，而舊 Dashboard 只讀當月，兩者共用 #scheduleDashboard；Dashboard 遲到的 render() 會覆蓋 72 場為當月空白狀態。
 - Dashboard 僅在 URL 指定 workId、正式 Date Search 擁有畫面時停止覆寫 #scheduleDashboard；仍發出原有 rows 通知、更新選取列，無新增資料讀取。無 workId 的月份儀表板仍照既有方式。
