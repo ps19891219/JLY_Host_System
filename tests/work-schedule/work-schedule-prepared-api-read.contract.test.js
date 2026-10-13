@@ -13,5 +13,5 @@ assert(!fn.includes("views.doc(workRowsDocId"),"selected-work normal reads must 
 assert(api.includes('collection("workScheduleViews")'),"API must read only Work Schedule Prepared Views");
 assert(api.includes('doc("work-"+workId+"-all")'),"API must target exactly one work prepared document");
 assert(!api.includes('collection("workShifts")'),"API must not scan Source of Truth");
-assert(page.includes("/js/modules/work-schedule/work-schedule-read-view.js?v=9"),"Work Schedule must load refreshed prepared-read asset");
+assert(page.includes("/js/modules/work-schedule/work-schedule-read-view.js?v=10"),"Work Schedule must load refreshed prepared-read asset");
 console.log("work schedule prepared API read contract ok");

@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/13 Work Schedule 《孤注》72 場前端顯示修復
+- 正式 Work ID HMlsoMDqVdxUMEH8apSr 單劇本 Prepared View API 唯讀驗證成功：144 筆 DM/NPC row，依日期、劇本、起訖時間與店家去重為 72 場（2027/09/02～12/28）。尚未逐筆比對 Firestore Source of Truth。
+- Work Schedule date-search 卡片補上工作 row.workId 衍生的 data-work-id，供正式 Work Hub 過濾使用。Work Hub 另外監聽日期搜尋重繪事件，且在切換劇本、月份看板重繪之後恢復已載入的同一份完整班表，避免非同步覆蓋或重複 Firestore Read。
+- Work Schedule read-view 單劇本 GET 加上 20 秒逾時中止與錯誤提示。僅讀正式單筆 Prepared View；不掃 workShifts、不重建、不覆寫正式資料。
+- 頁面載入版本更新為 date-search v14、read-view v10、work-hub v10；保留既有工作室排班、寫入、Google Calendar、Identity 與 LINE 系統。
+
 ## 2026/10/11 LINE 行事曆手機加入頁（待提交）
 - LINE 歡迎卡第三按鈕進入 /pages/car-calendar-add.html?id=carId；保留 DM、玩家入口不變。無可靠日期或時長時維持不提供 Calendar 動作。
 - 新增 /api/car-calendar-event 單筆精準讀取 carDetailViews/{carId}，僅輸出公共活動資料、正確 UTC 起迄時間與既有 Google 預填網址；另提供 .ics 下載。不讀 Core、不掃描集合、不建立新 Activity。
