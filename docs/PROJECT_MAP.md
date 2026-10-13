@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/13 Work Schedule 單劇本手機重畫競態補修
+- 確認在 /pages/work-schedule.html?workId=HMlsoMDqVdxUMEH8apSr 開啟《孤注》時，Work Date Search 負責單劇本完整歷史，而舊 Dashboard 只讀當月，兩者共用 #scheduleDashboard；Dashboard 遲到的 render() 會覆蓋 72 場為當月空白狀態。
+- Dashboard 僅在 URL 指定 workId、正式 Date Search 擁有畫面時停止覆寫 #scheduleDashboard；仍發出原有 rows 通知、更新選取列，無新增資料讀取。無 workId 的月份儀表板仍照既有方式。
+- WorkHub 有 workId 的直達連結先將工具列與 Prepared View 顯示出來，再讀取工作設定／索引；即使單劇本工作設定不在 Index 或員工目錄無法載入，也不阻止可讀的歷史班表顯示。
+- 更新 Dashboard v12、Date Search v15、WorkHub v11 的 HTML 資源快取版本。僅修改前端及測試，不碰 workShifts、workScheduleViews、身分、LINE、Google 或 Production Firestore。
+
 ## 2026/10/13 Work Schedule 《孤注》72 場前端顯示修復
 - 正式 Work ID HMlsoMDqVdxUMEH8apSr 單劇本 Prepared View API 唯讀驗證成功：144 筆 DM/NPC row，依日期、劇本、起訖時間與店家去重為 72 場（2027/09/02～12/28）。尚未逐筆比對 Firestore Source of Truth。
 - Work Schedule date-search 卡片補上工作 row.workId 衍生的 data-work-id，供正式 Work Hub 過濾使用。Work Hub 另外監聽日期搜尋重繪事件，且在切換劇本、月份看板重繪之後恢復已載入的同一份完整班表，避免非同步覆蓋或重複 Firestore Read。
