@@ -1,5 +1,12 @@
 # JLY Host System｜Project Map
 
+## 2026/10/14 Work Schedule 《孤注》手機端 DOM MutationObserver 無限重排修復
+- 在隔離 Playwright 手機尺寸 Chromium 開啟正式班表 URL，原版經 /api/work-schedule-read-view?workId=HMlsoMDqVdxUMEH8apSr 得到 HTTP 200 後，畫面仍顯示「正在讀取全部班表」，瀏覽器程序最後異常終止。
+- 根因定位在 work-schedule-dm-npc-sections.js：MutationObserver 監看整個 body childList，refresh() 每次移除／重建 DM/NPC 區塊標題、對現有 role rows 再 appendChild，因此反覆觸發自身監聽，不斷重排 72 場。
+- 改為比對預期的 DM/NPC 分區結構，一致時直接跳過 DOM 寫入；刷新時先 observer.disconnect()，完成後重新 observe，避免自行觸發連鎖。
+- 與 Production API 連線的 Playwright 手機模擬測試中，只替換修復後模組，即能穩定顯示 72 張場次卡、144 筆 DM/NPC、JS errors=0。新增不用 Firestore 的 72 組 role DOM observer 回歸測試，HTML script cache 升到 dm-npc-sections v2。
+- 只修 UI 模組，不改 Source of Truth、Prepared View、LINE Identity、Work Schedule 正式寫入／Google Sync；正式 Safari/LINE WebView 仍需使用者驗收。
+
 ## 2026/10/14 Work Schedule 手機載入去重與失敗可見性
 - 《孤注》72 場／144 筆 row 仍經正式單劇本 Prepared View API 精準讀取，沒有改變 Firestore schema 或任何資料寫入。
 - Work Date Search 同一 workId 並行 loadDefault 以同一個 in-flight Promise 合併，舊 request 遲到不覆蓋新畫面；ensureWorkVisible 不對失敗的同一場暗中重試，不會把原本的錯誤提示重新洗成永遠的「正在讀取」。
