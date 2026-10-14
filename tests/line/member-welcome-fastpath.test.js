@@ -28,9 +28,9 @@ test("fast welcome sends a working card even when car metadata is slow", async (
   const urls = sent[0].contents.body.contents.map(item => item.action && item.action.uri);
   assert.deepEqual(urls.filter(Boolean), [
     "https://example.com/pages/car-view.html?id=car-1&entry=dm&source=line_group",
-    "https://example.com/pages/car-view.html?id=car-1&entry=player&source=line_group"
+    "https://example.com/pages/car-view.html?id=car-1&entry=player&source=line_group",
+    "https://example.com/pages/car-calendar-add.html?id=car-1"
   ]);
-  assert.match(sent[0].contents.body.contents[2].text, /暫時無法新增行程/);
 });
 
 test("fast welcome keeps the car title when metadata returns quickly", async () => {
