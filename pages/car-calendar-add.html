@@ -1,9 +1,16 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f7f8fc"><title>加入行事曆｜JLY</title>
-<link rel="stylesheet" href="/css/pages/car-calendar-add.css?v=1"></head>
+<link rel="stylesheet" href="/css/pages/car-calendar-add.css?v=2"></head>
 <body><main class="app"><header><span class="eyebrow">JLY Host System</span><h1>📅 加入我的行事曆</h1><p>先核對本場活動，再選擇加入方式。</p></header>
 <section class="panel" aria-live="polite"><p id="loading">正在取得活動資訊…</p><div id="details" hidden><span class="eyebrow">本場活動</span><h2 id="title"></h2><dl><dt>日期時間（台灣）</dt><dd id="times"></dd><dt>地點</dt><dd id="location"></dd></dl><p class="hint">以本場正式車團日期時間為準，請確認無誤再加入。</p></div></section>
+<section class="panel" id="manual-panel" hidden>
+<h2>請確認活動結束時間</h2>
+<p class="help">車團沒有提供活動時長或結束時間。請先向主揪確認，再自行選擇結束時間。這不會修改車團正式資料。</p>
+<label for="manual-end">結束日期與時間（台灣）</label>
+<input id="manual-end" type="datetime-local" autocomplete="off" required>
+<button type="button" id="manual-confirm">確認結束時間</button>
+</section>
 <section class="panel" id="actions" hidden><h2>選擇加入方式</h2>
 <button type="button" id="google">授權並加入 Google 行事曆</button><p class="help">由本人授權 Google 後，再確認寫入主要行事曆，不會取得 Google 密碼。</p>
 <a class="btn-alt" id="ics" href="#">加入手機或其他行事曆（.ics）</a><p class="help">支援 Apple 行事曆及其他可匯入 .ics 的程式；LINE 若無法開啟，請改用外部瀏覽器。</p>
@@ -13,5 +20,5 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="/js/modules/calendar/calendar-config.js?v=1"></script>
 <script src="/js/modules/calendar/calendar-auth.js?v=1"></script>
-<script src="/js/car/car-calendar-add.js?v=1"></script>
+<script src="/js/car/car-calendar-add.js?v=2"></script>
 </body></html>

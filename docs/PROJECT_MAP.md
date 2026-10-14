@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/14 LINE 小助手歡迎卡行事曆入口修復（施工中）
+- 綁定車團後第三按鈕「📅 加入我的行事曆」只依 carId 顯示，不再要求 LINE welcome 當下拿到完整日期、時長或 350ms 內的車團 metadata；首兩個 DM／玩家按鈕保持原樣。未綁定 carId 不顯示可用入口。
+- pages/car-calendar-add.html 在開啟時使用既有 /api/car-calendar-event 單筆 carDetailViews/{carId} 唯讀資料：有完整起訖資料直接提供 Google OAuth／ICS；只有可靠的開始日期時間但缺時長時，提供「由玩家依主揪公告輸入結束日期時間」的明確選擇，伺服器驗證時間和 7 天範圍，未選擇時不生成 Google／ICS。連開始資料也缺時，提示請主揪補齊。
+- services/line/google-calendar-prefill-url.js 原本完整時程驗證仍有效，優先採用正式時長或結束時間；人工結束時間只作用於這次個人行事曆事件，不修改 Car / Activity / Prepared View。沿用既有身份、LINE 卡片與 Google Calendar OAuth，未擴充 Firestore 讀取範圍。
+- 測試涵蓋 LINE metadata timeout、資料缺少時長、跨日、人工結束時間上下限及 Google 寫入前同意；手機 LINE WebView 仍需正式上線後驗收。
+
 ## 2026/10/14 Work Schedule「只看我的」LINE / 正式 Person 身分修正（已完成測試，待實機驗收）
 - 《孤注》正式單劇本 Read View 72 場、144 role rows。原正式 Player Profile f89pkJbkmFLu4ZOw2fXh 在其中 50 個 NPC row 的 assignedPersonIds，對應 50 個不同場次。原先 Work Date Search resolveMe 僅依瀏覽器 localStorage 的 JLYIdentity.getAllPlayerIdentityIds；LINE WebView 沒有原瀏覽器快取時，錯誤顯示「目前沒有你的排班」。
 - 沿用 jly_member_session 簽名 LINE Cookie、既有 LINE OAuth js/line.js 與 services/work-schedule/staff-person-links.js 的正式 Person alias 擴充；新增唯讀、登入後才回傳本人 candidatePersonIds 的 /api/work-schedule-mine-identity。將既有 staff-context 的 resolveCandidateIds 搬至 staff-person-links 共用，無第二套 Identity 或讀取新 collection。
