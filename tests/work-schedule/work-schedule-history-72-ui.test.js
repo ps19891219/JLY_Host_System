@@ -86,7 +86,7 @@ test("a direct work link shows schedule even when work index fails",async()=>{
 
 test("scoped scripts are cache-busted together",()=>{
  const page=fs.readFileSync("pages/work-schedule.html","utf8");
- for(const path of ["work-schedule-dashboard.js?v=12","work-schedule-date-search.js?v=16","work-schedule-work-hub.js?v=11"])assert.ok(page.includes(path),path);
+ for(const path of ["work-schedule-dashboard.js?v=12","work-schedule-date-search.js?v=17","work-schedule-work-hub.js?v=11"])assert.ok(page.includes(path),path);
 });
 
 test("repeated ensureVisible while the same Work fetch is pending does not restart loading",async()=>{

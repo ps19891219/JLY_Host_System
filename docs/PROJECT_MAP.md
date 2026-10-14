@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/14 Work Schedule「只看我的」LINE / 正式 Person 身分修正（已完成測試，待實機驗收）
+- 《孤注》正式單劇本 Read View 72 場、144 role rows。原正式 Player Profile f89pkJbkmFLu4ZOw2fXh 在其中 50 個 NPC row 的 assignedPersonIds，對應 50 個不同場次。原先 Work Date Search resolveMe 僅依瀏覽器 localStorage 的 JLYIdentity.getAllPlayerIdentityIds；LINE WebView 沒有原瀏覽器快取時，錯誤顯示「目前沒有你的排班」。
+- 沿用 jly_member_session 簽名 LINE Cookie、既有 LINE OAuth js/line.js 與 services/work-schedule/staff-person-links.js 的正式 Person alias 擴充；新增唯讀、登入後才回傳本人 candidatePersonIds 的 /api/work-schedule-mine-identity。將既有 staff-context 的 resolveCandidateIds 搬至 staff-person-links 共用，無第二套 Identity 或讀取新 collection。
+- 「只看我的」只比對已驗證 Profile / Person ID 與 assignedPersonIds，不以文字姓名推測人員；未登入提示「LINE 登入確認身分」，已登入未認領提示認領正式 Person，認證失敗可重試；確認本人後但沒有真正排班才顯示「目前沒有你的排班」。
+- 全部班表維持 72 場。單劇本完整 Prepared View 在本頁快取以便切換全部／個人，不再每切換一次就重讀；不修改 workShifts / Prepared View Source of Truth、不掃描 collection、不建立新 Membership / Person / LINE Identity。更新 HTML script 引用 LINE 登入與 date-search v17。正式 LINE WebView 使用者實際授權／認領仍需驗收。
+
 ## 2026/10/14 Work Schedule 《孤注》手機端 DOM MutationObserver 無限重排修復
 - 在隔離 Playwright 手機尺寸 Chromium 開啟正式班表 URL，原版經 /api/work-schedule-read-view?workId=HMlsoMDqVdxUMEH8apSr 得到 HTTP 200 後，畫面仍顯示「正在讀取全部班表」，瀏覽器程序最後異常終止。
 - 根因定位在 work-schedule-dm-npc-sections.js：MutationObserver 監看整個 body childList，refresh() 每次移除／重建 DM/NPC 區塊標題、對現有 role rows 再 appendChild，因此反覆觸發自身監聽，不斷重排 72 場。

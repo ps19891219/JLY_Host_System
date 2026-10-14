@@ -22,26 +22,63 @@ function parseFilter(raw){
 }
 function idsOf(r){return(r.assignedPersonIds||r.personIds||[]).map(String)}function personName(id,r){const p=(r.people||[]).find(x=>String(x.personId||x.id)===String(id));return p?.name||'未命名'}
 function groupKey(r){return[r.date,r.workId||r.workName,r.startTime,r.endTime,r.studioName||''].join('|')}
-async function resolveMe(){try{const i=window.JLYIdentity,p=i?.getCurrentPlayerProfileId?.();if(p&&i.syncFromPlayerProfile)await i.syncFromPlayerProfile(window.db||firebase.firestore(),p);identityIds=new Set((i?.getAllPlayerIdentityIds?.()||[]).map(String))}catch(_){identityIds=new Set()}}
+let identityState='unknown',identityError='',fullSourceWorkId='',fullSourceRows=null;
+async function resolveMe(){
+ if(identityState==='verified'||identityState==='login_required'||identityState==='person_link_required')return identityState;
+ identityIds=new Set();identityError='';
+ try{
+  const response=await fetch('/api/work-schedule-mine-identity',{credentials:'same-origin',cache:'no-store'});
+  const data=await response.json().catch(()=>({}));
+  if(response.status===401){identityState='login_required';return identityState}
+  if(response.status===403){identityState='person_link_required';return identityState}
+  if(!response.ok||!data.success)throw new Error(data.error||'identity_unavailable');
+  identityIds=new Set((data.candidatePersonIds||[]).map(String).filter(Boolean));
+  identityState=identityIds.size?'verified':'person_link_required';
+ }catch(err){
+  identityState='error';identityError=String(err?.message||err);
+ }
+ return identityState;
+}
 async function applyView(source){
-  const rows=Array.isArray(source)?source:[];
-  if(currentView!=='mine')return rows.slice();
-  if(!identityIds.size)await resolveMe();
-  const mineGroups=new Set(rows.filter(r=>idsOf(r).some(id=>identityIds.has(id))).map(groupKey));
-  return rows.filter(r=>mineGroups.has(groupKey(r)));
+ const rows=Array.isArray(source)?source:[];
+ if(currentView!=='mine')return rows.slice();
+ if(identityState!=='verified')await resolveMe();
+ if(identityState!=='verified')return[];
+ const mineGroups=new Set(rows.filter(r=>idsOf(r).some(id=>identityIds.has(id))).map(groupKey));
+ return rows.filter(r=>mineGroups.has(groupKey(r)));
+}
+function renderIdentityState(){
+ const content=identityState==='login_required'
+  ?'尚未透過 LINE 確認你是誰。請先登入，才能顯示自己的排班。'
+  :identityState==='person_link_required'
+    ?'LINE 已登入，但尚未認領正式 JLY Person，無法比對自己的排班。'
+    :'身分確認失敗：'+(identityError||'請稍後再試');
+ const action=identityState==='login_required'
+  ?'<button type="button" data-work-mine-login>LINE 登入確認身分</button>'
+  :identityState==='person_link_required'
+    ?'<a href="/pages/myprofile.html">前往認領我的 JLY 身分</a>'
+    :'<button type="button" data-work-mine-identity-retry>重新確認身分</button>';
+ host.innerHTML='<div class="empty" role="status">'+esc(content)+'<div>'+action+'</div></div>';
+ publishDisplayScope([],'mine');
 }
 function groupRows(source){const map=new Map();source.forEach(r=>{const key=groupKey(r);if(!map.has(key))map.set(key,{key,date:r.date,workName:r.workName||'未命名工作',studioName:r.studioName||'',hostName:r.hostName||'',startTime:r.startTime||'',endTime:r.endTime||'',endDate:r.endDate||r.date,rows:[]});const g=map.get(key);g.rows.push(r);if(!g.hostName&&r.hostName)g.hostName=r.hostName});return[...map.values()].sort((a,b)=>(a.date+a.startTime+a.workName).localeCompare(b.date+b.startTime+b.workName))}
 function timeText(g){if(!g.endTime)return`${g.startTime}（預設 1 小時）`;return`${g.startTime}–${g.endDate!==g.date?'翌日 ':''}${g.endTime}`}
 function publishDisplayScope(rows,mode){const visibleRows=Array.isArray(rows)?rows.slice():[];window.JLYWorkScheduleDisplayScope={source:'date-search',mode,monthKey:null,rows:visibleRows};window.JLYWorkScheduleStaffSlots?.setRows?.(visibleRows);window.dispatchEvent(new CustomEvent('jly:work-schedule:display-scope',{detail:window.JLYWorkScheduleDisplayScope}))}
 function renderPerson(id,row){const name=esc(personName(id,row));return currentView==='mine'&&identityIds.has(String(id))?`<strong style="color:#111;font-weight:800">${name}</strong>`:name}
-function renderRows(rows,emptyText,mode='default'){const groups=groupRows(rows);if(!groups.length){host.innerHTML=`<div class="empty">${esc(emptyText||'目前沒有可顯示的班表。')}</div>`;publishDisplayScope(rows,mode);return}host.innerHTML=groups.map(g=>{const year=Number(g.date.slice(0,4)),roles=g.rows.map(r=>{const ids=idsOf(r);return`<div class="role-summary"><strong>${esc(r.roleName||'未設定角色')} <small>(${ids.length})</small></strong><span>${ids.slice(0,4).map(id=>renderPerson(id,r)).join('、')||'尚未排人'}${ids.length>4?` <b>＋${ids.length-4}</b>`:''}</span>${Number(r.missingCount||0)?`<em>尚缺 ${Number(r.missingCount||0)}</em>`:''}</div>`}).join(''),synced=g.rows.filter(r=>r.calendar?.eventId).length;return`<article class="work-day-card date-search-result" data-work-id="${esc(g.rows[0]?.workId||'')}" data-group="${esc(g.key)}"><div class="work-day-top"><label class="batch-check"><input type="checkbox" data-select-group="${esc(g.key)}"><span></span></label><button type="button" class="group-main" data-open-group="${esc(g.key)}"><div class="group-date">${year} 年 ${Number(g.date.slice(5,7))}/${Number(g.date.slice(8,10))}　${esc(timeText(g))}</div><div class="group-title">${esc(g.workName)}${g.hostName?`｜${esc(g.hostName)}`:''}</div>${g.studioName?`<div class="group-meta">${esc(g.studioName)}</div>`:''}</button></div><div class="role-summary-list">${roles}</div><div class="compact-actions"><button type="button" data-open-group="${esc(g.key)}">詳細</button><button type="button" data-sync-group="${esc(g.key)}">${synced===g.rows.length&&g.rows.length?'Google ✓':'同步 Google'}</button></div></article>`}).join('');publishDisplayScope(rows,mode)}
+function renderRows(rows,emptyText,mode='default'){if(currentView==='mine'&&identityState!=='verified'){renderIdentityState();return}const groups=groupRows(rows);if(!groups.length){host.innerHTML=`<div class="empty">${esc(emptyText||'目前沒有可顯示的班表。')}</div>`;publishDisplayScope(rows,mode);return}host.innerHTML=groups.map(g=>{const year=Number(g.date.slice(0,4)),roles=g.rows.map(r=>{const ids=idsOf(r);return`<div class="role-summary"><strong>${esc(r.roleName||'未設定角色')} <small>(${ids.length})</small></strong><span>${ids.slice(0,4).map(id=>renderPerson(id,r)).join('、')||'尚未排人'}${ids.length>4?` <b>＋${ids.length-4}</b>`:''}</span>${Number(r.missingCount||0)?`<em>尚缺 ${Number(r.missingCount||0)}</em>`:''}</div>`}).join(''),synced=g.rows.filter(r=>r.calendar?.eventId).length;return`<article class="work-day-card date-search-result" data-work-id="${esc(g.rows[0]?.workId||'')}" data-group="${esc(g.key)}"><div class="work-day-top"><label class="batch-check"><input type="checkbox" data-select-group="${esc(g.key)}"><span></span></label><button type="button" class="group-main" data-open-group="${esc(g.key)}"><div class="group-date">${year} 年 ${Number(g.date.slice(5,7))}/${Number(g.date.slice(8,10))}　${esc(timeText(g))}</div><div class="group-title">${esc(g.workName)}${g.hostName?`｜${esc(g.hostName)}`:''}</div>${g.studioName?`<div class="group-meta">${esc(g.studioName)}</div>`:''}</button></div><div class="role-summary-list">${roles}</div><div class="compact-actions"><button type="button" data-open-group="${esc(g.key)}">詳細</button><button type="button" data-sync-group="${esc(g.key)}">${synced===g.rows.length&&g.rows.length?'Google ✓':'同步 Google'}</button></div></article>`}).join('');publishDisplayScope(rows,mode)}
 function rowSearchText(row){return[
   row.workName,row.studioName,row.hostName,row.roleName,row.note,row.date,row.startTime,row.endTime,
   ...(row.people||[]).map(p=>p?.name),...(row.assignedPersonNames||[])
 ].map(v=>String(v||'').toLowerCase()).join(' ')}
 function activeWorkId(){return String(new URL(location.href).searchParams.get('workId')||'').trim()}
 async function rowsForMonth(mk){const id=activeWorkId();return(id&&V.loadWorkMonth?V.loadWorkMonth(id,mk):V.loadMonth(mk))}
-async function allActiveRows(){const id=activeWorkId();if(id&&V.loadWorkRows)return (await V.loadWorkRows(id)).filter(r=>r.status!=='cancelled');return[]}
+async function allActiveRows(){
+ const id=activeWorkId();if(!id||!V.loadWorkRows)return[];
+ if(fullSourceRows&&fullSourceWorkId===id)return fullSourceRows.slice();
+ const rows=(await V.loadWorkRows(id)).filter(r=>r.status!=='cancelled');
+ fullSourceWorkId=id;fullSourceRows=rows.slice();
+ return rows;
+}
 async function search(filter){
   currentFilter=filter;host.innerHTML='<div class="empty">搜尋班表中…</div>';let rows=[];
   if(filter.type==='date'){
@@ -107,7 +144,15 @@ async function ensureWorkVisible(id){
 }
 async function refresh(){return currentFilter?search(currentFilter):loadDefault()}async function clearFilter(){input.value='';if(clear)clear.hidden=true;await loadDefault()}
 function setView(next){currentView=next==='mine'?'mine':'all';document.querySelectorAll('[data-dashboard-view]').forEach(b=>b.classList.toggle('active',b.dataset.dashboardView===currentView));window.JLYWorkScheduleDisplayScope=null;refresh().catch(err=>{console.error('[WorkScheduleDateSearch view]',err);host.innerHTML=`<div class="empty">班表讀取失敗：${esc(err.message||err)}</div>`})}
-host.addEventListener('click',e=>{if(e.target.closest('[data-work-history-retry]'))loadDefault().catch(console.error)});
+host.addEventListener('click',e=>{
+ if(e.target.closest('[data-work-history-retry]')){fullSourceRows=null;loadDefault().catch(console.error);return}
+ if(e.target.closest('[data-work-mine-identity-retry]')){identityState='unknown';refresh().catch(console.error);return}
+ if(e.target.closest('[data-work-mine-login]')){
+  if(!window.JLYLineLogin?.start){identityState='error';identityError='LINE 登入功能未載入，請重新整理頁面。';renderIdentityState();return}
+  window.JLYLineLogin.start({returnPath:location.pathname+location.search,returnUrl:location.href,purpose:'work_schedule_mine_view'})
+   .catch(error=>{identityState='error';identityError=String(error?.message||error);renderIdentityState()});
+ }
+});
 input.addEventListener('input',()=>{if(clear)clear.hidden=!input.value.trim()});form.addEventListener('submit',e=>{e.preventDefault();const filter=parseFilter(input.value);if(!filter){loadDefault();return}search(filter).catch(err=>{console.error('[WorkScheduleDateSearch]',err);host.innerHTML=`<div class="empty">搜尋失敗：${esc(err.message||err)}</div>`})});clear?.addEventListener('click',()=>clearFilter());
 document.querySelectorAll('[data-dashboard-view]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();setView(b.dataset.dashboardView)},true));
 window.JLYWorkScheduleDateSearch={refresh,loadDefault,ensureWorkVisible,ownsDisplay:()=>Boolean(activeWorkId()),searchCurrent:()=>currentFilter?search(currentFilter):loadDefault(),parseFilter};
