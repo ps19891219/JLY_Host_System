@@ -11,14 +11,15 @@
 <input id="manual-end" type="datetime-local" autocomplete="off" required>
 <button type="button" id="manual-confirm">確認結束時間</button>
 </section>
+<section class="panel" id="subscription-actions" hidden><h2>訂閱這台車的行事曆</h2><button type="button" id="subscribe">訂閱我的車團行事曆（Apple／Outlook）</button><p class="help">需要已綁定的 LINE 玩家身分。訂閱會由行事曆程式定期更新，更新頻率由行事曆服務決定。</p><div id="subscription-result" hidden><a id="subscription-link" href="#">開啟行事曆訂閱</a><button type="button" id="subscription-copy">複製訂閱網址</button><button type="button" id="subscription-revoke">停用這個訂閱網址</button></div></section>
 <section class="panel" id="actions" hidden><h2>選擇加入方式</h2>
 <button type="button" id="google">授權並加入 Google 行事曆</button><p class="help">由本人授權 Google 後，再確認寫入主要行事曆，不會取得 Google 密碼。</p>
-<button type="button" id="subscribe">訂閱我的車團行事曆（Apple／Outlook）</button><p class="help">需要已綁定的 LINE 玩家身分。訂閱會由行事曆程式定期更新，更新頻率由行事曆服務決定。</p><div id="subscription-result" hidden><a id="subscription-link" href="#">開啟行事曆訂閱</a><button type="button" id="subscription-copy">複製訂閱網址</button><button type="button" id="subscription-revoke">停用這個訂閱網址</button></div><a class="btn-alt" id="ics" href="#">加入手機或其他行事曆（.ics）</a><p class="help">支援 Apple 行事曆及其他可匯入 .ics 的程式；LINE 若無法開啟，請改用外部瀏覽器。</p>
+<a class="btn-alt" id="ics" href="#">加入手機或其他行事曆（.ics）</a><p class="help">支援 Apple 行事曆及其他可匯入 .ics 的程式；LINE 若無法開啟，請改用外部瀏覽器。</p>
 <a class="extra" target="_blank" rel="noopener" id="fallback" href="#">Google 網頁版備用入口（仍須按儲存）</a></section>
 <p id="status" role="status" aria-live="polite"></p><footer>此頁不會更改車團資料，也不會自動將活動加入你的日曆。</footer>
 </main>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="/js/modules/calendar/calendar-config.js?v=1"></script>
 <script src="/js/modules/calendar/calendar-auth.js?v=1"></script>
-<script src="/js/car/car-calendar-add.js?v=2"></script>
+<script src="/js/car/car-calendar-add.js?v=3"></script>
 </body></html>
