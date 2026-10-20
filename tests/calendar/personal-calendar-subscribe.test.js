@@ -40,7 +40,7 @@ test("per-car authorization reuses a token only for a verified joined player",as
  assert.match(response.body.url,/personal-calendar-feed/);
 });
 test("refuses to add another car when player is not on that roster",async()=>{
- const db={collection(){return{doc(){return{get:async()=>({exists:true,data:()=>({lineUserId:"U1",identityId:"p1"})})}}}}}};
+ const db={collection(){return {doc(){return {get:async()=>({exists:true,data:()=>({lineUserId:"U1",identityId:"p1"})})};}};}};
  const handler=createHandler({db,readCookie:()=>"",verifySession:()=>({valid:true,data:{profileId:"p1",lineUserId:"U1"}}),getCarDetailViewById:async()=>({players:[]})});
  const response=res();
  await handler({method:"POST",body:{carId:"carB"}},response);
