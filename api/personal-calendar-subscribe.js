@@ -1,5 +1,7 @@
 "use strict";
 const {getFirestore}=require("../services/firebase/admin");
+const {getCarDetailViewById}=require("../services/firebase/car-detail-view-repository");
+const {viewerState}=require("../services/car/car-view-access");
 const {verifyMemberSession,readCookie}=require("../services/line/member-session");
 const {newSubscriptionToken,hashSubscriptionToken,buildSubscriptionUrl}=require("../services/calendar/subscription-token");
 function json(res,status,payload){res.statusCode=status;res.setHeader("Content-Type","application/json; charset=utf-8");res.setHeader("Cache-Control","no-store");res.setHeader("X-Content-Type-Options","nosniff");res.end(JSON.stringify(payload));}
@@ -13,9 +15,16 @@ function createHandler(deps={}){
    const playerId=session.data.profileId;
    const profile=await db.collection("players").doc(playerId).get();
    if(!profile.exists||profile.data()?.lineUserId!==session.data.lineUserId)return json(res,403,{success:false,error:"identity_not_linked"});
+   const body=req.body&&typeof req.body==="object"?req.body:{};
+   const carId=String(body.carId||"").trim();
+   if(!/^[A-Za-z0-9_-]{1,128}$/.test(carId))return json(res,400,{success:false,error:"car_id_required"});
+   const car=await (deps.getCarDetailViewById||getCarDetailViewById)(carId);
+   if(!car)return json(res,404,{success:false,error:"car_not_found"});
+   const membership=viewerState(car,{profileId:playerId,identityId:String(profile.data()?.identityId||""),lineUserId:session.data.lineUserId,provisional:false});
+   if(membership.playerStatus!=="joined"&&membership.dmStatus!=="joined")return json(res,403,{success:false,error:"car_membership_required"});
    const token=(deps.newToken||newSubscriptionToken)();
    const digest=hashSubscriptionToken(token);
-   await db.collection("calendarSubscriptions").doc(digest).create({playerId,status:"active",createdAt:new Date().toISOString(),kind:"personal_ics"});
+   await db.collection("calendarSubscriptions").doc(digest).create({playerId,status:"active",createdAt:new Date().toISOString(),kind:"personal_ics",carIds:[carId]});
    const origin=process.env.JLY_PUBLIC_ORIGIN||"https://jly-host-system-eeso.vercel.app/";
    return json(res,201,{success:true,url:buildSubscriptionUrl(origin,token)});
   }catch(error){
