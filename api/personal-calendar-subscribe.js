@@ -8,6 +8,12 @@ function json(res,status,payload){res.statusCode=status;res.setHeader("Content-T
 function createHandler(deps={}){
  return async(req,res)=>{
   if(req.method!=="POST")return json(res,405,{success:false,error:"method_not_allowed"});
+  const origin=String(req.headers?.origin||"");
+  if(origin){
+   let expected;
+   try{expected=new URL(process.env.JLY_PUBLIC_ORIGIN||"https://jly-host-system-eeso.vercel.app/").origin;}catch(_){return json(res,503,{success:false,error:"origin_configuration_invalid"});}
+   if(origin!==expected)return json(res,403,{success:false,error:"origin_not_allowed"});
+  }
   const session=(deps.verifySession||verifyMemberSession)((deps.readCookie||readCookie)(req));
   if(!session.valid||session.data.provisional===true||!session.data.profileId||!session.data.lineUserId)return json(res,401,{success:false,error:"line_login_required"});
   try{
