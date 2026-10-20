@@ -46,7 +46,7 @@ function buildCalendarFeed(events, options={}) {
     const id=clean(event.carId).trim();
     if(!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new Error("invalid_car_id");
     const start=localStamp(event.gameDate,event.gameTime);
-    const duration=Number(event.durationMinutes||60);
+    const duration=Number(event.durationMinutes);
     if(!Number.isInteger(duration)||duration<1||duration>10080) throw new Error("invalid_duration");
     const sequence=Number(event.sequence||0);
     if(!Number.isInteger(sequence)||sequence<0) throw new Error("invalid_sequence");
