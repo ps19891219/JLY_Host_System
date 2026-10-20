@@ -1,0 +1,29 @@
+name: Calendar subscription tests
+on:
+  pull_request:
+    paths:
+      - 'services/calendar/**'
+      - 'api/personal-calendar-*.js'
+      - 'tests/calendar/**'
+      - '.github/workflows/calendar-subscription-tests.yml'
+  push:
+    branches:
+      - feature/line-calendar-subscription-20261020
+    paths:
+      - 'services/calendar/**'
+      - 'api/personal-calendar-*.js'
+      - 'tests/calendar/**'
+      - '.github/workflows/calendar-subscription-tests.yml'
+permissions:
+  contents: read
+jobs:
+  calendar-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/calendar/*.test.js
