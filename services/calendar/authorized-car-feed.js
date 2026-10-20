@@ -10,10 +10,13 @@ const {buildCalendarFeed}=require("./ics-feed");
 function buildAuthorizedCarFeed(rows, options={}) {
   if(!Array.isArray(rows)) throw new Error("invalid_calendar_rows");
   const events=[];
+  const seen=new Set();
   for(const row of rows){
     const car=row && row.car;
     const carId=String(row && row.carId || "").trim();
     if(!car || !carId) throw new Error("invalid_calendar_row");
+    if(seen.has(carId))throw new Error("duplicate_calendar_car_id");
+    seen.add(carId);
     const official=buildMobileCalendarEvent(car,carId);
     if(!official) continue; // Incomplete dates must never be guessed.
     const start=new Date(official.start),end=new Date(official.end);
