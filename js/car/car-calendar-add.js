@@ -80,7 +80,7 @@ async function subscribe(){
  const button=$("subscribe");if(button.disabled)return;button.disabled=true;
  status("正在驗證 LINE 身分並建立私人訂閱網址…");
  try{
-  const response=await fetch("/api/personal-calendar-subscribe",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({carId})});
+  const response=await fetch("/api/personal-calendar-subscribe",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({carId,token:subscriptionToken||undefined})});
   const data=await response.json();
   if(response.status===401)throw new Error("請先從車團報名頁完成 LINE 登入及正式玩家身分綁定，再回來訂閱。");
   if(!response.ok||!data.success||!data.url)throw new Error("暫時無法建立訂閱網址，請稍後再試。");
@@ -88,7 +88,7 @@ async function subscribe(){
   $("subscription-link").href=data.url.replace(/^https:/,"webcal:");
   $("subscription-link").rel="noreferrer";
   $("subscription-result").hidden=false;
-  status("已建立私人訂閱網址。請妥善保管，任何持有網址的人都能讀取你的行程。");
+  status("已授權這台車加入你的私人訂閱行事曆。其他車團必須各自按加入才會顯示。請妥善保管網址。");
  }catch(error){status(error.message||"訂閱失敗");}
  finally{button.disabled=false;}
 }
