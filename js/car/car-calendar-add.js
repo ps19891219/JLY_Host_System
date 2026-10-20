@@ -93,8 +93,17 @@ async function subscribe(){
  const button=$("subscribe");if(button.disabled)return;button.disabled=true;
  status("正在驗證 LINE 身分並建立私人訂閱網址…");
  try{
-  const response=await fetch("/api/personal-calendar-subscribe",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({carId,token:subscriptionToken||undefined})});
-  const data=await response.json();
+  const request=token=>fetch("/api/personal-calendar-subscribe",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({carId,token:token||undefined})});
+  let response=await request(subscriptionToken);
+  let data=await response.json();
+  // A revoked or no-longer-owned browser token cannot authorize another car.
+  // After an explicit user click, create a new feed instead of leaving the UI stuck.
+  if(response.status===403&&data.error==="subscription_not_owned"&&subscriptionToken){
+   subscriptionToken="";subscriptionUrl="";
+   try{localStorage.removeItem(subscriptionStorageKey);}catch(_error){}
+   response=await request("");
+   data=await response.json();
+  }
   if(response.status===401)throw new Error("請先從車團報名頁完成 LINE 登入及正式玩家身分綁定，再回來訂閱。");
   if(!response.ok||!data.success||!data.url)throw new Error("暫時無法建立訂閱網址，請稍後再試。");
   showSubscription(data.url);
