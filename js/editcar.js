@@ -1889,7 +1889,7 @@ if (
   );
 }
 
-await audit
+const savedAudit = await audit
   .updateCarWithAudit({
     carId,
 
@@ -1902,6 +1902,27 @@ await audit
     updateData:
       updatedData
   });
+
+// The API independently verifies the persisted audit, host identity,
+// current car state and one-time notification claim. No roster or
+// recipient IDs are accepted from the browser.
+if (
+  savedAudit &&
+  savedAudit.auditId &&
+  Array.isArray(savedAudit.changedFields) &&
+  savedAudit.changedFields.some(field =>
+    ["gameDate", "gameTime", "gameEndDate", "gameEndTime"].includes(field)
+  )
+) {
+  fetch("/api/personal-calendar-change-notify", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ carId, auditId: savedAudit.auditId })
+  }).then(response => {
+    if (!response.ok) console.warn("行事曆 LINE 更新通知尚未完成", response.status);
+  }).catch(error => console.warn("行事曆 LINE 更新通知失敗", error));
+}
 
 /*
   Core mutation is complete. Refresh the existing Prepared Views at the
