@@ -38,7 +38,7 @@ function createHandler(deps={}){
     const existing=await existingRef.get();
     if(!existing.exists||existing.data()?.playerId!==playerId||existing.data()?.status!=="active")return json(res,403,{success:false,error:"subscription_not_owned"});
     const ids=existing.data()?.carIds;
-    if(!Array.isArray(ids)||ids.length>12||ids.some(id=>typeof id!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(id)))return json(res,409,{success:false,error:"invalid_subscription_scope"});
+    if(!Array.isArray(ids)||ids.length===0||ids.length>12||new Set(ids).size!==ids.length||ids.some(id=>typeof id!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(id)))return json(res,409,{success:false,error:"invalid_subscription_scope"});
     if(!ids.includes(carId)){
      if(ids.length>=12)return json(res,409,{success:false,error:"subscription_car_limit"});
      await existingRef.update({carIds:require("firebase-admin/firestore").FieldValue.arrayUnion(carId)});
