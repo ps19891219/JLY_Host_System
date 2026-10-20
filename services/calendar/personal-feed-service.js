@@ -25,7 +25,7 @@ async function loadFeed(token,dependencies={}){
   if(!car)continue;
   const member=viewerState(car,session);
   if(member.playerStatus!=="joined"&&member.dmStatus!=="joined")continue;
-  rows.push({carId,car,cancelled:["cancelled","canceled","已取消"].includes(String(car.status||"").toLowerCase()),updatedAt:car.updatedAt||undefined});
+  rows.push({carId,car,cancelled:["cancelled","canceled","已取消"].includes(String(car.status||"").toLowerCase()),updatedAt:typeof car.updatedAt==="string"&&Number.isFinite(Date.parse(car.updatedAt))?car.updatedAt:undefined});
  }
  return buildAuthorizedCarFeed(rows);
 }
