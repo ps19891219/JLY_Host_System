@@ -12,3 +12,8 @@ test("missing formal event is skipped rather than inventing a duration",()=>{
  const ics=buildAuthorizedCarFeed([{carId:"abc123",car:{scriptName:"測試劇本",gameDate:"2027-10-04",gameTime:"19:00"}}],{generatedAt:"2026-10-20T10:00:00Z"});
  assert.doesNotMatch(ics,/BEGIN:VEVENT/);
 });
+
+test("duplicate car IDs fail instead of publishing conflicting calendar events",()=>{
+ const row={carId:"abc123",car:{scriptName:"測試劇本",gameDate:"2027-10-04",gameTime:"19:00",gameEndTime:"22:00",gameEndDate:"2027-10-04"}};
+ assert.throws(()=>buildAuthorizedCarFeed([row,row]),/duplicate_calendar_car_id/);
+});
