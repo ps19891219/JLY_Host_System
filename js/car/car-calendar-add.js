@@ -74,6 +74,33 @@ async function google(){
   status("Google 尚未加入："+(e.message||"授權未完成")+"。LINE 若阻擋授權，請改用手機瀏覽器或 .ics。");
  }finally{working=false;$("google").disabled=false;}
 }
+
+let subscriptionToken="",subscriptionUrl="";
+async function subscribe(){
+ const button=$("subscribe");if(button.disabled)return;button.disabled=true;
+ status("正在驗證 LINE 身分並建立私人訂閱網址…");
+ try{
+  const response=await fetch("/api/personal-calendar-subscribe",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:"{}"});
+  const data=await response.json();
+  if(response.status===401)throw new Error("請先從車團報名頁完成 LINE 登入及正式玩家身分綁定，再回來訂閱。");
+  if(!response.ok||!data.success||!data.url)throw new Error("暫時無法建立訂閱網址，請稍後再試。");
+  subscriptionUrl=data.url;subscriptionToken=new URL(data.url).searchParams.get("token")||"";
+  $("subscription-link").href=data.url.replace(/^https:/,"webcal:");
+  $("subscription-result").hidden=false;
+  status("已建立私人訂閱網址。請妥善保管，任何持有網址的人都能讀取你的行程。");
+ }catch(error){status(error.message||"訂閱失敗");}
+ finally{button.disabled=false;}
+}
+async function revokeSubscription(){
+ if(!subscriptionToken||!confirm("確定停用這個訂閱網址？原本的日曆訂閱將無法再取得更新。"))return;
+ const response=await fetch("/api/personal-calendar-revoke",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:subscriptionToken})});
+ if(!response.ok){status("停用失敗，請確認 LINE 登入狀態後重試。");return;}
+ subscriptionToken="";subscriptionUrl="";$("subscription-result").hidden=true;
+ status("訂閱網址已停用。已同步到裝置的舊行程，仍需在行事曆 App 內移除訂閱。");
+}
+$("subscribe").addEventListener("click",subscribe);
+$("subscription-copy").addEventListener("click",()=>{if(subscriptionUrl&&navigator.clipboard)navigator.clipboard.writeText(subscriptionUrl).then(()=>status("已複製私人訂閱網址，請勿公開分享。")).catch(()=>status("複製失敗，請長按訂閱連結。"));});
+$("subscription-revoke").addEventListener("click",revokeSubscription);
 $("manual-confirm").addEventListener("click",confirmManualEnd);
 $("google").addEventListener("click",google);
 init();
