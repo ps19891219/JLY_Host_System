@@ -46,3 +46,12 @@ test("refuses to add another car when player is not on that roster",async()=>{
  await handler({method:"POST",body:{carId:"carB"}},response);
  assert.equal(response.statusCode,403);
 });
+
+test("rejects cross-origin subscription requests before any database reads",async()=>{
+ let reads=0;
+ const handler=createHandler({db:{collection(){reads++;throw Error("unexpected read")}},readCookie:()=>"",verifySession:()=>({valid:true,data:{profileId:"p1",lineUserId:"U1"}})});
+ const response=res();
+ await handler({method:"POST",headers:{origin:"https://untrusted.example"},body:{carId:"carA"}},response);
+ assert.equal(response.statusCode,403);
+ assert.equal(reads,0);
+});
