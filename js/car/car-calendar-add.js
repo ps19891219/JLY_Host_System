@@ -75,7 +75,19 @@ async function google(){
  }finally{working=false;$("google").disabled=false;}
 }
 
+const subscriptionStorageKey="jly:personal-calendar:subscription:v1";
 let subscriptionToken="",subscriptionUrl="";
+try{
+ const saved=localStorage.getItem(subscriptionStorageKey)||"";
+ if(/^[A-Za-z0-9_-]{43}$/.test(saved))subscriptionToken=saved;
+}catch(_error){}
+function showSubscription(url){
+ subscriptionUrl=url;subscriptionToken=new URL(url).searchParams.get("token")||"";
+ $("subscription-link").href=url.replace(/^https:/,"webcal:");
+ $("subscription-link").rel="noreferrer";
+ $("subscription-result").hidden=false;
+ try{localStorage.setItem(subscriptionStorageKey,subscriptionToken);}catch(_error){status("瀏覽器無法保存訂閱識別，請先複製私人網址。");}
+}
 async function subscribe(){
  const button=$("subscribe");if(button.disabled)return;button.disabled=true;
  status("正在驗證 LINE 身分並建立私人訂閱網址…");
@@ -84,10 +96,7 @@ async function subscribe(){
   const data=await response.json();
   if(response.status===401)throw new Error("請先從車團報名頁完成 LINE 登入及正式玩家身分綁定，再回來訂閱。");
   if(!response.ok||!data.success||!data.url)throw new Error("暫時無法建立訂閱網址，請稍後再試。");
-  subscriptionUrl=data.url;subscriptionToken=new URL(data.url).searchParams.get("token")||"";
-  $("subscription-link").href=data.url.replace(/^https:/,"webcal:");
-  $("subscription-link").rel="noreferrer";
-  $("subscription-result").hidden=false;
+  showSubscription(data.url);
   status("已授權這台車加入你的私人訂閱行事曆。其他車團必須各自按加入才會顯示。請妥善保管網址。");
  }catch(error){status(error.message||"訂閱失敗");}
  finally{button.disabled=false;}
@@ -97,6 +106,7 @@ async function revokeSubscription(){
  const response=await fetch("/api/personal-calendar-revoke",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:subscriptionToken})});
  if(!response.ok){status("停用失敗，請確認 LINE 登入狀態後重試。");return;}
  subscriptionToken="";subscriptionUrl="";$("subscription-result").hidden=true;
+ try{localStorage.removeItem(subscriptionStorageKey);}catch(_error){}
  status("訂閱網址已停用。已同步到裝置的舊行程，仍需在行事曆 App 內移除訂閱。");
 }
 $("subscribe").addEventListener("click",subscribe);
