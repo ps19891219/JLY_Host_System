@@ -18,3 +18,12 @@ test("escapes ICS text and rejects invalid dates",()=>{
   assert.throws(()=>localStamp("2027-02-30","19:00"),/invalid_calendar_datetime/);
   assert.throws(()=>buildCalendarFeed([{carId:"../bad",gameDate:"2027-10-04",gameTime:"19:00"}]),/invalid_car_id/);
 });
+
+test("folds long Chinese text into lines no longer than 75 UTF-8 bytes",()=>{
+ const ics=buildCalendarFeed([{carId:"abc",gameDate:"2027-10-04",gameTime:"19:00",durationMinutes:60,title:"劇本".repeat(70)}],{generatedAt:"2026-10-20T10:00:00Z"});
+ for(const line of ics.split("\r\n")) assert.ok(Buffer.byteLength(line,"utf8")<=75);
+ assert.match(ics,/SUMMARY:/);
+});
+test("missing duration fails rather than guessing the end time",()=>{
+ assert.throws(()=>buildCalendarFeed([{carId:"abc",gameDate:"2027-10-04",gameTime:"19:00"}]),/invalid_duration/);
+});
