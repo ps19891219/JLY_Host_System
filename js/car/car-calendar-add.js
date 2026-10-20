@@ -9,6 +9,7 @@ function displayEvent(){
  $("title").textContent=event?.title||draft?.title||"本場活動";
  $("location").textContent=event?.location||draft?.location||"尚未提供，以 LINE 群組公告為準";
  $("loading").hidden=true;$("details").hidden=false;
+ $("subscription-actions").hidden=false;
  if(event){
   $("times").textContent=time(event.start)+" ～ "+time(event.end)+(event.manualEnd?"（自行確認的結束時間）":"");
   const query="?id="+encodeURIComponent(carId)+(manualEndValue?"&end="+encodeURIComponent(manualEndValue):"");
