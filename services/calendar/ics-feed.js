@@ -29,14 +29,20 @@ function utcStamp(value) {
   return d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}Z$/,"Z");
 }
 function fold(line) {
-  const bytes=Buffer.from(line,"utf8");
-  const chunks=[]; let offset=0;
-  while(offset<bytes.length){
-    let end=Math.min(offset+75,bytes.length);
-    while(end<bytes.length && (bytes[end]&0xc0)===0x80) end--;
-    if(end<=offset) end=Math.min(offset+75,bytes.length);
-    chunks.push(bytes.subarray(offset,end).toString("utf8"));offset=end;
+  const chunks=[];
+  let part="",count=0;
+  for (const char of line) {
+    const size=Buffer.byteLength(char,"utf8");
+    const limit=chunks.length ? 74 : 75;
+    if (count+size>limit && part) {
+      chunks.push(part);
+      part="";
+      count=0;
+    }
+    part+=char;
+    count+=size;
   }
+  if (part) chunks.push(part);
   return chunks.join("\r\n ");
 }
 function buildCalendarFeed(events, options={}) {
