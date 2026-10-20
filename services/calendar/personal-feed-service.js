@@ -12,7 +12,8 @@ async function loadFeed(token,dependencies={}){
  const record=doc.data()||{};
  if(record.status!=="active"||!safeId(record.playerId))return null;
  // The token identifies only a subscription. Membership must still be checked.
- const relations=await db.collection("players").doc(record.playerId).collection("carRelations").where("calendarSubscription","==",true).limit(100).get();
+ const relations=await db.collection("players").doc(record.playerId).collection("carRelations").where("calendarSubscription","==",true).limit(13).get();
+ if(relations.docs.length>12)throw new Error("calendar_subscription_too_many_cars");
  const read=dependencies.getCarDetailViewById||getCarDetailViewById;
  const rows=[];
  for(const relation of relations.docs){
