@@ -86,6 +86,7 @@ async function subscribe(){
   if(!response.ok||!data.success||!data.url)throw new Error("暫時無法建立訂閱網址，請稍後再試。");
   subscriptionUrl=data.url;subscriptionToken=new URL(data.url).searchParams.get("token")||"";
   $("subscription-link").href=data.url.replace(/^https:/,"webcal:");
+  $("subscription-link").rel="noreferrer";
   $("subscription-result").hidden=false;
   status("已建立私人訂閱網址。請妥善保管，任何持有網址的人都能讀取你的行程。");
  }catch(error){status(error.message||"訂閱失敗");}
