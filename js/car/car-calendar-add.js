@@ -9,7 +9,7 @@ function displayEvent(){
  $("title").textContent=event?.title||draft?.title||"本場活動";
  $("location").textContent=event?.location||draft?.location||"尚未提供，以 LINE 群組公告為準";
  $("loading").hidden=true;$("details").hidden=false;
- $("subscription-actions").hidden=false;
+ if($("subscription-actions"))$("subscription-actions").hidden=false;
  if(event){
   $("times").textContent=time(event.start)+" ～ "+time(event.end)+(event.manualEnd?"（自行確認的結束時間）":"");
   const query="?id="+encodeURIComponent(carId)+(manualEndValue?"&end="+encodeURIComponent(manualEndValue):"");
@@ -79,7 +79,7 @@ async function google(){
 const subscriptionStorageKey="jly:personal-calendar:subscription:v1";
 let subscriptionToken="",subscriptionUrl="";
 try{
- const saved=localStorage.getItem(subscriptionStorageKey)||"";
+ const saved=typeof localStorage!=="undefined"?localStorage.getItem(subscriptionStorageKey)||"":"";
  if(/^[A-Za-z0-9_-]{43}$/.test(saved))subscriptionToken=saved;
 }catch(_error){}
 function showSubscription(url){
@@ -119,9 +119,9 @@ async function revokeSubscription(){
  try{localStorage.removeItem(subscriptionStorageKey);}catch(_error){}
  status("訂閱網址已停用。已同步到裝置的舊行程，仍需在行事曆 App 內移除訂閱。");
 }
-$("subscribe").addEventListener("click",subscribe);
-$("subscription-copy").addEventListener("click",()=>{if(subscriptionUrl&&navigator.clipboard)navigator.clipboard.writeText(subscriptionUrl).then(()=>status("已複製私人訂閱網址，請勿公開分享。")).catch(()=>status("複製失敗，請長按訂閱連結。"));});
-$("subscription-revoke").addEventListener("click",revokeSubscription);
+$("subscribe")?.addEventListener("click",subscribe);
+$("subscription-copy")?.addEventListener("click",()=>{if(subscriptionUrl&&navigator.clipboard)navigator.clipboard.writeText(subscriptionUrl).then(()=>status("已複製私人訂閱網址，請勿公開分享。")).catch(()=>status("複製失敗，請長按訂閱連結。"));});
+$("subscription-revoke")?.addEventListener("click",revokeSubscription);
 $("manual-confirm").addEventListener("click",confirmManualEnd);
 $("google").addEventListener("click",google);
 init();
