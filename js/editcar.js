@@ -1954,8 +1954,9 @@ if (
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ carId, auditId: savedAudit.auditId })
-  }).then(response => {
-    if (!response.ok) console.warn("行事曆 LINE 更新通知尚未完成", response.status);
+  }).then(async response => {
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.success !== true) console.warn("行事曆 LINE 更新通知尚未完成", response.status, result.reason || result.error || "unknown");
   }).catch(error => console.warn("行事曆 LINE 更新通知失敗", error));
 }
 
