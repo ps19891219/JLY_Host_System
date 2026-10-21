@@ -3,3 +3,4 @@
 #manual-panel label{display:block;font-weight:700;margin:10px 0 8px}#manual-end{width:100%;font:inherit;background:#fff;border:1px solid #c6ccdc;border-radius:12px;padding:13px;margin-bottom:16px;color:#21283b;min-height:52px}
 
 #calendar-choices #actions button,#calendar-choices #actions .btn-alt{margin-top:16px}#calendar-choices .help{margin-bottom:12px}.secondary-action{background:#edf0fb;color:#3946a3;margin:8px 0;font-size:14px;padding:10px}#subscription-result{border-top:1px solid #e3e7f1;margin-top:12px;padding-top:10px}
+.calendar-more{border-top:1px solid #e3e7f1;margin-top:18px;padding-top:12px}.calendar-more summary{cursor:pointer;color:#5965ae;font-size:13px}.calendar-more .btn-alt{margin-top:12px}
