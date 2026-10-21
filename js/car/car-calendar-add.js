@@ -9,7 +9,7 @@ function displayEvent(){
  $("title").textContent=event?.title||draft?.title||"本場活動";
  $("location").textContent=event?.location||draft?.location||"尚未提供，以 LINE 群組公告為準";
  $("loading").hidden=true;$("details").hidden=false;
- if($("subscription-actions"))$("subscription-actions").hidden=false;
+ if($("calendar-choices"))$("calendar-choices").hidden=false;
  if(event){
   $("times").textContent=time(event.start)+" ～ "+time(event.end)+(event.manualEnd?"（自行確認的結束時間）":"");
   const query="?id="+encodeURIComponent(carId)+(manualEndValue?"&end="+encodeURIComponent(manualEndValue):"");
@@ -87,11 +87,13 @@ function showSubscription(url){
  $("subscription-link").href=url.replace(/^https:/,"webcal:");
  $("subscription-link").rel="noreferrer";
  $("subscription-result").hidden=false;
+
  try{localStorage.setItem(subscriptionStorageKey,subscriptionToken);}catch(_error){status("瀏覽器無法保存訂閱識別，請先複製私人網址。");}
 }
 async function subscribe(){
  const button=$("subscribe");if(button.disabled)return;button.disabled=true;
- status("正在驗證 LINE 身分並建立私人訂閱網址…");
+ let firstSubscription=!subscriptionToken;
+ status("正在驗證 LINE 身分並加入這台車…");
  try{
   const request=token=>fetch("/api/personal-calendar-subscribe",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({carId,token:token||undefined})});
   let response=await request(subscriptionToken);
@@ -99,7 +101,7 @@ async function subscribe(){
   // A revoked or no-longer-owned browser token cannot authorize another car.
   // After an explicit user click, create a new feed instead of leaving the UI stuck.
   if(response.status===403&&data.error==="subscription_not_owned"&&subscriptionToken){
-   subscriptionToken="";subscriptionUrl="";
+   subscriptionToken="";subscriptionUrl="";firstSubscription=true;
    try{localStorage.removeItem(subscriptionStorageKey);}catch(_error){}
    response=await request("");
    data=await response.json();
@@ -108,7 +110,12 @@ async function subscribe(){
   if(response.status===409&&data.error==="subscription_car_limit")throw new Error("這份私人訂閱已達 12 台上限，請先停用舊訂閱並重新選擇要加入的車團。");
   if(!response.ok||!data.success||!data.url)throw new Error("暫時無法建立訂閱網址，請稍後再試。");
   showSubscription(data.url);
-  status("已授權這台車加入你的私人訂閱行事曆。其他車團必須各自按加入才會顯示。請妥善保管網址。");
+  if(firstSubscription){
+   status("已建立行事曆，請確認 iPhone 的訂閱提示。若沒有自動開啟，請點「開啟 iPhone 行事曆確認」。");
+   location.assign($("subscription-link").href);
+  }else{
+   status("已加入這台車！iPhone 行事曆會依系統更新時間顯示，不必再次訂閱。");
+  }
  }catch(error){status(error.message||"訂閱失敗");}
  finally{button.disabled=false;}
 }
@@ -118,8 +125,10 @@ async function revokeSubscription(){
  if(!response.ok){status("停用失敗，請確認 LINE 登入狀態後重試。");return;}
  subscriptionToken="";subscriptionUrl="";$("subscription-result").hidden=true;
  try{localStorage.removeItem(subscriptionStorageKey);}catch(_error){}
+
  status("訂閱網址已停用。已同步到裝置的舊行程，仍需在行事曆 App 內移除訂閱。");
 }
+
 $("subscribe")?.addEventListener("click",subscribe);
 $("subscription-copy")?.addEventListener("click",()=>{if(subscriptionUrl&&navigator.clipboard)navigator.clipboard.writeText(subscriptionUrl).then(()=>status("已複製私人訂閱網址，請勿公開分享。")).catch(()=>status("複製失敗，請長按訂閱連結。"));});
 $("subscription-revoke")?.addEventListener("click",revokeSubscription);
