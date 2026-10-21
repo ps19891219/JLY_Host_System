@@ -48,10 +48,11 @@ async function loadCars(){
   const view=snap.data()||{};
   if(Number(view.schemaVersion)<4||view.viewType!=='mycar_index'||String(view.viewerId||'').trim()!==snap.id||!Array.isArray(view.cars))throw Error('MyCar Prepared View 版本或身分不符合，請先確認我的車資料');
   const linkedIds=new Set([id,...(Array.isArray(view.identityIds)?view.identityIds:[]),...(identity&&identity.getAllPlayerIdentityIds?identity.getAllPlayerIdentityIds():[])].map(x=>String(x||'').trim()).filter(Boolean));
-  const now=new Date(),played=[],upcoming=[],unverified=[];
+  const now=new Date(),played=[],upcoming=[],unverified=[],seenCarIds=new Set();
   const cancelled=new Set(['已取消','取消','cancelled','canceled','removed','退出','已退出','已移除','拒絕','rejected']);
   const pending=new Set(['待審核','審核中','pending','waiting','候補','waitlisted']);
   for(const car of view.cars){
+   const carId=String(car&&car.id||'').trim();if(!carId||seenCarIds.has(carId))continue;seenCarIds.add(carId);
    if(!car.scriptName||cancelled.has(String(car.status||'').toLowerCase()))continue;
    const roster=Array.isArray(car.players)?car.players:[];
    const memberships=roster.filter(p=>linkedIds.has(String(p.playerId||'').trim()));
@@ -61,7 +62,7 @@ async function loadCars(){
    const approved=active.find(p=>!pending.has(String(p.status||'').trim().toLowerCase()));
    const memberStatus=String((approved||active[0]).status||'').trim().toLowerCase();
    const date=normDate(car.gameDate);
-   const record={id:'car:'+car.id,source:'car',name:car.scriptName,date,time:car.gameTime||'',place:car.locationName||car.location||car.studioName||''};
+   const record={id:'car:'+carId,source:'car',name:car.scriptName,date,time:car.gameTime||'',place:car.locationName||car.location||car.studioName||''};
    if(pending.has(memberStatus)){unverified.push({...record,reason:'名單尚未核准'});continue}
    if(!date){unverified.push({...record,reason:'車團日期未確認'});continue}
    const rawTime=String(car.gameTime||'').trim();
