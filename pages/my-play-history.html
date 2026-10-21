@@ -66,13 +66,14 @@ async function loadCars(){
    if(!date){unverified.push({...record,reason:'車團日期未確認'});continue}
    const rawTime=String(car.gameTime||'').trim();
    const validTime=/^([01]?\d|2[0-3]):[0-5]\d$/.test(rawTime);
-   const when=new Date(date+'T'+(validTime?rawTime.padStart(5,'0'):'23:59')+':00');
+   if(!validTime){unverified.push({...record,reason:'車團時間未確認'});continue}
+   const when=new Date(date+'T'+rawTime.padStart(5,'0')+':00');
    if(Number.isNaN(when.getTime())){unverified.push({...record,reason:'時間格式待確認'});continue}
    if(when<now)played.push(record);else upcoming.push(record);
   }
   upcoming.sort((a,b)=>a.date.localeCompare(b.date));
   carPlayed=played;carUpcoming=upcoming;carUnverified=unverified;
-  status.textContent='已讀取：已過時間 '+played.length+' 場、待遊玩 '+upcoming.length+' 場、待確認 '+unverified.length+' 場（唯讀）';
+  status.textContent='已讀取：已過排定時間 '+played.length+' 場、待遊玩 '+upcoming.length+' 場、待確認 '+unverified.length+' 場（唯讀）';
   render();
  }catch(e){status.textContent='無法讀取：'+e.message}
 }
