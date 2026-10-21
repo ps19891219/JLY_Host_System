@@ -33,14 +33,14 @@ async function notifySubscribedCarTimeChange(carId,before,after,deps={}){
  const send=deps.sendPushMessage||sendPushMessage;
  // A bounded retry handles transient LINE API errors within the same invocation.
  // Never retry after a confirmed success, and never create a background scanner.
- const pushWithRetry=deps.pushWithRetry||async(lineUserId,message)=>{
+ const pushWithRetry=deps.pushWithRetry||(async(lineUserId,message)=>{
   const retryKey=randomUUID();
   try{return await send(lineUserId,[message],{retryKey});}
   catch(firstError){
    if(/^line_push_failed_4\\d\\d$/.test(text(firstError.message)))throw firstError;
    return send(lineUserId,[message],{retryKey});
   }
- };
+ });
  const seen=new Set();let sent=0,failed=0;
  for(const snap of snapshots.docs){
   const record=snap.data()||{};
