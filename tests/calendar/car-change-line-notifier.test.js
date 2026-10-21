@@ -35,3 +35,32 @@ test("missing membership suppresses notification",async()=>{
  const result=await notifySubscribedCarTimeChange("carA",{gameTime:"10:00"},{gameTime:"11:00"},{db,getCarDetailViewById:async()=>({players:[]}),sendPushMessage:async()=>pushes++});
  assert.equal(result.sent,0);assert.equal(pushes,0);
 });
+
+test("transient LINE failure retries once with the same idempotency key",async()=>{
+ const attempts=[];
+ const db={collection(name){
+  if(name==="calendarSubscriptions")return {where(){return {get:async()=>({docs:[{data:()=>({status:"active",playerId:"p1"})}]})}}};
+  return {doc(){return {get:async()=>({exists:true,data:()=>({lineUserId:"U1"})})}}};
+ }};
+ const result=await notifySubscribedCarTimeChange("carA",{gameTime:"10:00"},{gameTime:"11:00"},{
+  db,getCarDetailViewById:async()=>({gameDate:"2027-10-04",gameTime:"11:00",players:[{playerId:"p1",status:"approved"}]}),
+  sendPushMessage:async(_id,_messages,options)=>{attempts.push(options.retryKey);if(attempts.length===1)throw Error("line_push_failed_503");}
+ });
+ assert.equal(result.sent,1);assert.equal(result.failed,0);
+ assert.equal(attempts.length,2);assert.match(attempts[0],/^[a-f0-9-]{36}$/);assert.equal(attempts[0],attempts[1]);
+});
+test("permanent LINE 4xx failure does not retry",async()=>{
+ let attempts=0;
+ const db={collection(name){
+  if(name==="calendarSubscriptions")return {where(){return {get:async()=>({docs:[{data:()=>({status:"active",playerId:"p1"})}]})}}};
+  return {doc(){return {get:async()=>({exists:true,data:()=>({lineUserId:"U1"})})}}};
+ }};
+ const original=console.error;console.error=()=>{};
+ try{
+  const result=await notifySubscribedCarTimeChange("carA",{gameTime:"10:00"},{gameTime:"11:00"},{
+   db,getCarDetailViewById:async()=>({gameDate:"2027-10-04",gameTime:"11:00",players:[{playerId:"p1",status:"approved"}]}),
+   sendPushMessage:async()=>{attempts++;throw Error("line_push_failed_403");}
+  });
+  assert.equal(result.failed,1);assert.equal(attempts,1);
+ }finally{console.error=original;}
+});
