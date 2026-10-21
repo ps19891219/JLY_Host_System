@@ -37,7 +37,7 @@ async function notifySubscribedCarTimeChange(carId,before,after,deps={}){
   const retryKey=randomUUID();
   try{return await send(lineUserId,[message],{retryKey});}
   catch(firstError){
-   if(/^line_push_failed_4\\d\\d$/.test(text(firstError.message)))throw firstError;
+   if(/^line_push_failed_4\d\d$/.test(text(firstError.message)))throw firstError;
    return send(lineUserId,[message],{retryKey});
   }
  });
