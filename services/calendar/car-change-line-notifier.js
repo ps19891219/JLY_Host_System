@@ -1,5 +1,6 @@
 "use strict";
 const {getFirestore}=require("../firebase/admin");
+const {randomUUID}=require("node:crypto");
 const {getCarDetailViewById}=require("../firebase/car-detail-view-repository");
 const {viewerState}=require("../car/car-view-access");
 const {sendPushMessage}=require("../line/line-push");
@@ -33,10 +34,11 @@ async function notifySubscribedCarTimeChange(carId,before,after,deps={}){
  // A bounded retry handles transient LINE API errors within the same invocation.
  // Never retry after a confirmed success, and never create a background scanner.
  const pushWithRetry=deps.pushWithRetry||async(lineUserId,message)=>{
-  try{return await send(lineUserId,[message]);}
+  const retryKey=randomUUID();
+  try{return await send(lineUserId,[message],{retryKey});}
   catch(firstError){
    if(/^line_push_failed_4\\d\\d$/.test(text(firstError.message)))throw firstError;
-   return send(lineUserId,[message]);
+   return send(lineUserId,[message],{retryKey});
   }
  };
  const seen=new Set();let sent=0,failed=0;
