@@ -40,7 +40,7 @@ function createHandler(deps={}){
    });
    if(!claimed)return reply(res,200,{success:true,sent:0,reason:"already_processed"});
    const result=await (deps.notify||notifySubscribedCarTimeChange)(carId,audit.before,audit.after,{db});
-   return reply(res,200,{success:true,...result});
+   return reply(res,result.failed>0?207:200,{success:result.failed===0,...result,reason:result.failed>0?"partial_line_delivery_failure":undefined});
   }catch(error){console.error("Calendar change notification failed",error.code||error.name||"error");return reply(res,503,{success:false,error:"notification_unavailable"});}
  };
 }
