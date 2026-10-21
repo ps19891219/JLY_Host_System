@@ -93,6 +93,10 @@ async function sendPushMessage(
       }
     );
 
+  if (response.status === 409 && options.retryKey && response.headers?.get?.("X-Line-Accepted-Request-Id")) {
+    return {success:true,status:409,alreadyAccepted:true};
+  }
+
   if (!response.ok) {
     let body = "";
 
