@@ -22,7 +22,7 @@ function setup(overrides={}){
  },async runTransaction(callback){
   return callback({get:async()=>({exists:claimed}),create:()=>{claimed=true}});
  }};
- const handler=createHandler({db,readCookie:()=>"",verifySession:()=>overrides.session||({valid:true,data:{profileId:"p1",lineUserId:"U1"}}),notify:async()=>{notifies++;return {changed:true,sent:1}}});
+ const handler=createHandler({db,readCookie:()=>"",verifySession:()=>overrides.session||({valid:true,data:{profileId:"p1",lineUserId:"U1"}}),notify:async()=>{notifies++;return overrides.notificationResult||{changed:true,sent:1,failed:0}}});
  async function call(body={carId:"carA",auditId:"auditA"},origin="https://jly-host-system-eeso.vercel.app"){
   const res=response();await handler({method:"POST",headers:{origin},body},res);return res;
  }
@@ -52,4 +52,11 @@ test("rejects superseded schedule and does not notify",async()=>{
 test("rejects stale audit",async()=>{
  const s=setup({audit:{actionType:"car_edit",source:"editcar",actorId:"p1",before:{gameTime:"10:00"},after:{gameTime:"11:00"},createdAt:"2020-01-01T00:00:00Z"}});
  const r=await s.call();assert.equal(r.statusCode,409);assert.equal(s.notifies(),0);
+});
+
+test("reports partial LINE delivery failure without claiming full success",async()=>{
+ const s=setup({notificationResult:{changed:true,sent:1,failed:1}});
+ const r=await s.call();
+ assert.equal(r.statusCode,207);assert.equal(r.body.success,false);
+ assert.equal(r.body.failed,1);assert.equal(r.body.reason,"partial_line_delivery_failure");
 });
