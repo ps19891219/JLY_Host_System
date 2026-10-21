@@ -105,6 +105,7 @@ async function subscribe(){
    data=await response.json();
   }
   if(response.status===401)throw new Error("請先從車團報名頁完成 LINE 登入及正式玩家身分綁定，再回來訂閱。");
+  if(response.status===409&&data.error==="subscription_car_limit")throw new Error("這份私人訂閱已達 12 台上限，請先停用舊訂閱並重新選擇要加入的車團。");
   if(!response.ok||!data.success||!data.url)throw new Error("暫時無法建立訂閱網址，請稍後再試。");
   showSubscription(data.url);
   status("已授權這台車加入你的私人訂閱行事曆。其他車團必須各自按加入才會顯示。請妥善保管網址。");
