@@ -1889,7 +1889,7 @@ if (
   );
 }
 
-await audit
+const savedAudit = await audit
   .updateCarWithAudit({
     carId,
 
@@ -1937,6 +1937,30 @@ await viewCoordinator.updateCarViews({
   afterCar: editedCarAfter,
   changedFields: Object.keys(updatedData)
 });
+
+// The API independently verifies the persisted audit, host identity,
+// current car state and one-time notification claim. No roster or
+// recipient IDs are accepted from the browser.
+if (
+  savedAudit &&
+  savedAudit.auditId &&
+  Array.isArray(savedAudit.changedFields) &&
+  savedAudit.changedFields.some(field =>
+    ["gameDate", "gameTime", "gameEndDate", "gameEndTime"].includes(field)
+  )
+) {
+  fetch("/api/personal-calendar-change-notify", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ carId, auditId: savedAudit.auditId })
+  }).then(async response => {
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.success !== true) console.warn("行事曆 LINE 更新通知尚未完成", response.status, result.reason || result.error || "unknown");
+  }).catch(error => console.warn("行事曆 LINE 更新通知失敗", error));
+}
+
+
 
   if (currentEditingCar.studioId || currentEditingCar.organizationId) {
     try {

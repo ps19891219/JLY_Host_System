@@ -35,7 +35,8 @@ function getChannelAccessToken() {
 
 async function sendPushMessage(
   recipientId,
-  messages
+  messages,
+  options = {}
 ) {
   const token =
     getChannelAccessToken();
@@ -79,7 +80,8 @@ async function sendPushMessage(
             `Bearer ${token}`,
 
           "Content-Type":
-            "application/json"
+            "application/json",
+          ...(options.retryKey ? {"X-Line-Retry-Key": options.retryKey} : {})
         },
 
         body:
@@ -90,6 +92,10 @@ async function sendPushMessage(
           })
       }
     );
+
+  if (response.status === 409 && options.retryKey && response.headers?.get?.("X-Line-Accepted-Request-Id")) {
+    return {success:true,status:409,alreadyAccepted:true};
+  }
 
   if (!response.ok) {
     let body = "";
