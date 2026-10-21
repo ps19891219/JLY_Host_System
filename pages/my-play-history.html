@@ -52,13 +52,14 @@ async function loadCars(){
   const cancelled=new Set(['已取消','取消','cancelled','canceled','removed','退出','已退出','已移除','拒絕','rejected']);
   const pending=new Set(['待審核','審核中','pending','waiting','候補','waitlisted']);
   for(const car of view.cars){
-   const carId=String(car&&car.id||'').trim();if(!carId||seenCarIds.has(carId))continue;seenCarIds.add(carId);
+   const carId=String(car&&car.id||'').trim();if(!carId||seenCarIds.has(carId))continue;
    if(!car.scriptName||cancelled.has(String(car.status||'').toLowerCase()))continue;
    const roster=Array.isArray(car.players)?car.players:[];
    const memberships=roster.filter(p=>linkedIds.has(String(p.playerId||'').trim()));
    if(!memberships.length)continue;
    const active=memberships.filter(p=>!cancelled.has(String(p.status||'').trim().toLowerCase()));
    if(!active.length)continue;
+   seenCarIds.add(carId);
    const approved=active.find(p=>!pending.has(String(p.status||'').trim().toLowerCase()));
    const memberStatus=String((approved||active[0]).status||'').trim().toLowerCase();
    const date=normDate(car.gameDate);
