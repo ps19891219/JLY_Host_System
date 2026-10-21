@@ -30,6 +30,15 @@ async function notifySubscribedCarTimeChange(carId,before,after,deps={}){
  if(!car)return {changed:true,sent:0,reason:"car_missing"};
  const snapshots=await db.collection("calendarSubscriptions").where("carIds","array-contains",carId).get();
  const send=deps.sendPushMessage||sendPushMessage;
+ // A bounded retry handles transient LINE API errors within the same invocation.
+ // Never retry after a confirmed success, and never create a background scanner.
+ const pushWithRetry=deps.pushWithRetry||async(lineUserId,message)=>{
+  try{return await send(lineUserId,[message]);}
+  catch(firstError){
+   if(/^line_push_failed_4\\d\\d$/.test(text(firstError.message)))throw firstError;
+   return send(lineUserId,[message]);
+  }
+ };
  const seen=new Set();let sent=0,failed=0;
  for(const snap of snapshots.docs){
   const record=snap.data()||{};
@@ -40,7 +49,7 @@ async function notifySubscribedCarTimeChange(carId,before,after,deps={}){
   const membership=viewerState(car,{profileId:record.playerId,identityId:text(profile.data().identityId),lineUserId,provisional:false});
   if(membership.playerStatus!=="joined"&&membership.dmStatus!=="joined")continue;
   seen.add(record.playerId);
-  try{await send(lineUserId,[buildUpdateMessage(car,carId)]);sent++;}
+  try{await pushWithRetry(lineUserId,buildUpdateMessage(car,carId));sent++;}
   catch(error){failed++;console.error("Calendar update LINE push failed",error.code||error.name||"error");}
  }
  return {changed:true,sent,failed};
