@@ -13,8 +13,6 @@ function displayEvent(){
  if(event){
   $("times").textContent=time(event.start)+" ～ "+time(event.end)+(event.manualEnd?"（自行確認的結束時間）":"");
   const query="?id="+encodeURIComponent(carId)+(manualEndValue?"&end="+encodeURIComponent(manualEndValue):"");
-  $("ics").href="/api/car-calendar-event"+query+"&format=ics";
-  $("fallback").href=event.googleUrl;
   $("actions").hidden=false;$("manual-panel").hidden=true;
  }else{
   $("times").textContent=draft?.start?time(draft.start)+" 起，結束時間待確認":"活動日期或開始時間尚未設定";
