@@ -35,7 +35,8 @@ function getChannelAccessToken() {
 
 async function sendPushMessage(
   recipientId,
-  messages
+  messages,
+  options = {}
 ) {
   const token =
     getChannelAccessToken();
@@ -79,7 +80,8 @@ async function sendPushMessage(
             `Bearer ${token}`,
 
           "Content-Type":
-            "application/json"
+            "application/json",
+          ...(options.retryKey ? {"X-Line-Retry-Key": options.retryKey} : {})
         },
 
         body:
