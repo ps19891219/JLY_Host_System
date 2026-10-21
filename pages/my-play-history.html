@@ -46,7 +46,7 @@ async function loadCars(){
   }
   if(!snap.exists)throw Error('找不到目前身分的 MyCar Prepared View，請先開啟我的車確認資料');
   const view=snap.data()||{};
-  if(!Array.isArray(view.cars))throw Error('MyCar Prepared View 格式不正確');
+  if(Number(view.schemaVersion)<4||view.viewType!=='mycar_index'||String(view.viewerId||'').trim()!==snap.id||!Array.isArray(view.cars))throw Error('MyCar Prepared View 版本或身分不符合，請先確認我的車資料');
   const linkedIds=new Set([id,...(Array.isArray(view.identityIds)?view.identityIds:[]),...(identity&&identity.getAllPlayerIdentityIds?identity.getAllPlayerIdentityIds():[])].map(x=>String(x||'').trim()).filter(Boolean));
   const now=new Date(),played=[],upcoming=[],unverified=[];
   const cancelled=new Set(['已取消','取消','cancelled','canceled','removed','退出','已退出','已移除','拒絕','rejected']);
