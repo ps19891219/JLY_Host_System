@@ -26,7 +26,7 @@ async function notifySubscribedCarTimeChange(carId,before,after,deps={}){
  if(!scheduleChanged(before,after))return {changed:false,sent:0};
  const db=deps.db||getFirestore();
  const read=deps.getCarDetailViewById||getCarDetailViewById;
- const car=await read(carId);
+ const car=await read(carId,{db});
  if(!car)return {changed:true,sent:0,reason:"car_missing"};
  const snapshots=await db.collection("calendarSubscriptions").where("carIds","array-contains",carId).get();
  const send=deps.sendPushMessage||sendPushMessage;
