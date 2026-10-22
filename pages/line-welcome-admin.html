@@ -14,7 +14,7 @@
 <h2>管理者驗證</h2>
 <p class="muted">請使用目前 Firebase 登入工作階段的 ID Token。此頁不儲存 Token，關閉頁面後需重新提供。不要將 Token 傳給他人。</p>
 <input id="token" type="password" autocomplete="off" placeholder="Firebase ID Token" aria-label="Firebase ID Token">
-<nav><button id="load">驗證並載入</button><button id="clear" type="button">清除</button></nav>
+<nav><button id="load">載入管理紀錄</button><button id="clear" type="button">清除畫面</button></nav>
 <p id="error" role="alert"></p>
 </section>
 <section class="panel" id="groups" hidden><h2>群組設定</h2><div id="groupItems"></div><button id="moreGroups" hidden>載入更多群組</button></section>
@@ -24,7 +24,7 @@
 (() => {
   "use strict";
   const $ = id => document.getElementById(id);
-  let credential = "", groupCursor = "", historyCursor = "", selectedGroup = "";
+  let groupCursor = "", historyCursor = "", selectedGroup = "";\n  async function getCredential() {\n    const auth = window.firebase && window.firebase.auth && window.firebase.auth();\n    const user = auth && auth.currentUser;\n    if (!user || typeof user.getIdToken !== "function") throw new Error("請先使用 JLY 現有的 Firebase 登入流程登入。");\n    return user.getIdToken();\n  }
   const showError = message => { $("error").textContent = message; };
   const node = (tag, text, className) => {
     const element = document.createElement(tag);
@@ -34,7 +34,7 @@
   };
   async function fetchPage(params) {
     const response = await fetch("/api/line-welcome-admin?" + new URLSearchParams(params), {
-      headers: {Authorization: "Bearer " + credential}, cache: "no-store"
+      headers: {Authorization: "Bearer " + await getCredential()}, cache: "no-store"
     });
     if (!response.ok) throw new Error(response.status === 403 ? "沒有管理者權限，或登入憑證已失效。" : "讀取失敗（HTTP " + response.status + "）。");
     return response.json();
@@ -86,7 +86,7 @@
     try { await loadGroups(false); } catch (error) { credential = ""; showError(error.message); }
   });
   $("clear").addEventListener("click", () => {
-    credential = ""; $("token").value = ""; groupCursor = ""; historyCursor = "";
+    groupCursor = ""; historyCursor = "";
     $("groups").hidden = true; $("history").hidden = true; showError("");
   });
   $("moreGroups").addEventListener("click", async () => {try {await loadGroups(true);}catch(error){showError(error.message);}});
