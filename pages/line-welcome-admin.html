@@ -12,8 +12,7 @@
 <p class="muted">僅限已授權的系統管理者。此頁只讀取既有紀錄，不會修改 LINE 群組設定。</p>
 <section class="panel" id="auth">
 <h2>管理者驗證</h2>
-<p class="muted">請使用目前 Firebase 登入工作階段的 ID Token。此頁不儲存 Token，關閉頁面後需重新提供。不要將 Token 傳給他人。</p>
-<input id="token" type="password" autocomplete="off" placeholder="Firebase ID Token" aria-label="Firebase ID Token">
+<p class="muted">請先使用 JLY 既有登入流程登入。本頁不要求貼上任何登入憑證。</p>
 <nav><button id="load">載入管理紀錄</button><button id="clear" type="button">清除畫面</button></nav>
 <p id="error" role="alert"></p>
 </section>
@@ -24,7 +23,13 @@
 (() => {
   "use strict";
   const $ = id => document.getElementById(id);
-  let groupCursor = "", historyCursor = "", selectedGroup = "";\n  async function getCredential() {\n    const auth = window.firebase && window.firebase.auth && window.firebase.auth();\n    const user = auth && auth.currentUser;\n    if (!user || typeof user.getIdToken !== "function") throw new Error("請先使用 JLY 現有的 Firebase 登入流程登入。");\n    return user.getIdToken();\n  }
+  let groupCursor = "", historyCursor = "", selectedGroup = "";
+  async function getCredential() {
+    const auth = window.firebase && window.firebase.auth && window.firebase.auth();
+    const user = auth && auth.currentUser;
+    if (!user || typeof user.getIdToken !== "function") throw new Error("請先使用 JLY 現有的 Firebase 登入流程登入。");
+    return user.getIdToken();
+  }
   const showError = message => { $("error").textContent = message; };
   const node = (tag, text, className) => {
     const element = document.createElement(tag);
@@ -66,9 +71,12 @@
     if (!append) $("historyItems").replaceChildren();
     for (const change of data.changes || []) {
       const wrapper = node("div", "", "item");
-      const rawTime = change.at;\n      const time = typeof rawTime === "string" ? new Date(rawTime).toLocaleString("zh-TW") : rawTime && rawTime._seconds ? new Date(rawTime._seconds * 1000).toLocaleString("zh-TW") : "時間未提供";
+      const rawTime = change.at;
+      const time = typeof rawTime === "string" ? new Date(rawTime).toLocaleString("zh-TW") : rawTime && rawTime._seconds ? new Date(rawTime._seconds * 1000).toLocaleString("zh-TW") : "時間未提供";
       wrapper.append(node("strong", (change.action || "修改") + " · " + time));
-      wrapper.append(node("p", "操作者：" + (change.actorId || change.actorLineUserId || "未知"), "muted"));\n      wrapper.append(node("p", "修改前：" + (change.before || "（預設／空白）"), "muted"));\n      wrapper.append(node("p", "修改後：" + (change.after || "（恢復預設）"), "muted"));
+      wrapper.append(node("p", "操作者：" + (change.actorId || change.actorLineUserId || "未知"), "muted"));
+      wrapper.append(node("p", "修改前：" + (change.before || "（預設／空白）"), "muted"));
+      wrapper.append(node("p", "修改後：" + (change.after || "（恢復預設）"), "muted"));
       const details = document.createElement("details");
       details.append(node("summary", "查看修改內容"));
       details.append(node("pre", JSON.stringify(change, null, 2)));
