@@ -34,5 +34,13 @@ function fakeDb(){
  assert.equal(view.total,1);
  assert.equal(db.docs.has('playHistorySessions/player12345/sessions/'+a.id),false);
  assert.equal(db.writes[2].length,2,'刪除交易同步移除 Source 和更新 Prepared View');
- console.log('Play-history storage: 9 checks passed');
+ const brokenDb=fakeDb(),broken=createAdapter({db:brokenDb,core,authorize:async()=>true});
+ brokenDb.docs.set('playHistorySessions/player12345/sessions/'+a.id,core.prepareSession(a));
+ await assert.rejects(broken.put('player12345',a),/不一致/);
+ assert.equal(brokenDb.writes.length,0,'來源孤兒資料不得被靜默覆寫');
+ brokenDb.docs.clear();
+ brokenDb.docs.set('playHistoryViews/player12345',core.buildReadView('player12345',[a],1));
+ await assert.rejects(broken.remove('player12345',a.id),/來源缺失/);
+ assert.equal(brokenDb.writes.length,0,'來源缺失不得刪除快照');
+ console.log('Play-history storage: 11 checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
