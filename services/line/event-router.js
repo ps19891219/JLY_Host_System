@@ -1615,6 +1615,15 @@ async function handleMessageEvent(
     messageResult.action === "assistant_called" &&
     context.source.type === "group"
   ) {
+    if (!context.accountingCarId) {
+      await replyWithText(context.replyToken,
+        "🤖 JLY 小助手｜一般群組\n" +
+        "助手 設定歡迎詞 你的歡迎內容\n" +
+        "助手 查看歡迎詞\n" +
+        "助手 恢復預設歡迎詞"
+      );
+      return {handled:true,route:"assistant_unbound_text_only",context,groupBinding};
+    }
     let car = null;
     if (context.accountingCarId) {
       try {
