@@ -54,5 +54,13 @@ function fakeDb(){
  await assert.rejects(batch.importBatch('player12345',items,{dryRun:false}),/相同場次 ID/);
  assert.equal(batchDb.docs.size,3,'重複匯入不得部分寫入');
  await assert.rejects(batch.importBatch('player12345',[a,a]),/重複場次 ID/);
- console.log('Play-history storage: 17 checks passed');
+ const divergentDb=fakeDb(),divergent=createAdapter({db:divergentDb,core,authorize:async()=>true});
+ const session=core.prepareSession(a);
+ divergentDb.docs.set('playHistorySessions/player12345/sessions/'+a.id,{...session,name:'被外部更改'});
+ divergentDb.docs.set('playHistoryViews/player12345',core.buildReadView('player12345',[a],1));
+ await assert.rejects(divergent.put('player12345',a),/內容與 Prepared View 不一致/);
+ await assert.rejects(divergent.remove('player12345',a.id),/內容與 Prepared View 不一致/);
+ assert.equal(divergentDb.writes.length,0,'內容不一致時不得寫入');
+ await assert.rejects(batch.importBatch('player12345',[],{dryRun:false}),/沒有可匯入/);
+ console.log('Play-history storage: 20 checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
