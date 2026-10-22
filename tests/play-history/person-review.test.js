@@ -1,7 +1,7 @@
 // Run: node tests/play-history-person-review.test.js
 'use strict';
 const assert=require('node:assert/strict');
-const {reviewCandidates,confirmMatch}=require('../js/data-view/play-history-person-review.js');
+const {reviewCandidates,confirmMatch}=require('../../js/data-view/play-history-person-review.js');
 const args={roster:['小明','阿華'],candidates:{小明:'person12345'}};
 let review=reviewCandidates(args);
 assert.equal(review.length,1);

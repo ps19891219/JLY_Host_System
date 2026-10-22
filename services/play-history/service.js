@@ -1,23 +1,391 @@
 "use strict";
-const Core=require("../../js/data-view/play-history-core");
-const {text,resolveCanonicalPerson}=require("./access");
-const {createAdapter}=require("../../js/data-view/play-history-storage");
-const {getCarAccountingManagerIds}=require("../line/accounting-authorization-service");
-const maxParticipants=60;
-function roleOf(value){const x=text(value).toLowerCase();if(["host","organizer","主揪","揪團者"].includes(x))return"host";if(["dm","主持","主持人"].includes(x))return"dm";if(["npc","non-player character"].includes(x))return"npc";return"player"}
-function attendanceOf(value){const x=text(value).toLowerCase();if(["attended","出席","已出席"].includes(x))return"attended";if(["absent","未出席"].includes(x))return"absent";if(["cancelled","已取消"].includes(x))return"cancelled";return"unconfirmed"}
-async function normalizeParticipants(db,rows,readDoc){if(!Array.isArray(rows)||rows.length>maxParticipants)throw Object.assign(new Error("participants_invalid"),{statusCode:400});const out=[];for(const p of rows){const resolved=await resolveCanonicalPerson(db,p.personId,readDoc);out.push({personId:resolved.id,role:roleOf(p.role),attendance:attendanceOf(p.attendance)})}if(new Set(out.map(p=>p.personId)).size!==out.length)throw Object.assign(new Error("duplicate_canonical_person"),{statusCode:400});return out}
-function sessionInput(body,participants,id){return {id,sourceType:"historical",scriptName:text(body.scriptName),date:text(body.date),time:text(body.time),place:text(body.place),status:text(body.status||"completed"),participants,updatedAt:new Date().toISOString()}}
-function makeAdapter(db){return createAdapter({db,core:Core,authorizeManager:async actor=>actor&&actor.manager===true,authorizeViewer:async(actor,target)=>actor===target,canonicalize:async id=>(await resolveCanonicalPerson(db,id)).id})}
-async function createOrUpdateHistorical(db,actor,body){if(!actor?.manager)throw Object.assign(new Error("manager_required"),{statusCode:403});const id=text(body.id)||`hist:${require("crypto").randomUUID().replace(/-/g,"")}`;if(!/^hist:[A-Za-z0-9_-]{8,128}$/.test(id))throw Object.assign(new Error("historical_session_id_invalid"),{statusCode:400});const participants=await normalizeParticipants(db,body.participants);const input=sessionInput(body,participants,id);const adapter=makeAdapter(db);return adapter.put(actor,input)}
-async function getPersonView(db,actor){const adapter=makeAdapter(db);return adapter.read(actor.id,actor.id)}
-async function getHistoricalSession(db,id){const snap=await db.collection("playHistorySessions").doc(id).get();return snap.exists?Core.prepareSession(snap.data()):null}
-async function getCarDetail(db,id){const snap=await db.collection("carDetailViews").doc(id).get();if(!snap.exists)return null;const data=snap.data()||{};return data.car||null}
-async function isCarManager(db,actor,car,readDoc){if(actor?.manager)return true;for(const id of getCarAccountingManagerIds(car)){try{if((await resolveCanonicalPerson(db,id,readDoc)).id===actor?.id)return true}catch(error){if(error.statusCode!==404)throw error}}return false}
-function carParticipantIds(car){const rows=[];for(const p of Array.isArray(car.players)?car.players:[]){const id=text(p.personId||p.playerId||p.profileId||p.memberId||p.id);if(id&&!['cancelled','已取消','取消','removed','withdrawn','已退出'].includes(text(p.status).toLowerCase()))rows.push({personId:id,role:roleOf(p.role||p.roleChoice||'player'),attendance:attendanceOf(p.playAttendance||car.playRecordAttendance?.[id])})}for(const p of Array.isArray(car.staffSlots)?car.staffSlots:[]){const id=text(p.personId||p.memberId||p.profileId||p.playerId);const role=roleOf(p.label||p.role||'dm');if(id&&['dm','npc'].includes(role))rows.push({personId:id,role,attendance:attendanceOf(p.playAttendance||car.playRecordAttendance?.[id])})}return rows}
-async function markCarPlayed(db,actor,carId,attendanceMap={}){if(!actor?.manager&&!actor?.id)throw Object.assign(new Error("manager_required"),{statusCode:403});if(!/^[A-Za-z0-9_-]{4,128}$/.test(text(carId)))throw Object.assign(new Error("car_id_invalid"),{statusCode:400});const carRef=db.collection("cars").doc(carId),viewRef=db.collection("carDetailViews").doc(carId);return db.runTransaction(async tx=>{const carSnap=await tx.get(carRef),detailSnap=await tx.get(viewRef);if(!carSnap.exists||!detailSnap.exists)throw Object.assign(new Error("car_not_found"),{statusCode:404});const car=carSnap.data()||{},detail=(detailSnap.data()||{}).car||{};const cache=new Map(),readDoc=async ref=>{if(!cache.has(ref.path))cache.set(ref.path,await tx.get(ref));return cache.get(ref.path)};if(!await isCarManager(db,actor,car,readDoc))throw Object.assign(new Error("manager_required"),{statusCode:403});const inputRoster=carParticipantIds({...detail,...car});const participants=await normalizeParticipants(db,inputRoster.map(p=>({...p,attendance:attendanceMap[p.personId]||p.attendance})),readDoc);if(!participants.length)throw Object.assign(new Error("car_has_no_participants"),{statusCode:409});const session=Core.prepareSession({id:`car:${carId}`,sourceType:"car",carId,scriptName:text(car.scriptName||detail.scriptName),date:text(car.gameDate||car.date||detail.gameDate),time:text(car.gameTime||car.time||detail.gameTime),place:text(car.location||car.address||car.place||detail.location),status:"completed",participants,updatedAt:new Date().toISOString()});const ids=participants.map(p=>p.personId),refs=ids.map(id=>db.collection("personPlayHistoryViews").doc(id)),snaps=[];for(const ref of refs)snaps.push(await tx.get(ref));const updates=[];for(let i=0;i<ids.length;i++){const old=snaps[i].exists?snaps[i].data():null;if(old&&!Core.validatePersonView(old,ids[i]))throw Object.assign(new Error("person_view_invalid"),{statusCode:409});updates.push(Core.applySessionToPersonView(ids[i],old,session,(old?.revision||0)+1))}const now=new Date().toISOString(),playRecordAttendance=Object.fromEntries(participants.map(p=>[p.personId,p.attendance]));tx.update(carRef,{playRecordStatus:"completed",playRecordAttendance,playRecordUpdatedAt:now});tx.set(viewRef,{...detailSnap.data(),car:{...detail,playRecordStatus:"completed",playRecordAttendance,playRecordUpdatedAt:now},sourceUpdatedAt:now,builtAt:now},{merge:false});for(let i=0;i<ids.length;i++)tx.set(refs[i],updates[i]);return {sessionId:session.id,source:"cars",participants:ids.length,viewsUpdated:ids.length}})}
-async function authorizedSession(db,actor,id){if(String(id).startsWith("hist:")){const s=await getHistoricalSession(db,id);if(!s)return {session:null,participants:[]};const isParticipant=s.participants.some(p=>p.personId===actor.id);if(!isParticipant&&!actor.manager)throw Object.assign(new Error("session_access_denied"),{statusCode:403});return {session:s,participants:s.participants}}
- if(String(id).startsWith("car:")){const carId=String(id).slice(4),car=await getCarDetail(db,carId);if(!car)throw Object.assign(new Error("car_not_found"),{statusCode:404});const raw=carParticipantIds(car),participants=[];let allowed=false;for(const p of raw){const canonical=await resolveCanonicalPerson(db,p.personId);participants.push({...p,personId:canonical.id,displayName:text(canonical.profile.displayName||canonical.profile.nickname||canonical.profile.playerName)});if(canonical.id===actor.id)allowed=true}if(!allowed)allowed=await isCarManager(db,actor,car);if(!allowed)throw Object.assign(new Error("session_access_denied"),{statusCode:403});const session=Core.prepareSession({id:`car:${carId}`,sourceType:"car",carId,scriptName:text(car.scriptName),date:text(car.gameDate||car.date),time:text(car.gameTime||car.time),place:text(car.location||car.address||car.place),status:car.playRecordStatus==="completed"?"completed":"scheduled",participants:participants.map(({displayName,...p})=>p)});return {session,participants}}
- throw Object.assign(new Error("session_id_invalid"),{statusCode:400})}
-async function peopleForManager(db,actor){if(!actor?.manager)throw Object.assign(new Error("manager_required"),{statusCode:403});const snap=await db.collection("personDirectoryViews").doc("canonical").get();if(!snap.exists)return [];const rows=Array.isArray(snap.data()?.people)?snap.data().people:[];return rows.filter(p=>p&&p.id&&p.canonicalPersonId===p.id&&!['merged','deleted','removed'].includes(text(p.status).toLowerCase())).map(p=>({id:text(p.id),displayName:text(p.displayName||p.nickname||p.playerName),memberType:text(p.memberType||p.type),identityStatus:text(p.identityStatus)}))}
-module.exports={maxParticipants,roleOf,attendanceOf,normalizeParticipants,makeAdapter,createOrUpdateHistorical,getPersonView,getHistoricalSession,getCarDetail,carParticipantIds,markCarPlayed,authorizedSession,peopleForManager};
+
+const Core = require("../../js/data-view/play-history-core");
+const { text, resolveCanonicalPerson } = require("./access");
+const { createAdapter } = require("../../js/data-view/play-history-storage");
+const { getCarAccountingManagerIds } = require("../line/accounting-authorization-service");
+
+const maxParticipants = 60;
+const cancelledRegistrationStates = new Set([
+  "cancelled", "canceled", "已取消", "取消", "removed", "withdrawn", "已退出", "rejected", "declined"
+]);
+
+function roleOf(value) {
+  const role = text(value).toLowerCase();
+  if (["host", "organizer", "主揪", "揪團者"].includes(role)) return "host";
+  if (["dm", "主持", "主持人"].includes(role)) return "dm";
+  if (["npc", "non-player character"].includes(role)) return "npc";
+  return "player";
+}
+
+function attendanceOf(value) {
+  const state = text(value).toLowerCase();
+  if (["attended", "出席", "已出席"].includes(state)) return "attended";
+  if (["absent", "未出席", "未到"].includes(state)) return "absent";
+  if (["cancelled", "canceled", "已取消"].includes(state)) return "cancelled";
+  return "unconfirmed";
+}
+
+function canonicalResolver(db, readDoc) {
+  const cache = new Map();
+  const documentCache = new Map();
+  const cachedReadDoc = async ref => {
+    if (!documentCache.has(ref.path)) documentCache.set(ref.path, Promise.resolve(readDoc ? readDoc(ref) : ref.get()));
+    return documentCache.get(ref.path);
+  };
+  return async id => {
+    const key = text(id);
+    if (cache.has(key)) return cache.get(key);
+    const pending = resolveCanonicalPerson(db, key, cachedReadDoc);
+    cache.set(key, pending);
+    const person = await pending;
+    for (const alias of person.aliases) cache.set(alias, Promise.resolve(person));
+    return person;
+  };
+}
+
+async function normalizeParticipants(db, rows, resolver = canonicalResolver(db)) {
+  if (!Array.isArray(rows) || rows.length > maxParticipants) {
+    throw Object.assign(new Error("participants_invalid"), { statusCode: 400 });
+  }
+  const normalized = [];
+  for (const participant of rows) {
+    const person = await resolver(participant.personId);
+    normalized.push({
+      personId: person.id,
+      role: roleOf(participant.role),
+      attendance: attendanceOf(participant.attendance)
+    });
+  }
+  if (new Set(normalized.map(person => person.personId)).size !== normalized.length) {
+    throw Object.assign(new Error("duplicate_canonical_person"), { statusCode: 400 });
+  }
+  return normalized;
+}
+
+function sessionInput(body, participants, id) {
+  return {
+    id,
+    sourceType: "historical",
+    scriptName: text(body.scriptName),
+    date: text(body.date),
+    time: text(body.time),
+    place: text(body.place),
+    status: text(body.status || "completed"),
+    participants,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function makeAdapter(db) {
+  const transactionResolvers = new WeakMap();
+  return createAdapter({
+    db,
+    core: Core,
+    authorizeManager: async actor => actor && actor.manager === true,
+    authorizeViewer: async (actor, target) => actor === target,
+    canonicalize: async (id, readDoc, context) => {
+      if (!transactionResolvers.has(context)) transactionResolvers.set(context, canonicalResolver(db, readDoc));
+      return (await transactionResolvers.get(context)(id)).id;
+    }
+  });
+}
+
+async function createOrUpdateHistorical(db, actor, body) {
+  if (!actor?.manager) throw Object.assign(new Error("manager_required"), { statusCode: 403 });
+  const id = text(body.id) || `hist:${require("crypto").randomUUID().replace(/-/g, "")}`;
+  if (!/^hist:[A-Za-z0-9_-]{8,128}$/.test(id)) {
+    throw Object.assign(new Error("historical_session_id_invalid"), { statusCode: 400 });
+  }
+  if (!Array.isArray(body.participants) || body.participants.length > maxParticipants) {
+    throw Object.assign(new Error("participants_invalid"), { statusCode: 400 });
+  }
+  const participants = body.participants.map(person => ({
+    personId: text(person && person.personId),
+    role: roleOf(person && person.role),
+    attendance: attendanceOf(person && person.attendance)
+  }));
+  return makeAdapter(db).put(actor, sessionInput(body, participants, id));
+}
+
+async function getPersonView(db, actor) {
+  return makeAdapter(db).read(actor.id, actor.id);
+}
+
+async function getHistoricalSession(db, id) {
+  const snap = await db.collection("playHistorySessions").doc(id).get();
+  return snap.exists ? Core.prepareSession(snap.data()) : null;
+}
+
+async function getCarDetail(db, id) {
+  const snap = await db.collection("carDetailViews").doc(id).get();
+  if (!snap.exists) return null;
+  return (snap.data() || {}).car || null;
+}
+
+async function getCarRosterForManager(db, actor, carId) {
+  if (!/^[A-Za-z0-9_-]{4,128}$/.test(text(carId))) {
+    throw Object.assign(new Error("car_id_invalid"), { statusCode: 400 });
+  }
+  const [sourceSnap, detail] = await Promise.all([
+    db.collection("cars").doc(carId).get(),
+    getCarDetail(db, carId)
+  ]);
+  if (!sourceSnap.exists || !detail) throw Object.assign(new Error("car_not_found"), { statusCode: 404 });
+  const car = sourceSnap.data() || {};
+  if (!await isCarManager(db, actor, car)) throw Object.assign(new Error("manager_required"), { statusCode: 403 });
+  const resolvePerson = canonicalResolver(db);
+  const priorAttendance = new Map();
+  for (const person of Array.isArray(car.playRecordParticipants) ? car.playRecordParticipants : []) {
+    const canonical = await resolvePerson(person.personId);
+    priorAttendance.set(canonical.id, person.attendance);
+  }
+  const rows = carParticipantIds(detail);
+  const participants = [];
+  const canonicalIds = new Set();
+  for (const person of rows) {
+    const canonical = await resolvePerson(person.personId);
+    if (canonicalIds.has(canonical.id)) continue;
+    canonicalIds.add(canonical.id);
+    participants.push({
+      personId: canonical.id,
+      displayName: text(canonical.profile.displayName || canonical.profile.nickname || canonical.profile.playerName),
+      role: roleOf(person.role),
+      attendance: attendanceOf(priorAttendance.get(canonical.id) || person.attendance)
+    });
+  }
+  return { carId, participants };
+}
+
+async function isCarManager(db, actor, car, resolvePerson = canonicalResolver(db)) {
+  if (actor?.manager) return true;
+  for (const id of getCarAccountingManagerIds(car)) {
+    try {
+      if ((await resolvePerson(id)).id === actor?.id) return true;
+    } catch (error) {
+      if (error.statusCode !== 404) throw error;
+    }
+  }
+  return false;
+}
+
+function carParticipantIds(car) {
+  const rows = [];
+  const savedAttendance = car.playRecordAttendance && typeof car.playRecordAttendance === "object"
+    ? car.playRecordAttendance : {};
+  for (const person of Array.isArray(car.players) ? car.players : []) {
+    const id = text(person.personId || person.playerId || person.profileId || person.memberId || person.id);
+    if (id && !cancelledRegistrationStates.has(text(person.status).toLowerCase())) {
+      rows.push({
+        personId: id,
+        role: roleOf(person.role || person.roleChoice || "player"),
+        attendance: attendanceOf(person.playAttendance || savedAttendance[id])
+      });
+    }
+  }
+  for (const person of Array.isArray(car.staffSlots) ? car.staffSlots : []) {
+    const id = text(person.personId || person.memberId || person.profileId || person.playerId);
+    const role = roleOf(person.label || person.role || "dm");
+    if (id && ["dm", "npc"].includes(role)) {
+      rows.push({ personId: id, role, attendance: attendanceOf(person.playAttendance || savedAttendance[id]) });
+    }
+  }
+  return rows;
+}
+
+function personIds(rows) {
+  return [...new Set((Array.isArray(rows) ? rows : []).map(row => text(row && row.personId)).filter(Boolean))];
+}
+
+async function markCarPlayed(db, actor, carId, attendanceMap = {}) {
+  if (!actor?.manager && !actor?.id) throw Object.assign(new Error("manager_required"), { statusCode: 403 });
+  if (!/^[A-Za-z0-9_-]{4,128}$/.test(text(carId))) throw Object.assign(new Error("car_id_invalid"), { statusCode: 400 });
+
+  const carRef = db.collection("cars").doc(carId);
+  const detailRef = db.collection("carDetailViews").doc(carId);
+  return db.runTransaction(async tx => {
+    const carSnap = await tx.get(carRef);
+    const detailSnap = await tx.get(detailRef);
+    if (!carSnap.exists || !detailSnap.exists) throw Object.assign(new Error("car_not_found"), { statusCode: 404 });
+    const car = carSnap.data() || {};
+    const prepared = detailSnap.data() || {};
+    const detail = prepared.car || {};
+    const txReadCache = new Map();
+    const readDoc = async ref => {
+      if (!txReadCache.has(ref.path)) txReadCache.set(ref.path, await tx.get(ref));
+      return txReadCache.get(ref.path);
+    };
+    const resolvePerson = canonicalResolver(db, readDoc);
+    if (!await isCarManager(db, actor, car, resolvePerson)) {
+      throw Object.assign(new Error("manager_required"), { statusCode: 403 });
+    }
+    const carStatus = text(car.status || car.carStatus).toLowerCase();
+    if (["cancelled", "canceled", "已取消", "取消", "deleted", "removed"].includes(carStatus)) {
+      throw Object.assign(new Error("car_not_playable"), { statusCode: 409 });
+    }
+
+    const inputRoster = carParticipantIds({ ...detail, ...car });
+    const participants = await normalizeParticipants(db, inputRoster, resolvePerson);
+    const attendanceByCanonical = new Map();
+    const attendanceEntries = Object.entries(attendanceMap || {});
+    if (attendanceEntries.length > maxParticipants) {
+      throw Object.assign(new Error("attendance_map_invalid"), { statusCode: 400 });
+    }
+    const currentParticipantIds = new Set(participants.map(person => person.personId));
+    for (const [personId, attendance] of attendanceEntries) {
+      attendanceByCanonical.set((await resolvePerson(personId)).id, attendanceOf(attendance));
+    }
+    for (const person of participants) {
+      if (currentParticipantIds.has(person.personId) && attendanceByCanonical.has(person.personId)) {
+        person.attendance = attendanceByCanonical.get(person.personId);
+      }
+    }
+    if (!participants.length) throw Object.assign(new Error("car_has_no_participants"), { statusCode: 409 });
+
+    const session = Core.prepareSession({
+      id: `car:${carId}`,
+      sourceType: "car",
+      carId,
+      scriptName: text(car.scriptName || detail.scriptName),
+      date: text(car.gameDate || car.date || detail.gameDate),
+      time: text(car.gameTime || car.time || detail.gameTime),
+      place: text(car.location || car.address || car.place || detail.location),
+      status: "completed",
+      participants,
+      updatedAt: new Date().toISOString()
+    });
+
+    const previousParticipants = Array.isArray(car.playRecordParticipants)
+      ? car.playRecordParticipants : [];
+    // Keep legacy/raw IDs so any stale pre-merge view is cleared, and also
+    // include their current canonical targets so the shared session lands on
+    // exactly the current Person View after an alias is re-homed.
+    const previousCanonicalIds = await Promise.all(previousParticipants.map(person => resolvePerson(person.personId)));
+    const affectedIds = [...new Set([
+      ...personIds(previousParticipants),
+      ...previousCanonicalIds.map(person => person.id),
+      ...participants.map(person => person.personId)
+    ])];
+    const refs = affectedIds.map(id => db.collection("personPlayHistoryViews").doc(id));
+    const snapshots = [];
+    for (const ref of refs) snapshots.push(await tx.get(ref));
+
+    const updates = [];
+    for (let index = 0; index < affectedIds.length; index++) {
+      const personId = affectedIds[index];
+      const oldView = snapshots[index].exists ? snapshots[index].data() : null;
+      if (oldView && !Core.validatePersonView(oldView, personId)) {
+        throw Object.assign(new Error("person_view_invalid"), { statusCode: 409 });
+      }
+      // applySessionToPersonView removes the old card first, then adds it back only for current participants.
+      updates.push(Core.applySessionToPersonView(personId, oldView, session, (oldView?.revision || 0) + 1));
+    }
+
+    const now = new Date().toISOString();
+    const playRecordAttendance = Object.fromEntries(participants.map(person => [person.personId, person.attendance]));
+    const playRecordParticipants = participants.map(person => ({ ...person }));
+    tx.update(carRef, {
+      playRecordStatus: "completed",
+      playRecordAttendance,
+      playRecordParticipants,
+      playRecordUpdatedAt: now
+    });
+    tx.set(detailRef, {
+      ...prepared,
+      car: {
+        ...detail,
+        playRecordStatus: "completed",
+        playRecordAttendance,
+        playRecordParticipants,
+        playRecordUpdatedAt: now
+      },
+      sourceUpdatedAt: now,
+      builtAt: now
+    }, { merge: false });
+    for (let index = 0; index < refs.length; index++) tx.set(refs[index], updates[index]);
+    return { sessionId: session.id, source: "cars", participants: participants.length, viewsUpdated: affectedIds.length };
+  });
+}
+
+async function authorizedSession(db, actor, id) {
+  if (String(id).startsWith("hist:")) {
+    const session = await getHistoricalSession(db, id);
+    if (!session) return { session: null, participants: [] };
+    const actualParticipant = session.status === "completed" && session.participants.some(person =>
+      person.personId === actor.id && person.attendance === "attended");
+    if (!actualParticipant && !actor.manager) {
+      throw Object.assign(new Error("session_access_denied"), { statusCode: 403 });
+    }
+    const resolvePerson = canonicalResolver(db);
+    const participants = [];
+    for (const person of session.participants) {
+      const canonical = await resolvePerson(person.personId);
+      participants.push({
+        ...person,
+        personId: canonical.id,
+        displayName: text(canonical.profile.displayName || canonical.profile.nickname || canonical.profile.playerName)
+      });
+    }
+    return { session, participants };
+  }
+
+  if (String(id).startsWith("car:")) {
+    const carId = String(id).slice(4);
+    const car = await getCarDetail(db, carId);
+    if (!car) throw Object.assign(new Error("car_not_found"), { statusCode: 404 });
+    const rosterSource = Array.isArray(car.playRecordParticipants) ? car.playRecordParticipants : carParticipantIds(car);
+    const resolvePerson = canonicalResolver(db);
+    const participants = [];
+    let actualParticipant = false;
+    for (const person of rosterSource) {
+      const canonical = await resolvePerson(person.personId);
+      const resolved = { ...person, personId: canonical.id, displayName: text(canonical.profile.displayName || canonical.profile.nickname || canonical.profile.playerName) };
+      participants.push(resolved);
+      if (canonical.id === actor.id && person.attendance === "attended") actualParticipant = true;
+    }
+    const completed = car.playRecordStatus === "completed";
+    let canManage = actor.manager === true;
+    if (!canManage && (!completed || !actualParticipant)) {
+      const sourceSnap = await db.collection("cars").doc(carId).get();
+      canManage = sourceSnap.exists && await isCarManager(db, actor, sourceSnap.data() || {});
+    }
+    if (!(completed && actualParticipant) && !canManage) {
+      throw Object.assign(new Error("session_access_denied"), { statusCode: 403 });
+    }
+    const session = Core.prepareSession({
+      id: `car:${carId}`,
+      sourceType: "car",
+      carId,
+      scriptName: text(car.scriptName),
+      date: text(car.gameDate || car.date),
+      time: text(car.gameTime || car.time),
+      place: text(car.location || car.address || car.place),
+      status: completed ? "completed" : "scheduled",
+      participants: participants.map(({ displayName, ...person }) => person)
+    });
+    return { session, participants };
+  }
+
+  throw Object.assign(new Error("session_id_invalid"), { statusCode: 400 });
+}
+
+async function peopleForManager(db, actor) {
+  if (!actor?.manager) throw Object.assign(new Error("manager_required"), { statusCode: 403 });
+  const snap = await db.collection("personDirectoryViews").doc("canonical").get();
+  if (!snap.exists) return [];
+  const rows = Array.isArray(snap.data()?.people) ? snap.data().people : [];
+  return rows
+    .filter(person => person && person.id && person.canonicalPersonId === person.id && !["merged", "deleted", "removed"].includes(text(person.status).toLowerCase()))
+    .map(person => ({
+      id: text(person.id),
+      displayName: text(person.displayName || person.nickname || person.playerName),
+      memberType: text(person.memberType || person.type),
+      identityStatus: text(person.identityStatus)
+    }));
+}
+
+module.exports = {
+  maxParticipants, roleOf, attendanceOf, canonicalResolver, normalizeParticipants, makeAdapter,
+  createOrUpdateHistorical, getPersonView, getHistoricalSession, getCarDetail, isCarManager,
+  carParticipantIds, markCarPlayed, authorizedSession, peopleForManager, getCarRosterForManager
+};

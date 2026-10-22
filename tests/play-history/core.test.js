@@ -1,5 +1,5 @@
 'use strict';
-const assert=require('node:assert/strict'),core=require('../js/data-view/play-history-core.js');
+const assert=require('node:assert/strict'),core=require('../../js/data-view/play-history-core.js');
 const base={id:'hist:session0001',sourceType:'historical',scriptName:'重刷劇本',date:'2026-10-21',status:'completed',participants:[{personId:'personA123',role:'host',attendance:'attended'},{personId:'personB123',role:'player',attendance:'attended'}]};
 assert.equal(core.prepareSession(base).participants.length,2);
 assert.equal(core.buildPersonView('personA123',[base]).sessions[0].sessionId,base.id);
