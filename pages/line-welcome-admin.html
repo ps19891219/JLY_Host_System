@@ -66,9 +66,9 @@
     if (!append) $("historyItems").replaceChildren();
     for (const change of data.changes || []) {
       const wrapper = node("div", "", "item");
-      const time = change.at && change.at._seconds ? new Date(change.at._seconds * 1000).toLocaleString("zh-TW") : "時間未提供";
+      const rawTime = change.at;\n      const time = typeof rawTime === "string" ? new Date(rawTime).toLocaleString("zh-TW") : rawTime && rawTime._seconds ? new Date(rawTime._seconds * 1000).toLocaleString("zh-TW") : "時間未提供";
       wrapper.append(node("strong", (change.action || "修改") + " · " + time));
-      wrapper.append(node("p", "操作者：" + (change.actorId || change.actorLineUserId || "未知"), "muted"));
+      wrapper.append(node("p", "操作者：" + (change.actorId || change.actorLineUserId || "未知"), "muted"));\n      wrapper.append(node("p", "修改前：" + (change.before || "（預設／空白）"), "muted"));\n      wrapper.append(node("p", "修改後：" + (change.after || "（恢復預設）"), "muted"));
       const details = document.createElement("details");
       details.append(node("summary", "查看修改內容"));
       details.append(node("pre", JSON.stringify(change, null, 2)));
