@@ -69,32 +69,10 @@ function buildAliasOwners(groups) {
   return aliasOwners;
 }
 
-async function walkCollection(collectionRef, visitor) {
-  const snapshot = await collectionRef.get();
-  for (const doc of snapshot.docs) {
-    await visitor(doc);
-    const subcollections = await doc.ref.listCollections();
-    for (const subcollection of subcollections) await walkCollection(subcollection, visitor);
-  }
-}
-
 async function inventoryAllReferences(db, aliasOwners) {
-  const references = [];
-  const targetIds = new Set(aliasOwners.keys());
-  const topCollections = await db.listCollections();
-  for (const collection of topCollections) {
-    await walkCollection(collection, async doc => {
-      const hits = findIdReferences(doc.data(), targetIds);
-      hits.forEach(hit => references.push({
-        matchedAlias: hit.personId,
-        ownerPersonIds: [...(aliasOwners.get(hit.personId) || [])],
-        documentPath: doc.ref.path,
-        fieldPath: hit.fieldPath,
-        domain: referenceDomain(doc.ref.path, hit.fieldPath)
-      }));
-    });
-  }
-  return references;
+  // Deliberately disabled: recursive collection traversal violates the JLY read budget.
+  // Historical references must be inspected through a bounded prepared snapshot.
+  return [];
 }
 
 function buildGroups(players) {
@@ -146,8 +124,11 @@ function buildMigrationPlans(groups, references) {
 
 async function main() {
   const db = initFirebase();
-  const playerSnap = await db.collection("players").get();
-  const players = playerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const prepared = await db.collection("personDirectoryViews").doc("canonical").get();
+  if (!prepared.exists) throw new Error("personDirectoryViews/canonical 不存在；停止 dry-run，禁止回退掃描 players");
+  const preparedData = prepared.data() || {};
+  if (!Array.isArray(preparedData.people)) throw new Error("canonical Prepared View 格式不正確");
+  const players = preparedData.people.map(row => ({...row, id:audit.text(row.id)})).filter(row => row.id);
   const groups = buildGroups(players);
   const aliasOwners = buildAliasOwners(groups);
   const references = await inventoryAllReferences(db, aliasOwners);
@@ -156,7 +137,7 @@ async function main() {
 
   console.log(JSON.stringify({
     generatedAt: new Date().toISOString(),
-    mode: "DRY_RUN_READ_ONLY",
+    mode: "PREPARED_VIEW_ONLY_DRY_RUN",
     safety: {
       applyModeExists: false,
       writesFirestore: false,
@@ -173,10 +154,10 @@ async function main() {
       referenceDomains: domainCounts
     },
     coverage: {
-      strategy: "recursive Firestore traversal; candidate document ids + formal historical personId/linkedPlayerIds aliases; all current top-level collections and nested subcollections",
+      strategy: "one read of personDirectoryViews/canonical; no Source-of-Truth scans; historical references not inventoried",
       expectedDomains: ["CAR", "MEMBERSHIP_PLAYER", "STAFF_DM", "APPLICATION", "SEAT", "ACCOUNTING", "PENDING_ACTION", "CALENDAR", "REMINDER", "LINE_PROFILE_IDENTITY", "OTHER"]
     },
-    plans
+    plans: plans.map(plan => ({...plan,migrationStatus:"BLOCKED_FOR_REVIEW",migrationBlockers:[...new Set([...plan.migrationBlockers,"HISTORICAL_REFERENCE_SNAPSHOT_REQUIRED"])],moves:[]}))
   }, null, 2));
 }
 
