@@ -26,7 +26,7 @@ async function listWelcomeChanges(groupId, pageSize = 20, afterId = "") {
   const db = getFirestore();
   const limit = boundedLimit(pageSize);
   const collection = db.collection(COLLECTION).doc(groupId).collection("changes");
-  let query = collection.orderBy("at", "desc").orderBy("__name__", "desc").limit(limit + 1);
+  let query = collection.orderBy("at", "desc").limit(limit + 1);
   if (afterId) {
     const cursor = await collection.doc(afterId).get();
     if (!cursor.exists) throw new Error("invalid_audit_cursor");
