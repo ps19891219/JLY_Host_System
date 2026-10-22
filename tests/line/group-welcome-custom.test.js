@@ -11,7 +11,7 @@ test("parse multiline custom welcome",()=>{
 });
 test("unbound group member may set welcome and receives a brief reply",async()=>{
   let saved;
-  const result=await handleWelcomeCommand({source:{type:"group",groupId:"g1",userId:"u1"},message:{text:"助手 設定歡迎詞 歡迎加入"}},{bound:false},{changeWelcome:async data=>{saved=data;}});
+  const result=await handleWelcomeCommand({source:{type:"group",groupId:"g1",userId:"u1"},message:{text:"助手 設定歡迎詞 歡迎加入"}},{bound:false},{getGroupMemberProfile:async()=>({userId:"u1"}),changeWelcome:async data=>{saved=data;}});
   assert.equal(result.message,"✅ 歡迎詞設定成功！");
   assert.equal(saved.groupId,"g1");
   assert.equal(saved.actorId,"u1");
