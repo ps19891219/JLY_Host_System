@@ -61,7 +61,36 @@ function createAdapter({db,core,authorize}={}){
       return {id,revision:next.revision,total:next.total};
     });
   }
-  return Object.freeze({read,put,remove});
+  async function importBatch(viewerId,records,{dryRun=true}={}){
+    await check(viewerId);
+    if(!Array.isArray(records)||records.length>100)throw Error('每批最多匯入 100 場');
+    const sessions=records.map(core.prepareSession),ids=new Set();
+    for(const session of sessions){
+      if(ids.has(session.id))throw Error('同批次有重複場次 ID，已取消匯入');
+      ids.add(session.id);
+    }
+    const view=refs(viewerId).view;
+    return db.runTransaction(async tx=>{
+      const current=await tx.get(view);
+      const previous=current.exists?current.data():null;
+      if(previous&&!core.validateReadView(previous,viewerId))throw Error('遊玩紀錄快照不正確，停止匯入');
+      // Firestore requires all reads before any transaction writes.
+      const sourceRefs=sessions.map(s=>refs(viewerId,s.id).session);
+      const sourceSnapshots=await Promise.all(sourceRefs.map(ref=>tx.get(ref)));
+      const existing=previous?previous.sessions.slice():[];
+      const known=new Set(existing.map(s=>s.id));
+      for(let i=0;i<sessions.length;i++){
+        if(known.has(sessions[i].id)||sourceSnapshots[i].exists)throw Error('正式資料已有相同場次 ID，停止整批匯入');
+      }
+      const next=core.buildReadView(viewerId,existing.concat(sessions),(previous?.revision||0)+1);
+      const report={dryRun:!!dryRun,added:sessions.length,total:next.total,revision:next.revision};
+      if(dryRun)return report;
+      for(let i=0;i<sessions.length;i++)tx.set(sourceRefs[i],sessions[i]);
+      tx.set(view,next);
+      return report;
+    });
+  }
+  return Object.freeze({read,put,remove,importBatch});
 }
 const api=Object.freeze({createAdapter,COLLECTION,VIEW_COLLECTION});
 if(typeof module==='object'&&module.exports)module.exports=api;
