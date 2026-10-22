@@ -27,7 +27,10 @@ async function handleWelcomeCommand(context, binding, dependencies = {}) {
   const groupId = text(context && context.source && context.source.groupId);
   const actorId = text(context && context.source && context.source.userId);
   if (!groupId || !actorId || context.source.type !== "group") return {message:"請在 LINE 群組內使用歡迎詞指令。"};
-  const bound = binding && binding.bound === true;
+  if (!binding || binding.reason === "binding_lookup_failed") {
+    return {message:"目前無法確認群組車團狀態，請稍後再試。"};
+  }
+  const bound = binding.bound === true;
   if (command.action === "view") {
     const settings = await (dependencies.readWelcome || readWelcome)(groupId);
     return {message: text(settings && settings.welcomeText) || (bound ? "目前使用原本車團歡迎卡片。" : "目前使用一般群組預設歡迎詞。")};
