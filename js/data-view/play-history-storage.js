@@ -29,10 +29,12 @@ function createAdapter({db,core,authorize}={}){
     const {view,session:source}=refs(viewerId,session.id);
     return db.runTransaction(async tx=>{
       const current=await tx.get(view);
+      const sourceCurrent=await tx.get(source);
       const previous=current.exists?current.data():null;
       if(previous&&!core.validateReadView(previous,viewerId))throw Error('遊玩紀錄快照不正確，停止覆寫');
       const entries=previous?previous.sessions.slice():[];
       const index=entries.findIndex(x=>x.id===session.id);
+      if((index>=0)!==sourceCurrent.exists)throw Error('場次來源與 Prepared View 不一致，停止覆寫並等待修復');
       if(index>=0)entries[index]=session;else entries.push(session);
       const next=core.buildReadView(viewerId,entries,(previous?.revision||0)+1);
       // Both documents are written in the same Firestore transaction.
@@ -47,10 +49,12 @@ function createAdapter({db,core,authorize}={}){
     const {view,session:source}=refs(viewerId,id);
     return db.runTransaction(async tx=>{
       const current=await tx.get(view);
+      const sourceCurrent=await tx.get(source);
       if(!current.exists)throw Error('遊玩紀錄快照不存在，停止刪除');
       const previous=current.data();
       if(!core.validateReadView(previous,viewerId))throw Error('遊玩紀錄快照不正確，停止刪除');
       if(!previous.sessions.some(x=>x.id===id))throw Error('找不到要刪除的場次');
+      if(!sourceCurrent.exists)throw Error('場次來源缺失，停止刪除並等待修復');
       const next=core.buildReadView(viewerId,previous.sessions.filter(x=>x.id!==id),(previous.revision||0)+1);
       tx.delete(source);
       tx.set(view,next);
