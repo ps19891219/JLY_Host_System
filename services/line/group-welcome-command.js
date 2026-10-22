@@ -3,6 +3,7 @@ const {readWelcome, changeWelcome} = require("./group-welcome-settings");
 const {findPlayerByLineUserId, getCarById} = require("../firebase/line-accounting-authorization-repository");
 const {getIdentityIds} = require("./group-car-binding-service");
 const {getCarAccountingManagerIds} = require("./accounting-authorization-service");
+const {getGroupMemberProfile} = require("./group-membership-client");
 function text(value){return String(value == null ? "" : value).trim();}
 function parseWelcomeCommand(input) {
   const message = text(input);
@@ -30,6 +31,14 @@ async function handleWelcomeCommand(context, binding, dependencies = {}) {
   if (command.action === "view") {
     const settings = await (dependencies.readWelcome || readWelcome)(groupId);
     return {message: text(settings && settings.welcomeText) || (bound ? "目前使用原本車團歡迎卡片。" : "目前使用一般群組預設歡迎詞。")};
+  }
+  if (!bound) {
+    try {
+      const profile = await (dependencies.getGroupMemberProfile || getGroupMemberProfile)(groupId, actorId);
+      if (!profile || text(profile.userId) !== actorId) return {message:"無法確認你仍在本群組，歡迎詞未修改。"};
+    } catch (_error) {
+      return {message:"暫時無法確認群組成員身分，歡迎詞未修改。"};
+    }
   }
   if (bound && !(await canEditBoundGroup(actorId, text(binding.binding && binding.binding.carId), dependencies))) {
     return {message:"只有本車團主揪或授權管理者可以修改歡迎詞。"};
