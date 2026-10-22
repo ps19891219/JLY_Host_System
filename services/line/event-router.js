@@ -110,6 +110,7 @@ const {
   addMentionedRosterMembers
 } = require("./group-roster-service");
 const { syncOwnerReminderTarget } = require("./owner-reminder-target-service");
+const { parseWelcomeCommand, handleWelcomeCommand } = require("./group-welcome-command");
 
 function normalizeText(value) {
   return String(
@@ -394,7 +395,10 @@ async function handleMessageEvent(
     };
   }
 
-  const directMessageResult = routeTextMessage(context.message.text);
+  const welcomeCommand = parseWelcomeCommand(context.message.text);
+  const directMessageResult = welcomeCommand
+    ? {handled:true,action:"assistant_welcome_command",replyText:""}
+    : routeTextMessage(context.message.text);
   // Only LINE's verified bot mention can unlock a bare "報名" after @.
   // Mentions of other group members, or textual fake @ tags, cannot.
   const botMentions = (context.message.mentions || []).filter(
@@ -501,6 +505,13 @@ async function handleMessageEvent(
   if (groupBinding && groupBinding.bound) {
     context.accountingCarId =
       groupBinding.binding.carId;
+  }
+
+  if (messageResult.action === "assistant_welcome_command") {
+    if (!context.replyToken) return {handled:false,route:"welcome_missing_reply_token",context};
+    const result = await handleWelcomeCommand(context, groupBinding, dependencies);
+    await replyWithText(context.replyToken, result.message);
+    return {handled:true,route:"assistant_welcome_command",context};
   }
 
   if (messageResult.action === "assistant_signup_card") {
