@@ -863,3 +863,16 @@ test("report represents sent, sending, failed, and action-required without guara
     assert.doesNotMatch(message,/保證送達/);
   }
 });
+
+test("unbound assistant invocation shows text only without car actions", async function () {
+  let messages = null;
+  const result = await routeEvent(createTextEvent(), {
+    resolveGroupBinding: async () => ({bound:false,reason:"unbound"}),
+    sendReplyMessage: async (_token, sent) => {messages=sent;}
+  });
+  assert.equal(result.route,"assistant_unbound_text_only");
+  assert.equal(messages.length,1);
+  assert.equal(messages[0].type,"text");
+  assert.match(messages[0].text,/設定歡迎詞/);
+  assert.equal(JSON.stringify(messages).includes('"type":"flex"'),false);
+});
