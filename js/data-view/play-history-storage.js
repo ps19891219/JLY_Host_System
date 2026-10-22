@@ -35,7 +35,11 @@ function createAdapter({db,core,authorize}={}){
       const entries=previous?previous.sessions.slice():[];
       const index=entries.findIndex(x=>x.id===session.id);
       if((index>=0)!==sourceCurrent.exists)throw Error('場次來源與 Prepared View 不一致，停止覆寫並等待修復');
-      if(index>=0)entries[index]=session;else entries.push(session);
+      if(index>=0){
+        const actual=sourceCurrent.data();
+        if(JSON.stringify(actual)!==JSON.stringify(entries[index]))throw Error('場次來源內容與 Prepared View 不一致，停止覆寫');
+        entries[index]=session;
+      }else entries.push(session);
       const next=core.buildReadView(viewerId,entries,(previous?.revision||0)+1);
       // Both documents are written in the same Firestore transaction.
       tx.set(source,session);
@@ -55,6 +59,8 @@ function createAdapter({db,core,authorize}={}){
       if(!core.validateReadView(previous,viewerId))throw Error('遊玩紀錄快照不正確，停止刪除');
       if(!previous.sessions.some(x=>x.id===id))throw Error('找不到要刪除的場次');
       if(!sourceCurrent.exists)throw Error('場次來源缺失，停止刪除並等待修復');
+      const indexed=previous.sessions.find(x=>x.id===id);
+      if(JSON.stringify(sourceCurrent.data())!==JSON.stringify(indexed))throw Error('場次來源內容與 Prepared View 不一致，停止刪除');
       const next=core.buildReadView(viewerId,previous.sessions.filter(x=>x.id!==id),(previous.revision||0)+1);
       tx.delete(source);
       tx.set(view,next);
@@ -82,6 +88,7 @@ function createAdapter({db,core,authorize}={}){
       for(let i=0;i<sessions.length;i++){
         if(known.has(sessions[i].id)||sourceSnapshots[i].exists)throw Error('正式資料已有相同場次 ID，停止整批匯入');
       }
+      if(sessions.length===0)throw Error('沒有可匯入的場次');
       const next=core.buildReadView(viewerId,existing.concat(sessions),(previous?.revision||0)+1);
       const report={dryRun:!!dryRun,added:sessions.length,total:next.total,revision:next.revision};
       if(dryRun)return report;
