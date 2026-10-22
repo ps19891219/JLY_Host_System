@@ -42,5 +42,17 @@ function fakeDb(){
  brokenDb.docs.set('playHistoryViews/player12345',core.buildReadView('player12345',[a],1));
  await assert.rejects(broken.remove('player12345',a.id),/來源缺失/);
  assert.equal(brokenDb.writes.length,0,'來源缺失不得刪除快照');
- console.log('Play-history storage: 11 checks passed');
+ const batchDb=fakeDb(),batch=createAdapter({db:batchDb,core,authorize:async()=>true});
+ const items=[a,{...a,id:'r987654321'}];
+ const preview=await batch.importBatch('player12345',items);
+ assert.equal(preview.dryRun,true);
+ assert.equal(preview.added,2);
+ assert.equal(batchDb.docs.size,0,'dry-run 不得寫入資料');
+ const imported=await batch.importBatch('player12345',items,{dryRun:false});
+ assert.equal(imported.added,2);
+ assert.equal(batchDb.writes[0].length,3,'整批兩場與快照同筆交易');
+ await assert.rejects(batch.importBatch('player12345',items,{dryRun:false}),/相同場次 ID/);
+ assert.equal(batchDb.docs.size,3,'重複匯入不得部分寫入');
+ await assert.rejects(batch.importBatch('player12345',[a,a]),/重複場次 ID/);
+ console.log('Play-history storage: 17 checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
