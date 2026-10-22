@@ -62,10 +62,10 @@ async function sendMemberJoinedWelcome(event, dependencies = {}) {
   const car = await readCarQuickly(carId, readCar, 350);
 
   await reply(replyToken, [
-    ...(welcomeText ? [{type:"text",text:welcomeText}] : []),
     buildMemberWelcomeCard(car, {
       baseUrl: publicBaseUrl(),
-      carId
+      carId,
+      welcomeText
     })
   ]);
 
