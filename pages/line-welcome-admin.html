@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JLY｜LINE 群組歡迎詞紀錄</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color-scheme:light}body{margin:0;background:#f4f6fa;color:#1d2637}main{max-width:760px;margin:auto;padding:18px}h1{font-size:1.4rem}h2{font-size:1.08rem}p{line-height:1.55}.panel{background:white;border:1px solid #e2e6ef;border-radius:16px;padding:16px;margin:12px 0;overflow-wrap:anywhere}button,input{font:inherit;padding:11px;border-radius:10px;border:1px solid #bbc4d3}button{background:#1c3f76;color:white;cursor:pointer}button:disabled{opacity:.5}input{max-width:100%;box-sizing:border-box;width:100%}.muted{color:#596477;font-size:.88rem}pre{white-space:pre-wrap;overflow-wrap:anywhere}#error{color:#a32626}nav{display:flex;gap:8px;flex-wrap:wrap}.item{border-top:1px solid #e2e6ef;padding:12px 0}.item:first-child{border-top:0}summary{cursor:pointer}
+</style>
+</head>
+<body><main>
+<h1>LINE 群組歡迎詞紀錄</h1>
+<p class="muted">僅限已授權的系統管理者。此頁只讀取既有紀錄，不會修改 LINE 群組設定。</p>
+<section class="panel" id="auth">
+<h2>管理者驗證</h2>
+<p class="muted">請使用目前 Firebase 登入工作階段的 ID Token。此頁不儲存 Token，關閉頁面後需重新提供。不要將 Token 傳給他人。</p>
+<input id="token" type="password" autocomplete="off" placeholder="Firebase ID Token" aria-label="Firebase ID Token">
+<nav><button id="load">驗證並載入</button><button id="clear" type="button">清除</button></nav>
+<p id="error" role="alert"></p>
+</section>
+<section class="panel" id="groups" hidden><h2>群組設定</h2><div id="groupItems"></div><button id="moreGroups" hidden>載入更多群組</button></section>
+<section class="panel" id="history" hidden><h2>修改歷史</h2><p id="groupTitle" class="muted"></p><div id="historyItems"></div><button id="moreHistory" hidden>載入更早紀錄</button></section>
+</main>
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  let credential = "", groupCursor = "", historyCursor = "", selectedGroup = "";
+  const showError = message => { $("error").textContent = message; };
+  const node = (tag, text, className) => {
+    const element = document.createElement(tag);
+    element.textContent = String(text ?? "");
+    if (className) element.className = className;
+    return element;
+  };
+  async function fetchPage(params) {
+    const response = await fetch("/api/line-welcome-admin?" + new URLSearchParams(params), {
+      headers: {Authorization: "Bearer " + credential}, cache: "no-store"
+    });
+    if (!response.ok) throw new Error(response.status === 403 ? "沒有管理者權限，或登入憑證已失效。" : "讀取失敗（HTTP " + response.status + "）。");
+    return response.json();
+  }
+  async function loadGroups(append = false) {
+    const data = await fetchPage({limit:20, ...(append && groupCursor ? {cursor:groupCursor} : {})});
+    if (!append) $("groupItems").replaceChildren();
+    for (const group of data.groups || []) {
+      const wrapper = node("div", "", "item");
+      const button = node("button", group.groupId);
+      button.addEventListener("click", () => openGroup(group.groupId));
+      wrapper.append(button);
+      wrapper.append(node("p", "目前歡迎詞：" + (group.welcomeText || "預設"), "muted"));
+      $("groupItems").append(wrapper);
+    }
+    groupCursor = data.nextId || "";
+    $("moreGroups").hidden = !groupCursor;
+    $("groups").hidden = false;
+  }
+  async function openGroup(groupId) {
+    selectedGroup = groupId; historyCursor = "";
+    $("groupTitle").textContent = groupId;
+    $("historyItems").replaceChildren();
+    $("history").hidden = false;
+    try { await loadHistory(false); } catch (error) { showError(error.message); }
+  }
+  async function loadHistory(append = false) {
+    const data = await fetchPage({groupId:selectedGroup,limit:20,...(append && historyCursor ? {cursor:historyCursor} : {})});
+    if (!append) $("historyItems").replaceChildren();
+    for (const change of data.changes || []) {
+      const wrapper = node("div", "", "item");
+      const time = change.at && change.at._seconds ? new Date(change.at._seconds * 1000).toLocaleString("zh-TW") : "時間未提供";
+      wrapper.append(node("strong", (change.action || "修改") + " · " + time));
+      wrapper.append(node("p", "操作者：" + (change.actorId || change.actorLineUserId || "未知"), "muted"));
+      const details = document.createElement("details");
+      details.append(node("summary", "查看修改內容"));
+      details.append(node("pre", JSON.stringify(change, null, 2)));
+      wrapper.append(details);
+      $("historyItems").append(wrapper);
+    }
+    historyCursor = data.nextId || "";
+    $("moreHistory").hidden = !historyCursor;
+  }
+  $("load").addEventListener("click", async () => {
+    credential = $("token").value.trim();
+    $("token").value = "";
+    showError("");
+    if (!credential) return showError("請先提供有效的管理者登入憑證。");
+    try { await loadGroups(false); } catch (error) { credential = ""; showError(error.message); }
+  });
+  $("clear").addEventListener("click", () => {
+    credential = ""; $("token").value = ""; groupCursor = ""; historyCursor = "";
+    $("groups").hidden = true; $("history").hidden = true; showError("");
+  });
+  $("moreGroups").addEventListener("click", async () => {try {await loadGroups(true);}catch(error){showError(error.message);}});
+  $("moreHistory").addEventListener("click", async () => {try {await loadHistory(true);}catch(error){showError(error.message);}});
+})();
+</script></body></html>
