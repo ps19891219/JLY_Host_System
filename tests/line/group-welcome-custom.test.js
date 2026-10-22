@@ -30,8 +30,8 @@ test("unbound memberJoined receives text only",async()=>{
 test("bound memberJoined keeps the existing flex card",async()=>{
   let messages;
   await sendMemberJoinedWelcome({source:{type:"group",groupId:"g1"},replyToken:"r1"},{resolveGroupBinding:async()=>({bound:true,binding:{carId:"car1"}}),readWelcome:async()=>({welcomeText:"請先看記事本"}),getCarById:async()=>({scriptName:"測試劇本"}),getPublicBaseUrl:()=> "https://example.test",sendReplyMessage:async(_,sent)=>{messages=sent;}});
-  assert.equal(messages.length,2);
-  assert.equal(messages[0].text,"請先看記事本");
-  assert.equal(messages[1].type,"flex");
-  assert.equal(messages[1].contents.body.contents.filter(x=>x.type==="button").length,3);
+  assert.equal(messages.length,1);
+  assert.equal(messages[0].type,"flex");
+  assert.equal(messages[0].contents.header.contents[0].text,"請先看記事本");
+  assert.equal(messages[0].contents.body.contents.filter(x=>x.type==="button").length,3);
 });
