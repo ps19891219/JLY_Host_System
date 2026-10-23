@@ -71,3 +71,22 @@ test("rejects mutations without touching audit data", async () => {
   await handler(request("/api/line-welcome-admin", token, "POST"), res, admin);
   assert.equal(res.statusCode, 405);
 });
+
+test("rejects malformed group identifiers before querying Firestore", async () => {
+  const res = response();
+  await handler(request("/api/line-welcome-admin?groupId=../secret", token), res, {
+    ...admin,
+    listWelcomeChanges: async () => { throw new Error("unexpected database read"); }
+  });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.error, "invalid_query_parameter");
+});
+
+test("rejects malformed cursors before querying Firestore", async () => {
+  const res = response();
+  await handler(request("/api/line-welcome-admin?cursor=bad%2Fcursor", token), res, {
+    ...admin,
+    listWelcomeGroups: async () => { throw new Error("unexpected database read"); }
+  });
+  assert.equal(res.statusCode, 400);
+});
