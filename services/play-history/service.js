@@ -140,7 +140,7 @@ async function getCarRosterForManager(db, actor, carId) {
     const canonical = await resolvePerson(person.personId);
     priorAttendance.set(canonical.id, person.attendance);
   }
-  const rows = carParticipantIds(detail);
+  const rows = carParticipantIds({ ...detail, ...car });
   const participants = [];
   const canonicalIds = new Set();
   for (const person of rows) {
@@ -190,7 +190,32 @@ function carParticipantIds(car) {
       rows.push({ personId: id, role, attendance: attendanceOf(person.playAttendance || savedAttendance[id]) });
     }
   }
+  // Host authority is not proof of attendance. Include the host in the
+  // manager-confirmed roster only when not already represented; attendance
+  // remains unconfirmed until the manager explicitly marks it.
+  for (const personId of [car.ownerId, ...(Array.isArray(car.hostIds) ? car.hostIds : [])].map(text).filter(Boolean)) {
+    const existing = rows.find(person => text(person.personId) === personId);
+    if (existing) existing.role = "host";
+    else rows.push({ personId, role: "host", attendance: attendanceOf(savedAttendance[personId]) });
+  }
   return rows;
+}
+
+function mergeCarParticipants(rows, resolvePerson) {
+  const priority = { player: 1, npc: 2, dm: 3, host: 4 };
+  return Promise.all(rows.map(async row => ({ ...row, personId: (await resolvePerson(row.personId)).id })))
+    .then(canonicalRows => {
+      const merged = new Map();
+      for (const row of canonicalRows) {
+        const prior = merged.get(row.personId);
+        if (!prior) { merged.set(row.personId, row); continue; }
+        if ((priority[row.role] || 0) > (priority[prior.role] || 0)) prior.role = row.role;
+        if (row.attendance === "attended" || (prior.attendance !== "attended" && row.attendance === "unconfirmed")) {
+          prior.attendance = row.attendance;
+        }
+      }
+      return [...merged.values()];
+    });
 }
 
 function personIds(rows) {
@@ -223,9 +248,12 @@ async function markCarPlayed(db, actor, carId, attendanceMap = {}) {
     if (["cancelled", "canceled", "已取消", "取消", "deleted", "removed"].includes(carStatus)) {
       throw Object.assign(new Error("car_not_playable"), { statusCode: 409 });
     }
+    if (!["ended", "completed", "closed", "已結束", "已完成"].includes(carStatus)) {
+      throw Object.assign(new Error("car_not_ended"), { statusCode: 409 });
+    }
 
     const inputRoster = carParticipantIds({ ...detail, ...car });
-    const participants = await normalizeParticipants(db, inputRoster, resolvePerson);
+    const participants = await mergeCarParticipants(inputRoster, resolvePerson);
     const attendanceByCanonical = new Map();
     const attendanceEntries = Object.entries(attendanceMap || {});
     if (attendanceEntries.length > maxParticipants) {

@@ -187,7 +187,7 @@ test('existing Car edits preserve source fields, remove old participants, and do
   const db = fakeDb({
     ...seed,
     'cars/car12345': {
-      ownerId: 'alice123', customField: 'keep-me', scriptName: '正式劇本', gameDate: '2025-03-01',
+      ownerId: 'alice123', status: '已結束', customField: 'keep-me', scriptName: '正式劇本', gameDate: '2025-03-01',
       gameTime: '14:00', location: '台中',
       players: [
         { personId: 'alice123', status: 'confirmed', role: 'player' },
@@ -207,6 +207,8 @@ test('existing Car edits preserve source fields, remove old participants, and do
   const handler = handlerFor(db);
   const managerRoster = await request(handler, { token: 'alice', query: { action: 'car_roster', carId: 'car12345' } });
   assert.equal(managerRoster.statusCode, 200, 'Car manager can load the existing roster');
+  assert.equal(managerRoster.body.participants.filter(person => person.personId === 'alice123').length, 1, 'host and player identity is one canonical roster row');
+  assert.equal(managerRoster.body.participants.find(person => person.personId === 'alice123').role, 'host', 'the existing Car owner keeps the host role');
   const forbiddenRoster = await request(handler, { token: 'outsider', query: { action: 'car_roster', carId: 'car12345' } });
   assert.equal(forbiddenRoster.statusCode, 403, 'unrelated account cannot load a management roster');
   const first = await request(handler, { method: 'POST', token: 'alice', body: {
@@ -291,6 +293,20 @@ test('cancelled Cars cannot be converted into completed play records', async () 
   } });
   assert.equal(result.statusCode, 409);
   assert.equal(db.docs.get('cars/car99999').playRecordStatus, undefined);
+  assert.equal(db.docs.has('personPlayHistoryViews/alice123'), false);
+});
+
+test('scheduled and still-open Cars cannot be counted as completed play', async () => {
+  const db = fakeDb({
+    ...seed,
+    'cars/car55555': { ownerId: 'alice123', status: '招募中', players: [{ personId: 'alice123', status: 'confirmed' }] },
+    'carDetailViews/car55555': { car: { id: 'car55555', scriptName: '尚未開演', gameDate: '2027-03-01', players: [{ personId: 'alice123', status: 'confirmed' }] } }
+  });
+  const result = await request(handlerFor(db), { method: 'POST', token: 'alice', body: {
+    action: 'car_complete', carId: 'car55555', attendance: { alice123: 'attended' }
+  } });
+  assert.equal(result.statusCode, 409);
+  assert.equal(db.docs.get('cars/car55555').playRecordStatus, undefined);
   assert.equal(db.docs.has('personPlayHistoryViews/alice123'), false);
 });
 
