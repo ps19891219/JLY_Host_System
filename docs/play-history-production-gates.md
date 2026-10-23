@@ -1,6 +1,6 @@
 # JLY 共同場次／Person 去重／遊玩紀錄：正式施工基準
 
-狀態：設計基準與安全關卡；**尚未完成正式實作，不可部署或寫入 Production**。
+狀態：**PR #330 已完成第一版程式及 CI 測試，仍待受保護 Preview 的真實 LINE 登入／手機驗收及 Production Firestore Rules 核對。未取得核准前不可合併、部署或寫入 Production。**
 範圍：PR #330 feature/play-records-ui。取代「每個 viewer 各自擁有歷史場次」的舊提案。
 
 ## 不可變原則
@@ -13,16 +13,24 @@
 7. 每次存取由伺服端安全規則／授權邊界驗證身份及場次角色。共用資料不等於公開主揪私人備註、聯絡資訊或未授權欄位。
 8. 維持 Spark 免費方案；禁止整庫掃描、升級 Billing、重建第二套 Car/Person/Identity、直接刪除歷史關聯。
 
-## 施工分支目前實作
-- `playHistorySessions/{sessionId}` 是唯一共同歷史場次來源；正式車團 ID 使用 `car:{carId}` 指向既有 Car，不複製 Car。
-- `personPlayHistoryViews/{canonicalPersonId}` 僅含精簡場次卡及共同場次 ID；交易同時更新來源及所有受影響 Person View。
-- `scripts/person-canonical-migration-dry-run.js` 只讀 `personDirectoryViews/canonical` 一份 Prepared View；舊版全庫遞迴掃描已停用。因未掃描正式 Car／Identity 來源，此輸出只可列候選，不可核准歸戶。
-- `services/firebase/person-directory-view-repository.js` 保留 canonical 可見列；晚到的 merged legacy 更新只併入 alias，不會刪掉 canonical 列。
-- `pages/my-play-history.html` 仍為 localStorage 預覽；候選 Person ID 仍只是線索，尚未接入共用場次 API。
-- Repository 尚無可確認的正式 Firestore 安全規則來源；未驗證前不啟用 Production 寫入。
-- `pages/my-play-history.html` 仍為 localStorage 預覽，不可宣稱跨帳號同步完成。
-- 既有 Car、MyCar Prepared View、Person Directory canonical、LINE Identity 需先檢視實際 schema 與權限，再接入，不憑空新增相似 collections。
-- Repository 尚無可確認的正式 Firestore 安全規則來源；未驗證前不啟用 Production 寫入。
+## PR #330 現況（2026-10-23 核對）
+
+- PR Head `eafa358ace9ce9c317b0a4ac99938d3e4a55770c`；受保護 Preview Deployment `dpl_2pPTkz1RiZKG4rcTc82TNYyp3xsm` 狀態 READY，並非 Production。
+- `pages/my-play-history.html` 及 `js/play-history-page.js` 已串接 `/api/play-history` 與既有 LINE 登入 Session；localStorage 舊預覽資料**不會自動匯入**。請勿再引用舊版「只有 localStorage 預覽」描述。
+- `playHistorySessions/{sessionId}` 是共同歷史場次 Source of Truth，正式 Car 使用 `car:{carId}`；`personPlayHistoryViews/{canonicalPersonId}` 保存精簡個人讀取視圖。
+- Car 完成時保留原 Car ID，需 Car 已結束且未取消，並由授權管理者明確確認實際出席；主揪與玩家指向同一 canonical Person 時去重。
+- 伺服器透過既有 LINE Session 與 canonical Person 授權查詢；變動寫入共同場次與受影響 Prepared Views 的交易。
+- 本輪 CI 測試已通過，但**未**代表受 Vercel Authentication 保護的 Preview 已完成真實手機登入驗收。
+- Repository 內未取得實際部署中的 Firestore Security Rules 原始設定；Rules 仍須透過 Firebase 專案管理權限核對，不得以測試假資料代替。
+- 目前尚未執行 Production 寫入、Person 合併、歷史補登或正式部署。
+
+## 正式上線前尚未通過的關卡
+
+1. 以具 Vercel 專案權限的帳號進入上述 Preview，使用真實 LINE 登入，在手機驗證本人列表、共同參與者、無權限拒讀及管理者實際出席流程。
+2. 從 Firebase 專案核對當前**已部署**的 Firestore Security Rules 與 API 授權邊界，尤其 `playHistorySessions`、`personPlayHistoryViews` 及既有 Car/Person 路徑是否能被前端直接越權讀取或寫入。
+3. 針對既有 canonical Person 合併流程，確認會同步遷移或回補 `personPlayHistoryViews`，並有回復與去重測試；不能只依本 PR 的 Alias 查詢測試推定合併遷移已驗收。
+4. 以實際資料形狀估算高 Alias 深度、大名單交易的讀寫成本，嚴守 Spark 免費方案。
+5. 確認所有關卡後，另行取得使用者合併 PR、正式部署及 Production 資料異動的明確核准。
 
 ## 實作次序與驗收
 1. **Audit**：正式 Car 參與者在 `cars/{carId}`，手機／列表透過 `carDetailViews/{carId}` 與 MyCar Prepared View；Person Directory 使用 `players` Source 與 `personDirectoryViews/canonical`；LINE 認領使用既有玩家 Identity 欄位與核准流程。沒有 Production schema/rules 憑證時不接通寫入。
