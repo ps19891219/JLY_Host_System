@@ -34,6 +34,9 @@ async function handler(req, res, dependencies = {}) {
     const groupId = String(url.searchParams.get("groupId") || "").trim();
     const cursor = String(url.searchParams.get("cursor") || "").trim();
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit")) || 20));
+    if ((groupId && (!/^[-A-Za-z0-9_]{1,200}$/.test(groupId))) || (cursor && !/^[-A-Za-z0-9_]{1,200}$/.test(cursor))) {
+      return respond(res, 400, {error: "invalid_query_parameter"});
+    }
     if (groupId) {
       const data = await (dependencies.listWelcomeChanges || listWelcomeChanges)(groupId, limit, cursor);
       return respond(res, 200, data);
