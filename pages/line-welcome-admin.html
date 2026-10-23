@@ -25,9 +25,11 @@
   const $ = id => document.getElementById(id);
   let groupCursor = "", historyCursor = "", selectedGroup = "";
   async function getCredential() {
-    const auth = window.firebase && window.firebase.auth && window.firebase.auth();
+    const compat = window.firebase && typeof window.firebase.auth === "function" ? window.firebase.auth() : null;
+    const modular = window.jlyFirebaseAuth || null;
+    const auth = compat || modular;
     const user = auth && auth.currentUser;
-    if (!user || typeof user.getIdToken !== "function") throw new Error("請先使用 JLY 現有的 Firebase 登入流程登入。");
+    if (!user || typeof user.getIdToken !== "function") throw new Error("此頁尚未連接到可用的 JLY Firebase 登入工作階段。請勿提供或貼上 Token。");
     return user.getIdToken();
   }
   const showError = message => { $("error").textContent = message; };
