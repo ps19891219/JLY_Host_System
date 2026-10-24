@@ -321,3 +321,32 @@ test('anonymous requests cannot read private prepared views or session rosters',
   assert.equal(result.statusCode, 401);
   assert.equal(db.readPaths.length, 0, 'authentication fails before Firestore reads');
 });
+
+
+test('historical detail honors merged Person aliases, dedupes roster, and still rejects outsiders', async () => {
+  const id = 'hist:legacyalias001';
+  const db = fakeDb({
+    ...seed,
+    ['playHistorySessions/' + id]: {
+      id, sourceType: 'historical', scriptName: '舊人員歸戶測試', date: '2025-04-01',
+      status: 'completed', participants: [
+        { personId: 'oldalice123', role: 'player', attendance: 'attended' },
+        { personId: 'alice123', role: 'host', attendance: 'unconfirmed' },
+        { personId: 'bob1234', role: 'player', attendance: 'attended' }
+      ]
+    }
+  });
+  const handler = handlerFor(db);
+  const result = await request(handler, { token: 'alice', query: { action: 'session', id } });
+  assert.equal(result.statusCode, 200, 'canonical identity may view a previously recorded alias attendance');
+  const alice = result.body.participants.filter(p => p.personId === 'alice123');
+  assert.equal(alice.length, 1, 'historical alias and canonical person must display once');
+  assert.equal(alice[0].role, 'host', 'host role takes precedence over player');
+  assert.equal(alice[0].attendance, 'attended', 'verified attendance on legacy alias is retained');
+  assert.equal(result.body.session.participants.length, 2, 'normalized read session also deduplicates');
+  assert.deepEqual(result.body.participants.map(p => p.personId).sort(), ['alice123', 'bob1234']);
+  const outsider = await request(handler, { token: 'outsider', query: { action: 'session', id } });
+  assert.equal(outsider.statusCode, 403, 'merging identities must not expose private rosters');
+  assert.equal(outsider.body.error, 'session_access_denied');
+  assert.equal(db.writeBatches.length, 0, 'detail read must not modify Person or history data');
+});
