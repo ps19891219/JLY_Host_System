@@ -335,6 +335,28 @@ async function markCarPlayed(db, actor, carId, attendanceMap = {}) {
   });
 }
 
+async function canonicalRosterForRead(db, rows) {
+  const resolvePerson = canonicalResolver(db);
+  const byPerson = new Map();
+  const rolePriority = { player: 1, npc: 2, dm: 3, host: 4 };
+  for (const person of rows) {
+    const canonical = await resolvePerson(person.personId);
+    const prior = byPerson.get(canonical.id);
+    if (prior) {
+      if ((rolePriority[person.role] || 0) > (rolePriority[prior.role] || 0)) prior.role = person.role;
+      if (person.attendance === "attended") prior.attendance = "attended";
+      continue;
+    }
+    byPerson.set(canonical.id, {
+      personId: canonical.id,
+      role: person.role,
+      attendance: person.attendance,
+      displayName: text(canonical.profile.displayName || canonical.profile.nickname || canonical.profile.playerName)
+    });
+  }
+  return [...byPerson.values()];
+}
+
 async function authorizedSession(db, actor, id) {
   if (String(id).startsWith("hist:")) {
     const session = await getHistoricalSession(db, id);
@@ -342,25 +364,7 @@ async function authorizedSession(db, actor, id) {
     // Historical Source of Truth may still contain a legacy Person ID after
     // an independently approved Person merge. Canonicalize on this bounded
     // detail read, not by scanning or rewriting historical collections.
-    const resolvePerson = canonicalResolver(db);
-    const byPerson = new Map();
-    const rolePriority = { player: 1, npc: 2, dm: 3, host: 4 };
-    for (const person of session.participants) {
-      const canonical = await resolvePerson(person.personId);
-      const prior = byPerson.get(canonical.id);
-      if (prior) {
-        if ((rolePriority[person.role] || 0) > (rolePriority[prior.role] || 0)) prior.role = person.role;
-        if (person.attendance === "attended") prior.attendance = "attended";
-        continue;
-      }
-      byPerson.set(canonical.id, {
-        personId: canonical.id,
-        role: person.role,
-        attendance: person.attendance,
-        displayName: text(canonical.profile.displayName || canonical.profile.nickname || canonical.profile.playerName)
-      });
-    }
-    const participants = [...byPerson.values()];
+    const participants = await canonicalRosterForRead(db, session.participants);
     const actualParticipant = session.status === "completed" && participants.some(person =>
       person.personId === actor.id && person.attendance === "attended");
     if (!actualParticipant && !actor.manager) {
@@ -378,15 +382,9 @@ async function authorizedSession(db, actor, id) {
     const car = await getCarDetail(db, carId);
     if (!car) throw Object.assign(new Error("car_not_found"), { statusCode: 404 });
     const rosterSource = Array.isArray(car.playRecordParticipants) ? car.playRecordParticipants : carParticipantIds(car);
-    const resolvePerson = canonicalResolver(db);
-    const participants = [];
-    let actualParticipant = false;
-    for (const person of rosterSource) {
-      const canonical = await resolvePerson(person.personId);
-      const resolved = { ...person, personId: canonical.id, displayName: text(canonical.profile.displayName || canonical.profile.nickname || canonical.profile.playerName) };
-      participants.push(resolved);
-      if (canonical.id === actor.id && person.attendance === "attended") actualParticipant = true;
-    }
+    const participants = await canonicalRosterForRead(db, rosterSource);
+    const actualParticipant = participants.some(person =>
+      person.personId === actor.id && person.attendance === "attended");
     const completed = car.playRecordStatus === "completed";
     let canManage = actor.manager === true;
     if (!canManage && (!completed || !actualParticipant)) {
