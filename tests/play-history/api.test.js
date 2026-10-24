@@ -393,3 +393,57 @@ test('play history rejects forwarded-host spoofing but accepts the same Vercel P
   } });
   assert.equal(preview.statusCode, 200, 'normal protected Preview host remains supported');
 });
+
+
+test('manager can add a new participant to an existing historical session atomically', async () => {
+  const db = fakeDb(seed), handler = handlerFor(db);
+  const created = await request(handler, {method: 'POST', token: 'manager', body: {
+    action: 'history_upsert', scriptName: '新增參與者測試', date: '2025-08-11', participants: [
+      {personId: 'alice123', role: 'player', attendance: 'attended'},
+      {personId: 'bob1234', role: 'player', attendance: 'attended'}
+    ]
+  }});
+  assert.equal(created.statusCode, 200);
+  const id = created.body.result.sessionId;
+  const updated = await request(handler, {method: 'POST', token: 'manager', body: {
+    action: 'history_upsert', id, scriptName: '新增參與者測試', date: '2025-08-11', participants: [
+      {personId: 'alice123', role: 'player', attendance: 'attended'},
+      {personId: 'bob1234', role: 'player', attendance: 'attended'},
+      {personId: 'guest123', role: 'npc', attendance: 'attended'}
+    ]
+  }});
+  assert.equal(updated.statusCode, 200, 'new attendee must not be rejected for lacking a prior card');
+  assert.equal(db.docs.get('personPlayHistoryViews/guest123').playedCount, 1);
+  assert.equal(db.docs.get('personPlayHistoryViews/guest123').sessions[0].sessionId, id);
+  assert.equal(db.docs.get('personPlayHistoryViews/alice123').sessions.length, 1);
+  assert.equal(db.docs.get('playHistorySessions/' + id).participants.length, 3);
+  assert.equal(db.writeBatches.at(-1).length, 4, 'single transaction updates shared source and three person views');
+});
+
+test('manager historical edit rehomes a merged Person view without duplicating a shared session', async () => {
+  const db = fakeDb(seed), handler = handlerFor(db);
+  const created = await request(handler, {method: 'POST', token: 'manager', body: {
+    action: 'history_upsert', scriptName: '歷史歸戶測試', date: '2025-09-21', participants: [
+      {personId: 'alice123', role: 'player', attendance: 'attended'},
+      {personId: 'bob1234', role: 'player', attendance: 'attended'}
+    ]
+  }});
+  assert.equal(created.statusCode, 200);
+  const id = created.body.result.sessionId;
+  db.docs.set('players/alice123', {mergedIntoPersonId: 'newalice123', displayName: '舊 Person'});
+  db.docs.set('players/newalice123', {lineUserId: 'U1', displayName: '新 canonical'});
+  const updated = await request(handler, {method: 'POST', token: 'manager', body: {
+    action: 'history_upsert', id, scriptName: '歷史歸戶測試', date: '2025-09-21', participants: [
+      {personId: 'oldalice123', role: 'host', attendance: 'attended'},
+      {personId: 'bob1234', role: 'player', attendance: 'attended'}
+    ]
+  }});
+  assert.equal(updated.statusCode, 200);
+  assert.equal(db.docs.get('personPlayHistoryViews/alice123').total, 0, 'stale canonical Person view is cleared');
+  assert.equal(db.docs.get('personPlayHistoryViews/newalice123').playedCount, 1, 'new canonical Person receives one card');
+  assert.equal(db.docs.get('personPlayHistoryViews/newalice123').sessions[0].role, 'host');
+  assert.equal(db.docs.get('playHistorySessions/' + id).participants[0].personId, 'newalice123');
+  assert.equal(db.docs.get('personPlayHistoryViews/bob1234').total, 1);
+  assert.equal(db.writeBatches.at(-1).length, 4, 'one Source plus old, new, and unaffected Person views');
+  assert.equal([...db.docs.keys()].filter(key => key === 'playHistorySessions/' + id).length, 1);
+});
