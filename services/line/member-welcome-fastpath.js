@@ -5,6 +5,7 @@ const { sendReplyMessage } = require("./line-reply");
 const { buildMemberWelcomeCard } = require("./member-welcome-card");
 const { getPublicBaseUrl } = require("./group-assistant-link");
 const { getCarById } = require("../firebase/line-accounting-authorization-repository");
+const { readWelcome } = require("./group-welcome-settings");
 
 function text(value) {
   return String(value == null ? "" : value).trim();
@@ -33,6 +34,14 @@ async function sendMemberJoinedWelcome(event, dependencies = {}) {
   const reply = dependencies.sendReplyMessage || sendReplyMessage;
   const publicBaseUrl = dependencies.getPublicBaseUrl || getPublicBaseUrl;
   const readCar = dependencies.getCarById || getCarById;
+  const readSettings = dependencies.readWelcome || readWelcome;
+  let welcomeText = "";
+  try {
+    const settings = await readSettings(groupId);
+    welcomeText = text(settings && settings.welcomeText);
+  } catch (error) {
+    console.error("LINE welcome settings read failed.", error);
+  }
 
   let groupBinding;
   try {
@@ -44,7 +53,8 @@ async function sendMemberJoinedWelcome(event, dependencies = {}) {
 
   const carId = text(groupBinding && groupBinding.binding && groupBinding.binding.carId);
   if (!groupBinding || groupBinding.bound !== true || !carId) {
-    return { handled: false, route: "member_joined_unbound_group", groupBinding };
+    await reply(replyToken, [{type:"text",text:welcomeText || "👋 歡迎加入群組！"}]);
+    return { handled: true, route: "member_joined_unbound_welcome", groupBinding };
   }
 
   // Reply tokens are time-sensitive. Car metadata is nice-to-have only, so cap
@@ -54,7 +64,8 @@ async function sendMemberJoinedWelcome(event, dependencies = {}) {
   await reply(replyToken, [
     buildMemberWelcomeCard(car, {
       baseUrl: publicBaseUrl(),
-      carId
+      carId,
+      welcomeText
     })
   ]);
 

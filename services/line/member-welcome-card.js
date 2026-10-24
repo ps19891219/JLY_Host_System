@@ -7,6 +7,7 @@ function buildMemberWelcomeCard(car,options={}){
  const baseUrl=cleanBaseUrl(options.baseUrl);
  const carId=encodeURIComponent(normalizeText(options.carId||(car&&(car.id||car.carId))));
  const title=getCarTitle(car);
+ const customWelcome=normalizeText(options.welcomeText);
  // source=line_group is presentation context only; LINE Identity and approval remain unchanged.
  const dmUrl=baseUrl+"/pages/car-view.html?id="+carId+"&entry=dm&source=line_group";
  const playerUrl=baseUrl+"/pages/car-view.html?id="+carId+"&entry=player&source=line_group";
@@ -23,7 +24,7 @@ function buildMemberWelcomeCard(car,options={}){
  }
  return {type:"flex",altText:"歡迎加入《"+title+"》｜本場活動資訊與個人行事曆",contents:{
    type:"bubble",size:"mega",header:{type:"box",layout:"vertical",contents:[
-     {type:"text",text:"🎭 歡迎加入《"+title+"》",weight:"bold",size:"lg",wrap:true},
+     {type:"text",text:customWelcome||("🎭 歡迎加入《"+title+"》"),weight:"bold",size:"lg",wrap:true},
      {type:"text",text:"本場活動資訊與個人行事曆",size:"sm",color:"#777777",margin:"sm",wrap:true}
    ]},body:{type:"box",layout:"vertical",contents:buttons}
  }};
