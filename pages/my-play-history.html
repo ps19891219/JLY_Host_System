@@ -8,7 +8,7 @@
 </style>
 </head>
 <body><main class="wrap">
-<p><a href="./myprofile.html">← 個人資料</a></p><h1>我的遊玩紀錄</h1><p class="muted">場次會連結至你的 JLY 玩家身分；未確認出席或取消的紀錄不計入已玩次數。</p>
+<p><a id="playHistoryBackLink" href="./myprofile.html">← 個人資料</a></p><h1>我的遊玩紀錄</h1><p class="muted">場次會連結至你的 JLY 玩家身分；未確認出席或取消的紀錄不計入已玩次數。</p>
 <section id="gate" class="panel"><h2>正在確認 LINE 身分…</h2><p id="gateText" class="muted">載入中</p><button id="login" class="line-login hidden">使用 LINE 登入</button></section>
 <section id="app" class="hidden">
 <section id="identityBar" class="panel identity-panel"><div><strong id="identityName">LINE 已登入</strong><div class="muted">目前使用的 JLY 玩家身分</div></div><button type="button" id="switchLine" class="line-login">LINE 登入／切換帳號</button></section>
@@ -25,5 +25,5 @@
 <p id="status" class="muted" role="status"></p></section>
 <dialog id="detail" class="panel"><h2 id="detailTitle">場次</h2><div id="detailMeta" class="meta"></div><h3>共同參與者</h3><ul id="detailRoster" class="roster"></ul><div class="actions"><button id="editSession" class="hidden">編輯這筆歷史場次</button><button id="closeDetail">關閉</button></div></dialog>
 </main>
-<script src="/js/core/identity.js"></script><script src="/js/line.js"></script><script src="/js/play-history-page.js?v=2"></script>
+<script src="/js/core/identity.js"></script><script src="/js/line.js"></script><script src="/js/play-history-page.js?v=3"></script>
 </body></html>

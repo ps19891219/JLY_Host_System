@@ -1,6 +1,14 @@
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
+  // Preserve the navigation origin when coming from the existing MyCar page.
+  if (new URLSearchParams(location.search).get('from') === 'mycar') {
+    const backLink = $('playHistoryBackLink');
+    if (backLink) {
+      backLink.href = './mycar.html';
+      backLink.textContent = '← 我的車';
+    }
+  }
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[char]);

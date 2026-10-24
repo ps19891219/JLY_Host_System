@@ -12,4 +12,16 @@ test('play-history page offers visible LINE identity actions and a bounded MyCar
   assert.match(service,/collection\("myCarViews"\)/);
   assert.doesNotMatch(service.slice(service.indexOf('async function getMyEndedCars'),service.indexOf('async function peopleForManager')),/collection\("cars"\)|collection\("players"\)|\.where\(/);
 });
+test('MyCar directly links to existing Play History without new data reads',()=> {
+  const mycar=fs.readFileSync('pages/mycar.html','utf8');
+  const history=fs.readFileSync('pages/my-play-history.html','utf8');
+  const historyJS=fs.readFileSync('js/play-history-page.js','utf8');
+  const css=fs.readFileSync('css/mycar.css','utf8');
+  assert.ok(mycar.includes('class="mycar-history-link" href="./my-play-history.html?from=mycar"'));
+  assert.ok(mycar.includes('📖 我的遊玩紀錄'));
+  assert.ok(history.includes('id="playHistoryBackLink"'));
+  assert.ok(historyJS.includes("backLink.href = './mycar.html'"));
+  assert.ok(css.includes('.mycar-history-link'));
+  assert.ok(!mycar.includes('collection("cars")'), 'navigation must not read Firestore');
+});
 test('play-history page reads only the authenticated server API and never imports local previews',()=>{const html=fs.readFileSync('pages/my-play-history.html','utf8'),js=fs.readFileSync('js/play-history-page.js','utf8'),api=fs.readFileSync('api/play-history.js','utf8');assert.match(html,/舊預覽資料不會自動匯入/);assert.doesNotMatch(js,/localStorage|sessionStorage/);assert.match(js,/\/api\/play-history\?action=me/);assert.match(api,/authorizedSession/);assert.match(api,/no-store/)});

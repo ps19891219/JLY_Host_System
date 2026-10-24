@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>我的車</title>
   <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/mycar.css?v=7">
+  <link rel="stylesheet" href="../css/mycar.css?v=8">
   <link rel="stylesheet" href="../css/pages/recruit.css">
 </head>
 <body>
@@ -18,6 +18,7 @@
   <div id="mycarMenu" class="mycar-menu" hidden>
     <button type="button" onclick="location.href='createcar.html'">➕ 建立新車</button>
     <button type="button" onclick="openRecruitShareManager()">🔗 我的揪團頁</button>
+    <button type="button" onclick="location.href='my-play-history.html?from=mycar'">📖 我的遊玩紀錄</button>
     <button type="button" onclick="startBatchMode()">☑️ 批次操作</button>
     <button type="button">📁 已取消車團</button>
     <button type="button">📦 已封存車團</button>
@@ -42,6 +43,16 @@
       <button type="button" data-role-tab="host" class="role-tab" onclick="setMyCarActiveRoleTab('host')">👑 我主揪的</button>
       <button type="button" data-role-tab="player" class="role-tab" onclick="setMyCarActiveRoleTab('player')">🎮 我是玩家</button>
     </div>
+  </div>
+  <div class="mycar-history-shortcut">
+    <a class="mycar-history-link" href="./my-play-history.html?from=mycar">
+      <span class="mycar-history-icon" aria-hidden="true">📖</span>
+      <span class="mycar-history-text">
+        <strong>我的遊玩紀錄</strong>
+        <small>查看已確認的場次及共同參與者</small>
+      </span>
+      <span class="mycar-history-arrow" aria-hidden="true">›</span>
+    </a>
   </div>
   <div id="batchToolbar" hidden>
     <div class="batch-toolbar-title"><strong>☑️ 批次操作中</strong></div>
