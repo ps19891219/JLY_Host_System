@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict'),core=require('../../js/data-view/play-history-core.js');
+const base={id:'hist:session0001',sourceType:'historical',scriptName:'重刷劇本',date:'2026-10-21',status:'completed',participants:[{personId:'personA123',role:'host',attendance:'attended'},{personId:'personB123',role:'player',attendance:'attended'}]};
+assert.equal(core.prepareSession(base).participants.length,2);
+assert.equal(core.buildPersonView('personA123',[base]).sessions[0].sessionId,base.id);
+assert.equal(core.buildPersonView('personB123',[base]).sessions[0].sessionId,base.id,'all participants reference the same shared session');
+assert.equal(core.buildPersonView('personA123',[base]).playedCount,1);
+assert.equal(core.buildPersonView('personA123',[{...base,status:'scheduled'}]).playedCount,0);
+assert.equal(core.buildPersonView('personA123',[{...base,status:'cancelled'}]).playedCount,0);
+assert.equal(core.buildPersonView('personA123',[{...base,participants:[{...base.participants[0],attendance:'absent'}]}]).playedCount,0);
+assert.equal(core.buildPersonView('personA123',[base,{...base,id:'hist:session0002'}]).playedCount,2,'replays remain separate sessions');
+assert.throws(()=>core.prepareSession({...base,participants:[base.participants[0],{...base.participants[0],role:'player'}]}),/重複/);
+assert.throws(()=>core.prepareSession({...base,sourceType:'car',id:'car:car1234',carId:'another'}),/沿用/);
+const car=core.prepareSession({...base,id:'car:car1234',sourceType:'car',carId:'car1234'});assert.equal(car.id,'car:car1234');
+assert.equal(core.validatePersonView(core.buildPersonView('personA123',[base]),'personA123'),true);
+console.log('Play-history shared core: 11 checks passed');

@@ -1,0 +1,25 @@
+"use strict";
+const {getFirestore}=require("../services/firebase/admin");
+const {verifyMemberSession,readCookie}=require("../services/line/member-session");
+const {authenticate,text}=require("../services/play-history/access");
+const S=require("../services/play-history/service");
+function json(res,status,data){res.statusCode=status;res.setHeader("Content-Type","application/json; charset=utf-8");res.setHeader("Cache-Control","no-store");res.setHeader("X-Content-Type-Options","nosniff");res.setHeader("Vary","Cookie");res.end(JSON.stringify(data))}
+function body(req){if(req.body&&typeof req.body==="object")return req.body;if(typeof req.body==="string"){try{return JSON.parse(req.body)}catch(_){return {}}}return {}}
+function query(req){return req.query&&typeof req.query==="object"?req.query:{}}
+function safeOrigin(req) {
+  const origin = text(req.headers?.origin);
+  if (!origin) return true;
+  try {
+    const target = new URL(origin);
+    const configured = new URL(process.env.JLY_PUBLIC_ORIGIN || "https://jly-host-system-eeso.vercel.app/").origin;
+    if (target.origin === configured) return true;
+    // Accept same-origin HTTPS requests on the actual Vercel Preview host.
+    // Never accept x-forwarded-host supplied by a caller as origin authority.
+    const host = text(req.headers?.host).toLowerCase();
+    return /^[a-z0-9-]+\.vercel\.app$/.test(host) && target.origin === `https://${host}`;
+  } catch (_) { return false; }
+}
+function createHandler(deps={}){return async(req,res)=>{if(!["GET","POST"].includes(req.method))return json(res,405,{success:false,error:"method_not_allowed"});if(!safeOrigin(req))return json(res,403,{success:false,error:"origin_not_allowed"});const verified=(deps.verifySession||verifyMemberSession)((deps.readCookie||readCookie)(req));if(!verified.valid)return json(res,401,{success:false,error:"line_login_required"});try{const db=deps.db||getFirestore(),actor=await (deps.authenticate||authenticate)(db,verified.data);if(req.method==="GET"){const q=query(req),action=text(q.action||"me");if(action==="me"){const view=await (deps.getPersonView||S.getPersonView)(db,actor);return json(res,200,{success:true,viewer:{personId:actor.id,displayName:text(actor.profile.displayName||actor.profile.nickname),manager:actor.manager},view})}if(action==="people"){const people=await (deps.peopleForManager||S.peopleForManager)(db,actor);return json(res,200,{success:true,people})}if(action==="car_roster"){const result=await (deps.getCarRosterForManager||S.getCarRosterForManager)(db,actor,text(q.carId));return json(res,200,result)}if(action==="session"){const result=await (deps.authorizedSession||S.authorizedSession)(db,actor,text(q.id));if(!result.session)return json(res,404,{success:false,error:"session_not_found"});const roster=[];for(const p of result.participants){let displayName=text(p.displayName);if(!displayName){const snap=await db.collection("players").doc(p.personId).get();const person=snap.exists?snap.data()||{}:{};displayName=text(person.displayName||person.nickname||person.playerName)}roster.push({personId:p.personId,displayName,role:p.role,attendance:p.attendance})}return json(res,200,{success:true,session:result.session,participants:roster})}return json(res,400,{success:false,error:"action_invalid"})}
+ const input=body(req),action=text(input.action);if(action==="history_upsert"){if(!actor.manager)return json(res,403,{success:false,error:"manager_required"});const result=await (deps.createOrUpdateHistorical||S.createOrUpdateHistorical)(db,actor,input);return json(res,200,{success:true,result})}if(action==="car_complete"){const result=await (deps.markCarPlayed||S.markCarPlayed)(db,actor,text(input.carId),input.attendance&&typeof input.attendance==="object"?input.attendance:{});return json(res,200,{success:true,result})}return json(res,400,{success:false,error:"action_invalid"})
+ }catch(error){const status=Number(error.statusCode)||500;if(status>=500)(deps.logger||console).error("play history API failed",error.code||error.name||"error");return json(res,status,{success:false,error:status>=500?"play_history_unavailable":text(error.message)||"request_failed"})}}}
+module.exports=createHandler();module.exports.createHandler=createHandler;
