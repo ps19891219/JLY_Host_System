@@ -39,10 +39,10 @@ function fakeDb(seed = {}) {
   return db;
 }
 
-function request(handler, { method = 'GET', token, query = {}, body = {} } = {}) {
+function request(handler, { method = 'GET', token, query = {}, body = {}, headers = {} } = {}) {
   const req = {
     method,
-    headers: { cookie: token, origin: 'https://jly-host-system-eeso.vercel.app' },
+    headers: { cookie: token, origin: 'https://jly-host-system-eeso.vercel.app', ...headers },
     query,
     body
   };
@@ -376,4 +376,20 @@ test('completed Car detail stays accessible after Person merge and does not dupl
   const outsider = await request(handler, { token: 'outsider', query: { action: 'session', id: 'car:car89012' } });
   assert.equal(outsider.statusCode, 403);
   assert.equal(db.writeBatches.length, 0, 'reading merged Car detail never rewrites Source of Truth');
+});
+
+
+test('play history rejects forwarded-host spoofing but accepts the same Vercel Preview origin', async () => {
+  const db = fakeDb(seed), handler = handlerFor(db);
+  const previewHost = 'jly-host-system-eeso-git-feature-play-records-ui-ps19891220.vercel.app';
+  const hostile = await request(handler, { token: 'alice', headers: {
+    origin: 'https://evil.vercel.app', host: previewHost, 'x-forwarded-host': 'evil.vercel.app'
+  } });
+  assert.equal(hostile.statusCode, 403);
+  assert.equal(hostile.body.error, 'origin_not_allowed');
+  assert.equal(db.readPaths.length, 0, 'cross-site rejection occurs before Person and Firestore reads');
+  const preview = await request(handler, { token: 'alice', headers: {
+    origin: 'https://' + previewHost, host: previewHost
+  } });
+  assert.equal(preview.statusCode, 200, 'normal protected Preview host remains supported');
 });
