@@ -339,22 +339,38 @@ async function authorizedSession(db, actor, id) {
   if (String(id).startsWith("hist:")) {
     const session = await getHistoricalSession(db, id);
     if (!session) return { session: null, participants: [] };
-    const actualParticipant = session.status === "completed" && session.participants.some(person =>
+    // Historical Source of Truth may still contain a legacy Person ID after
+    // an independently approved Person merge. Canonicalize on this bounded
+    // detail read, not by scanning or rewriting historical collections.
+    const resolvePerson = canonicalResolver(db);
+    const byPerson = new Map();
+    const rolePriority = { player: 1, npc: 2, dm: 3, host: 4 };
+    for (const person of session.participants) {
+      const canonical = await resolvePerson(person.personId);
+      const prior = byPerson.get(canonical.id);
+      if (prior) {
+        if ((rolePriority[person.role] || 0) > (rolePriority[prior.role] || 0)) prior.role = person.role;
+        if (person.attendance === "attended") prior.attendance = "attended";
+        continue;
+      }
+      byPerson.set(canonical.id, {
+        personId: canonical.id,
+        role: person.role,
+        attendance: person.attendance,
+        displayName: text(canonical.profile.displayName || canonical.profile.nickname || canonical.profile.playerName)
+      });
+    }
+    const participants = [...byPerson.values()];
+    const actualParticipant = session.status === "completed" && participants.some(person =>
       person.personId === actor.id && person.attendance === "attended");
     if (!actualParticipant && !actor.manager) {
       throw Object.assign(new Error("session_access_denied"), { statusCode: 403 });
     }
-    const resolvePerson = canonicalResolver(db);
-    const participants = [];
-    for (const person of session.participants) {
-      const canonical = await resolvePerson(person.personId);
-      participants.push({
-        ...person,
-        personId: canonical.id,
-        displayName: text(canonical.profile.displayName || canonical.profile.nickname || canonical.profile.playerName)
-      });
-    }
-    return { session, participants };
+    const normalizedSession = Core.prepareSession({
+      ...session,
+      participants: participants.map(({ displayName, ...person }) => person)
+    });
+    return { session: normalizedSession, participants };
   }
 
   if (String(id).startsWith("car:")) {
