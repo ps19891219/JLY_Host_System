@@ -99,6 +99,7 @@
     try {
       const result = await api('/api/play-history?action=me');
       viewer = result.viewer;
+      $('identityName').textContent = (viewer?.displayName || 'LINE 已登入') + ' · 已連結 JLY';
       view = result.view || { sessions: [], total: 0, playedCount: 0 };
       $('gate').classList.add('hidden');
       $('app').classList.remove('hidden');
@@ -149,6 +150,32 @@
   }
 
   $('login').onclick = login;
+  $('switchLine').onclick = login;
+  $('carPicker').onchange = () => {
+    $('carId').value = $('carPicker').value;
+    $('carRoster').innerHTML = '';
+  };
+  $('refreshCars').onclick = async () => {
+    const button = $('refreshCars');
+    button.disabled = true;
+    $('carPickerHint').textContent = '讀取既有「我的車」索引中…';
+    try {
+      const result = await api('/api/play-history?action=my_cars');
+      const picker = $('carPicker');
+      picker.innerHTML = '<option value="">選擇一台已結束車團</option>';
+      for (const car of result.cars || []) {
+        const option = document.createElement('option');
+        option.value = car.carId;
+        option.textContent = [car.scriptName, car.gameDate, car.gameTime].filter(Boolean).join(' · ');
+        picker.appendChild(option);
+      }
+      $('carPickerHint').textContent = result.cars?.length
+        ? `找到 ${result.cars.length} 台已結束車團，選擇後點「帶入這台車的參與名單」。`
+        : '尚未從「我的車」找到已結束的車團。可以先到「我的車」確認場次狀態，或使用原 Car ID。';
+    } catch (error) {
+      $('carPickerHint').textContent = '無法讀取「我的車」清單：' + error.message + '。仍可使用原 Car ID。';
+    } finally { button.disabled = false; }
+  };
   $('search').oninput = render;
   $('filter').onchange = render;
   $('addParticipant').onclick = () => addRow();
@@ -174,9 +201,10 @@
   $('loadCarRoster').onclick = async () => {
     try {
       const carId = $('carId').value.trim();
-      if (!carId) throw new Error('請輸入既有 Car ID');
+      if (!carId) throw new Error('請先讀取並選擇已結束車團，或輸入既有 Car ID');
       const result = await api(`/api/play-history?action=car_roster&carId=${encodeURIComponent(carId)}`);
       $('carRoster').innerHTML = '';
+      $('carPicker').value = [...$('carPicker').options].some(option => option.value === carId) ? carId : '';
       result.participants.forEach(person => addRow(person.personId, person.role, person.attendance, 'carRoster', person.displayName));
       $('status').textContent = `已帶入 ${result.participants.length} 位 Car 參與者，請確認實際出席狀態。`;
       $('status').className = 'success';

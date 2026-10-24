@@ -447,3 +447,42 @@ test('manager historical edit rehomes a merged Person view without duplicating a
   assert.equal(db.writeBatches.at(-1).length, 4, 'one Source plus old, new, and unaffected Person views');
   assert.equal([...db.docs.keys()].filter(key => key === 'playHistorySessions/' + id).length, 1);
 });
+
+
+test('my_cars reads only authenticated MyCar Prepared Views and exposes only ended host Cars', async () => {
+  const db = fakeDb({
+    ...seed,
+    'myCarViews/alice123': {
+      viewType: 'mycar_index', viewerId: 'alice123', identityIds: ['alice123'],
+      cars: [
+        { id: 'car00011', scriptName: '已結束的場次', gameDate: '2025-07-01', status: '已結束', isHost: true, ownerId: 'alice123' },
+        { id: 'car00022', scriptName: '取消的場次', gameDate: '2025-07-02', status: '已取消', isHost: true, ownerId: 'alice123' },
+        { id: 'car00033', scriptName: '招募中的場次', gameDate: '2027-07-01', status: '招募中', isHost: true, ownerId: 'alice123' },
+        { id: 'car00044', scriptName: '別人的場次', gameDate: '2025-07-03', status: 'ended', isHost: false, ownerId: 'bob1234' }
+      ]
+    }
+  });
+  const alice = await request(handlerFor(db), { token: 'alice', query: { action: 'my_cars' } });
+  assert.equal(alice.statusCode, 200);
+  assert.deepEqual(alice.body.cars.map(c => c.carId), ['car00011']);
+  assert.equal(alice.body.hasPreparedView, true);
+  assert.ok(db.readPaths.some(p => p === 'myCarViews/alice123'));
+  assert.equal(db.readPaths.some(p => p.startsWith('cars/') || p.startsWith('carDetailViews/')), false, 'never scan source Cars for picker');
+  const bob = await request(handlerFor(db), { token: 'bob', query: { action: 'my_cars' } });
+  assert.equal(bob.statusCode, 200);
+  assert.equal(bob.body.cars.length, 0, 'another authenticated Person cannot read Alice\'s prepared list');
+});
+
+test('my_cars safely resolves previously verified legacy Person View without scanning Cars', async () => {
+  const db = fakeDb({
+    ...seed,
+    'myCarViews/oldalice123': {
+      viewType: 'mycar_index', viewerId: 'oldalice123',
+      cars: [{ id: 'car10101', scriptName: '舊人員車團', gameDate: '2025-05-01', status: '已結束', isHost: true, ownerId: 'oldalice123' }]
+    }
+  });
+  const result = await request(handlerFor(db), { token: 'aliceAlias', query: { action: 'my_cars' } });
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.body.cars.map(c => c.carId), ['car10101']);
+  assert.equal(db.readPaths.some(p => p.startsWith('cars/')), false);
+});

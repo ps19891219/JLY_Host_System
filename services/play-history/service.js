@@ -411,6 +411,55 @@ async function authorizedSession(db, actor, id) {
   throw Object.assign(new Error("session_id_invalid"), { statusCode: 400 });
 }
 
+const endedCarStatuses = new Set(["ended", "completed", "closed", "已結束", "已完成"]);
+const cancelledCarStatuses = new Set(["cancelled", "canceled", "已取消", "取消", "deleted", "removed"]);
+
+async function getMyEndedCars(db, actor) {
+  // Explicit user action only. Resolve at most eight authenticated Person aliases
+  // through existing MyCar Prepared Views; never query/scans cars or players here.
+  const ids = [...new Set([actor.id, ...(actor.aliases || [])].map(text).filter(id =>
+    /^[A-Za-z0-9_-]{6,128}$/.test(id)))].slice(0, 8);
+  const allowed = new Set(ids), loaded = new Set(), views = [];
+  const load = async viewerId => {
+    if (!viewerId || loaded.has(viewerId) || !/^[A-Za-z0-9_-]{6,128}$/.test(viewerId)) return;
+    loaded.add(viewerId);
+    const snap = await db.collection("myCarViews").doc(viewerId).get();
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    if (data.viewType !== "mycar_index" || text(data.viewerId) !== viewerId || !Array.isArray(data.cars)) return;
+    // Alias routes cannot grant access to unrelated viewers' Prepared Views.
+    if (!allowed.has(viewerId) && !(Array.isArray(data.identityIds) &&
+      data.identityIds.some(id => allowed.has(text(id))))) return;
+    views.push(data);
+  };
+  for (const id of ids) await load(id);
+  if (!views.length) {
+    for (const id of ids) {
+      const alias = await db.collection("myCarViewAliases").doc(id).get();
+      if (!alias.exists) continue;
+      await load(text((alias.data() || {}).viewerId));
+    }
+  }
+  const byId = new Map();
+  for (const view of views) {
+    for (const car of view.cars) {
+      const carId = text(car && (car.id || car.carId));
+      const status = text(car && car.status).toLowerCase();
+      const isHost = car && car.isHost === true;
+      const ownerMatches = allowed.has(text(car && car.ownerId));
+      if (!/^[A-Za-z0-9_-]{4,128}$/.test(carId) || cancelledCarStatuses.has(status) ||
+          !endedCarStatuses.has(status) || (!isHost && !ownerMatches)) continue;
+      byId.set(carId, {
+        carId, scriptName: text(car.scriptName), gameDate: text(car.gameDate),
+        gameTime: text(car.gameTime)
+      });
+    }
+  }
+  const all = [...byId.values()].sort((a, b) =>
+    b.gameDate.localeCompare(a.gameDate) || a.scriptName.localeCompare(b.scriptName));
+  return { cars: all.slice(0, 120), hasPreparedView: views.length > 0 };
+}
+
 async function peopleForManager(db, actor) {
   if (!actor?.manager) throw Object.assign(new Error("manager_required"), { statusCode: 403 });
   const snap = await db.collection("personDirectoryViews").doc("canonical").get();
@@ -429,5 +478,5 @@ async function peopleForManager(db, actor) {
 module.exports = {
   maxParticipants, roleOf, attendanceOf, canonicalResolver, normalizeParticipants, makeAdapter,
   createOrUpdateHistorical, getPersonView, getHistoricalSession, getCarDetail, isCarManager,
-  carParticipantIds, markCarPlayed, authorizedSession, peopleForManager, getCarRosterForManager
+  carParticipantIds, markCarPlayed, authorizedSession, peopleForManager, getCarRosterForManager, getMyEndedCars
 };
