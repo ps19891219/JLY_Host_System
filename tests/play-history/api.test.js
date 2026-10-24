@@ -350,3 +350,30 @@ test('historical detail honors merged Person aliases, dedupes roster, and still 
   assert.equal(outsider.body.error, 'session_access_denied');
   assert.equal(db.writeBatches.length, 0, 'detail read must not modify Person or history data');
 });
+
+
+test('completed Car detail stays accessible after Person merge and does not duplicate canonical attendees', async () => {
+  const db = fakeDb({
+    ...seed,
+    'carDetailViews/car89012': { car: {
+      id: 'car89012', scriptName: '車團舊身分測試', gameDate: '2025-05-02',
+      playRecordStatus: 'completed',
+      playRecordParticipants: [
+        { personId: 'oldalice123', role: 'player', attendance: 'attended' },
+        { personId: 'alice123', role: 'host', attendance: 'unconfirmed' },
+        { personId: 'bob1234', role: 'player', attendance: 'attended' }
+      ]
+    } }
+  });
+  const handler = handlerFor(db);
+  const result = await request(handler, { token: 'alice', query: { action: 'session', id: 'car:car89012' } });
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.body.participants.map(p => p.personId).sort(), ['alice123', 'bob1234']);
+  const alice = result.body.participants.find(p => p.personId === 'alice123');
+  assert.equal(alice.role, 'host');
+  assert.equal(alice.attendance, 'attended');
+  assert.equal(result.body.session.participants.length, 2, 'prepared Car detail must not fail with duplicate canonical IDs');
+  const outsider = await request(handler, { token: 'outsider', query: { action: 'session', id: 'car:car89012' } });
+  assert.equal(outsider.statusCode, 403);
+  assert.equal(db.writeBatches.length, 0, 'reading merged Car detail never rewrites Source of Truth');
+});
