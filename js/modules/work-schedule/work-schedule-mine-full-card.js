@@ -52,10 +52,10 @@ function patch(detail){
     const host=card?.querySelector('.role-summary-list');
     if(!host)return;
     host.innerHTML=groupRows.map(row=>{
-      const ids=idsOf(row),missing=Number(row.missingCount||0);
+      const ids=idsOf(row),staffing=window.JLYWorkScheduleStaffing?.summarize(row),status=staffing?.label||(Number(row.missingCount||0)?`尚缺 ${Number(row.missingCount||0)}`:'');
       const names=ids.slice(0,4).map(id=>renderName(id,row)).join('、')||'尚未排人';
       const more=ids.length>4?` <b>＋${ids.length-4}</b>`:'';
-      return `<div class="role-summary"><strong>${esc(row.roleName||'未設定角色')} <small>(${ids.length})</small></strong><span>${names}${more}</span>${missing?`<em>尚缺 ${missing}</em>`:''}</div>`;
+      return `<div class="role-summary"><strong>${esc(row.roleName||'未設定角色')} <small>(${ids.length})</small></strong><span>${names}${more}</span>${status?`<em>${esc(status)}</em>`:''}</div>`;
     }).join('');
   });
 }
