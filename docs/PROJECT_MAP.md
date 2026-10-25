@@ -1,5 +1,11 @@
 # JLY Host System｜Project Map
 
+## 2026/10/25 Work Schedule 無人班表、角色需求與缺額提示（本地施工）
+- 沿用 `workScheduleWorks.roles[]` 作為 Work／劇本的長期角色設定；Script Master 頁仍是接軌入口，沒有可沿用的正式人力欄位，本輪不建立第二套 Script Master。角色預設使用 `requiredStaffCount`，舊角色的 `requiredCount` 只作相容讀取。
+- `workShifts.requiredStaffCount` 是單場需求快照，可為 0 或 null；null 顯示「尚未設定需求」。實際缺額依 Prepared View row 的 assigned Person IDs 計算。
+- 新增場次可不選工作人員或主揪；每個既有 Work role 仍建立正式 `workShifts` row，沿用 `workScheduleViews` 月份／Work／個人 projection writer。列表、月份看板、日期搜尋與員工唯讀 renderer 顯示同一套需求狀態。
+- 詳細編輯及既有批次修改對話框均可修改單場或勾選場次需求；批次只更新勾選的既有 role rows。沒有新增 Firestore Read 路徑；Google Calendar 聚合沿用既有 role lines。此變更位於獨立施工分支，尚未合併或部署。
+
 ## 2026/10/14 LINE 小助手歡迎卡行事曆入口修復（施工中）
 - 綁定車團後第三按鈕「📅 加入我的行事曆」只依 carId 顯示，不再要求 LINE welcome 當下拿到完整日期、時長或 350ms 內的車團 metadata；首兩個 DM／玩家按鈕保持原樣。未綁定 carId 不顯示可用入口。
 - pages/car-calendar-add.html 在開啟時使用既有 /api/car-calendar-event 單筆 carDetailViews/{carId} 唯讀資料：有完整起訖資料直接提供 Google OAuth／ICS；只有可靠的開始日期時間但缺時長時，提供「由玩家依主揪公告輸入結束日期時間」的明確選擇，伺服器驗證時間和 7 天範圍，未選擇時不生成 Google／ICS。連開始資料也缺時，提示請主揪補齊。

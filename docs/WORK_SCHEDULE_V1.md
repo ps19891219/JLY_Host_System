@@ -26,7 +26,7 @@ Opening an existing shift must restore the full Work role pool, not only the peo
 - iPhone/Apple Calendar may display the same Google calendar through the user's Google account; JLY does not create a second Apple-specific calendar core.
 
 ## Staffing completeness
-Each shift stores `requiredCount`, `missingCount` and `staffingStatus`. Assigned < required is pending; assigned >= required is complete.
+`workScheduleWorks.roles[].requiredStaffCount` stores the reusable role demand default. A shift copies its actual demand to `workShifts.requiredStaffCount`, so a single-session override never changes the Work default. `null` means the demand is not configured; `0` means no staff are required. The existing `requiredCount`, `staffSlots`, `missingCount` and `staffingStatus` remain for slot and legacy compatibility. Dashboards derive the shortage label from the prepared row's required staff count and assigned IDs. New shifts may have no assigned people and remain visible; existing month, Work and person Prepared Views are updated through the current write-through path.
 
 ## Mobile UX
 Search Person rather than dumping the full directory. Date selection is touch-first. Candidate people stay visible during editing, selected people are highlighted, unselected candidates remain available.

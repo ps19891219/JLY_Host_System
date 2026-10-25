@@ -8,6 +8,7 @@ const works=db.collection('workScheduleWorks');
 const shifts=db.collection('workShifts');
 const V=window.JLYWorkScheduleReadView;
 const L=window.JLYWorkScheduleLifecycle;
+const S=window.JLYWorkScheduleStaffing;
 const $=id=>document.getElementById(id);
 const txt=v=>String(v??'').trim();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,6 +20,7 @@ let people=null;
 let selectedDates=new Set();
 let timeSlots=[{start:'11:00',end:''}];
 let assignments={};
+let requirements={};
 let sessionHosts={};
 let calendarCursor=new Date();
 let matchingAllowedPersonIds=null;
@@ -65,6 +67,7 @@ function fmtDate(date){
 }
 function sessionKey(date,ti){return`${date}|${ti}`}
 function assignmentKey(date,ti,role){return`${sessionKey(date,ti)}|${role}`}
+function requirementKey(date,ti,role){return assignmentKey(date,ti,role)}
 function hostKey(date,ti){return sessionKey(date,ti)}
 function slotTimeText(t){
   const end=effectiveEnd(t.start,t.end);
@@ -117,7 +120,7 @@ function renderTimes(){
   host.innerHTML=timeSlots.map((t,i)=>`<div class="session-composer-time-row" data-time-index="${i}"><label>開始<input type="time" value="${esc(t.start)}" data-time-start="${i}"></label><label>結束<input type="time" value="${esc(t.end)}" data-time-end="${i}" aria-describedby="workSessionEndHint-${i}"><small id="workSessionEndHint-${i}">未填則自動抓 1 小時</small></label><button type="button" class="ghost" data-time-remove="${i}" aria-label="刪除時段">×</button></div>`).join('');
   host.querySelectorAll('[data-time-start]').forEach(i=>i.onchange=()=>{timeSlots[Number(i.dataset.timeStart)].start=i.value;renderSessions()});
   host.querySelectorAll('[data-time-end]').forEach(i=>i.onchange=()=>{timeSlots[Number(i.dataset.timeEnd)].end=i.value;renderSessions()});
-  host.querySelectorAll('[data-time-remove]').forEach(b=>b.onclick=()=>{if(timeSlots.length===1)return alert('至少保留一個時段。');const idx=Number(b.dataset.timeRemove);timeSlots.splice(idx,1);assignments={};sessionHosts={};renderTimes();renderSessions()});
+  host.querySelectorAll('[data-time-remove]').forEach(b=>b.onclick=()=>{if(timeSlots.length===1)return alert('至少保留一個時段。');const idx=Number(b.dataset.timeRemove);timeSlots.splice(idx,1);assignments={};requirements={};sessionHosts={};renderTimes();renderSessions()});
 }
 function selectedIds(date,ti,rk){return assignments[assignmentKey(date,ti,rk)]||[]}
 function togglePerson(date,ti,rk,pid){
@@ -129,9 +132,10 @@ function togglePerson(date,ti,rk,pid){
 function renderSessions(){
   const host=$('workSessionSessions'),roles=(activeWork?.roles||[]).filter(r=>txt(r.name)),dates=[...selectedDates].sort();
   if(!dates.length){host.innerHTML='<div class="empty-mini">先選日期，下面才會出現每一場的人員選單。</div>';updateSummary();return}
-  host.innerHTML=dates.flatMap(date=>timeSlots.map((t,ti)=>`<section class="session-composer-session"><header><strong>${fmtDate(date)}</strong><span>${esc(slotTimeText(t))}</span></header>${roles.map((r,ri)=>{const rk=roleKey(r,ri),sel=new Set(selectedIds(date,ti,rk));return`<div class="session-composer-role"><strong>${esc(r.name)}</strong><div class="session-composer-person-chips">${roleIds(r).filter(pid=>!matchingAllowedPersonIds||matchingAllowedPersonIds.has(String(pid))).map(pid=>`<button type="button" data-session-person="${esc(date)}|${ti}|${esc(rk)}|${esc(pid)}" class="${sel.has(pid)?'selected':''}">${esc(personName(pid))}</button>`).join('')||'<span class="empty-mini">尚未設定候選人</span>'}</div></div>`}).join('')}<label class="session-composer-host">主揪（本場次） <small>選填</small><input type="text" data-session-host="${esc(hostKey(date,ti))}" value="${esc(sessionHosts[hostKey(date,ti)]||'')}" placeholder="選填"></label></section>`)).join('');
+  host.innerHTML=dates.flatMap(date=>timeSlots.map((t,ti)=>`<section class="session-composer-session"><header><strong>${fmtDate(date)}</strong><span>${esc(slotTimeText(t))}</span></header>${roles.map((r,ri)=>{const rk=roleKey(r,ri),key=requirementKey(date,ti,rk),sel=new Set(selectedIds(date,ti,rk)),demand=Object.prototype.hasOwnProperty.call(requirements,key)?requirements[key]:S?.defaultForRole(r);return`<div class="session-composer-role"><strong>${esc(r.name)}</strong><label class="session-composer-demand">需求<input type="number" min="0" max="30" step="1" inputmode="numeric" data-session-demand="${esc(key)}" value="${demand===null||demand===undefined?'':esc(demand)}" placeholder="未設定"></label><div class="session-composer-person-chips">${roleIds(r).filter(pid=>!matchingAllowedPersonIds||matchingAllowedPersonIds.has(String(pid))).map(pid=>`<button type="button" data-session-person="${esc(date)}|${ti}|${esc(rk)}|${esc(pid)}" class="${sel.has(pid)?'selected':''}">${esc(personName(pid))}</button>`).join('')||'<span class="empty-mini">尚未設定候選人</span>'}</div></div>`}).join('')}<label class="session-composer-host">主揪（本場次） <small>選填</small><input type="text" data-session-host="${esc(hostKey(date,ti))}" value="${esc(sessionHosts[hostKey(date,ti)]||'')}" placeholder="選填"></label></section>`)).join('');
   host.querySelectorAll('[data-session-person]').forEach(b=>b.onclick=()=>{const parts=b.dataset.sessionPerson.split('|'),date=parts[0],ti=Number(parts[1]),pid=parts.pop(),rk=parts.slice(2).join('|');togglePerson(date,ti,rk,pid)});
   host.querySelectorAll('[data-session-host]').forEach(input=>input.oninput=()=>{sessionHosts[input.dataset.sessionHost]=input.value});
+  host.querySelectorAll('[data-session-demand]').forEach(input=>input.oninput=()=>{requirements[input.dataset.sessionDemand]=input.value});
   updateSummary();
 }
 function updateSummary(){
@@ -146,6 +150,7 @@ async function open(){
   selectedDates=new Set();
   timeSlots=[{start:'11:00',end:''}];
   assignments={};
+  requirements={};
   sessionHosts={};matchingSource=null;matchingAllowedPersonIds=null;
   const now=new Date();
   calendarCursor=new Date(now.getFullYear(),now.getMonth(),1);
@@ -157,9 +162,9 @@ async function open(){
 function rowMatches(row,date,start,end,role){
   return String(row.workId||'')===String(activeWork.id)&&row.date===date&&row.startTime===start&&row.endTime===end&&(String(row.rolePoolId||'')===String(role.id||'')||norm(row.roleName)===norm(role.name));
 }
-function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){
+function payload(role,date,start,end,endWasExplicit,note,hostName,ids,requiredStaffCount,refId){
   const formalIds=matchingSource?[]:ids;
-  const count=Math.max(ids.length,Number(role.requiredCount||0),1);
+  const count=Math.max(ids.length,Number(requiredStaffCount??0));
   const slots=Array.from({length:count},(_,i)=>({id:`${refId}-slot-${i+1}`,slotKey:`slot-${i+1}`,label:String(i+1),personId:formalIds[i]||''}));
   const persons=formalIds.map(id=>({personId:id,name:personName(id)}));
   return{
@@ -181,13 +186,14 @@ function payload(role,date,start,end,endWasExplicit,note,hostName,ids,refId){
     endTimeExplicit:endWasExplicit,
     durationSource:endWasExplicit?'explicit':'default_1h',
     requiredCount:count,
+    requiredStaffCount,
     staffSlots:slots,
     assignedPersonIds:formalIds,
     personIds:formalIds,
     tentativePersonIds:matchingSource?ids:[],
     people:persons,
     missingCount:slots.filter(s=>!s.personId).length,
-    staffingStatus:slots.some(s=>!s.personId)?'pending':'complete',
+    staffingStatus:S?.summarize({roleName:role.name,requiredStaffCount,assignedPersonIds:formalIds}).status||'unconfigured',
     assignmentConfirmationRequired:!!matchingSource,
     assignmentConfirmationStatus:matchingSource?'pending':'not_required',
     assignmentConfirmationByPerson:matchingSource?Object.fromEntries(ids.map(id=>[String(id),'tentative'])):{},
@@ -216,15 +222,15 @@ async function save(e){
     for(let ti=0;ti<timeSlots.length;ti++){
       const t=timeSlots[ti],resolvedEnd=effectiveEnd(t.start,t.end),endWasExplicit=!!txt(t.end),hostName=txt(sessionHosts[hostKey(date,ti)]||'');
       for(let ri=0;ri<roles.length;ri++){
-        const role=roles[ri],rk=roleKey(role,ri),ids=selectedIds(date,ti,rk);
-        if(!ids.length)continue;
+        const role=roles[ri],rk=roleKey(role,ri),ids=selectedIds(date,ti,rk),demandKey=requirementKey(date,ti,rk),demandRaw=Object.prototype.hasOwnProperty.call(requirements,demandKey)?requirements[demandKey]:S?.defaultForRole(role),requiredStaffCount=S?.count(demandRaw)??null;
         const existing=(monthRows.get(date.slice(0,7))||[]).find(r=>rowMatches(r,date,t.start,resolvedEnd,role));
+        if(existing&&!ids.length)continue;
         if(existing){
           const ok=confirm(`${fmtDate(date)} ${t.start}–${resolvedEnd}${endWasExplicit?'':'（預設 1 小時）'} ${role.name} 已有排班。\n\n確定要用這次選的人員覆蓋嗎？`);
           if(!ok)continue;
         }
         const ref=existing?shifts.doc(existing.id):shifts.doc(),before=existing?{...existing}:{};
-        const after={id:ref.id,...payload(role,date,t.start,resolvedEnd,endWasExplicit,note,hostName,ids,ref.id)};
+        const after={id:ref.id,...payload(role,date,t.start,resolvedEnd,endWasExplicit,note,hostName,ids,requiredStaffCount,ref.id)};
         if(existing){
           after.createdAt=existing.createdAt||null;
           const idx=working.findIndex(x=>String(x.id)===String(existing.id));
@@ -237,7 +243,7 @@ async function save(e){
       }
     }
   }
-  if(!changes.length)return alert('請至少替一場選擇工作人員。');
+  if(!changes.length)return alert('沒有新的場次可建立；若要修改已存在場次，請從排班清單開啟編輯。');
   let ack=false;
   if(conflicts.length){if(!confirm(L.conflictMessage(conflicts,{personLabel:id=>personName(id)})))return;ack=true}
   try{
@@ -266,7 +272,7 @@ async function openMatchingDraft(draft){
   ensureDialog();
   selectedDates=new Set([draft.date]);
   timeSlots=[{start:draft.startTime,end:txt(draft.endTime||'')}];
-  assignments={};sessionHosts={};
+  assignments={};requirements={};sessionHosts={};
   matchingSource={matchingId:txt(draft.sourceMatchingId),slotId:txt(draft.sourceSlotId)};
   const allowed=new Set((draft.availablePersonIds||[]).map(String));matchingAllowedPersonIds=allowed;sessionHosts[hostKey(draft.date,0)]=txt(draft.hostName||'');
   const roles=(activeWork.roles||[]).filter(r=>txt(r.name));
