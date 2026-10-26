@@ -503,6 +503,22 @@ async function addPreTripReminderTargets(
   );
 }
 
+// A disabled cron must never flush days or months of overdue LINE reminders.
+const MAX_DISPATCH_DELAY_MS = 15 * 60 * 1000;
+
+function oldestPermittedReminderTime(nowIso) {
+  const millis = new Date(nowIso).getTime();
+  if (!Number.isFinite(millis)) throw new Error("invalid_reminder_now");
+  return new Date(millis - MAX_DISPATCH_DELAY_MS).toISOString();
+}
+
+function withinDispatchWindow(scheduledAt, nowIso) {
+  const scheduled = new Date(normalizeText(scheduledAt)).getTime();
+  const current = new Date(normalizeText(nowIso)).getTime();
+  return Number.isFinite(scheduled) && Number.isFinite(current) &&
+    scheduled <= current && scheduled >= current - MAX_DISPATCH_DELAY_MS;
+}
+
 // ============================================================
 // List Due Reminders
 // ============================================================
@@ -520,6 +536,11 @@ function buildDueReminderQuery(
       "status",
       "==",
       "scheduled"
+    )
+    .where(
+      "scheduledAt",
+      ">=",
+      oldestPermittedReminderTime(nowIso)
     )
     .where(
       "scheduledAt",
@@ -672,6 +693,15 @@ async function claimReminder(
           claimed: false,
           reason:
             "not_due"
+        };
+      }
+
+      // Always recheck inside the transaction, even if an earlier query
+      // selected the reminder while it was still inside the safe window.
+      if (!withinDispatchWindow(scheduledAt, new Date().toISOString())) {
+        return {
+          claimed: false,
+          reason: "overdue_dispatch_window"
         };
       }
 
@@ -1114,6 +1144,9 @@ module.exports = {
   addPreTripReminderTargets,
   normalizeTargetIds,
   MAX_REMINDER_TARGETS,
+  MAX_DISPATCH_DELAY_MS,
+  oldestPermittedReminderTime,
+  withinDispatchWindow,
 
   buildDueReminderQuery,
   listDueReminders,
