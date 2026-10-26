@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>劇本總覽｜JLY</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.catalog-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.catalog-search{width:100%;box-sizing:border-box;margin:16px 0;padding:12px;border:1px solid #ddd;border-radius:12px}
+.catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.catalog-card{border:1px solid #eee;border-radius:14px;overflow:hidden;background:#fff;text-align:left;padding:0;cursor:pointer}
+.catalog-cover{width:100%;aspect-ratio:3/4;object-fit:cover;background:#eee;display:block}
+.catalog-placeholder{aspect-ratio:3/4;display:grid;place-items:center;background:#eee;font-size:42px}
+.catalog-card-body{padding:12px}.catalog-card h3{margin:0 0 6px;font-size:16px}
+.catalog-muted{font-size:13px;color:#666;line-height:1.6}
+.detail-cover{width:100%;max-height:460px;object-fit:contain;background:#eee;border-radius:14px}
+.detail-summary{white-space:pre-wrap;line-height:1.7}
+@media(min-width:700px){.catalog-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body><main class="container" style="max-width:1000px">
+<div class="catalog-head"><h1>🎭 劇本總覽</h1><button id="backButton" class="gray" type="button" hidden>← 返回列表</button></div>
+<p id="message" role="status">正在讀取劇本備份資料…</p>
+<section id="catalog" hidden>
+<input id="search" class="catalog-search" type="search" placeholder="搜尋劇本名稱或標籤" aria-label="搜尋劇本">
+<div id="grid" class="catalog-grid"></div>
+</section>
+<section id="detail" hidden></section>
+</main>
+<script>
+(function(){
+"use strict";
+const message=document.getElementById("message"),catalog=document.getElementById("catalog"),detail=document.getElementById("detail"),grid=document.getElementById("grid"),search=document.getElementById("search"),back=document.getElementById("backButton");
+let scripts=[];
+function el(tag,cls,value){const node=document.createElement(tag);if(cls)node.className=cls;if(value!=null)node.textContent=String(value);return node;}
+function cover(script,cls){const url=String(script.coverUrl||"").trim();if(!url)return el("div","catalog-placeholder","🎭");const img=el("img",cls);img.src=url;img.alt=String(script.name||"劇本封面");img.loading="lazy";img.referrerPolicy="no-referrer";return img;}
+function meta(s){const items=[];if(Number(s.playerCount)>0)items.push(s.playerCount+" 人");if(Number(s.maleSlots)||Number(s.femaleSlots))items.push(s.maleSlots+" 男 "+s.femaleSlots+" 女");if(Number(s.durationMinutes)>0)items.push((s.durationMinutes/60).toFixed(s.durationMinutes%60?1:0)+" 小時");return items.join(" · ");}
+function render(){const q=search.value.trim().toLowerCase();grid.replaceChildren();const filtered=scripts.filter(s=>[s.name,...(Array.isArray(s.tags)?s.tags:[])].join(" ").toLowerCase().includes(q));if(!filtered.length){grid.append(el("p","catalog-muted","目前沒有符合的劇本。"));return;}filtered.forEach(s=>{const card=el("button","catalog-card");card.type="button";card.append(cover(s,"catalog-cover"));const body=el("div","catalog-card-body");body.append(el("h3","",s.name||"未命名劇本"),el("div","catalog-muted",meta(s)),el("div","catalog-muted",(s.tags||[]).join(" · ")));card.append(body);card.addEventListener("click",()=>{const id=String(s.scriptId||"");if(id){history.pushState({id},"","?id="+encodeURIComponent(id));loadDetail(id);}});grid.append(card);});}
+async function request(url){const response=await fetch(url,{cache:"no-store"});const json=await response.json();if(!response.ok||!json.ok)throw new Error(json.error||"讀取失敗");return json.data;}
+async function loadList(){message.hidden=false;message.textContent="正在讀取劇本備份資料…";detail.hidden=true;back.hidden=true;try{const data=await request("/api/script-catalog");scripts=Array.isArray(data.scripts)?data.scripts:[];catalog.hidden=false;message.hidden=true;render();}catch(e){message.textContent="劇本列表暫時無法載入，請稍後再試。";}}
+async function loadDetail(id){catalog.hidden=true;detail.hidden=true;back.hidden=false;message.hidden=false;message.textContent="正在讀取劇本詳細資料…";try{const data=await request("/api/script-catalog?id="+encodeURIComponent(id));const s=data.script&&typeof data.script==="object"?data.script:data;detail.replaceChildren();detail.append(cover(s,"detail-cover"),el("h2","",s.name||"未命名劇本"),el("p","catalog-muted",meta(s)),el("p","catalog-muted",(s.tags||[]).join(" · ")),el("p","detail-summary",s.summary||"尚無劇本介紹"));const hint=el("p","catalog-muted","預約功能接入工作室正式 Booking 流程後開放。瀏覽劇本不需登入。");detail.append(hint);detail.hidden=false;message.hidden=true;}catch(e){message.textContent="劇本詳細資料暫時無法載入。";}}
+back.addEventListener("click",()=>{history.pushState({},"",location.pathname);loadList();});
+search.addEventListener("input",render);
+window.addEventListener("popstate",()=>{const id=new URLSearchParams(location.search).get("id");if(id)loadDetail(id);else loadList();});
+const initial=new URLSearchParams(location.search).get("id");if(initial)loadDetail(initial);else loadList();
+})();
+</script>
+</body></html>
