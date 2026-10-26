@@ -420,6 +420,44 @@
       : [];
   }
 
+
+  // Same car-ID-first reconciliation policy as existing MyCar batch sync.
+  async function findEventByCarId(carId, gameDate) {
+    const id = String(carId || "").trim();
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error("JLY 車團 ID 不正確");
+    const calendarId = encodeURIComponent(getConfig().calendarId || "primary");
+    async function query(params) {
+      const response = await authorizedFetch(API_BASE + "/calendars/" + calendarId +
+        "/events?" + params.toString());
+      if (response.nextPageToken) throw new Error("Google 查詢不完整，已停止避免重複行程");
+      return Array.isArray(response.items) ? response.items : [];
+    }
+    const exact = (await query(new URLSearchParams({
+      privateExtendedProperty: "carId=" + id, showDeleted: "false", maxResults: "250"
+    }))).filter(event => event && event.status !== "cancelled" &&
+      String(event.extendedProperties?.private?.carId || "") === id);
+    if (exact.length > 1) throw new Error("Google 有多筆同車團活動，已停止避免覆寫");
+    if (exact.length) return exact[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(gameDate || ""))) {
+      throw new Error("車團日期不正確，已停止避免重複行程");
+    }
+    const dayStart = new Date(gameDate + "T00:00:00+08:00");
+    if (!Number.isFinite(dayStart.getTime())) throw new Error("車團日期無法解析");
+    const day = await query(new URLSearchParams({
+      timeMin: dayStart.toISOString(),
+      timeMax: new Date(dayStart.getTime() + 86400000).toISOString(),
+      singleEvents: "true", showDeleted: "false", maxResults: "250"
+    }));
+    const linked = day.filter(event => {
+      if (!event || event.status === "cancelled") return false;
+      const ids = Array.from(String(event.description || "")
+        .matchAll(/(?:[?&]id=|JLY Car ID:\s*)([A-Za-z0-9_-]+)/g), match => match[1]);
+      return ids.includes(id);
+    });
+    if (linked.length > 1) throw new Error("Google 有多筆同車團連結，已停止避免覆寫");
+    return linked[0] || null;
+  }
+
   async function createEvent(
     config
   ) {
@@ -528,6 +566,7 @@
   window
     .JLYCalendarProviderGoogle = {
       listEventsForDate,
+      findEventByCarId,
       createEvent,
       updateEvent,
       deleteEvent,

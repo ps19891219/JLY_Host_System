@@ -33,22 +33,19 @@
           }
         );
 
-      const event =
-        await window
-          .JLYCalendarProviderGoogle
-          .createEvent({
-            carId,
-            car,
-
-            carUrl:
-              config.carUrl,
-
-            durationMinutes:
-              config.durationMinutes,
-
-            calendarId:
-              config.calendarId
-          });
+      // Recover Google events left behind after a failed JLY write-back.
+      const provider = window.JLYCalendarProviderGoogle;
+      const existing = await provider.findEventByCarId(carId, car.gameDate);
+      const eventConfig = {
+        carId, car, carUrl: config.carUrl,
+        durationMinutes: config.durationMinutes, calendarId: config.calendarId
+      };
+      const event = existing?.id
+        ? await provider.updateEvent({ ...eventConfig, eventId: existing.id })
+        : await provider.createEvent(eventConfig);
+      if (!event || !event.id) {
+        throw new Error("Google 沒有回傳 Event ID，已保留同步失敗狀態");
+      }
 
       const calendar =
         await window
