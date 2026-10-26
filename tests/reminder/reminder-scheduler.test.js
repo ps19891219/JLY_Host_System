@@ -113,6 +113,7 @@ test("due reminder query filters by lifecycle and triggerAt before applying limi
   assert.deepEqual(calls, [
     ["collectionGroup", "reminders"],
     ["where", "status", "==", "scheduled"],
+    ["where", "scheduledAt", ">=", "2026-08-23T06:45:00.000Z"],
     ["where", "scheduledAt", "<=", "2026-08-23T07:00:00.000Z"],
     ["orderBy", "scheduledAt", "asc"],
     ["limit", 30]
@@ -237,4 +238,28 @@ test("due reminder with saved LINE targets sends one textV2 group push with ment
   assert.match(pushed.messages[0].text, /\{u1\} \{u2\}/);
   assert.equal(pushed.messages[0].substitution.u1.mentionee.userId, "U1");
   assert.equal(pushed.messages[0].substitution.u2.mentionee.userId, "U2");
+});
+
+test("overdue reminder never dispatches after a stopped scheduler resumes", () => {
+  assert.equal(
+    repository.withinDispatchWindow("2026-10-26T01:00:00.000Z", "2026-10-26T01:14:59.999Z"),
+    true
+  );
+  assert.equal(
+    repository.withinDispatchWindow("2026-10-26T01:00:00.000Z", "2026-10-26T01:15:00.001Z"),
+    false
+  );
+  assert.equal(
+    repository.withinDispatchWindow("2026-10-26T01:05:00.000Z", "2026-10-26T01:00:00.000Z"),
+    false
+  );
+  assert.equal(
+    repository.withinDispatchWindow("", "2026-10-26T01:00:00.000Z"),
+    false
+  );
+  assert.equal(repository.MAX_DISPATCH_DELAY_MS, 900000);
+  assert.equal(
+    repository.oldestPermittedReminderTime("2026-10-26T01:00:00.000Z"),
+    "2026-10-26T00:45:00.000Z"
+  );
 });
