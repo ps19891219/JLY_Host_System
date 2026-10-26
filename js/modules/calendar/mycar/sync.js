@@ -170,26 +170,45 @@
     }
   }
 
-  async function findByCarId(token, carId) {
+  async function findByCarId(token, carId, gameDate) {
+    const id = text(carId);
     const params = new URLSearchParams({
-      privateExtendedProperty: "carId=" + text(carId),
+      privateExtendedProperty: "carId=" + id,
       singleEvents: "true",
       showDeleted: "false",
       maxResults: "10"
     });
-
-    const result = await googleFetch(
-      token,
-      "/calendars/primary/events?" + params.toString()
-    );
+    const result = await googleFetch(token, "/calendars/primary/events?" + params.toString());
     const items = Array.isArray(result.body?.items) ? result.body.items : [];
-    const matches = items.filter((event) => eventCarId(event) === text(carId));
+    const matches = items.filter((event) => eventCarId(event) === id);
+    if (matches.length > 1) throw new Error("Google Calendar 有多筆相同 Car ID，已停止避免重複覆寫");
+    if (matches.length === 1) return matches[0];
 
-    if (matches.length > 1) {
-      throw new Error(`Google Calendar 有 ${matches.length} 筆相同 Car ID，已停止避免重複覆寫`);
+    // Recover Google events missing the JLY Firestore write-back.
+    // Do not match by title; only exact car ID on the official Taiwan game date.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text(gameDate))) {
+      throw new Error("無法確認正式車團日期，已停止避免重複新增 Google 行程");
     }
-
-    return matches[0] || null;
+    const dayStart = new Date(gameDate + "T00:00:00+08:00");
+    if (!Number.isFinite(dayStart.getTime())) throw new Error("無法解析正式車團日期");
+    const dayParams = new URLSearchParams({
+      timeMin: dayStart.toISOString(),
+      timeMax: new Date(dayStart.getTime() + 86400000).toISOString(),
+      singleEvents: "true", showDeleted: "false", maxResults: "250"
+    });
+    const dayResult = await googleFetch(token, "/calendars/primary/events?" + dayParams.toString());
+    if (dayResult.body?.nextPageToken) {
+      throw new Error("Google 當日行程超過查詢上限，已停止避免重複新增");
+    }
+    const linked = (Array.isArray(dayResult.body?.items) ? dayResult.body.items : []).filter((event) => {
+      if (!event || event.status === "cancelled") return false;
+      for (const m of text(event.description).matchAll(/(?:[?&]id=|JLY Car ID:\s*)([A-Za-z0-9_-]+)/g)) {
+        if (m[1] === id) return true;
+      }
+      return false;
+    });
+    if (linked.length > 1) throw new Error("Google 找到多筆相同 JLY 車團連結，已停止避免重複覆寫");
+    return linked[0] || null;
   }
 
   async function createEvent(token, resource) {
@@ -261,7 +280,7 @@
       }
 
       if (!existing) {
-        existing = await findByCarId(token, carId);
+        existing = await findByCarId(token, carId, car.gameDate);
       }
 
       let writeResult;
