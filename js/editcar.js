@@ -842,6 +842,19 @@ const canEdit =
   );
 
 if (!canEdit) {
+  // Read-only diagnosis. Do not grant access from a prepared-view role flag.
+  const editPermissionReason =
+    typeof permissions.explainCarPermission === "function"
+      ? permissions.explainCarPermission(currentEditingCar)
+      : { allowed: false, reason: "permission_check_failed" };
+  console.warn("JLY editcar permission denied", {
+    carId,
+    reason: editPermissionReason.reason,
+    hasOwnerId: Boolean(ownerId),
+    identityCount: typeof permissions.getCurrentIdentityIds === "function"
+      ? permissions.getCurrentIdentityIds().length
+      : 0
+  });
   editBox.innerHTML = `
     <div
       style="
@@ -869,7 +882,7 @@ if (!canEdit) {
         "
       >
         如果你是系統管理者，
-        可以使用右上角切換身分。
+        請確認目前登入的 JLY 身分；若仍無法編輯，請聯絡管理員核對車團擁有者。
       </p>
     </div>
   `;
